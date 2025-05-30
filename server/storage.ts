@@ -1,5 +1,4 @@
 import { 
-  users, observations, uploads, contributors, species,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies
@@ -69,7 +68,8 @@ export class MemoryStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const user: User = {
       id: this.users.length + 1,
-      ...insertUser,
+      username: insertUser.username,
+      password: insertUser.password,
     };
     this.users.push(user);
     return user;
@@ -257,7 +257,12 @@ export class MemoryStorage implements IStorage {
     } else {
       const newContributor: Contributor = {
         id: this.contributors.length + 1,
-        ...contributor,
+        name: contributor.name,
+        affiliation: contributor.affiliation || null,
+        observationCount: contributor.observationCount || null,
+        verificationRate: contributor.verificationRate || null,
+        firstObservation: contributor.firstObservation || null,
+        lastObservation: contributor.lastObservation || null,
       };
       this.contributors.push(newContributor);
       return newContributor;
@@ -272,7 +277,17 @@ export class MemoryStorage implements IStorage {
     } else {
       const newSpecies: Species = {
         id: this.species.length + 1,
-        ...speciesData,
+        scientificName: speciesData.scientificName,
+        commonName: speciesData.commonName || null,
+        phylum: speciesData.phylum || null,
+        class: speciesData.class || null,
+        order: speciesData.order || null,
+        family: speciesData.family || null,
+        genus: speciesData.genus || null,
+        observationCount: speciesData.observationCount || null,
+        firstObserved: speciesData.firstObserved || null,
+        lastObserved: speciesData.lastObserved || null,
+        stateCount: speciesData.stateCount || null,
       };
       this.species.push(newSpecies);
       return newSpecies;
@@ -280,232 +295,4 @@ export class MemoryStorage implements IStorage {
   }
 }
 
-export class DatabaseStorage implements IStorage {
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
-    return user;
-  }
-
-  async getAllObservations(): Promise<Observation[]> {
-    return await db.select().from(observations).orderBy(desc(observations.createdAt));
-  }
-
-  async getObservationsByDateRange(startDate: string, endDate: string): Promise<Observation[]> {
-    return await db
-      .select()
-      .from(observations)
-      .where(
-        and(
-          gte(observations.observedOn, startDate),
-          lte(observations.observedOn, endDate)
-        )
-      )
-      .orderBy(desc(observations.observedOn));
-  }
-
-  async getObservationsByState(state: string): Promise<Observation[]> {
-    return await db
-      .select()
-      .from(observations)
-      .where(eq(observations.state, state))
-      .orderBy(desc(observations.observedOn));
-  }
-
-  async createObservation(observation: InsertObservation): Promise<Observation> {
-    const [newObservation] = await db
-      .insert(observations)
-      .values(observation)
-      .returning();
-    return newObservation;
-  }
-
-  async createObservations(observationList: InsertObservation[]): Promise<Observation[]> {
-    return await db
-      .insert(observations)
-      .values(observationList)
-      .returning();
-  }
-
-  async getObservationMetrics(): Promise<{
-    totalObservations: number;
-    uniqueSpecies: number;
-    activeContributors: number;
-    statesCovered: number;
-  }> {
-    const [totalObs] = await db
-      .select({ count: count() })
-      .from(observations);
-
-    const [uniqueSpeciesResult] = await db
-      .select({ count: sql<number>`count(distinct ${observations.scientificName})` })
-      .from(observations);
-
-    const [contributorsResult] = await db
-      .select({ count: sql<number>`count(distinct ${observations.observer})` })
-      .from(observations);
-
-    const [statesResult] = await db
-      .select({ count: sql<number>`count(distinct ${observations.state})` })
-      .from(observations);
-
-    return {
-      totalObservations: totalObs.count,
-      uniqueSpecies: uniqueSpeciesResult.count,
-      activeContributors: contributorsResult.count,
-      statesCovered: statesResult.count,
-    };
-  }
-
-  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year'): Promise<Array<{
-    period: string;
-    count: number;
-  }>> {
-    let dateFormat: string;
-    switch (groupBy) {
-      case 'month':
-        dateFormat = 'YYYY-MM';
-        break;
-      case 'quarter':
-        dateFormat = 'YYYY-Q';
-        break;
-      case 'year':
-        dateFormat = 'YYYY';
-        break;
-    }
-
-    const result = await db
-      .select({
-        period: sql<string>`to_char(${observations.observedOn}, ${dateFormat})`,
-        count: count(),
-      })
-      .from(observations)
-      .where(sql`${observations.observedOn} IS NOT NULL`)
-      .groupBy(sql`to_char(${observations.observedOn}, ${dateFormat})`)
-      .orderBy(sql`to_char(${observations.observedOn}, ${dateFormat})`);
-
-    return result;
-  }
-
-  async getTaxonomicDistribution(): Promise<Array<{
-    phylum: string;
-    count: number;
-  }>> {
-    const result = await db
-      .select({
-        phylum: observations.phylum,
-        count: count(),
-      })
-      .from(observations)
-      .where(sql`${observations.phylum} IS NOT NULL`)
-      .groupBy(observations.phylum)
-      .orderBy(desc(count()));
-
-    return result.map(r => ({ phylum: r.phylum!, count: r.count }));
-  }
-
-  async getTopContributors(limit: number = 10): Promise<Contributor[]> {
-    return await db
-      .select()
-      .from(contributors)
-      .orderBy(desc(contributors.observationCount))
-      .limit(limit);
-  }
-
-  async getTopSpecies(limit: number = 10): Promise<Species[]> {
-    return await db
-      .select()
-      .from(species)
-      .orderBy(desc(species.observationCount))
-      .limit(limit);
-  }
-
-  async getRareSpecies(maxObservations: number = 3): Promise<Species[]> {
-    return await db
-      .select()
-      .from(species)
-      .where(sql`${species.observationCount} <= ${maxObservations}`)
-      .orderBy(asc(species.observationCount), desc(species.lastObserved));
-  }
-
-  async getRecentStateRecords(limit: number = 10): Promise<Observation[]> {
-    return await db
-      .select()
-      .from(observations)
-      .where(eq(observations.isFirstStateRecord, true))
-      .orderBy(desc(observations.observedOn))
-      .limit(limit);
-  }
-
-  async createUpload(upload: InsertUpload): Promise<Upload> {
-    const [newUpload] = await db
-      .insert(uploads)
-      .values(upload)
-      .returning();
-    return newUpload;
-  }
-
-  async getUploads(): Promise<Upload[]> {
-    return await db
-      .select()
-      .from(uploads)
-      .orderBy(desc(uploads.uploadedAt));
-  }
-
-  async updateUploadStatus(id: number, status: string, errorMessage?: string): Promise<void> {
-    await db
-      .update(uploads)
-      .set({
-        status,
-        errorMessage,
-      })
-      .where(eq(uploads.id, id));
-  }
-
-  async upsertContributor(contributor: InsertContributor): Promise<Contributor> {
-    const [result] = await db
-      .insert(contributors)
-      .values(contributor)
-      .onConflictDoUpdate({
-        target: contributors.name,
-        set: {
-          observationCount: contributor.observationCount,
-          verificationRate: contributor.verificationRate,
-          lastObservation: contributor.lastObservation,
-        },
-      })
-      .returning();
-    return result;
-  }
-
-  async upsertSpecies(speciesData: InsertSpecies): Promise<Species> {
-    const [result] = await db
-      .insert(species)
-      .values(speciesData)
-      .onConflictDoUpdate({
-        target: species.scientificName,
-        set: {
-          observationCount: speciesData.observationCount,
-          lastObserved: speciesData.lastObserved,
-          stateCount: speciesData.stateCount,
-        },
-      })
-      .returning();
-    return result;
-  }
-}
-
-// Use memory storage initially, will switch to database once data is uploaded
 export const storage = new MemoryStorage();

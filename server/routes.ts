@@ -216,7 +216,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("Error processing Excel file:", error);
-      await storage.updateUploadStatus(uploadId, 'failed', error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await storage.updateUploadStatus(uploadId, 'failed', errorMessage);
       
       // Clean up uploaded file
       try {

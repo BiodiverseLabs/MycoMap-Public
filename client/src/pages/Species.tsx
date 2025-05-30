@@ -28,7 +28,7 @@ export default function Species() {
             <CardContent>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>Common (>100 obs.)</span>
+                  <span>Common (&gt;100 obs.)</span>
                   <span className="font-medium">156</span>
                 </div>
                 <div className="flex justify-between">
