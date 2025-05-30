@@ -1,0 +1,53 @@
+import { Switch, Route } from "wouter";
+import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Sidebar } from "@/components/ui/sidebar";
+import { useState } from "react";
+import Dashboard from "@/pages/Dashboard";
+import Geospatial from "@/pages/Geospatial";
+import Temporal from "@/pages/Temporal";
+import Taxonomic from "@/pages/Taxonomic";
+import Contributors from "@/pages/Contributors";
+import Species from "@/pages/Species";
+import AdminModal from "@/components/admin/AdminModal";
+import NotFound from "@/pages/not-found";
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={Dashboard} />
+      <Route path="/geospatial" component={Geospatial} />
+      <Route path="/temporal" component={Temporal} />
+      <Route path="/taxonomic" component={Taxonomic} />
+      <Route path="/contributors" component={Contributors} />
+      <Route path="/species" component={Species} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <div className="flex h-screen bg-slate-50">
+          <Sidebar onOpenAdmin={() => setAdminModalOpen(true)} />
+          <main className="flex-1 overflow-hidden">
+            <Router />
+          </main>
+          <AdminModal 
+            open={adminModalOpen} 
+            onOpenChange={setAdminModalOpen} 
+          />
+        </div>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
