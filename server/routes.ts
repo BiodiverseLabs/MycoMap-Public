@@ -174,6 +174,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const worksheet = workbook.Sheets[sheetName];
       const rawData = utils.sheet_to_json(worksheet);
 
+      console.log('Raw data length:', rawData.length);
+      if (rawData.length > 0) {
+        console.log('Available columns:', Object.keys(rawData[0]));
+        console.log('Sample row:', rawData[0]);
+      }
+
       // Transform and validate data
       const observations = rawData.map((row: any) => {
         return {
