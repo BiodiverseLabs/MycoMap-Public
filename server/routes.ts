@@ -446,19 +446,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { state, limit } = req.query;
       const limitNum = limit ? parseInt(limit as string) : 10;
       
-      // Get all observations to access observer field
+      // Get global first records from record index
+      const records = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
+      const globalFirsts = records.filter(record => record.isFirstGlobal);
+      
+      // Filter by state if specified
+      const filteredRecords = state 
+        ? globalFirsts.filter(record => record.state === state)
+        : globalFirsts;
+      
+      // Get all observations to match observer names
       const observations = await storage.getAllObservations();
       
-      // Filter for global firsts and by state if specified
-      const globalFirsts = observations.filter(obs => {
-        const matchesGlobal = obs.isFirstGlobal;
-        const matchesState = !state || obs.state === state;
-        return matchesGlobal && matchesState && obs.observer;
+      // Create a map of observation IDs to observer names
+      const observerMap = new Map<number, string>();
+      observations.forEach(obs => {
+        if (obs.observer) {
+          observerMap.set(obs.id, obs.observer);
+        }
       });
       
-      // Group by observer (contributor) and count
-      const contributorGroups = globalFirsts.reduce((acc, obs) => {
-        const observerName = obs.observer;
+      // Group by observer and count
+      const contributorGroups = filteredRecords.reduce((acc, record) => {
+        const observerName = observerMap.get(record.id);
         if (observerName) {
           acc[observerName] = (acc[observerName] || 0) + 1;
         }
@@ -469,9 +479,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const data = Object.entries(contributorGroups)
         .map(([name, count]) => ({
-          id: name.replace(/\s+/g, '_').toLowerCase(), // Create simple ID from name
+          id: name.replace(/\s+/g, '_').toLowerCase(),
           name: name,
-          affiliation: undefined, // Observer field doesn't include affiliation
+          affiliation: undefined,
           globalFirstCount: count,
           percentage: total > 0 ? (count / total) * 100 : 0
         }))
