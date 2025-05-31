@@ -498,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contributors/species", async (req, res) => {
     try {
       const { state, limit } = req.query;
-      const limitNum = limit ? parseInt(limit as string) : 15;
+      const limitNum = limit ? parseInt(limit as string) : 10000;
       
       // Get all observations to access collector and species data
       const observations = await storage.getAllObservations();
