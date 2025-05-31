@@ -17,7 +17,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analytics endpoints
   app.get("/api/observations", async (req, res) => {
     try {
-      const { startDate, endDate, state, contributor, species, dateRange } = req.query;
+      const { startDate, endDate, state, contributor, species, dateRange, limit } = req.query;
+      
+      console.log(`[API] GET /api/observations - dateRange: "${dateRange}", limit: "${limit}", contributor: "${contributor}", state: "${state}"`);
       
       // Convert dateRange to actual dates (same logic as metrics endpoint)
       let actualStartDate = startDate as string;
@@ -64,6 +66,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
       
+      // Apply limit if specified (important for production performance)
+      if (limit) {
+        const limitNum = parseInt(limit as string, 10);
+        if (!isNaN(limitNum) && limitNum > 0) {
+          observations = observations.slice(0, limitNum);
+        }
+      }
+      
+      console.log(`[API] Returning ${observations.length} observations`);
       res.json(observations);
     } catch (error) {
       console.error("Error fetching observations:", error);
