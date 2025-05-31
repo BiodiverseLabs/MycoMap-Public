@@ -135,7 +135,9 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         heatmapLength: heatmapData.length,
         hasLeaflet: !!(window as any).L,
         hasHeatLayer: !!(window as any).L && !!(window as any).L.heatLayer,
-        sampleData: heatmapData.slice(0, 3)
+        sampleData: heatmapData.slice(0, 3),
+        environment: process.env.NODE_ENV || 'unknown',
+        timestamp: new Date().toISOString()
       });
 
       // Add heatmap layer now that plugin is properly loaded
