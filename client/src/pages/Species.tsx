@@ -304,7 +304,7 @@ export default function Species() {
               <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
                 <div className="text-2xl font-bold text-orange-700">{stats.rare}</div>
                 <div className="text-sm font-medium text-orange-600">Rare</div>
-                <div className="text-xs text-orange-500">2-5 obs.</div>
+                <div className="text-xs text-orange-500">2-4 obs.</div>
               </div>
               
               <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
