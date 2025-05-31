@@ -95,32 +95,65 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Add markers for observations
-    const markers: L.Marker[] = [];
-    validObservations.slice(0, 1000).forEach(obs => { // Limit to 1000 for performance
+    // Create heatmap data points
+    const heatmapData: [number, number, number][] = [];
+    const bounds: L.LatLngBounds = L.latLngBounds([]);
+    
+    validObservations.forEach(obs => {
       const lat = parseFloat(obs.latitude);
       const lng = parseFloat(obs.longitude);
       
       if (!isNaN(lat) && !isNaN(lng)) {
-        const marker = L.marker([lat, lng]).addTo(map);
-        
-        marker.bindPopup(`
-          <div style="font-family: system-ui;">
-            <h4 style="margin: 0 0 8px 0; font-weight: 600;">${obs.scientificName}</h4>
-            <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${obs.state}</p>
-            <p style="margin: 0 0 4px 0; color: #888; font-size: 12px;">${new Date(obs.observedOn).toLocaleDateString()}</p>
-            ${obs.source ? `<p style="margin: 0; color: #3b82f6; font-size: 12px;">${obs.source}</p>` : ''}
-          </div>
-        `);
-        
-        markers.push(marker);
+        heatmapData.push([lat, lng, 1]); // [latitude, longitude, intensity]
+        bounds.extend([lat, lng]);
       }
     });
 
-    // Fit map to markers if we have observations
-    if (markers.length > 0) {
-      const group = new L.featureGroup(markers);
-      map.fitBounds(group.getBounds().pad(0.1));
+    // Add heatmap using a simple circle-based approach
+    if (heatmapData.length > 0) {
+      // Group nearby points and create circles with varying opacity based on density
+      const gridSize = 0.1; // Degree grid size for grouping
+      const densityMap = new Map<string, { lat: number; lng: number; count: number }>();
+      
+      heatmapData.forEach(([lat, lng]) => {
+        const gridLat = Math.floor(lat / gridSize) * gridSize;
+        const gridLng = Math.floor(lng / gridSize) * gridSize;
+        const key = `${gridLat},${gridLng}`;
+        
+        if (densityMap.has(key)) {
+          const existing = densityMap.get(key)!;
+          existing.count++;
+        } else {
+          densityMap.set(key, { lat: gridLat + gridSize/2, lng: gridLng + gridSize/2, count: 1 });
+        }
+      });
+      
+      // Find max count for normalization
+      const maxCount = Math.max(...Array.from(densityMap.values()).map(d => d.count));
+      
+      // Add circles for each density cluster
+      densityMap.forEach(({ lat, lng, count }) => {
+        const intensity = count / maxCount;
+        const radius = Math.max(2000, intensity * 15000); // Radius in meters
+        const opacity = Math.max(0.1, intensity * 0.8);
+        
+        L.circle([lat, lng], {
+          radius: radius,
+          fillColor: intensity > 0.7 ? '#ff4444' : intensity > 0.4 ? '#ff8800' : '#4CAF50',
+          color: 'transparent',
+          fillOpacity: opacity,
+          weight: 0
+        }).addTo(map).bindPopup(`
+          <div style="font-family: system-ui;">
+            <h4 style="margin: 0 0 8px 0; font-weight: 600;">Observation Cluster</h4>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${count} observations in this area</p>
+            ${selectedState ? `<p style="margin: 0; color: #3b82f6; font-size: 12px;">${selectedState}</p>` : ''}
+          </div>
+        `);
+      });
+      
+      // Fit map to observation bounds
+      map.fitBounds(bounds.pad(0.1));
     }
 
     mapInstanceRef.current = map;
