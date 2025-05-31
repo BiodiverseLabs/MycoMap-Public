@@ -186,19 +186,21 @@ export default function Species() {
     const estimatedTotal = Math.round(currentSpecies + (a * Math.log(currentObs * 3)) + b - currentSpecies);
     const observationsFor95 = Math.round(Math.exp((estimatedTotal * 0.95 - b) / a));
     
-    // Extend curve to show extrapolation
+    // Create full extrapolation line showing both fitted and projected portions
     const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
     const extendedData = accumulationData.map(point => ({
       ...point,
+      fittedSpecies: Math.round(a * Math.log(point.observationNumber) + b), // Show fitted line over actual data
       extrapolatedSpecies: null
     }));
     
-    // Add extrapolated points
+    // Add extrapolated points beyond current observations
     for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
       const predictedSpecies = Math.round(a * Math.log(i) + b);
       extendedData.push({
         observationNumber: i,
         uniqueSpeciesCount: null,
+        fittedSpecies: null,
         extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
       });
     }
@@ -526,7 +528,20 @@ export default function Species() {
                         connectNulls={false}
                         name="Observed Species"
                       />
-                      {/* Extrapolated line */}
+                      {/* Fitted line showing model over actual data */}
+                      {extrapolate && (
+                        <Line 
+                          type="monotone" 
+                          dataKey="fittedSpecies" 
+                          stroke="#82ca9d" 
+                          strokeWidth={2}
+                          dot={false}
+                          strokeDasharray="3 3"
+                          connectNulls={false}
+                          name="Fitted Model"
+                        />
+                      )}
+                      {/* Extrapolated line beyond current data */}
                       {extrapolate && (
                         <Line 
                           type="monotone" 
