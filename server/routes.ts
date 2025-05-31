@@ -17,7 +17,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analytics endpoints
   app.get("/api/observations", async (req, res) => {
     try {
-      const { startDate, endDate, state } = req.query;
+      const { startDate, endDate, state, contributor } = req.query;
       
       let observations;
       if (startDate && endDate) {
@@ -29,6 +29,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         observations = await storage.getObservationsByState(state as string);
       } else {
         observations = await storage.getAllObservations();
+      }
+      
+      // Filter by contributor if specified
+      if (contributor) {
+        observations = observations.filter(obs => obs.recordedBy === contributor);
       }
       
       res.json(observations);

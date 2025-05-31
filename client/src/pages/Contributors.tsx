@@ -1,146 +1,429 @@
-import { TopContributors } from "@/components/dashboard/TopContributors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { MapPin, User, Calendar, Award, X } from "lucide-react";
+
+interface Contributor {
+  id: string;
+  name: string;
+  affiliation?: string;
+  observationCount: number;
+}
 
 export default function Contributors() {
+  const [selectedContributor, setSelectedContributor] = useState<Contributor | null>(null);
+
+  // Fetch all contributors
+  const { data: contributors = [], isLoading: contributorsLoading } = useQuery({
+    queryKey: ["/api/contributors"],
+    queryFn: async () => {
+      const response = await fetch('/api/contributors?limit=20');
+      if (!response.ok) throw new Error('Failed to fetch contributors');
+      return response.json();
+    }
+  });
+
+  // Fetch contributor's specific observations when selected
+  const { data: contributorObservations = [], isLoading: observationsLoading } = useQuery({
+    queryKey: ["/api/observations", { contributor: selectedContributor?.name }],
+    queryFn: async () => {
+      if (!selectedContributor) return [];
+      const response = await fetch(`/api/observations?contributor=${encodeURIComponent(selectedContributor.name)}`);
+      if (!response.ok) throw new Error('Failed to fetch contributor observations');
+      return response.json();
+    },
+    enabled: !!selectedContributor
+  });
+
+  // Process contributor's data
+  const contributorStats = selectedContributor ? (() => {
+    const observations = contributorObservations;
+    
+    // Top species
+    const speciesCounts = observations.reduce((acc: { [key: string]: number }, obs: any) => {
+      acc[obs.scientificName] = (acc[obs.scientificName] || 0) + 1;
+      return acc;
+    }, {});
+    const topSpecies = Object.entries(speciesCounts)
+      .map(([species, count]) => ({ species, count: count as number }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Top states
+    const stateCounts = observations.reduce((acc: { [key: string]: number }, obs: any) => {
+      if (obs.state) acc[obs.state] = (acc[obs.state] || 0) + 1;
+      return acc;
+    }, {});
+    const topStates = Object.entries(stateCounts)
+      .map(([state, count]) => ({ state, count: count as number }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Recent activity
+    const recentObservations = observations
+      .filter((obs: any) => obs.observedOn)
+      .sort((a: any, b: any) => new Date(b.observedOn).getTime() - new Date(a.observedOn).getTime())
+      .slice(0, 5);
+
+    // Years active
+    const years = new Set(observations
+      .filter((obs: any) => obs.observedOn)
+      .map((obs: any) => new Date(obs.observedOn).getFullYear())
+    );
+
+    return {
+      topSpecies,
+      topStates,
+      recentObservations,
+      yearsActive: years.size,
+      totalStates: Object.keys(stateCounts).length,
+      validObservations: observations.filter((obs: any) => obs.latitude && obs.longitude).length
+    };
+  })() : null;
+
   return (
     <div className="flex flex-col h-full">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Contributors</h2>
-          <p className="text-slate-600 mt-1">
-            Observer and collector statistics and verification rates
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900">Contributors Analysis</h2>
+            <p className="text-slate-600 mt-1">
+              {selectedContributor 
+                ? `Detailed profile for ${selectedContributor.name}`
+                : "Individual contributor profiles and contribution patterns"
+              }
+            </p>
+          </div>
+          {selectedContributor && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedContributor(null)}
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Back to Overview
+            </Button>
+          )}
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <TopContributors />
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Verification Rates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-slate-900">Dr. Sarah Wilson</p>
-                    <p className="text-sm text-slate-600">University Expert</p>
+        {!selectedContributor ? (
+          // Overview Mode
+          <>
+            <div className="mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    Top Contributors
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {contributorsLoading ? (
+                    <div className="text-slate-500">Loading contributors...</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {contributors.slice(0, 12).map((contributor: Contributor) => (
+                        <div
+                          key={contributor.id}
+                          className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                          onClick={() => setSelectedContributor(contributor)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-900 truncate">{contributor.name}</p>
+                              {contributor.affiliation && (
+                                <p className="text-sm text-slate-600 truncate">{contributor.affiliation}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <Badge variant="secondary">{contributor.observationCount}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Contribution Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total Contributors</span>
+                      <span className="font-medium">{contributors.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Active (10+ obs)</span>
+                      <span className="font-medium">
+                        {contributors.filter((c: Contributor) => c.observationCount > 10).length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Power Users (100+ obs)</span>
+                      <span className="font-medium text-green-600">
+                        {contributors.filter((c: Contributor) => c.observationCount > 100).length}
+                      </span>
+                    </div>
                   </div>
-                  <Badge className="bg-green-100 text-green-800">98.5%</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-slate-900">Mike Chen</p>
-                    <p className="text-sm text-slate-600">Field Researcher</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Top Affiliations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    {(() => {
+                      const affiliationCounts = contributors.reduce((acc: { [key: string]: number }, contributor: Contributor) => {
+                        const affiliation = contributor.affiliation || 'Independent';
+                        acc[affiliation] = (acc[affiliation] || 0) + 1;
+                        return acc;
+                      }, {});
+                      
+                      return Object.entries(affiliationCounts)
+                        .sort(([,a], [,b]) => (b as number) - (a as number))
+                        .slice(0, 3)
+                        .map(([affiliation, count]) => (
+                          <div key={affiliation} className="flex justify-between">
+                            <span className="truncate">{affiliation}</span>
+                            <span className="font-medium">{count as number}</span>
+                          </div>
+                        ));
+                    })()}
                   </div>
-                  <Badge className="bg-green-100 text-green-800">96.2%</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-slate-900">Dr. Amanda Rodriguez</p>
-                    <p className="text-sm text-slate-600">Mycological Institute</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Contribution Levels</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>1-10 observations</span>
+                      <span className="font-medium">
+                        {contributors.filter((c: Contributor) => c.observationCount >= 1 && c.observationCount <= 10).length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>11-50 observations</span>
+                      <span className="font-medium">
+                        {contributors.filter((c: Contributor) => c.observationCount >= 11 && c.observationCount <= 50).length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>51+ observations</span>
+                      <span className="font-medium text-blue-600">
+                        {contributors.filter((c: Contributor) => c.observationCount > 50).length}
+                      </span>
+                    </div>
                   </div>
-                  <Badge className="bg-green-100 text-green-800">94.8%</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Top Institutions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>University of Biology</span>
-                  <span className="font-medium">1,847</span>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Click on a contributor</span>
+                      <span className="font-medium text-slate-400">→</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>to view detailed</span>
+                      <span className="font-medium text-slate-400">→</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>profile analysis</span>
+                      <span className="font-medium text-slate-400">→</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        ) : (
+          // Detailed Contributor Mode
+          <div className="space-y-8">
+            {/* Contributor Header */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900">{selectedContributor.name}</h3>
+                    {selectedContributor.affiliation && (
+                      <p className="text-slate-600 mt-1">{selectedContributor.affiliation}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-primary">{selectedContributor.observationCount}</div>
+                    <div className="text-sm text-slate-600">Total Observations</div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Mycological Institute</span>
-                  <span className="font-medium">1,234</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Field Research Center</span>
-                  <span className="font-medium">987</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Citizen Scientists</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Active Contributors</span>
-                  <span className="font-medium">234</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>New This Year</span>
-                  <span className="font-medium text-green-600">67</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Expert Level</span>
-                  <span className="font-medium">45</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {observationsLoading ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <div className="text-slate-500">Loading contributor details...</div>
+                </CardContent>
+              </Card>
+            ) : contributorStats ? (
+              <>
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Award className="w-4 h-4" />
+                        Activity Stats
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Years Active</span>
+                          <span className="font-medium">{contributorStats.yearsActive}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>States Covered</span>
+                          <span className="font-medium">{contributorStats.totalStates}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Geolocated</span>
+                          <span className="font-medium">{contributorStats.validObservations}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Geographic Coverage</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>West Coast</span>
-                  <span className="font-medium">156</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>East Coast</span>
-                  <span className="font-medium">134</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Midwest</span>
-                  <span className="font-medium">89</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Top Species</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        {contributorStats.topSpecies.slice(0, 3).map((item: any) => (
+                          <div key={item.species} className="flex justify-between">
+                            <span className="truncate">{item.species}</span>
+                            <span className="font-medium">{item.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Quality Metrics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Avg. Verification</span>
-                  <span className="font-medium">92.3%</span>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        Top States
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        {contributorStats.topStates.slice(0, 3).map((item: any) => (
+                          <div key={item.state} className="flex justify-between">
+                            <span className="truncate">{item.state}</span>
+                            <span className="font-medium">{item.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        Recent Activity
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        {contributorStats.recentObservations.slice(0, 3).map((obs: any, index: number) => (
+                          <div key={index} className="flex justify-between">
+                            <span className="truncate">{obs.scientificName}</span>
+                            <span className="font-medium text-slate-600">
+                              {new Date(obs.observedOn).getFullYear()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-                <div className="flex justify-between">
-                  <span>DNA Validated</span>
-                  <span className="font-medium">87.6%</span>
+
+                {/* Detailed Species List */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Species Contributions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {contributorStats.topSpecies.map((item: any, index: number) => (
+                          <div key={item.species} className="flex items-center justify-between p-2 border border-slate-100 rounded">
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 bg-primary/10 text-primary rounded text-sm flex items-center justify-center">
+                                {index + 1}
+                              </div>
+                              <span className="text-sm text-slate-700">{item.species}</span>
+                            </div>
+                            <Badge variant="secondary">{item.count}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Geographic Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {contributorStats.topStates.map((item: any, index: number) => (
+                          <div key={item.state} className="flex items-center justify-between p-2 border border-slate-100 rounded">
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 bg-green-100 text-green-700 rounded text-sm flex items-center justify-center">
+                                {index + 1}
+                              </div>
+                              <span className="text-sm text-slate-700">{item.state}</span>
+                            </div>
+                            <Badge variant="outline">{item.count}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-                <div className="flex justify-between">
-                  <span>Complete Records</span>
-                  <span className="font-medium">94.1%</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <div className="text-slate-500">No detailed data available for this contributor</div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
