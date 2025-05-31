@@ -272,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           genbankAccession: row['GenBank Accession #'] || null,
           isFirstStateRecord: row['First State Record'] === 'yes',
           hasMultipleGenotypes: row['Multiple Genotypes Under Name'] === 'yes',
-          source: row['Source'] || row['source'] || 'Unknown',
+          source: row['Source Database'] || row['Source'] || row['source'] || 'Unknown',
           sourceUrl: row['Source URL'] || row['source_url'] || null,
         };
       }).filter(obs => obs.scientificName); // Filter out rows without scientific name
