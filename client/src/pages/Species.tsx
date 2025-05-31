@@ -108,7 +108,7 @@ export default function Species() {
     const common = filteredSpecies.filter(s => (s.observationCount || 0) >= 10 && (s.observationCount || 0) <= 100).length;
     const uncommon = filteredSpecies.filter(s => (s.observationCount || 0) >= 5 && (s.observationCount || 0) <= 9).length;
     const rare = filteredSpecies.filter(s => (s.observationCount || 0) >= 2 && (s.observationCount || 0) <= 4).length;
-    const veryRare = filteredSpecies.filter(s => (s.observationCount || 0) >= 1 && (s.observationCount || 0) <= 2).length;
+    const veryRare = filteredSpecies.filter(s => (s.observationCount || 0) === 1).length;
     const recentSpecies = filteredSpecies.filter(s => {
       if (!s.lastObserved) return false;
       try {
@@ -310,7 +310,7 @@ export default function Species() {
               <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
                 <div className="text-2xl font-bold text-red-700">{stats.veryRare}</div>
                 <div className="text-sm font-medium text-red-600">Very Rare</div>
-                <div className="text-xs text-red-500">1-2 obs.</div>
+                <div className="text-xs text-red-500">1 obs.</div>
               </div>
             </div>
             
