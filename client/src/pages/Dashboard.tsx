@@ -12,7 +12,7 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 
 export default function Dashboard() {
-  const [dateRange, setDateRange] = useState('last_30_days');
+  const [dateRange, setDateRange] = useState('all_time');
 
   const handleExportData = () => {
     // Export functionality would be implemented here

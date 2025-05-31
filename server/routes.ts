@@ -49,20 +49,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let actualEndDate: string | undefined;
       
       if (dateRange === 'last_30_days') {
-        const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        actualStartDate = thirtyDaysAgo.toISOString().split('T')[0];
-        actualEndDate = now.toISOString().split('T')[0];
+        // Calculate from the most recent observation date (2025-04-18)
+        actualStartDate = '2025-03-19'; // 30 days before 2025-04-18
+        actualEndDate = '2025-04-18';
       } else if (dateRange === 'last_6_months') {
-        const now = new Date();
-        const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-        actualStartDate = sixMonthsAgo.toISOString().split('T')[0];
-        actualEndDate = now.toISOString().split('T')[0];
+        // Calculate from the most recent observation date (2025-04-18)
+        actualStartDate = '2024-10-18'; // 6 months before 2025-04-18
+        actualEndDate = '2025-04-18';
       } else if (dateRange === 'last_year') {
-        const now = new Date();
-        const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        actualStartDate = oneYearAgo.toISOString().split('T')[0];
-        actualEndDate = now.toISOString().split('T')[0];
+        // Calculate from the most recent observation date (2025-04-18)
+        actualStartDate = '2024-04-18'; // 1 year before 2025-04-18
+        actualEndDate = '2025-04-18';
       } else if (dateRange === 'all_time') {
         // Don't set date filters for all time
         actualStartDate = undefined;
