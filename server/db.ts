@@ -172,12 +172,12 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
-        ${observations.scientificName} as "scientificName",
+        ${observations.species} as "scientificName",
         ${observations.commonName} as "commonName",
         COUNT(*)::int as "observationCount"
       FROM ${observations}
-      WHERE ${observations.scientificName} IS NOT NULL
-      GROUP BY ${observations.scientificName}, ${observations.commonName}
+      WHERE ${observations.species} IS NOT NULL AND ${observations.species} != ''
+      GROUP BY ${observations.species}, ${observations.commonName}
       ORDER BY "observationCount" DESC
       LIMIT ${limit}
     `);
@@ -189,12 +189,12 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         ROW_NUMBER() OVER (ORDER BY COUNT(*) ASC) as id,
-        ${observations.scientificName} as "scientificName",
+        ${observations.species} as "scientificName",
         ${observations.commonName} as "commonName",
         COUNT(*)::int as "observationCount"
       FROM ${observations}
-      WHERE ${observations.scientificName} IS NOT NULL
-      GROUP BY ${observations.scientificName}, ${observations.commonName}
+      WHERE ${observations.species} IS NOT NULL AND ${observations.species} != ''
+      GROUP BY ${observations.species}, ${observations.commonName}
       HAVING COUNT(*) <= ${maxObservations}
       ORDER BY "observationCount" ASC
       LIMIT 10
