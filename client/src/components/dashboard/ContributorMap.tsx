@@ -59,7 +59,7 @@ export function ContributorMap({ observations }: ContributorMapProps) {
     const heatData = validObservations.map(obs => [
       parseFloat(obs.latitude),
       parseFloat(obs.longitude),
-      1 // weight
+      0.8 // weight
     ]);
 
     // Remove existing heat layer
@@ -70,16 +70,18 @@ export function ContributorMap({ observations }: ContributorMapProps) {
     // Add new heat layer
     if (window.L && (window.L as any).heatLayer) {
       heatLayerRef.current = (window.L as any).heatLayer(heatData, {
-        radius: 20,
-        blur: 15,
-        maxZoom: 10,
+        radius: 22,
+        blur: 12,
+        maxZoom: 17,
+        max: 0.8,
+        minOpacity: 0.2,
         gradient: {
-          0.0: '#3388ff',
-          0.2: '#44bb44',
-          0.4: '#ffbb44',
-          0.6: '#ff8844',
-          0.8: '#ff4444',
-          1.0: '#cc2244'
+          0.0: 'rgba(0, 0, 255, 0.3)',     // Slightly more visible blue
+          0.2: 'rgba(0, 255, 255, 0.5)',   // Cyan
+          0.4: 'rgba(0, 255, 0, 0.6)',     // Green
+          0.6: 'rgba(255, 255, 0, 0.7)',   // Yellow
+          0.8: 'rgba(255, 165, 0, 0.8)',   // Orange
+          1.0: 'rgba(255, 0, 0, 0.9)'      // Moderately bold red
         }
       }).addTo(mapInstanceRef.current);
 
