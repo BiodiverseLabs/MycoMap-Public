@@ -575,32 +575,120 @@ export default function Species() {
                 
                 {/* Extrapolation Statistics */}
                 {extrapolate && extrapolationData.estimatedTotal && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                  <div className="space-y-6 mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Estimated Total Species (Smax)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-primary">
+                            {extrapolationData.estimatedTotal?.toLocaleString()}
+                          </div>
+                          <p className="text-sm text-slate-600 mt-1">
+                            Asymptotic species richness estimate
+                          </p>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Sampling Completeness</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-primary">
+                            {extrapolationData.estimatedTotal ? 
+                              Math.round((accumulationData[accumulationData.length - 1]?.uniqueSpeciesCount / extrapolationData.estimatedTotal) * 100) : 0}%
+                          </div>
+                          <p className="text-sm text-slate-600 mt-1">
+                            Current species discovery rate
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Observations for 95% Coverage</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-xl font-bold text-primary">
+                            {extrapolationData.observationsFor95?.toLocaleString()}
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Required sampling effort
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Discovery Rate</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-xl font-bold text-primary">
+                            {accumulationData.length > 1000 ? 
+                              ((accumulationData[accumulationData.length - 1]?.uniqueSpeciesCount - 
+                                accumulationData[accumulationData.length - 1000]?.uniqueSpeciesCount) / 1000).toFixed(3)
+                              : 'N/A'}
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Species per 1000 observations
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Remaining Species</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-xl font-bold text-primary">
+                            {extrapolationData.estimatedTotal && accumulationData.length > 0 ? 
+                              (extrapolationData.estimatedTotal - accumulationData[accumulationData.length - 1]?.uniqueSpeciesCount).toLocaleString()
+                              : 'N/A'}
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Undiscovered species estimate
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Estimated Total Species</CardTitle>
+                        <CardTitle className="text-sm">Model Performance</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold text-primary">
-                          {extrapolationData.estimatedTotal?.toLocaleString()}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                          <div>
+                            <div className="text-lg font-bold text-primary">Power Law</div>
+                            <p className="text-xs text-slate-600">Model Type</p>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-primary">
+                              {accumulationData.length > 0 ? Math.floor(accumulationData.length * 0.5) : 0}
+                            </div>
+                            <p className="text-xs text-slate-600">Fit Data Points</p>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-primary">
+                              {extrapolationData.observationsFor95 && accumulationData.length > 0 ? 
+                                Math.round((extrapolationData.observationsFor95 / accumulationData[accumulationData.length - 1]?.observationNumber) * 100) / 100 + 'x'
+                                : 'N/A'}
+                            </div>
+                            <p className="text-xs text-slate-600">Effort Multiplier</p>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-primary">
+                              {accumulationData.length > 0 ? 
+                                Math.floor(accumulationData.length * 0.5).toLocaleString() + '-' + accumulationData.length.toLocaleString()
+                                : 'N/A'}
+                            </div>
+                            <p className="text-xs text-slate-600">Fitting Range</p>
+                          </div>
                         </div>
-                        <p className="text-sm text-slate-600 mt-1">
-                          Based on logarithmic curve fitting
-                        </p>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Observations for 95% Coverage</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-primary">
-                          {extrapolationData.observationsFor95?.toLocaleString()}
-                        </div>
-                        <p className="text-sm text-slate-600 mt-1">
-                          To reach 95% of estimated total species
-                        </p>
                       </CardContent>
                     </Card>
                   </div>
