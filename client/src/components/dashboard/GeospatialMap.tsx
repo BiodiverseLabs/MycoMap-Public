@@ -26,24 +26,23 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
   const mapInstanceRef = useRef<L.Map | null>(null);
   const [sortBy, setSortBy] = useState<'count' | 'alphabetical'>('count');
 
-  // Fetch observations with state filtering
-  const { data: observations = [], isLoading } = useQuery<Observation[]>({
-    queryKey: ["/api/observations", dateRange, selectedState],
+  // Fetch optimized map data using GPS index for faster loading (up to 15k points)
+  const { data: observations = [], isLoading } = useQuery<Array<{
+    latitude: number;
+    longitude: number;
+    species?: string;
+  }>>({
+    queryKey: ["/api/map-data", selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (dateRange) {
-        params.append('dateRange', dateRange);
-      }
       if (selectedState) {
         params.append('state', selectedState);
-        // Use higher limit for state-specific data since it's smaller
-        params.append('limit', '10000');
+        params.append('limit', '15000');
       } else {
-        // Use 7000 limit for all data
-        params.append('limit', '7000');
+        params.append('limit', '15000');
       }
-      const response = await fetch(`/api/observations?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch observations');
+      const response = await fetch(`/api/map-data?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch map data');
       return response.json();
     }
   });

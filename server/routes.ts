@@ -207,6 +207,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Optimized map data endpoint using GPS index
+  app.get("/api/map-data", async (req, res) => {
+    try {
+      const { limit = "15000", state } = req.query;
+      console.log(`[API] GET /api/map-data - limit: "${limit}", state: "${state}"`);
+
+      const limitNum = Math.min(parseInt(limit as string) || 15000, 20000);
+      const mapData = await storage.getMapDataOptimized(limitNum, state as string);
+
+      console.log(`[API] Returning ${mapData.length} map coordinates`);
+      res.json(mapData);
+    } catch (error) {
+      console.error("Error fetching map data:", error);
+      res.status(500).json({ error: "Failed to fetch map data" });
+    }
+  });
+
+  // Build GPS index endpoint for optimization
+  app.post("/api/build-gps-index", async (req, res) => {
+    try {
+      console.log('[API] Building GPS index...');
+      await storage.buildGpsIndex();
+      console.log('[API] GPS index built successfully');
+      res.json({ success: true, message: "GPS index built successfully" });
+    } catch (error) {
+      console.error("Error building GPS index:", error);
+      res.status(500).json({ error: "Failed to build GPS index" });
+    }
+  });
+
   app.get("/api/taxonomic-distribution", async (req, res) => {
     try {
       const distribution = await storage.getTaxonomicDistribution();
