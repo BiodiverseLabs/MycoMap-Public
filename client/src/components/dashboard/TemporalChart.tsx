@@ -17,7 +17,7 @@ export function TemporalChart({ dateRange }: TemporalChartProps = {}) {
     queryKey: ["/api/temporal-trends", { groupBy: 'year' }],
   });
 
-  // Transform period data for yearly display
+  // Transform period data for yearly display, starting from 2010
   const yearlyData = trends
     .filter(item => item.period.match(/^\d{4}(-\d{2})?$/)) // Only year or year-month format
     .reduce((acc, item) => {
@@ -30,6 +30,7 @@ export function TemporalChart({ dateRange }: TemporalChartProps = {}) {
       }
       return acc;
     }, [] as TemporalData[])
+    .filter(item => parseInt(item.period) >= 2010) // Filter to start from 2010
     .sort((a, b) => parseInt(a.period) - parseInt(b.period));
 
   const CustomTooltip = ({ active, payload, label }: any) => {
