@@ -142,10 +142,15 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         timestamp: new Date().toISOString()
       });
 
-      // Add heatmap layer with delay to ensure plugin loads properly (like ContributorMap)
+      // Multiple attempts to add heatmap with fallback markers
       if (heatmapData.length > 0) {
-        // Wait a bit for plugin to load, then add heatmap
-        setTimeout(() => {
+        let attemptCount = 0;
+        const maxAttempts = 3;
+        
+        const attemptHeatmap = () => {
+          attemptCount++;
+          console.log(`[GeospatialMap] Heatmap attempt ${attemptCount}/${maxAttempts}`);
+          
           if (mapInstanceRef.current && (window as any).L && (window as any).L.heatLayer) {
             try {
               console.log('[GeospatialMap] Creating heatmap with', heatmapData.length, 'data points');
@@ -166,13 +171,47 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
               }).addTo(mapInstanceRef.current);
               
               console.log('[GeospatialMap] Heatmap layer added successfully');
+              return true;
             } catch (error) {
               console.error('[GeospatialMap] Heatmap creation failed:', error);
             }
-          } else {
-            console.log('[GeospatialMap] Heatmap plugin not available, no fallback needed - using base map');
           }
-        }, 500); // Same delay as ContributorMap
+          
+          // If heatmap failed and we have attempts left, try again
+          if (attemptCount < maxAttempts) {
+            setTimeout(attemptHeatmap, 1000 * attemptCount);
+            return false;
+          }
+          
+          // Final fallback - add circle markers to ensure visibility
+          console.log('[GeospatialMap] All heatmap attempts failed, adding circle markers');
+          let markersAdded = 0;
+          validObservations.slice(0, 500).forEach(obs => {
+            const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
+            const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
+            
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && mapInstanceRef.current) {
+              try {
+                L.circleMarker([lat, lng], {
+                  radius: 2,
+                  fillColor: '#2563eb',
+                  color: '#ffffff',
+                  weight: 1,
+                  opacity: 1,
+                  fillOpacity: 0.7
+                }).addTo(mapInstanceRef.current);
+                markersAdded++;
+              } catch (error) {
+                console.error('[GeospatialMap] Marker creation failed:', error);
+              }
+            }
+          });
+          console.log('[GeospatialMap] Added', markersAdded, 'fallback circle markers');
+          return true;
+        };
+        
+        // Start first attempt immediately
+        setTimeout(attemptHeatmap, 500);
         
         // Use continental US bounds for consistent view
         map.fitBounds(continentalUSBounds);
