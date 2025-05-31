@@ -55,6 +55,8 @@ export default function Contributors() {
   const contributorStats = selectedContributor ? (() => {
     const observations = contributorObservations;
     
+    console.log(`[Contributors] Processing ${observations.length} observations for ${selectedContributor.name}`);
+    
     // Top species - use clean species name construction
     const speciesCounts = observations.reduce((acc: { [key: string]: number }, obs: any) => {
       // Use species field if available, otherwise construct from genus + species, fallback to scientificName
