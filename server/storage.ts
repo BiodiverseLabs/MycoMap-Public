@@ -77,7 +77,7 @@ export interface IStorage {
   upsertSpecies(species: InsertSpecies): Promise<Species>;
   
   // Record Index
-  getRecordIndex(limit?: number, offset?: number, stateFirstsOnly?: boolean, recent?: boolean, state?: string, globalFirstsOnly?: boolean): Promise<Array<{
+  getRecordIndex(limit?: number, offset?: number, stateFirstsOnly?: boolean, recent?: boolean, state?: string, globalFirstsOnly?: boolean, startDate?: string, endDate?: string, species?: string): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -465,7 +465,7 @@ export class MemoryStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false, startDate?: string, endDate?: string, species?: string): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -477,15 +477,36 @@ export class MemoryStorage implements IStorage {
     isFirstGlobal: boolean;
     isFirstInState: boolean;
   }>> {
-    // Memory storage implementation - basic version
-    const sortedObs = this.observations
-      .filter(obs => obs.species && obs.observedOn)
-      .sort((a, b) => {
-        const dateA = new Date(a.observedOn || '').getTime();
-        const dateB = new Date(b.observedOn || '').getTime();
-        if (dateA !== dateB) return dateA - dateB;
-        return a.species!.localeCompare(b.species!);
-      });
+    // Memory storage implementation - apply filters and sort by newest first
+    let filteredObs = this.observations.filter(obs => obs.species && obs.observedOn);
+
+    // Apply state filter
+    if (state) {
+      filteredObs = filteredObs.filter(obs => obs.state === state);
+    }
+
+    // Apply date range filters
+    if (startDate) {
+      const start = new Date(startDate);
+      filteredObs = filteredObs.filter(obs => new Date(obs.observedOn || '') >= start);
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      filteredObs = filteredObs.filter(obs => new Date(obs.observedOn || '') <= end);
+    }
+
+    // Apply species filter
+    if (species) {
+      filteredObs = filteredObs.filter(obs => obs.species?.toLowerCase().includes(species.toLowerCase()));
+    }
+
+    const sortedObs = filteredObs.sort((a, b) => {
+      const dateA = new Date(a.observedOn || '').getTime();
+      const dateB = new Date(b.observedOn || '').getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return a.species!.localeCompare(b.species!);
+    });
 
     const result = sortedObs.map((obs, index) => {
       const globalIndex = index + 1;

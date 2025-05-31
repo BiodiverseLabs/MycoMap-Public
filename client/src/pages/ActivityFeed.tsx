@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Activity, MapPin, Calendar, User, Globe, Flag, Search, Filter } from "lucide-react";
+import { Activity, MapPin, Calendar, User, Globe, Flag, Search, Filter, ExternalLink } from "lucide-react";
 
 interface RecordItem {
   id: number;
@@ -72,7 +72,7 @@ export default function ActivityFeed() {
         params.append('globalFirstsOnly', 'false');
       }
 
-      if (selectedState) {
+      if (selectedState && selectedState !== 'all') {
         params.append('state', selectedState);
       }
 
@@ -84,7 +84,7 @@ export default function ActivityFeed() {
         params.append('endDate', endDate);
       }
 
-      if (speciesFilter) {
+      if (speciesFilter && speciesFilter !== 'all') {
         params.append('species', speciesFilter);
       }
       
@@ -299,10 +299,26 @@ export default function ActivityFeed() {
                       </div>
                     </div>
                     
-                    <div className="mt-2 text-xs text-slate-500">
-                      Record #{record.datasetRecordNumber}
-                      {record.stateRecordNumber && ` • State Record #${record.stateRecordNumber}`}
-                      {record.referenceNumber && ` • Ref: ${record.referenceNumber}`}
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="text-xs text-slate-500">
+                        Record #{record.datasetRecordNumber}
+                        {record.stateRecordNumber && ` • State Record #${record.stateRecordNumber}`}
+                        {record.referenceNumber && ` • Ref: ${record.referenceNumber}`}
+                      </div>
+                      {record.referenceNumber && record.referenceNumber !== 'N/A' && (
+                        <a 
+                          href={record.source === 'iNaturalist' 
+                            ? `https://www.inaturalist.org/observations/${record.referenceNumber}`
+                            : `https://mushroomobserver.org/observations/show_observation/${record.referenceNumber}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          View on {record.source}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
