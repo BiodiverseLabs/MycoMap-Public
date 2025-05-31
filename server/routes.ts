@@ -431,8 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           globalFirstCount: count,
           percentage: total > 0 ? (count / total) * 100 : 0
         }))
-        .sort((a, b) => b.globalFirstCount - a.globalFirstCount)
-        .slice(0, 20);
+        .sort((a, b) => b.globalFirstCount - a.globalFirstCount);
       
       res.json(data);
     } catch (error) {
@@ -444,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contributors/global-firsts", async (req, res) => {
     try {
       const { state, limit } = req.query;
-      const limitNum = limit ? parseInt(limit as string) : 10;
+      const limitNum = limit ? parseInt(limit as string) : 10000;
       
       // Get global first records from record index
       const records = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
