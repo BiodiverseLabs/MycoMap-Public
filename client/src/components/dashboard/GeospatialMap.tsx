@@ -128,17 +128,18 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       if (heatmapData.length > 0) {
         if ((window as any).L && (window as any).L.heatLayer) {
           const heat = (window as any).L.heatLayer(heatmapData, {
-            radius: 20,
-            blur: 15,
+            radius: 25,
+            blur: 25,
             maxZoom: 17,
-            max: 1.0,
+            max: 0.6,
+            minOpacity: 0.3,
             gradient: {
-              0.0: 'blue',
-              0.2: 'cyan', 
-              0.4: 'lime',
-              0.6: 'yellow',
-              0.8: 'orange',
-              1.0: 'red'
+              0.0: 'rgba(0, 0, 255, 0.4)',     // More visible blue
+              0.15: 'rgba(0, 255, 255, 0.5)',  // Cyan
+              0.3: 'rgba(0, 255, 0, 0.6)',     // Green
+              0.45: 'rgba(255, 255, 0, 0.7)',  // Yellow
+              0.65: 'rgba(255, 165, 0, 0.75)', // Orange
+              1.0: 'rgba(255, 0, 0, 0.8)'      // Less bold red
             }
           }).addTo(map);
           
