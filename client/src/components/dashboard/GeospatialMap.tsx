@@ -138,9 +138,10 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         sampleData: heatmapData.slice(0, 3)
       });
 
-      // Add heatmap layer if plugin is available
+      // Add heatmap layer now that plugin is properly loaded
       if (heatmapData.length > 0) {
         if ((window as any).L && (window as any).L.heatLayer) {
+          console.log('[GeospatialMap] Creating heatmap with', heatmapData.length, 'data points');
           const heat = (window as any).L.heatLayer(heatmapData, {
             radius: 22,
             blur: 12,
@@ -148,46 +149,26 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
             max: 0.8,
             minOpacity: 0.2,
             gradient: {
-              0.0: 'rgba(0, 0, 255, 0.3)',     // Slightly more visible blue
+              0.0: 'rgba(0, 0, 255, 0.3)',     // Blue
               0.2: 'rgba(0, 255, 255, 0.5)',   // Cyan
               0.4: 'rgba(0, 255, 0, 0.6)',     // Green
               0.6: 'rgba(255, 255, 0, 0.7)',   // Yellow
               0.8: 'rgba(255, 165, 0, 0.8)',   // Orange
-              1.0: 'rgba(255, 0, 0, 0.9)'      // Moderately bold red
+              1.0: 'rgba(255, 0, 0, 0.9)'      // Red
             }
           }).addTo(map);
           
-          // Fit map to observation bounds or default to continental US
-          // Always use continental US bounds for consistent view
-          map.fitBounds(continentalUSBounds);
-        } else {
-          console.log('[GeospatialMap] Heat plugin not available, using fallback markers');
-          // Fallback to simple markers if heat plugin fails
-          validObservations.slice(0, 500).forEach(obs => {
-            const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
-            const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
-            
-            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-              L.circleMarker([lat, lng], {
-                radius: 3,
-                fillColor: '#3388ff',
-                color: 'white',
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.7
-              }).addTo(map).bindPopup(`
-                <div style="font-family: system-ui;">
-                  <h4 style="margin: 0 0 8px 0; font-weight: 600;">${obs.scientificName}</h4>
-                  <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${obs.state}</p>
-                  <p style="margin: 0 0 4px 0; color: #888; font-size: 12px;">${new Date(obs.observedOn).toLocaleDateString()}</p>
-                </div>
-              `);
-            }
-          });
+          console.log('[GeospatialMap] Heatmap layer added successfully');
           
           // Use continental US bounds for consistent view
           map.fitBounds(continentalUSBounds);
+        } else {
+          console.error('[GeospatialMap] Heatmap plugin not available');
+          map.fitBounds(continentalUSBounds);
         }
+      } else {
+        console.log('[GeospatialMap] No observation data available');
+        map.fitBounds(continentalUSBounds);
       }
 
       mapInstanceRef.current = map;
