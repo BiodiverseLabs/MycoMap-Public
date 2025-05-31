@@ -31,12 +31,12 @@ export default function Temporal() {
   });
 
   // Calculate growth rates from yearly data
-  const growthRates = yearlyData.slice(-3).map((curr: any, index: number, arr: any[]) => {
-    if (index === 0) return { year: curr.period, rate: 0 };
+  const growthRates = yearlyData.length > 1 ? yearlyData.slice(-4).map((curr: any, index: number, arr: any[]) => {
+    if (index === 0) return null;
     const prev = arr[index - 1];
-    const rate = ((curr.count - prev.count) / prev.count * 100).toFixed(1);
-    return { year: curr.period, rate: parseFloat(rate) };
-  }).filter((item: any) => item.rate > 0);
+    const rate = prev.count > 0 ? ((curr.count - prev.count) / prev.count * 100) : 0;
+    return { year: curr.period, rate: Number(rate.toFixed(1)) };
+  }).filter((item: any) => item !== null).slice(-3) : [];
 
   return (
     <div className="flex flex-col h-full">
@@ -136,16 +136,20 @@ export default function Temporal() {
             <CardContent>
               {yearlyLoading ? (
                 <div className="text-slate-500 text-sm">Loading...</div>
-              ) : (
+              ) : growthRates.length > 0 ? (
                 <div className="space-y-2 text-sm">
-                  {growthRates.slice(-3).map((item: any) => (
+                  {growthRates.map((item: any) => (
                     <div key={item.year} className="flex justify-between">
                       <span>{item.year}</span>
-                      <span className={`font-medium ${item.rate > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className={`font-medium ${item.rate > 0 ? 'text-green-600' : item.rate < 0 ? 'text-red-600' : 'text-gray-600'}`}>
                         {item.rate > 0 ? '+' : ''}{item.rate}%
                       </span>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="text-slate-500 text-sm">
+                  Insufficient data for growth calculation
                 </div>
               )}
             </CardContent>
