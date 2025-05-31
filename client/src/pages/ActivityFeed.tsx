@@ -93,12 +93,12 @@ export default function ActivityFeed() {
 
   // Infinite scroll handler
   const handleScroll = useCallback(() => {
-    if (
-      window.innerHeight + document.documentElement.scrollTop >=
-      document.documentElement.offsetHeight - 1000 &&
-      hasNextPage &&
-      !isFetchingNextPage
-    ) {
+    const scrollPosition = window.innerHeight + document.documentElement.scrollTop;
+    const pageHeight = document.documentElement.offsetHeight;
+    const threshold = pageHeight - 1000;
+    
+    if (scrollPosition >= threshold && hasNextPage && !isFetchingNextPage) {
+      console.log('Triggering fetchNextPage - hasNextPage:', hasNextPage, 'isFetchingNextPage:', isFetchingNextPage);
       fetchNextPage();
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
@@ -109,6 +109,15 @@ export default function ActivityFeed() {
   }, [handleScroll]);
 
   const allRecords = data?.pages.flat() || [];
+  
+  useEffect(() => {
+    console.log('Activity Feed state:', { 
+      hasNextPage, 
+      isFetchingNextPage, 
+      totalRecords: allRecords.length,
+      totalPages: data?.pages?.length || 0 
+    });
+  }, [hasNextPage, isFetchingNextPage, allRecords.length, data?.pages?.length]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
