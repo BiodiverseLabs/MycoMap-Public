@@ -180,30 +180,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Sample row:', rawData[0]);
       }
 
-      // Transform and validate data
+      // Transform and validate data using actual column names from your file
       const observations = rawData.map((row: any) => {
         return {
-          observationId: row['Observation ID'] || row['observation_id'] || `${Date.now()}-${Math.random()}`,
-          scientificName: row['Scientific Name'] || row['scientific_name'] || '',
-          commonName: row['Common Name'] || row['common_name'] || null,
-          phylum: row['Phylum'] || row['phylum'] || null,
-          class: row['Class'] || row['class'] || null,
-          order: row['Order'] || row['order'] || null,
-          family: row['Family'] || row['family'] || null,
-          genus: row['Genus'] || row['genus'] || null,
-          species: row['Species'] || row['species'] || null,
-          infraspecies: row['Infraspecies'] || row['infraspecies'] || null,
-          observer: row['Observer'] || row['observer'] || null,
-          collector: row['Collector'] || row['collector'] || null,
-          observedOn: row['Observed On'] || row['observed_on'] || null,
-          latitude: row['Latitude'] || row['latitude'] || null,
-          longitude: row['Longitude'] || row['longitude'] || null,
-          placeGuess: row['Place Guess'] || row['place_guess'] || null,
-          state: row['State'] || row['state'] || null,
-          country: row['Country'] || row['country'] || null,
-          genbankAccession: row['GenBank Accession'] || row['genbank_accession'] || null,
-          isFirstStateRecord: Boolean(row['First State Record'] || row['is_first_state_record']),
-          hasMultipleGenotypes: Boolean(row['Multiple Genotypes'] || row['has_multiple_genotypes']),
+          observationId: row['Reference Number'] || `${Date.now()}-${Math.random()}`,
+          scientificName: `${row['Genus'] || ''} ${row['Species'] || ''}`.trim(),
+          commonName: null, // Not present in your data
+          phylum: row['Phylum'] || null,
+          class: row['Class'] || null,
+          order: row['Order'] || null,
+          family: row['Family'] || null,
+          genus: row['Genus'] || null,
+          species: row['Species'] || null,
+          infraspecies: null, // Not present in your data
+          observer: row['Sequence Owner'] || null,
+          collector: row['Collector'] || null,
+          observedOn: row['Report Date'] || null,
+          latitude: row['Latitude'] ? String(row['Latitude']) : null,
+          longitude: row['Longitude'] ? String(row['Longitude']) : null,
+          placeGuess: row['City'] || null,
+          state: row['State'] || null,
+          country: row['Country'] || null,
+          genbankAccession: row['GenBank Accession #'] || null,
+          isFirstStateRecord: row['First State Record'] === 'yes',
+          hasMultipleGenotypes: row['Multiple Genotypes Under Name'] === 'yes',
           source: row['Source'] || row['source'] || 'Unknown',
           sourceUrl: row['Source URL'] || row['source_url'] || null,
         };
