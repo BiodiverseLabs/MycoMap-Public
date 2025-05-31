@@ -159,11 +159,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Processing Excel file:', filePath);
       console.log('File exists:', fs.existsSync(filePath));
       
-      // Dynamically import XLSX
-      const XLSX = await import('xlsx');
+      // Dynamically import XLSX with proper module resolution
+      const { readFile, utils } = await import('xlsx');
       
       // Read Excel file
-      const workbook = XLSX.readFile(filePath);
+      const workbook = readFile(filePath);
       console.log('Workbook loaded, sheet names:', workbook.SheetNames);
       const sheetName = workbook.SheetNames.find((name: string) => 
         name.toLowerCase().includes('validated') || 
@@ -171,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ) || workbook.SheetNames[0];
       
       const worksheet = workbook.Sheets[sheetName];
-      const rawData = XLSX.utils.sheet_to_json(worksheet);
+      const rawData = utils.sheet_to_json(worksheet);
 
       // Transform and validate data
       const observations = rawData.map((row: any) => {
