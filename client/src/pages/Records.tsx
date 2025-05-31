@@ -303,28 +303,28 @@ function MostSpecies() {
             No species discovery data found
           </div>
         ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {speciesData.slice(0, 15).map((contributor, index) => {
+          <div className="space-y-1.5 max-h-72 overflow-y-auto">
+            {speciesData.slice(0, 10).map((contributor, index) => {
               const isTopThree = index < 3;
               const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
               
               return (
-                <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
+                <div key={contributor.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
                     <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
                       isTopThree ? badgeColors[index] : 'bg-muted-foreground'
                     }`}>
                       {index + 1}
                     </span>
-                    <div>
-                      <div className={isTopThree ? "font-semibold" : "font-medium"}>{contributor.name}</div>
+                    <div className="min-w-0">
+                      <div className={`${isTopThree ? "font-semibold" : "font-medium"} truncate text-sm`}>{contributor.name}</div>
                       {contributor.affiliation && (
-                        <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
+                        <div className="text-xs text-muted-foreground truncate">{contributor.affiliation}</div>
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{contributor.speciesCount.toLocaleString()}</div>
+                  <div className="text-right flex-shrink-0">
+                    <div className={isTopThree ? "font-bold text-sm" : "font-semibold text-sm"}>{contributor.speciesCount.toLocaleString()}</div>
                     <div className="text-xs text-muted-foreground">species</div>
                   </div>
                 </div>
