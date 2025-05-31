@@ -19,7 +19,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  max: 10, // Maximum number of connections in the pool
+});
 export const db = drizzle({ client: pool, schema });
 
 export class DatabaseStorage implements IStorage {
@@ -684,30 +687,29 @@ export class DatabaseStorage implements IStorage {
     longitude: number;
     species?: string;
   }>> {
-    const { gpsIndex } = schema;
     const startTime = Date.now();
     
     try {
-      let query = db.select({
-        latitude: gpsIndex.latitude,
-        longitude: gpsIndex.longitude,
-        species: gpsIndex.species,
-      }).from(gpsIndex);
-
-      if (state) {
-        query = query.where(eq(gpsIndex.state, state));
-      }
-
-      query = query.limit(limit);
+      // Use raw SQL to bypass any ORM limits
+      let sqlQuery = `
+        SELECT latitude, longitude, species 
+        FROM gps_index 
+      `;
       
-      const result = await query;
+      if (state) {
+        sqlQuery += ` WHERE state = '${state.replace(/'/g, "''")}'`;
+      }
+      
+      sqlQuery += ` LIMIT ${limit}`;
+      
+      const result = await db.execute(sql.raw(sqlQuery));
       const endTime = Date.now();
       
-      console.log(`[GPS Index] Retrieved ${result.length} coordinates in ${endTime - startTime}ms (state: ${state || 'all'})`);
+      console.log(`[GPS Index] Retrieved ${result.rows.length} coordinates in ${endTime - startTime}ms (state: ${state || 'all'})`);
       
-      return result.map(row => ({
-        latitude: parseFloat(row.latitude.toString()),
-        longitude: parseFloat(row.longitude.toString()),
+      return result.rows.map((row: any) => ({
+        latitude: parseFloat(row.latitude),
+        longitude: parseFloat(row.longitude),
         species: row.species || undefined,
       }));
     } catch (error) {
