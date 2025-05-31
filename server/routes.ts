@@ -407,6 +407,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Global first records endpoints
+  app.get("/api/states/global-firsts", async (req, res) => {
+    try {
+      const { state } = req.query;
+      const data = await storage.getStatesWithMostGlobalFirsts(state as string);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching states with global firsts:", error);
+      res.status(500).json({ error: "Failed to fetch states with global firsts" });
+    }
+  });
+
+  app.get("/api/contributors/global-firsts", async (req, res) => {
+    try {
+      const { state, limit } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 10;
+      const data = await storage.getContributorsWithMostGlobalFirsts(limitNum, state as string);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching contributors with global firsts:", error);
+      res.status(500).json({ error: "Failed to fetch contributors with global firsts" });
+    }
+  });
+
   // Upload endpoints
   app.get("/api/uploads", async (req, res) => {
     try {

@@ -105,6 +105,21 @@ export interface IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>>;
+  
+  // Global first records analytics
+  getStatesWithMostGlobalFirsts(filterState?: string): Promise<Array<{
+    state: string;
+    globalFirstCount: number;
+    percentage: number;
+  }>>;
+  
+  getContributorsWithMostGlobalFirsts(limit?: number, filterState?: string): Promise<Array<{
+    id: string;
+    name: string;
+    affiliation?: string;
+    globalFirstCount: number;
+    percentage: number;
+  }>>;
 }
 
 export class MemoryStorage implements IStorage {

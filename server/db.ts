@@ -8,7 +8,7 @@ import {
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies
 } from "@shared/schema";
-import { eq, sql, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and, or, isNotNull, ne, sql, count } from 'drizzle-orm';
 import type { IStorage } from "./storage";
 
 neonConfig.webSocketConstructor = ws;
@@ -818,6 +818,91 @@ export class DatabaseStorage implements IStorage {
       longitude: parseFloat(row.longitude!),
       species: row.species || undefined,
     }));
+  }
+
+  async getStatesWithMostGlobalFirsts(filterState?: string): Promise<Array<{
+    state: string;
+    globalFirstCount: number;
+    percentage: number;
+  }>> {
+    const { observations } = schema;
+    
+    try {
+      let query = db
+        .select({
+          state: observations.state,
+          globalFirstCount: sql<number>`COUNT(*)`.as('globalFirstCount')
+        })
+        .from(observations)
+        .where(eq(observations.isFirstGlobal, true))
+        .groupBy(observations.state)
+        .orderBy(sql`COUNT(*) DESC`)
+        .limit(20);
+
+      if (filterState) {
+        query = query.where(eq(observations.state, filterState));
+      }
+
+      const results = await query;
+      
+      // Calculate total global firsts for percentage calculation
+      const totalGlobalFirsts = results.reduce((sum, item) => sum + item.globalFirstCount, 0);
+      
+      return results.map(item => ({
+        state: item.state,
+        globalFirstCount: item.globalFirstCount,
+        percentage: totalGlobalFirsts > 0 ? (item.globalFirstCount / totalGlobalFirsts) * 100 : 0
+      }));
+    } catch (error) {
+      console.error('Error fetching states with most global firsts:', error);
+      return [];
+    }
+  }
+
+  async getContributorsWithMostGlobalFirsts(limit: number = 10, filterState?: string): Promise<Array<{
+    id: string;
+    name: string;
+    affiliation?: string;
+    globalFirstCount: number;
+    percentage: number;
+  }>> {
+    const { observations, contributors } = schema;
+    
+    try {
+      let query = db
+        .select({
+          id: contributors.id,
+          name: contributors.name,
+          affiliation: contributors.affiliation,
+          globalFirstCount: sql<number>`COUNT(*)`.as('globalFirstCount')
+        })
+        .from(observations)
+        .innerJoin(contributors, eq(observations.contributorId, contributors.id))
+        .where(eq(observations.isFirstGlobal, true))
+        .groupBy(contributors.id, contributors.name, contributors.affiliation)
+        .orderBy(sql`COUNT(*) DESC`)
+        .limit(limit);
+
+      if (filterState) {
+        query = query.where(eq(observations.state, filterState));
+      }
+
+      const results = await query;
+      
+      // Calculate total global firsts for percentage calculation
+      const totalGlobalFirsts = results.reduce((sum, item) => sum + item.globalFirstCount, 0);
+      
+      return results.map(item => ({
+        id: item.id,
+        name: item.name,
+        affiliation: item.affiliation || undefined,
+        globalFirstCount: item.globalFirstCount,
+        percentage: totalGlobalFirsts > 0 ? (item.globalFirstCount / totalGlobalFirsts) * 100 : 0
+      }));
+    } catch (error) {
+      console.error('Error fetching contributors with most global firsts:', error);
+      return [];
+    }
   }
 
   async clearAllData(): Promise<void> {
