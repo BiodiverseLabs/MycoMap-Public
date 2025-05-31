@@ -87,27 +87,40 @@ export function ObservationSources({ dateRange }: ObservationSourcesProps) {
       </CardHeader>
       <CardContent>
         {sources.length > 0 ? (
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={sources}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ source, percentage }) => `${source} (${percentage.toFixed(1)}%)`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                >
-                  {sources.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="space-y-4">
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={sources}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={70}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {sources.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-1 gap-2 text-xs">
+              {sources.map((source, index) => (
+                <div key={source.source} className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded" 
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span className="text-slate-700">
+                    {source.source} ({source.percentage.toFixed(1)}%)
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="h-64 flex items-center justify-center">
