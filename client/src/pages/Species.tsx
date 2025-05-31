@@ -407,18 +407,38 @@ export default function Species() {
             ) : accumulationData.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={accumulationData}>
+                  <LineChart data={accumulationData} margin={{ top: 5, right: 30, left: 80, bottom: 60 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="observationNumber" 
-                      label={{ value: 'Number of Observations', position: 'insideBottom', offset: -5 }}
+                      tickFormatter={(value) => {
+                        if (value >= 10000) {
+                          return `${(value / 1000).toFixed(0)}k`;
+                        }
+                        return value.toString();
+                      }}
+                      interval="preserveStartEnd"
+                      tick={{ fontSize: 12 }}
+                      label={{ value: 'Number of Observations', position: 'insideBottom', offset: -10 }}
                     />
                     <YAxis 
-                      label={{ value: 'Cumulative Species Count', angle: -90, position: 'insideLeft' }}
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => {
+                        if (value >= 1000) {
+                          return `${(value / 1000).toFixed(0)}k`;
+                        }
+                        return value.toString();
+                      }}
+                      label={{ 
+                        value: 'Cumulative Species Count', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { textAnchor: 'middle' }
+                      }}
                     />
                     <Tooltip 
-                      formatter={(value, name) => [value, 'Species Count']}
-                      labelFormatter={(label) => `Observation ${label}`}
+                      formatter={(value, name) => [value.toLocaleString(), 'Species Count']}
+                      labelFormatter={(label) => `Observation ${label.toLocaleString()}`}
                     />
                     <Line 
                       type="monotone" 
