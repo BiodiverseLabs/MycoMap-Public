@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertObservationSchema, insertUploadSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
-import * as XLSX from 'xlsx';
+// XLSX will be imported dynamically
 import path from "path";
 import fs from "fs";
 
@@ -159,10 +159,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Processing Excel file:', filePath);
       console.log('File exists:', fs.existsSync(filePath));
       
+      // Dynamically import XLSX
+      const XLSX = await import('xlsx');
+      
       // Read Excel file
       const workbook = XLSX.readFile(filePath);
       console.log('Workbook loaded, sheet names:', workbook.SheetNames);
-      const sheetName = workbook.SheetNames.find(name => 
+      const sheetName = workbook.SheetNames.find((name: string) => 
         name.toLowerCase().includes('validated') || 
         name.toLowerCase().includes('observation')
       ) || workbook.SheetNames[0];
