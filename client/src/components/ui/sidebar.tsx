@@ -7,7 +7,8 @@ import {
   GitBranch, 
   Users, 
   Dna, 
-  Settings 
+  Settings,
+  Activity
 } from "lucide-react";
 import { Button } from "./button";
 
@@ -20,6 +21,7 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
 
   const navigationItems = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
+    { href: "/activity", label: "Activity Feed", icon: Activity },
     { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar } from "@/components/ui/sidebar";
 import { useState } from "react";
 import Dashboard from "@/pages/Dashboard";
+import ActivityFeed from "@/pages/ActivityFeed";
 import Geospatial from "@/pages/Geospatial";
 import Temporal from "@/pages/Temporal";
 import Taxonomic from "@/pages/Taxonomic";
@@ -20,6 +21,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/activity" component={ActivityFeed} />
       <Route path="/geospatial" component={Geospatial} />
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
