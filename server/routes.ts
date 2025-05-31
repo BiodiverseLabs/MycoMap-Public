@@ -458,19 +458,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all observations to match observer names
       const observations = await storage.getAllObservations();
       
-      // Create a map of observation IDs to observer names
-      const observerMap = new Map<number, string>();
+      // Create a map of observation IDs to collector names
+      const collectorMap = new Map<number, string>();
       observations.forEach(obs => {
-        if (obs.observer) {
-          observerMap.set(obs.id, obs.observer);
+        if (obs.collector) {
+          collectorMap.set(obs.id, obs.collector);
         }
       });
       
-      // Group by observer and count
+      // Group by collector and count
       const contributorGroups = filteredRecords.reduce((acc, record) => {
-        const observerName = observerMap.get(record.id);
-        if (observerName) {
-          acc[observerName] = (acc[observerName] || 0) + 1;
+        const collectorName = collectorMap.get(record.id);
+        if (collectorName) {
+          acc[collectorName] = (acc[collectorName] || 0) + 1;
         }
         return acc;
       }, {} as Record<string, number>);
