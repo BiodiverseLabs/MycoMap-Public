@@ -46,13 +46,11 @@ export default function Geospatial() {
         <div className="space-y-8">
           <GeospatialMap onStateSelect={handleStateSelect} selectedState={selectedState} />
           
-          {selectedState && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <StateRecords state={selectedState} />
-              <TopContributors state={selectedState} />
-              <SpeciesFrequency state={selectedState} />
-            </div>
-          )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <StateRecords state={selectedState || undefined} />
+            <TopContributors state={selectedState || undefined} />
+            <SpeciesFrequency state={selectedState || undefined} />
+          </div>
         </div>
       </div>
     </div>
