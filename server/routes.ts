@@ -82,6 +82,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/observations/summary", async (req, res) => {
+    try {
+      const { dateRange, aggregate } = req.query;
+      
+      console.log(`[API] GET /api/observations/summary - dateRange: "${dateRange}", aggregate: "${aggregate}"`);
+      
+      // Convert dateRange to actual dates (same logic as other endpoints)
+      let actualStartDate: string | undefined;
+      let actualEndDate: string | undefined;
+      
+      if (dateRange === 'last_30_days') {
+        actualStartDate = '2025-01-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'last_6_months') {
+        actualStartDate = '2024-10-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'last_year') {
+        actualStartDate = '2024-01-01';
+        actualEndDate = '2025-04-18';
+      }
+      
+      let observations;
+      if (actualStartDate && actualEndDate) {
+        observations = await storage.getObservationsByDateRange(actualStartDate, actualEndDate);
+      } else {
+        observations = await storage.getAllObservations();
+      }
+      
+      if (aggregate === 'states') {
+        // Group observations by state and count them
+        const stateCounts = observations.reduce((acc: { [key: string]: number }, obs) => {
+          if (obs.state) {
+            acc[obs.state] = (acc[obs.state] || 0) + 1;
+          }
+          return acc;
+        }, {});
+        
+        // Convert to array format sorted by count
+        const stateArray = Object.entries(stateCounts)
+          .map(([state, count]) => ({ state, count }))
+          .sort((a, b) => b.count - a.count);
+        
+        res.json(stateArray);
+      } else {
+        res.json([]);
+      }
+    } catch (error) {
+      console.error("Error fetching observation summary:", error);
+      res.status(500).json({ error: "Failed to fetch observation summary" });
+    }
+  });
+
   app.get("/api/metrics", async (req, res) => {
     try {
       const { startDate, endDate, dateRange } = req.query;

@@ -25,16 +25,39 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
+  // Fetch observations with state filtering
   const { data: observations = [], isLoading } = useQuery<Observation[]>({
-    queryKey: ["/api/observations", dateRange],
+    queryKey: ["/api/observations", dateRange, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
-      params.append('limit', '2000');
+      if (selectedState) {
+        params.append('state', selectedState);
+        // Use higher limit for state-specific data since it's smaller
+        params.append('limit', '10000');
+      } else {
+        // Use 7000 limit for all data
+        params.append('limit', '7000');
+      }
       const response = await fetch(`/api/observations?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch observations');
+      return response.json();
+    }
+  });
+
+  // Fetch state counts from full dataset for filters
+  const { data: stateCounts = [] } = useQuery({
+    queryKey: ["/api/state-counts", dateRange],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange) {
+        params.append('dateRange', dateRange);
+      }
+      params.append('aggregate', 'states');
+      const response = await fetch(`/api/observations/summary?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch state counts');
       return response.json();
     }
   });
@@ -57,25 +80,10 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     return true;
   });
 
-  // Group observations by state for state selector
-  const stateGroups = observations.reduce((acc, obs) => {
-    const state = obs.state || 'Unknown';
-    if (!acc[state]) {
-      acc[state] = { count: 0, species: new Set() };
-    }
-    acc[state].count++;
-    acc[state].species.add(obs.scientificName);
-    return acc;
-  }, {} as Record<string, { count: number; species: Set<string> }>);
-
-  const sortedStates = Object.entries(stateGroups)
-    .map(([state, data]) => ({
-      state,
-      count: data.count,
-      speciesCount: data.species.size
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 15); // Show top 15 states
+  // Use full dataset state counts for filter sidebar
+  const sortedStates = stateCounts
+    .filter((item: any) => item.state && item.state !== 'Unknown')
+    .slice(0, 20); // Show top 20 states from full dataset
 
   // Initialize map when component mounts and observations are available
   useEffect(() => {
@@ -321,7 +329,7 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
                   >
                     <div className="font-medium">{item.state}</div>
                     <div className="text-xs text-slate-500">
-                      {item.count.toLocaleString()} obs, {item.speciesCount} species
+                      {item.count.toLocaleString()} observations
                     </div>
                   </button>
                 ))}
