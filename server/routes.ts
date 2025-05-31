@@ -41,7 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter by species if specified
       if (species) {
         observations = observations.filter(obs => 
-          obs.scientificName === species
+          obs.species === species || obs.scientificName === species
         );
       }
       
