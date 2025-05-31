@@ -35,6 +35,18 @@ export interface IStorage {
     count: number;
   }>>;
   
+  getSeasonalPatterns(): Promise<Array<{
+    season: string;
+    count: number;
+    percentage: number;
+  }>>;
+  
+  getMonthlyStatistics(): Promise<Array<{
+    month: string;
+    count: number;
+    monthNumber: number;
+  }>>;
+  
   getTopContributors(limit?: number, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]>;
   getTopSpecies(limit?: number, state?: string): Promise<Species[]>;
   getRareSpecies(maxObservations?: number, state?: string): Promise<Species[]>;
@@ -230,6 +242,56 @@ export class MemoryStorage implements IStorage {
     return Array.from(distribution.entries())
       .map(([phylum, count]) => ({ phylum, count }))
       .sort((a, b) => b.count - a.count);
+  }
+
+  async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {
+    const seasons = new Map<string, number>();
+    let total = 0;
+
+    this.observations.forEach(obs => {
+      if (!obs.observedOn) return;
+      const date = new Date(obs.observedOn);
+      const month = date.getMonth() + 1;
+      
+      let season: string;
+      if (month === 12 || month === 1 || month === 2) season = 'Winter';
+      else if (month >= 3 && month <= 5) season = 'Spring';
+      else if (month >= 6 && month <= 8) season = 'Summer';
+      else season = 'Fall';
+      
+      seasons.set(season, (seasons.get(season) || 0) + 1);
+      total++;
+    });
+
+    return Array.from(seasons.entries())
+      .map(([season, count]) => ({
+        season,
+        count,
+        percentage: Number(((count / total) * 100).toFixed(1))
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  async getMonthlyStatistics(): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
+    const months = new Map<number, number>();
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+
+    this.observations.forEach(obs => {
+      if (!obs.observedOn) return;
+      const date = new Date(obs.observedOn);
+      const monthNum = date.getMonth() + 1;
+      months.set(monthNum, (months.get(monthNum) || 0) + 1);
+    });
+
+    return Array.from(months.entries())
+      .map(([monthNumber, count]) => ({
+        month: monthNames[monthNumber - 1],
+        count,
+        monthNumber
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
   }
 
   async getTopContributors(limit: number = 10): Promise<Contributor[]> {

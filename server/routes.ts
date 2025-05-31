@@ -91,6 +91,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/seasonal-patterns", async (req, res) => {
+    try {
+      const patterns = await storage.getSeasonalPatterns();
+      res.json(patterns);
+    } catch (error) {
+      console.error("Error fetching seasonal patterns:", error);
+      res.status(500).json({ error: "Failed to fetch seasonal patterns" });
+    }
+  });
+
+  app.get("/api/monthly-statistics", async (req, res) => {
+    try {
+      const stats = await storage.getMonthlyStatistics();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching monthly statistics:", error);
+      res.status(500).json({ error: "Failed to fetch monthly statistics" });
+    }
+  });
+
   app.get("/api/taxonomic-distribution", async (req, res) => {
     try {
       const distribution = await storage.getTaxonomicDistribution();

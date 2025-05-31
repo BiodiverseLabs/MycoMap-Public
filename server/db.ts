@@ -146,6 +146,51 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ phylum: string; count: number }>;
   }
 
+  async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {
+    const result = await db.execute(sql`
+      WITH seasonal_data AS (
+        SELECT 
+          CASE 
+            WHEN EXTRACT(MONTH FROM ${observations.observedOn}::date) IN (12, 1, 2) THEN 'Winter'
+            WHEN EXTRACT(MONTH FROM ${observations.observedOn}::date) IN (3, 4, 5) THEN 'Spring'
+            WHEN EXTRACT(MONTH FROM ${observations.observedOn}::date) IN (6, 7, 8) THEN 'Summer'
+            WHEN EXTRACT(MONTH FROM ${observations.observedOn}::date) IN (9, 10, 11) THEN 'Fall'
+          END as season,
+          COUNT(*) as count
+        FROM ${observations}
+        WHERE ${observations.observedOn} IS NOT NULL
+        GROUP BY season
+      ),
+      total_count AS (
+        SELECT SUM(count) as total FROM seasonal_data
+      )
+      SELECT 
+        s.season,
+        s.count::int,
+        ROUND((s.count::numeric / t.total::numeric * 100), 1) as percentage
+      FROM seasonal_data s, total_count t
+      ORDER BY s.count DESC
+    `);
+    
+    return result.rows as Array<{ season: string; count: number; percentage: number }>;
+  }
+
+  async getMonthlyStatistics(): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
+    const result = await db.execute(sql`
+      SELECT 
+        TO_CHAR(${observations.observedOn}::date, 'Month') as month,
+        EXTRACT(MONTH FROM ${observations.observedOn}::date)::int as "monthNumber",
+        COUNT(*)::int as count
+      FROM ${observations}
+      WHERE ${observations.observedOn} IS NOT NULL
+      GROUP BY EXTRACT(MONTH FROM ${observations.observedOn}::date), TO_CHAR(${observations.observedOn}::date, 'Month')
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+    
+    return result.rows as Array<{ month: string; count: number; monthNumber: number }>;
+  }
+
   async getTopContributors(limit: number = 10, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]> {
     let whereConditions = [sql`${observations.collector} IS NOT NULL`];
     
