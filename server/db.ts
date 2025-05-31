@@ -280,4 +280,75 @@ export class DatabaseStorage implements IStorage {
       return newSpecies;
     }
   }
+
+  async getRecordIndex(limit: number = 50, offset: number = 0): Promise<Array<{
+    id: number;
+    species: string;
+    state: string;
+    reportDate: string;
+    source: string;
+    referenceNumber: string;
+    datasetRecordNumber: number;
+    stateRecordNumber: number;
+    isFirstGlobal: boolean;
+    isFirstInState: boolean;
+  }>> {
+    const result = await db.execute(sql`
+      WITH ranked_observations AS (
+        SELECT 
+          ${observations.id} as id,
+          ${observations.species} as species,
+          ${observations.state} as state,
+          ${observations.observedOn} as "reportDate",
+          COALESCE(${observations.source}, 'Unknown') as source,
+          COALESCE(${observations.observationId}, 'N/A') as "referenceNumber",
+          ROW_NUMBER() OVER (
+            ORDER BY ${observations.observedOn}, ${observations.species}
+          ) as "datasetRecordNumber",
+          ROW_NUMBER() OVER (
+            PARTITION BY ${observations.state}
+            ORDER BY ${observations.observedOn}, ${observations.species}
+          ) as "stateRecordNumber",
+          ROW_NUMBER() OVER (
+            PARTITION BY ${observations.species}
+            ORDER BY ${observations.observedOn}
+          ) as species_rank_global,
+          ROW_NUMBER() OVER (
+            PARTITION BY ${observations.species}, ${observations.state}
+            ORDER BY ${observations.observedOn}
+          ) as species_rank_state
+        FROM ${observations}
+        WHERE ${observations.species} IS NOT NULL 
+          AND ${observations.species} != ''
+          AND ${observations.observedOn} IS NOT NULL
+      )
+      SELECT 
+        id,
+        species,
+        state,
+        "reportDate",
+        source,
+        "referenceNumber",
+        "datasetRecordNumber",
+        "stateRecordNumber",
+        CASE WHEN species_rank_global = 1 THEN true ELSE false END as "isFirstGlobal",
+        CASE WHEN species_rank_state = 1 THEN true ELSE false END as "isFirstInState"
+      FROM ranked_observations
+      ORDER BY "datasetRecordNumber"
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+    
+    return result.rows as Array<{
+      id: number;
+      species: string;
+      state: string;
+      reportDate: string;
+      source: string;
+      referenceNumber: string;
+      datasetRecordNumber: number;
+      stateRecordNumber: number;
+      isFirstGlobal: boolean;
+      isFirstInState: boolean;
+    }>;
+  }
 }

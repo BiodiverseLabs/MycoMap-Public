@@ -160,6 +160,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/record-index", async (req, res) => {
+    try {
+      const { limit = '50', offset = '0' } = req.query;
+      const index = await storage.getRecordIndex(parseInt(limit as string), parseInt(offset as string));
+      res.json(index);
+    } catch (error) {
+      console.error("Error fetching record index:", error);
+      res.status(500).json({ error: "Failed to fetch record index" });
+    }
+  });
+
   // Upload endpoints
   app.get("/api/uploads", async (req, res) => {
     try {

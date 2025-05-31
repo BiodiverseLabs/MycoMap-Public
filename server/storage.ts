@@ -48,6 +48,20 @@ export interface IStorage {
   // Contributors and Species
   upsertContributor(contributor: InsertContributor): Promise<Contributor>;
   upsertSpecies(species: InsertSpecies): Promise<Species>;
+  
+  // Record Index
+  getRecordIndex(limit?: number, offset?: number): Promise<Array<{
+    id: number;
+    species: string;
+    state: string;
+    reportDate: string;
+    source: string;
+    referenceNumber: string;
+    datasetRecordNumber: number;
+    stateRecordNumber: number;
+    isFirstGlobal: boolean;
+    isFirstInState: boolean;
+  }>>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -302,6 +316,53 @@ export class MemoryStorage implements IStorage {
       this.species.push(newSpecies);
       return newSpecies;
     }
+  }
+
+  async getRecordIndex(limit: number = 50, offset: number = 0): Promise<Array<{
+    id: number;
+    species: string;
+    state: string;
+    reportDate: string;
+    source: string;
+    referenceNumber: string;
+    datasetRecordNumber: number;
+    stateRecordNumber: number;
+    isFirstGlobal: boolean;
+    isFirstInState: boolean;
+  }>> {
+    // Memory storage implementation - basic version
+    const sortedObs = this.observations
+      .filter(obs => obs.species && obs.observedOn)
+      .sort((a, b) => {
+        const dateA = new Date(a.observedOn).getTime();
+        const dateB = new Date(b.observedOn).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        return a.species!.localeCompare(b.species!);
+      });
+
+    const result = sortedObs.slice(offset, offset + limit).map((obs, index) => {
+      const globalIndex = offset + index + 1;
+      const stateObs = sortedObs.filter(o => o.state === obs.state);
+      const stateIndex = stateObs.findIndex(o => o.id === obs.id) + 1;
+      
+      const firstGlobalForSpecies = sortedObs.find(o => o.species === obs.species);
+      const firstStateForSpecies = stateObs.find(o => o.species === obs.species);
+      
+      return {
+        id: obs.id,
+        species: obs.species!,
+        state: obs.state || 'Unknown',
+        reportDate: obs.observedOn,
+        source: obs.source || 'Unknown',
+        referenceNumber: obs.observationId || 'N/A',
+        datasetRecordNumber: globalIndex,
+        stateRecordNumber: stateIndex,
+        isFirstGlobal: firstGlobalForSpecies?.id === obs.id,
+        isFirstInState: firstStateForSpecies?.id === obs.id
+      };
+    });
+
+    return result;
   }
 }
 
