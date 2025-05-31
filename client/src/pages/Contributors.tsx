@@ -42,9 +42,17 @@ export default function Contributors() {
   const contributorStats = selectedContributor ? (() => {
     const observations = contributorObservations;
     
-    // Top species
+    // Top species - use clean species name construction
     const speciesCounts = observations.reduce((acc: { [key: string]: number }, obs: any) => {
-      acc[obs.scientificName] = (acc[obs.scientificName] || 0) + 1;
+      // Use species field if available, otherwise construct from genus + species, fallback to scientificName
+      let speciesName = obs.species;
+      if (!speciesName && obs.genus && obs.species) {
+        speciesName = `${obs.genus} ${obs.species}`;
+      } else if (!speciesName) {
+        speciesName = obs.scientificName;
+      }
+      
+      acc[speciesName] = (acc[speciesName] || 0) + 1;
       return acc;
     }, {});
     const topSpecies = Object.entries(speciesCounts)
