@@ -62,22 +62,16 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     }
   });
 
-  // Filter observations with valid coordinates and by state if selected
+  // GPS index returns pre-validated coordinates, minimal filtering needed
   const validObservations = observations.filter(obs => {
-    // Handle both string and number coordinates from database
-    const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
-    const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
+    const lat = obs.latitude;
+    const lng = obs.longitude;
     
-    const hasValidCoords = lat && lng && 
+    return lat && lng && 
       !isNaN(lat) && !isNaN(lng) &&
       lat !== 0 && lng !== 0 &&
       lat >= -90 && lat <= 90 &&
       lng >= -180 && lng <= 180;
-    
-    if (!hasValidCoords) return false;
-    if (selectedState && obs.state !== selectedState) return false;
-    
-    return true;
   });
 
   // Use full dataset state counts for filter sidebar with sorting
