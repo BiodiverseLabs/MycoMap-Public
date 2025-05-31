@@ -14,7 +14,7 @@ interface ObservationSourcesProps {
 }
 
 export function ObservationSources({ dateRange }: ObservationSourcesProps) {
-  const { data: sources = [], isLoading } = useQuery<SourceData[]>({
+  const { data: rawSources = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/observation-sources", dateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -27,6 +27,13 @@ export function ObservationSources({ dateRange }: ObservationSourcesProps) {
       return response.json();
     }
   });
+
+  // Convert string values to numbers
+  const sources: SourceData[] = rawSources.map(source => ({
+    source: source.source,
+    count: parseInt(source.count),
+    percentage: parseFloat(source.percentage)
+  }));
 
   const COLORS = [
     '#10B981', // Green for iNaturalist
