@@ -37,9 +37,9 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       const params = new URLSearchParams();
       if (selectedState) {
         params.append('state', selectedState);
-        params.append('limit', '15000');
+        params.append('limit', '75000');
       } else {
-        params.append('limit', '15000');
+        params.append('limit', '75000');
       }
       const response = await fetch(`/api/map-data?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch map data');

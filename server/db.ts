@@ -679,7 +679,7 @@ export class DatabaseStorage implements IStorage {
     console.log('[GPS Index] GPS index rebuilt successfully');
   }
 
-  async getMapDataOptimized(limit: number = 15000, state?: string): Promise<Array<{
+  async getMapDataOptimized(limit: number = 75000, state?: string): Promise<Array<{
     latitude: number;
     longitude: number;
     species?: string;

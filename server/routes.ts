@@ -210,10 +210,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Optimized map data endpoint using GPS index
   app.get("/api/map-data", async (req, res) => {
     try {
-      const { limit = "15000", state } = req.query;
+      const { limit = "75000", state } = req.query;
       console.log(`[API] GET /api/map-data - limit: "${limit}", state: "${state}"`);
 
-      const limitNum = Math.min(parseInt(limit as string) || 15000, 20000);
+      const limitNum = Math.min(parseInt(limit as string) || 75000, 75000);
       const mapData = await storage.getMapDataOptimized(limitNum, state as string);
 
       console.log(`[API] Returning ${mapData.length} map coordinates`);
