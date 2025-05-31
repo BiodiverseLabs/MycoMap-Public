@@ -281,7 +281,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false): Promise<Array<{
     id: number;
     species: string;
     state: string;

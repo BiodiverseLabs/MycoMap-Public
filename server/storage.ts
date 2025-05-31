@@ -50,7 +50,7 @@ export interface IStorage {
   upsertSpecies(species: InsertSpecies): Promise<Species>;
   
   // Record Index
-  getRecordIndex(limit?: number, offset?: number, stateFirstsOnly?: boolean): Promise<Array<{
+  getRecordIndex(limit?: number, offset?: number, stateFirstsOnly?: boolean, recent?: boolean): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -318,7 +318,7 @@ export class MemoryStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -367,9 +367,16 @@ export class MemoryStorage implements IStorage {
     });
 
     // Filter for state firsts only if requested
-    const filteredResult = stateFirstsOnly 
+    let filteredResult = stateFirstsOnly 
       ? result.filter(record => record.isFirstInState)
       : result;
+
+    // If recent is requested, show records that are either global firsts or state firsts, ordered by most recent date
+    if (recent) {
+      filteredResult = result
+        .filter(record => record.isFirstGlobal || record.isFirstInState)
+        .sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
+    }
 
     return filteredResult.slice(offset, offset + limit);
   }

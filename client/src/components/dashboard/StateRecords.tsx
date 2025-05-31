@@ -21,10 +21,10 @@ interface StateRecordsProps {
 
 export function StateRecords({ dateRange }: StateRecordsProps) {
   const { data: records = [], isLoading } = useQuery<StateRecord[]>({
-    queryKey: ["/api/record-index", { stateFirstsOnly: true }],
+    queryKey: ["/api/record-index", { recent: true }],
     queryFn: async () => {
-      const response = await fetch('/api/record-index?limit=10&stateFirstsOnly=true');
-      if (!response.ok) throw new Error('Failed to fetch state records');
+      const response = await fetch('/api/record-index?limit=10&recent=true');
+      if (!response.ok) throw new Error('Failed to fetch recent records');
       return response.json();
     }
   });
@@ -77,7 +77,7 @@ export function StateRecords({ dateRange }: StateRecordsProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Recent State Records</CardTitle>
+          <CardTitle>Recent Records</CardTitle>
           <Badge className="bg-green-100 text-green-800">New Discoveries</Badge>
         </div>
       </CardHeader>
@@ -89,7 +89,6 @@ export function StateRecords({ dateRange }: StateRecordsProps) {
                 <th className="text-left text-sm font-medium text-slate-600 pb-3">Species</th>
                 <th className="text-left text-sm font-medium text-slate-600 pb-3">State</th>
                 <th className="text-left text-sm font-medium text-slate-600 pb-3">Date</th>
-                <th className="text-left text-sm font-medium text-slate-600 pb-3">Record #</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -100,15 +99,15 @@ export function StateRecords({ dateRange }: StateRecordsProps) {
                     {record.isFirstGlobal && (
                       <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">1st Global</Badge>
                     )}
+                    {record.isFirstInState && (
+                      <Badge className="ml-2 bg-green-100 text-green-800 text-xs">1st State</Badge>
+                    )}
                   </td>
                   <td className="py-3 text-sm text-slate-600">
                     {record.state}
                   </td>
                   <td className="py-3 text-sm text-slate-600">
                     {formatDate(record.reportDate)}
-                  </td>
-                  <td className="py-3 text-sm text-slate-600">
-                    #{record.stateRecordNumber}
                   </td>
                 </tr>
               ))}

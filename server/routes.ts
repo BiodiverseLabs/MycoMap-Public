@@ -162,11 +162,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/record-index", async (req, res) => {
     try {
-      const { limit = '50', offset = '0', stateFirstsOnly = 'false' } = req.query;
+      const { limit = '50', offset = '0', stateFirstsOnly = 'false', recent = 'false' } = req.query;
       const index = await storage.getRecordIndex(
         parseInt(limit as string), 
         parseInt(offset as string),
-        stateFirstsOnly === 'true'
+        stateFirstsOnly === 'true',
+        recent === 'true'
       );
       res.json(index);
     } catch (error) {
