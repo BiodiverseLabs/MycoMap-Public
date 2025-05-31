@@ -77,19 +77,32 @@ export class DatabaseStorage implements IStorage {
     activeContributors: number;
     statesCovered: number;
   }> {
-    let query = db.select().from(observations);
-    
+    // Use optimized SQL queries instead of loading all records
+    let whereClause = sql`1=1`;
     if (startDate && endDate) {
-      query = query.where(sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`);
+      whereClause = sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`;
     }
     
-    const filteredObs = await query;
+    // Execute all metric queries in parallel for better performance
+    const [totalCount, speciesCount, contributorCount, stateCount] = await Promise.all([
+      // Total observations count
+      db.execute(sql`SELECT COUNT(*)::int as count FROM ${observations} WHERE ${whereClause}`),
+      
+      // Unique species count
+      db.execute(sql`SELECT COUNT(DISTINCT ${observations.scientificName})::int as count FROM ${observations} WHERE ${whereClause}`),
+      
+      // Active contributors count
+      db.execute(sql`SELECT COUNT(DISTINCT ${observations.observer})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.observer} IS NOT NULL`),
+      
+      // States covered count
+      db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`)
+    ]);
     
     return {
-      totalObservations: filteredObs.length,
-      uniqueSpecies: new Set(filteredObs.map(o => o.scientificName)).size,
-      activeContributors: new Set(filteredObs.map(o => o.observer).filter(Boolean)).size,
-      statesCovered: new Set(filteredObs.map(o => o.state).filter(Boolean)).size,
+      totalObservations: (totalCount.rows[0] as any).count,
+      uniqueSpecies: (speciesCount.rows[0] as any).count,
+      activeContributors: (contributorCount.rows[0] as any).count,
+      statesCovered: (stateCount.rows[0] as any).count,
     };
   }
 

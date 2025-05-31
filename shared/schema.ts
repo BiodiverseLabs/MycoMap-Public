@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -36,7 +36,24 @@ export const observations = pgTable("observations", {
   sourceUrl: text("source_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Index for date filtering and temporal trends
+  observedOnIdx: index("observed_on_idx").on(table.observedOn),
+  // Index for taxonomic distribution queries
+  phylumIdx: index("phylum_idx").on(table.phylum),
+  // Index for metrics calculations - scientific name for species count
+  scientificNameIdx: index("scientific_name_idx").on(table.scientificName),
+  // Index for contributor analysis
+  observerIdx: index("observer_idx").on(table.observer),
+  // Index for geographic/state analysis
+  stateIdx: index("state_idx").on(table.state),
+  // Index for state records queries
+  firstStateRecordIdx: index("first_state_record_idx").on(table.isFirstStateRecord),
+  // Composite index for date range filtering with state
+  observedStateIdx: index("observed_state_idx").on(table.observedOn, table.state),
+  // Composite index for species frequency analysis
+  speciesCountIdx: index("species_count_idx").on(table.scientificName, table.observedOn),
+}));
 
 export const uploads = pgTable("uploads", {
   id: serial("id").primaryKey(),
@@ -56,7 +73,12 @@ export const contributors = pgTable("contributors", {
   verificationRate: decimal("verification_rate", { precision: 5, scale: 2 }),
   firstObservation: date("first_observation"),
   lastObservation: date("last_observation"),
-});
+}, (table) => ({
+  // Index for top contributors query
+  observationCountIdx: index("contributor_observation_count_idx").on(table.observationCount),
+  // Index for contributor name lookups
+  nameIdx: index("contributor_name_idx").on(table.name),
+}));
 
 export const species = pgTable("species", {
   id: serial("id").primaryKey(),
@@ -71,7 +93,14 @@ export const species = pgTable("species", {
   firstObserved: date("first_observed"),
   lastObserved: date("last_observed"),
   stateCount: integer("state_count").default(0),
-});
+}, (table) => ({
+  // Index for top species and rare species queries
+  observationCountIdx: index("species_observation_count_idx").on(table.observationCount),
+  // Index for scientific name lookups
+  scientificNameIdx: index("species_scientific_name_idx").on(table.scientificName),
+  // Index for last observed date
+  lastObservedIdx: index("species_last_observed_idx").on(table.lastObserved),
+}));
 
 // Relations
 export const observationsRelations = relations(observations, ({ one }) => ({
