@@ -31,6 +31,14 @@ interface ContributorSpecies {
   speciesCount: number;
 }
 
+interface ContributorStateRecord {
+  id: string;
+  name: string;
+  affiliation?: string;
+  stateFirstCount: number;
+  percentage: number;
+}
+
 function MostGlobalFirstsByState() {
   const { data: stateData = [], isLoading } = useQuery<StateRecord[]>({
     queryKey: ['/api/states/global-firsts'],
@@ -138,6 +146,70 @@ function MostGlobalFirstsByContributor() {
         )}
         <div className="mt-4 pt-4 border-t">
           <Link href="/records/contributors-global-firsts" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            See all records →
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MostStateFirstsByContributor() {
+  const { data: contributorData = [], isLoading } = useQuery<ContributorStateRecord[]>({
+    queryKey: ['/api/contributors/state-firsts'],
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-orange-500" />
+          Most State First Records
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="h-16 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
+        ) : contributorData.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No state first records found
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {contributorData.slice(0, 15).map((contributor, index) => {
+              const isTopThree = index < 3;
+              const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
+              
+              return (
+                <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
+                      isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div>
+                      <div className={isTopThree ? "font-semibold" : "font-medium"}>{contributor.name}</div>
+                      {contributor.affiliation && (
+                        <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{contributor.stateFirstCount.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">{contributor.percentage.toFixed(1)}%</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="mt-4 pt-4 border-t">
+          <Link href="/records/contributors-state-firsts" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
             See all records →
           </Link>
         </div>
@@ -282,9 +354,10 @@ export default function Records() {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-8">
             <MostGlobalFirstsByState />
             <MostGlobalFirstsByContributor />
+            <MostStateFirstsByContributor />
             <MostObservations />
             <MostSpecies />
           </div>

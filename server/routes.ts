@@ -494,6 +494,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/contributors/state-firsts", async (req, res) => {
+    try {
+      const { state, limit } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 10000;
+      
+      // Get state first records from record index
+      const records = await storage.getRecordIndex(50000, 0, true, false, undefined, false);
+      const stateFirsts = records.filter(record => record.isFirstInState);
+      
+      // Filter by state if specified
+      const filteredRecords = state 
+        ? stateFirsts.filter(record => record.state === state)
+        : stateFirsts;
+      
+      // Get all observations to match observer names
+      const observations = await storage.getAllObservations();
+      
+      // Create a map of observation IDs to collector names
+      const collectorMap = new Map<number, string>();
+      observations.forEach(obs => {
+        if (obs.collector) {
+          collectorMap.set(obs.id, obs.collector);
+        }
+      });
+      
+      // Group by collector and count
+      const contributorGroups = filteredRecords.reduce((acc, record) => {
+        const collectorName = collectorMap.get(record.id);
+        if (collectorName) {
+          acc[collectorName] = (acc[collectorName] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const total = Object.values(contributorGroups).reduce((sum, count) => sum + count, 0);
+      
+      const data = Object.entries(contributorGroups)
+        .map(([name, count]) => ({
+          id: name.replace(/\s+/g, '_').toLowerCase(),
+          name: name,
+          affiliation: undefined,
+          stateFirstCount: count,
+          percentage: total > 0 ? (count / total) * 100 : 0
+        }))
+        .sort((a, b) => b.stateFirstCount - a.stateFirstCount)
+        .slice(0, limitNum);
+      
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching contributors with state firsts:", error);
+      res.status(500).json({ error: "Failed to fetch contributors with state firsts" });
+    }
+  });
+
   // Contributors species endpoint
   app.get("/api/contributors/species", async (req, res) => {
     try {
