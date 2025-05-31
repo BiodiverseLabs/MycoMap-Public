@@ -335,7 +335,8 @@ export class DatabaseStorage implements IStorage {
         CASE WHEN species_rank_state = 1 THEN true ELSE false END as "isFirstInState"
       FROM ranked_observations
       ${stateFirstsOnly ? sql`WHERE species_rank_state = 1` : sql``}
-      ORDER BY "datasetRecordNumber"
+      ${recent ? sql`WHERE (species_rank_global = 1 OR species_rank_state = 1)` : sql``}
+      ORDER BY ${recent ? sql`"reportDate" DESC` : sql`"datasetRecordNumber"`}
       LIMIT ${limit} OFFSET ${offset}
     `);
     
