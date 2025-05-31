@@ -1,7 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileUpload } from "./FileUpload";
 import { UploadHistory } from "./UploadHistory";
+import { ProcessingStatus } from "./ProcessingStatus";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 interface AdminModalProps {
   open: boolean;
@@ -13,13 +16,26 @@ export default function AdminModal({ open, onOpenChange }: AdminModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">Admin Panel</DialogTitle>
-          <p className="text-slate-600">Manage data uploads and system settings</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-xl">Admin Panel</DialogTitle>
+              <p className="text-slate-600">Manage data uploads and system settings</p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <FileUpload />
           <UploadHistory />
+          <ProcessingStatus />
         </div>
 
         {/* System Stats */}
