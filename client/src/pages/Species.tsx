@@ -104,8 +104,8 @@ export default function Species() {
   // Calculate statistics
   const stats = useMemo(() => {
     const totalSpecies = filteredSpecies.length;
-    const veryCommon = filteredSpecies.filter(s => (s.observationCount || 0) > 100).length;
-    const common = filteredSpecies.filter(s => (s.observationCount || 0) >= 10 && (s.observationCount || 0) <= 100).length;
+    const veryCommon = filteredSpecies.filter(s => (s.observationCount || 0) >= 50).length;
+    const common = filteredSpecies.filter(s => (s.observationCount || 0) >= 11 && (s.observationCount || 0) <= 49).length;
     const uncommon = filteredSpecies.filter(s => (s.observationCount || 0) >= 5 && (s.observationCount || 0) <= 9).length;
     const rare = filteredSpecies.filter(s => (s.observationCount || 0) >= 2 && (s.observationCount || 0) <= 4).length;
     const veryRare = filteredSpecies.filter(s => (s.observationCount || 0) === 1).length;
@@ -286,13 +286,13 @@ export default function Species() {
               <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
                 <div className="text-2xl font-bold text-green-700">{stats.veryCommon}</div>
                 <div className="text-sm font-medium text-green-600">Very Common</div>
-                <div className="text-xs text-green-500">&gt;100 obs.</div>
+                <div className="text-xs text-green-500">50+ obs.</div>
               </div>
               
               <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="text-2xl font-bold text-blue-700">{stats.common}</div>
                 <div className="text-sm font-medium text-blue-600">Common</div>
-                <div className="text-xs text-blue-500">10-100 obs.</div>
+                <div className="text-xs text-blue-500">11-49 obs.</div>
               </div>
               
               <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
