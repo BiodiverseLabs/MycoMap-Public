@@ -160,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contributors", async (req, res) => {
     try {
-      const { limit = '10', dateRange, state } = req.query;
+      const { limit, dateRange, state } = req.query;
       
       // Convert dateRange to actual dates (same logic as metrics)
       let actualStartDate: string | undefined;
@@ -180,7 +180,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actualEndDate = undefined;
       }
       
-      const contributors = await storage.getTopContributors(parseInt(limit as string), actualStartDate, actualEndDate, state as string);
+      // Use a very high limit if no specific limit is provided to get all contributors
+      const contributorLimit = limit ? parseInt(limit as string) : 10000;
+      const contributors = await storage.getTopContributors(contributorLimit, actualStartDate, actualEndDate, state as string);
       res.json(contributors);
     } catch (error) {
       console.error("Error fetching contributors:", error);

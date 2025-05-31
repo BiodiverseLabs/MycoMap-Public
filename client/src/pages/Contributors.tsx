@@ -22,7 +22,7 @@ export default function Contributors() {
   const { data: contributors = [], isLoading: contributorsLoading } = useQuery({
     queryKey: ["/api/contributors"],
     queryFn: async () => {
-      const response = await fetch('/api/contributors?limit=1000'); // Get all contributors
+      const response = await fetch('/api/contributors'); // Get all contributors (no limit)
       if (!response.ok) throw new Error('Failed to fetch contributors');
       return response.json();
     }
