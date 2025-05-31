@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useRef, useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { Calendar } from "lucide-react";
 
 interface TemporalData {
   period: string;
@@ -13,87 +13,51 @@ interface TemporalChartProps {
 }
 
 export function TemporalChart({ dateRange }: TemporalChartProps = {}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const chartRef = useRef<any>(null);
-  const [groupBy, setGroupBy] = useState<'month' | 'quarter' | 'year'>('month');
-
   const { data: trends = [], isLoading } = useQuery<TemporalData[]>({
-    queryKey: ["/api/temporal-trends", { groupBy }],
+    queryKey: ["/api/temporal-trends", { groupBy: 'year' }],
   });
 
-  useEffect(() => {
-    if (!canvasRef.current || !trends.length) return;
+  // Transform period data for yearly display
+  const yearlyData = trends
+    .filter(item => item.period.match(/^\d{4}(-\d{2})?$/)) // Only year or year-month format
+    .reduce((acc, item) => {
+      const year = item.period.substring(0, 4);
+      const existing = acc.find(d => d.period === year);
+      if (existing) {
+        existing.count += item.count;
+      } else {
+        acc.push({ period: year, count: item.count });
+      }
+      return acc;
+    }, [] as TemporalData[])
+    .sort((a, b) => parseInt(a.period) - parseInt(b.period));
 
-    const Chart = (window as any).Chart;
-    if (!Chart) return;
-
-    // Destroy existing chart
-    if (chartRef.current) {
-      chartRef.current.destroy();
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
+          <p className="font-medium text-slate-900">{label}</p>
+          <p className="text-sm text-slate-600">
+            {payload[0].value.toLocaleString()} observations
+          </p>
+        </div>
+      );
     }
-
-    const ctx = canvasRef.current.getContext('2d');
-    if (!ctx) return;
-
-    chartRef.current = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: trends.map(t => t.period),
-        datasets: [{
-          label: 'Observations',
-          data: trends.map(t => t.count),
-          borderColor: 'hsl(var(--primary))',
-          backgroundColor: 'hsla(var(--primary), 0.1)',
-          tension: 0.4,
-          fill: true,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            grid: {
-              color: 'hsl(var(--border))',
-            },
-            ticks: {
-              color: 'hsl(var(--muted-foreground))',
-            }
-          },
-          x: {
-            grid: {
-              color: 'hsl(var(--border))',
-            },
-            ticks: {
-              color: 'hsl(var(--muted-foreground))',
-            }
-          }
-        }
-      }
-    });
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-      }
-    };
-  }, [trends]);
+    return null;
+  };
 
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Temporal Trends</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Temporal Trends
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-80 bg-slate-100 rounded-lg animate-pulse flex items-center justify-center">
-            <p className="text-slate-500">Loading chart...</p>
+          <div className="h-80 flex items-center justify-center">
+            <div className="text-slate-500">Loading...</div>
           </div>
         </CardContent>
       </Card>
@@ -103,24 +67,44 @@ export function TemporalChart({ dateRange }: TemporalChartProps = {}) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Temporal Trends</CardTitle>
-          <Select value={groupBy} onValueChange={(value: 'month' | 'quarter' | 'year') => setGroupBy(value)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">Monthly</SelectItem>
-              <SelectItem value="quarter">Quarterly</SelectItem>
-              <SelectItem value="year">Yearly</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="w-5 h-5" />
+          Temporal Trends (Yearly)
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-80">
-          <canvas ref={canvasRef} />
-        </div>
+        {yearlyData.length > 0 ? (
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={yearlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="period" 
+                  stroke="#64748b"
+                  fontSize={12}
+                />
+                <YAxis 
+                  stroke="#64748b"
+                  fontSize={12}
+                  tickFormatter={(value) => value.toLocaleString()}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar 
+                  dataKey="count" 
+                  fill="#3b82f6" 
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-80 flex items-center justify-center">
+            <div className="text-center">
+              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500">No temporal data available</p>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
