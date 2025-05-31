@@ -1,6 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 interface Observation {
@@ -17,92 +15,68 @@ interface GeospatialMapProps {
 }
 
 export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
-  const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
-
   const { data: observations = [], isLoading } = useQuery<Observation[]>({
-    queryKey: ["/api/observations"],
+    queryKey: ["/api/observations", dateRange],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange) {
+        params.append('dateRange', dateRange);
+      }
+      params.append('limit', '1000'); // Limit for performance
+      const response = await fetch(`/api/observations?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch observations');
+      return response.json();
+    }
   });
 
-  useEffect(() => {
-    if (!mapRef.current || mapInstance) return;
-
-    // Initialize Leaflet map
-    const L = (window as any).L;
-    if (!L) return;
-
-    const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    setMapInstance(map);
-
-    return () => {
-      map.remove();
-      setMapInstance(null);
-    };
-  }, [mapRef.current]);
-
-  useEffect(() => {
-    if (!mapInstance || !observations.length) return;
-
-    const L = (window as any).L;
-    if (!L) return;
-
-    // Clear existing layers
-    mapInstance.eachLayer((layer: any) => {
-      if (layer instanceof L.Marker) {
-        mapInstance.removeLayer(layer);
-      }
-    });
-
-    if (viewMode === 'markers') {
-      // Add markers for each observation
-      observations.forEach((obs) => {
-        if (obs.latitude && obs.longitude) {
-          const lat = parseFloat(obs.latitude);
-          const lng = parseFloat(obs.longitude);
-          
-          if (!isNaN(lat) && !isNaN(lng)) {
-            L.marker([lat, lng])
-              .addTo(mapInstance)
-              .bindPopup(`
-                <div>
-                  <strong>${obs.scientificName}</strong><br>
-                  ${obs.state}<br>
-                  ${obs.observedOn}
-                </div>
-              `);
-          }
-        }
-      });
-    } else {
-      // Add heatmap layer (would require leaflet-heat plugin)
-      const heatData = observations
-        .filter(obs => obs.latitude && obs.longitude)
-        .map(obs => [
-          parseFloat(obs.latitude),
-          parseFloat(obs.longitude),
-          1
-        ]);
-
-      if (heatData.length > 0 && L.heatLayer) {
-        L.heatLayer(heatData, { radius: 25 }).addTo(mapInstance);
-      }
+  // Group observations by state for summary view
+  const stateGroups = observations.reduce((acc, obs) => {
+    const state = obs.state || 'Unknown';
+    if (!acc[state]) {
+      acc[state] = { count: 0, species: new Set() };
     }
-  }, [mapInstance, observations, viewMode]);
+    acc[state].count++;
+    acc[state].species.add(obs.scientificName);
+    return acc;
+  }, {} as Record<string, { count: number; species: Set<string> }>);
+
+  const sortedStates = Object.entries(stateGroups)
+    .map(([state, data]) => ({
+      state,
+      count: data.count,
+      speciesCount: data.species.size
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  function getBarColor(index: number): string {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-purple-500',
+      'bg-orange-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-yellow-500',
+      'bg-red-500',
+      'bg-teal-500',
+      'bg-cyan-500'
+    ];
+    return colors[index] || 'bg-slate-500';
+  }
 
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Observation Distribution</CardTitle>
+          <CardTitle>Geographic Distribution</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-80 bg-slate-100 rounded-lg animate-pulse flex items-center justify-center">
-            <p className="text-slate-500">Loading map...</p>
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading geographic data...</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -112,31 +86,49 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Observation Distribution</CardTitle>
-          <div className="flex items-center space-x-2">
-            <Button
-              size="sm"
-              variant={viewMode === 'heatmap' ? 'default' : 'outline'}
-              onClick={() => setViewMode('heatmap')}
-            >
-              Heatmap
-            </Button>
-            <Button
-              size="sm"
-              variant={viewMode === 'markers' ? 'default' : 'outline'}
-              onClick={() => setViewMode('markers')}
-            >
-              Markers
-            </Button>
-          </div>
-        </div>
+        <CardTitle>Geographic Distribution</CardTitle>
+        <p className="text-sm text-slate-600">
+          Top states by observation count ({observations.length.toLocaleString()} total observations)
+        </p>
       </CardHeader>
       <CardContent>
-        <div 
-          ref={mapRef} 
-          className="h-80 rounded-lg border border-slate-200"
-        />
+        <div className="space-y-3">
+          {sortedStates.map((item, index) => {
+            const percentage = (item.count / observations.length) * 100;
+            return (
+              <div key={item.state} className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-900">{item.state}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-slate-900">
+                      {item.count.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-slate-600 ml-2">
+                      ({item.speciesCount} species)
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${getBarColor(index)}`}
+                    style={{ width: `${percentage}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-slate-500">
+                  {percentage.toFixed(1)}% of total observations
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        {observations.length >= 1000 && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">
+              Showing geographic distribution for sample of {observations.length.toLocaleString()} observations
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
