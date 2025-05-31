@@ -22,6 +22,8 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 10, // Maximum number of connections in the pool
+  statement_timeout: 60000, // 60 second timeout
+  query_timeout: 60000, // 60 second query timeout
 });
 export const db = drizzle({ client: pool, schema });
 
@@ -690,7 +692,13 @@ export class DatabaseStorage implements IStorage {
     const startTime = Date.now();
     
     try {
-      // Use raw SQL to bypass any ORM limits
+      // Force chunked approach for large requests to bypass driver limits
+      if (limit > 20000) {
+        console.log(`[GPS Index] Using chunked approach for ${limit} coordinates`);
+        return this.getMapDataChunked(limit, state);
+      }
+      
+      // Use raw SQL for smaller requests
       let sqlQuery = `
         SELECT latitude, longitude, species 
         FROM gps_index 
@@ -715,6 +723,62 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.log('[GPS Index] Falling back to direct observations query');
       return this.getMapDataFallback(limit, state);
+    }
+  }
+
+  async getMapDataChunked(limit: number, state?: string): Promise<Array<{
+    latitude: number;
+    longitude: number;
+    species?: string;
+  }>> {
+    const startTime = Date.now();
+    const chunkSize = 20000;
+    const allResults: Array<{latitude: number; longitude: number; species?: string}> = [];
+    
+    try {
+      let offset = 0;
+      let totalRetrieved = 0;
+      
+      while (totalRetrieved < limit) {
+        const currentChunkSize = Math.min(chunkSize, limit - totalRetrieved);
+        
+        let sqlQuery = `
+          SELECT latitude, longitude, species 
+          FROM gps_index 
+        `;
+        
+        if (state) {
+          sqlQuery += ` WHERE state = '${state.replace(/'/g, "''")}'`;
+        }
+        
+        sqlQuery += ` LIMIT ${currentChunkSize} OFFSET ${offset}`;
+        
+        const result = await db.execute(sql.raw(sqlQuery));
+        
+        if (result.rows.length === 0) {
+          break; // No more data
+        }
+        
+        const chunkData = result.rows.map((row: any) => ({
+          latitude: parseFloat(row.latitude),
+          longitude: parseFloat(row.longitude),
+          species: row.species || undefined,
+        }));
+        
+        allResults.push(...chunkData);
+        totalRetrieved += result.rows.length;
+        offset += chunkSize;
+        
+        console.log(`[GPS Index] Chunk ${Math.ceil(offset/chunkSize)}: Retrieved ${result.rows.length} coordinates (Total: ${totalRetrieved})`);
+      }
+      
+      const endTime = Date.now();
+      console.log(`[GPS Index] Retrieved ${allResults.length} coordinates in ${endTime - startTime}ms using chunked approach (state: ${state || 'all'})`);
+      
+      return allResults;
+    } catch (error) {
+      console.log('[GPS Index] Chunked approach failed, falling back');
+      return this.getMapDataFallback(Math.min(limit, 7000), state);
     }
   }
 
