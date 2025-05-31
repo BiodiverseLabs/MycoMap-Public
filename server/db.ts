@@ -454,7 +454,7 @@ export class DatabaseStorage implements IStorage {
     const baseWhereClause = sql.join(whereConditions, sql` AND `);
     
     const result = await db.execute(sql`
-      WITH ranked_observations AS (
+      WITH global_rankings AS (
         SELECT 
           ${observations.id} as id,
           ${observations.species} as species,
@@ -478,7 +478,26 @@ export class DatabaseStorage implements IStorage {
             ORDER BY ${observations.observedOn}
           ) as species_rank_state
         FROM ${observations}
-        WHERE ${baseWhereClause}
+        WHERE ${observations.species} IS NOT NULL 
+          AND ${observations.species} != '' 
+          AND ${observations.observedOn} IS NOT NULL
+      ),
+      ranked_observations AS (
+        SELECT * FROM global_rankings
+        WHERE ${(() => {
+          const conditions = [];
+          if (state) conditions.push(sql`state = ${state}`);
+          if (startDate) conditions.push(sql`"reportDate" >= ${startDate}`);
+          if (endDate) conditions.push(sql`"reportDate" <= ${endDate}`);
+          if (species) {
+            conditions.push(sql`(
+              LOWER(species) = LOWER(${species}) OR
+              LOWER(species) LIKE LOWER(${species + ' %'}) OR
+              LOWER(species) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
+            )`);
+          }
+          return conditions.length > 0 ? sql.join(conditions, sql` AND `) : sql`1=1`;
+        })()}
       )
       SELECT 
         id,
