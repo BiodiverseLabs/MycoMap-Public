@@ -8,11 +8,12 @@ import { StateRecords } from "@/components/dashboard/StateRecords";
 import { ObservationSources } from "@/components/dashboard/ObservationSources";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { useState } from "react";
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState('all_time');
+  const [selectedState, setSelectedState] = useState<string | null>(null);
 
   const handleExportData = () => {
     // Export functionality would be implemented here
@@ -22,6 +23,14 @@ export default function Dashboard() {
   const handleDateRangeChange = (newDateRange: string) => {
     console.log(`[Dashboard] Date range changing from "${dateRange}" to "${newDateRange}"`);
     setDateRange(newDateRange);
+  };
+
+  const handleStateSelect = (state: string) => {
+    setSelectedState(state);
+  };
+
+  const clearStateFilter = () => {
+    setSelectedState(null);
   };
 
   // Debug logging for state
@@ -36,6 +45,19 @@ export default function Dashboard() {
             <h2 className="text-2xl font-semibold text-slate-900">Dashboard Overview</h2>
             <p className="text-slate-600 mt-1">
               DNA-validated macrofungi observations from iNaturalist and Mushroom Observer
+              {selectedState && (
+                <span className="ml-2">
+                  - Filtered by {selectedState}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearStateFilter}
+                    className="ml-2 h-4 w-4 p-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center space-x-4">
@@ -66,7 +88,7 @@ export default function Dashboard() {
         <MetricsCards dateRange={dateRange} />
 
         <div className="mb-8">
-          <GeospatialMap dateRange={dateRange} />
+          <GeospatialMap dateRange={dateRange} onStateSelect={handleStateSelect} selectedState={selectedState} />
         </div>
 
         <div className="mb-8">
