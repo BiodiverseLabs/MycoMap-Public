@@ -204,7 +204,17 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Species[];
   }
 
-  async getRareSpecies(maxObservations: number = 3): Promise<Species[]> {
+  async getRareSpecies(maxObservations: number = 3, state?: string): Promise<Species[]> {
+    let whereConditions = [sql`${observations.species} IS NOT NULL AND ${observations.species} != ''`];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    const whereClause = whereConditions.length > 1 
+      ? sql.join(whereConditions, sql` AND `)
+      : whereConditions[0];
+    
     const result = await db.execute(sql`
       SELECT 
         ROW_NUMBER() OVER (ORDER BY COUNT(*) ASC) as id,
@@ -212,7 +222,7 @@ export class DatabaseStorage implements IStorage {
         ${observations.commonName} as "commonName",
         COUNT(*)::int as "observationCount"
       FROM ${observations}
-      WHERE ${observations.species} IS NOT NULL AND ${observations.species} != ''
+      WHERE ${whereClause}
       GROUP BY ${observations.species}, ${observations.commonName}
       HAVING COUNT(*) <= ${maxObservations}
       ORDER BY "observationCount" ASC
@@ -300,7 +310,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -312,6 +322,18 @@ export class DatabaseStorage implements IStorage {
     isFirstGlobal: boolean;
     isFirstInState: boolean;
   }>> {
+    let whereConditions = [
+      sql`${observations.species} IS NOT NULL`,
+      sql`${observations.species} != ''`,
+      sql`${observations.observedOn} IS NOT NULL`
+    ];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    const baseWhereClause = sql.join(whereConditions, sql` AND `);
+    
     const result = await db.execute(sql`
       WITH ranked_observations AS (
         SELECT 
@@ -337,9 +359,7 @@ export class DatabaseStorage implements IStorage {
             ORDER BY ${observations.observedOn}
           ) as species_rank_state
         FROM ${observations}
-        WHERE ${observations.species} IS NOT NULL 
-          AND ${observations.species} != ''
-          AND ${observations.observedOn} IS NOT NULL
+        WHERE ${baseWhereClause}
       )
       SELECT 
         id,
