@@ -1,8 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { MapPin, BarChart3 } from "lucide-react";
 
 interface Observation {
   id: number;
@@ -18,8 +15,6 @@ interface GeospatialMapProps {
 }
 
 export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
-  const [viewMode, setViewMode] = useState<'chart' | 'coordinates'>('chart');
-
   const { data: observations = [], isLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations", dateRange],
     queryFn: async () => {
@@ -27,14 +22,14 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
-      params.append('limit', '100'); // Small limit for performance
+      params.append('limit', '1000');
       const response = await fetch(`/api/observations?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch observations');
       return response.json();
     }
   });
 
-  // Group observations by state for chart view
+  // Group observations by state
   const stateGroups = observations.reduce((acc, obs) => {
     const state = obs.state || 'Unknown';
     if (!acc[state]) {
@@ -53,23 +48,6 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
-
-  // Get valid coordinates for coordinate view
-  const validCoordinates = observations
-    .filter(obs => 
-      obs.latitude && obs.longitude && 
-      !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude))
-    )
-    .map(obs => ({
-      ...obs,
-      lat: parseFloat(obs.latitude),
-      lng: parseFloat(obs.longitude)
-    }))
-    .filter(obs => 
-      obs.lat >= -90 && obs.lat <= 90 && 
-      obs.lng >= -180 && obs.lng <= 180
-    )
-    .slice(0, 20); // Limit to 20 for display
 
   function getBarColor(index: number): string {
     const colors = [
@@ -108,87 +86,47 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Geographic Distribution</CardTitle>
-            <p className="text-sm text-slate-600">
-              {viewMode === 'chart' ? 'Top states by observation count' : 'Sample coordinates'} ({observations.length.toLocaleString()} observations)
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'chart' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('chart')}
-            >
-              <BarChart3 className="h-4 w-4 mr-1" />
-              Chart
-            </Button>
-            <Button
-              variant={viewMode === 'coordinates' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('coordinates')}
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              Coordinates
-            </Button>
-          </div>
-        </div>
+        <CardTitle>Geographic Distribution</CardTitle>
+        <p className="text-sm text-slate-600">
+          Top states by observation count ({observations.length.toLocaleString()} observations)
+        </p>
       </CardHeader>
       <CardContent>
-        {viewMode === 'chart' ? (
-          <div className="space-y-3">
-            {sortedStates.map((item, index) => {
-              const percentage = (item.count / observations.length) * 100;
-              return (
-                <div key={item.state} className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-slate-900">{item.state}</span>
-                    <div className="text-right">
-                      <span className="text-sm font-medium text-slate-900">
-                        {item.count.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-slate-600 ml-2">
-                        ({item.speciesCount} species)
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${getBarColor(index)}`}
-                      style={{ width: `${percentage}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {percentage.toFixed(1)}% of total observations
+        <div className="space-y-3">
+          {sortedStates.map((item, index) => {
+            const percentage = (item.count / observations.length) * 100;
+            return (
+              <div key={item.state} className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-900">{item.state}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-slate-900">
+                      {item.count.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-slate-600 ml-2">
+                      ({item.speciesCount} species)
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-              {validCoordinates.map((obs, index) => (
-                <div key={obs.id} className="p-3 border rounded-lg bg-slate-50">
-                  <div className="font-medium text-sm text-slate-900 mb-1">
-                    {obs.scientificName}
-                  </div>
-                  <div className="text-xs text-slate-600 space-y-1">
-                    <div>📍 {obs.lat.toFixed(4)}, {obs.lng.toFixed(4)}</div>
-                    <div>📍 {obs.state}</div>
-                    <div>📅 {new Date(obs.observedOn).toLocaleDateString()}</div>
-                  </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${getBarColor(index)}`}
+                    style={{ width: `${percentage}%` }}
+                  ></div>
                 </div>
-              ))}
-            </div>
-            {validCoordinates.length > 0 && (
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  Showing {validCoordinates.length} observations with valid coordinates from sample of {observations.length}
-                </p>
+                <div className="text-xs text-slate-500">
+                  {percentage.toFixed(1)}% of total observations
+                </div>
               </div>
-            )}
+            );
+          })}
+        </div>
+        
+        {observations.length >= 1000 && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">
+              Showing geographic distribution for sample of {observations.length.toLocaleString()} observations
+            </p>
           </div>
         )}
       </CardContent>
