@@ -4,6 +4,7 @@ import { GeospatialMap } from "@/components/dashboard/GeospatialMap";
 import { StateRecords } from "@/components/dashboard/StateRecords";
 import { TopContributors } from "@/components/dashboard/TopContributors";
 import { SpeciesFrequency } from "@/components/dashboard/SpeciesFrequency";
+import { RegionalAnalysis } from "@/components/dashboard/RegionalAnalysis";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
@@ -46,10 +47,11 @@ export default function Geospatial() {
         <div className="space-y-8">
           <GeospatialMap onStateSelect={handleStateSelect} selectedState={selectedState} />
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-8">
             <StateRecords state={selectedState || undefined} />
             <TopContributors state={selectedState || undefined} />
             <SpeciesFrequency state={selectedState || undefined} />
+            <RegionalAnalysis selectedState={selectedState} />
           </div>
         </div>
       </div>
