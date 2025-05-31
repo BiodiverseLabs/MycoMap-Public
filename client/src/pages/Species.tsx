@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award } from "lucide-react";
+import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Species {
   id: number;
@@ -39,6 +40,17 @@ export default function Species() {
     queryFn: async () => {
       const response = await fetch('/api/observations');
       if (!response.ok) throw new Error('Failed to fetch observations');
+      return response.json();
+    }
+  });
+
+  // Fetch species accumulation curve data
+  const { data: accumulationData = [], isLoading: accumulationLoading } = useQuery({
+    queryKey: ["/api/species-accumulation", selectedState],
+    queryFn: async () => {
+      const params = selectedState !== "all" ? `?state=${selectedState}` : "";
+      const response = await fetch(`/api/species-accumulation${params}`);
+      if (!response.ok) throw new Error('Failed to fetch accumulation data');
       return response.json();
     }
   });
@@ -371,6 +383,56 @@ export default function Species() {
                     Showing first 50 of {filteredSpecies.length} species
                   </div>
                 )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Species Accumulation Curve */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Species Accumulation Curve
+              {selectedState !== "all" && (
+                <Badge variant="secondary">State: {selectedState}</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {accumulationLoading ? (
+              <div className="h-80 flex items-center justify-center">
+                <div className="text-slate-500">Loading accumulation curve...</div>
+              </div>
+            ) : accumulationData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={accumulationData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="observationNumber" 
+                      label={{ value: 'Number of Observations', position: 'insideBottom', offset: -5 }}
+                    />
+                    <YAxis 
+                      label={{ value: 'Cumulative Species Count', angle: -90, position: 'insideLeft' }}
+                    />
+                    <Tooltip 
+                      formatter={(value, name) => [value, 'Species Count']}
+                      labelFormatter={(label) => `Observation ${label}`}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="uniqueSpeciesCount" 
+                      stroke="#8884d8" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center">
+                <div className="text-slate-500">No data available for accumulation curve</div>
               </div>
             )}
           </CardContent>
