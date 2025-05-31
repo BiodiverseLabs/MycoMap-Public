@@ -187,6 +187,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/reprocess-upload/:id", async (req, res) => {
+    try {
+      const uploadId = parseInt(req.params.id);
+      const uploads = await storage.getUploads();
+      const upload = uploads.find(u => u.id === uploadId);
+      
+      if (!upload) {
+        return res.status(404).json({ error: "Upload not found" });
+      }
+
+      const filePath = path.join(__dirname, '../uploads', upload.filename);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      // Clear existing data first
+      await db.execute(sql`DELETE FROM ${observations}`);
+      await db.execute(sql`DELETE FROM ${contributors}`);
+      await db.execute(sql`DELETE FROM ${species}`);
+
+      // Reprocess with updated field mapping
+      processExcelFile(uploadId, filePath, upload.originalName)
+        .catch(error => {
+          console.error("Error reprocessing file:", error);
+          storage.updateUploadStatus(uploadId, 'failed', error.message);
+        });
+
+      res.json({ message: "Reprocessing started with updated field mapping" });
+    } catch (error) {
+      console.error("Error reprocessing upload:", error);
+      res.status(500).json({ error: "Failed to reprocess upload" });
+    }
+  });
+
   app.post("/api/upload", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
