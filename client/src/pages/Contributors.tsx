@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { MapPin, User, Calendar, Award, X } from "lucide-react";
+import { useState, useMemo } from "react";
+import { MapPin, User, Calendar, Award, X, Search } from "lucide-react";
 import { ContributorMap } from "@/components/dashboard/ContributorMap";
 
 interface Contributor {
@@ -15,16 +16,28 @@ interface Contributor {
 
 export default function Contributors() {
   const [selectedContributor, setSelectedContributor] = useState<Contributor | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch all contributors
   const { data: contributors = [], isLoading: contributorsLoading } = useQuery({
     queryKey: ["/api/contributors"],
     queryFn: async () => {
-      const response = await fetch('/api/contributors?limit=20');
+      const response = await fetch('/api/contributors?limit=1000'); // Get all contributors
       if (!response.ok) throw new Error('Failed to fetch contributors');
       return response.json();
     }
   });
+
+  // Filter contributors based on search term
+  const filteredContributors = useMemo(() => {
+    if (!searchTerm) return contributors;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return contributors.filter((contributor: Contributor) =>
+      contributor.name.toLowerCase().includes(searchLower) ||
+      (contributor.affiliation && contributor.affiliation.toLowerCase().includes(searchLower))
+    );
+  }, [contributors, searchTerm]);
 
   // Fetch contributor's specific observations when selected
   const { data: contributorObservations = [], isLoading: observationsLoading } = useQuery({
@@ -130,32 +143,54 @@ export default function Contributors() {
                     <User className="w-5 h-5" />
                     Top Contributors
                   </CardTitle>
+                  <div className="mt-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Input
+                        placeholder="Search contributors by name or affiliation..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {contributorsLoading ? (
                     <div className="text-slate-500">Loading contributors...</div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {contributors.slice(0, 12).map((contributor: Contributor) => (
-                        <div
-                          key={contributor.id}
-                          className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                          onClick={() => setSelectedContributor(contributor)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium text-slate-900 truncate">{contributor.name}</p>
-                              {contributor.affiliation && (
-                                <p className="text-sm text-slate-600 truncate">{contributor.affiliation}</p>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <Badge variant="secondary">{contributor.observationCount}</Badge>
+                    <>
+                      <div className="mb-4 text-sm text-slate-600">
+                        Showing {filteredContributors.slice(0, 12).length} of {filteredContributors.length} contributors
+                        {searchTerm && ` matching "${searchTerm}"`}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredContributors.slice(0, 12).map((contributor: Contributor) => (
+                          <div
+                            key={contributor.id}
+                            className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                            onClick={() => setSelectedContributor(contributor)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-slate-900 truncate">{contributor.name}</p>
+                                {contributor.affiliation && (
+                                  <p className="text-sm text-slate-600 truncate">{contributor.affiliation}</p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <Badge variant="secondary">{contributor.observationCount}</Badge>
+                              </div>
                             </div>
                           </div>
+                        ))}
+                      </div>
+                      {filteredContributors.length === 0 && searchTerm && (
+                        <div className="text-center py-8 text-slate-500">
+                          No contributors found matching "{searchTerm}"
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>

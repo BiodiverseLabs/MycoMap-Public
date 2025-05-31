@@ -23,20 +23,20 @@ export function ContributorMap({ observations }: ContributorMapProps) {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Create map instance if it doesn't exist
-    if (!mapInstanceRef.current) {
-      mapInstanceRef.current = L.map(mapRef.current, {
-        center: [39.8283, -98.5795], // Center of US
-        zoom: 4,
-        zoomControl: true,
-      });
-
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 18,
-      }).addTo(mapInstanceRef.current);
+    // Clean up existing map
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
     }
+
+    // Create new map instance
+    mapInstanceRef.current = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 18,
+    }).addTo(mapInstanceRef.current);
 
     // Filter observations with valid coordinates
     const validObservations = observations.filter(obs => 
@@ -122,10 +122,22 @@ export function ContributorMap({ observations }: ContributorMapProps) {
 
   useEffect(() => {
     // Load heatmap plugin
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js';
-    script.async = true;
-    document.head.appendChild(script);
+    const loadHeatPlugin = async () => {
+      if (!(window as any).L || !(window as any).L.heatLayer) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js';
+        document.head.appendChild(script);
+        
+        return new Promise<void>((resolve) => {
+          script.onload = () => resolve();
+          script.onerror = () => resolve();
+          // Also resolve after timeout to prevent hanging
+          setTimeout(resolve, 3000);
+        });
+      }
+    };
+
+    loadHeatPlugin();
 
     return () => {
       // Cleanup map on unmount
