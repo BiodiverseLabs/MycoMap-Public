@@ -151,6 +151,17 @@ export default function SpeciesDetail() {
       mapInstanceRef.current = null;
     }
 
+    // Create custom marker icon that works in production
+    const customIcon = window.L.divIcon({
+      html: '<div style="background-color: #3b82f6; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+      className: 'custom-div-icon',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+
+    // Store the icon for use in markers
+    (window as any).customMarkerIcon = customIcon;
+
     // Create new map instance
     mapInstanceRef.current = window.L.map(mapRef.current).setView([39.8283, -98.5795], 4);
 
@@ -183,7 +194,9 @@ export default function SpeciesDetail() {
     );
 
     validObservations.forEach((obs: Observation) => {
-      const marker = window.L.marker([parseFloat(obs.latitude), parseFloat(obs.longitude)])
+      const marker = window.L.marker([parseFloat(obs.latitude), parseFloat(obs.longitude)], {
+        icon: (window as any).customMarkerIcon
+      })
         .bindPopup(`
           <div>
             <strong>${obs.observedOn}</strong><br>
