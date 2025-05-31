@@ -79,7 +79,7 @@ export default function Species() {
       const stateSpeciesIds = new Set(
         observations
           .filter((obs: any) => obs.state === selectedState)
-          .map((obs: any) => obs.scientificName)
+          .map((obs: any) => obs.species || obs.scientificName)
       );
       filtered = filtered.filter((species: Species) => stateSpeciesIds.has(species.scientificName));
     }
@@ -106,7 +106,7 @@ export default function Species() {
       const recentSpeciesIds = new Set(
         observations
           .filter((obs: any) => obs.observedOn && new Date(obs.observedOn) >= cutoffDate)
-          .map((obs: any) => obs.scientificName)
+          .map((obs: any) => obs.species || obs.scientificName)
       );
       filtered = filtered.filter((species: Species) => recentSpeciesIds.has(species.scientificName));
     }
