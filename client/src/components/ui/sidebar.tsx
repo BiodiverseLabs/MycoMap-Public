@@ -31,8 +31,8 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },
     { href: "/contributors", label: "Contributors", icon: Users },
-    { href: "/records", label: "Records", icon: Trophy },
     { href: "/species", label: "Species Analysis", icon: Dna },
+    { href: "/records", label: "Records", icon: Trophy },
   ];
 
   // Close mobile menu when location changes
