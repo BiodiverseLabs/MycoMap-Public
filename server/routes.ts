@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertObservationSchema, insertUploadSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
-import * as XLSX from "xlsx";
+import * as XLSX from 'xlsx';
 import path from "path";
 import fs from "fs";
 
@@ -156,8 +156,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function processExcelFile(uploadId: number, filePath: string, originalName: string) {
     try {
+      console.log('Processing Excel file:', filePath);
+      console.log('File exists:', fs.existsSync(filePath));
+      
       // Read Excel file
       const workbook = XLSX.readFile(filePath);
+      console.log('Workbook loaded, sheet names:', workbook.SheetNames);
       const sheetName = workbook.SheetNames.find(name => 
         name.toLowerCase().includes('validated') || 
         name.toLowerCase().includes('observation')
