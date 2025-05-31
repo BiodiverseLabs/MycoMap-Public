@@ -155,48 +155,54 @@ export default function Species() {
       };
     }
 
-    // Use logarithmic model: S = a * ln(N) + b
-    // Where S = species count, N = observation number
+    // Use power law model: S = a * N^b which transforms to log(S) = log(a) + b*log(N)
+    // This is more appropriate for species accumulation curves and avoids negative values
     const n = accumulationData.length;
     const lastPoint = accumulationData[n - 1];
     
-    // Take last 30% of data for fitting to avoid early sampling bias
-    const fitStart = Math.floor(n * 0.7);
-    const fitData = accumulationData.slice(fitStart);
+    // Take last 50% of data for fitting to get stable portion of curve
+    const fitStart = Math.floor(n * 0.5);
+    const fitData = accumulationData.slice(fitStart).filter(point => 
+      point.uniqueSpeciesCount > 0 && point.observationNumber > 0
+    );
     
-    // Calculate logarithmic regression
-    let sumLnX = 0, sumY = 0, sumLnXY = 0, sumLnX2 = 0;
+    // Calculate power law regression: log(S) = log(a) + b*log(N)
+    let sumLogX = 0, sumLogY = 0, sumLogXLogY = 0, sumLogX2 = 0;
     fitData.forEach(point => {
-      const lnX = Math.log(point.observationNumber);
-      sumLnX += lnX;
-      sumY += point.uniqueSpeciesCount;
-      sumLnXY += lnX * point.uniqueSpeciesCount;
-      sumLnX2 += lnX * lnX;
+      const logX = Math.log(point.observationNumber);
+      const logY = Math.log(point.uniqueSpeciesCount);
+      sumLogX += logX;
+      sumLogY += logY;
+      sumLogXLogY += logX * logY;
+      sumLogX2 += logX * logX;
     });
     
     const m = fitData.length;
-    const a = (m * sumLnXY - sumLnX * sumY) / (m * sumLnX2 - sumLnX * sumLnX);
-    const b = (sumY - a * sumLnX) / m;
+    const b = (m * sumLogXLogY - sumLogX * sumLogY) / (m * sumLogX2 - sumLogX * sumLogX);
+    const logA = (sumLogY - b * sumLogX) / m;
+    const a = Math.exp(logA);
     
-    // Estimate asymptotic maximum using curve analysis
+    // Estimate asymptotic maximum using current rate of change
     const currentSpecies = lastPoint.uniqueSpeciesCount;
     const currentObs = lastPoint.observationNumber;
     
-    // Estimate maximum based on curve flattening
-    const estimatedTotal = Math.round(currentSpecies + (a * Math.log(currentObs * 3)) + b - currentSpecies);
-    const observationsFor95 = Math.round(Math.exp((estimatedTotal * 0.95 - b) / a));
+    // Project to much larger observation count to estimate asymptote
+    const futureObs = currentObs * 10;
+    const projectedSpecies = a * Math.pow(futureObs, b);
+    const estimatedTotal = Math.round(projectedSpecies * 1.2); // Add 20% buffer
+    const observationsFor95 = Math.round(Math.pow((estimatedTotal * 0.95) / a, 1 / b));
     
     // Create full extrapolation line showing both fitted and projected portions
     const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
     const extendedData = accumulationData.map(point => ({
       ...point,
-      fittedSpecies: Math.round(a * Math.log(point.observationNumber) + b), // Show fitted line over actual data
+      fittedSpecies: Math.round(a * Math.pow(point.observationNumber, b)), // Power law fit
       extrapolatedSpecies: null
     }));
     
     // Add extrapolated points beyond current observations
     for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
-      const predictedSpecies = Math.round(a * Math.log(i) + b);
+      const predictedSpecies = Math.round(a * Math.pow(i, b));
       extendedData.push({
         observationNumber: i,
         uniqueSpeciesCount: null,
