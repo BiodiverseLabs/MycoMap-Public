@@ -157,11 +157,11 @@ export class DatabaseStorage implements IStorage {
         ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
         ${observations.collector} as name,
         NULL as affiliation,
-        COUNT(*)::int as observation_count
+        COUNT(*)::int as "observationCount"
       FROM ${observations}
       WHERE ${whereClause}
       GROUP BY ${observations.collector}
-      ORDER BY observation_count DESC
+      ORDER BY "observationCount" DESC
       LIMIT ${limit}
     `);
     
