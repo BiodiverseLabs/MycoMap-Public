@@ -65,8 +65,11 @@ export default function Dashboard() {
       <div className="flex-1 overflow-y-auto p-6">
         <MetricsCards dateRange={dateRange} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="mb-8">
           <GeospatialMap dateRange={dateRange} />
+        </div>
+
+        <div className="mb-8">
           <TemporalChart dateRange={dateRange} />
         </div>
 
