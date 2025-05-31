@@ -39,14 +39,14 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900">Dashboard Overview</h2>
-            <p className="text-slate-600 mt-1">
-              DNA-validated macrofungi observations from iNaturalist and Mushroom Observer
+      <header className="bg-white border-b border-slate-200 px-4 lg:px-6 py-3 lg:py-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-0">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg lg:text-2xl font-semibold text-slate-900 truncate">Dashboard Overview</h2>
+            <div className="text-xs lg:text-sm text-slate-600 mt-1 break-words">
+              <span className="block lg:inline">DNA-validated macrofungi observations from iNaturalist and Mushroom Observer</span>
               {selectedState && (
-                <span className="ml-2">
+                <span className="block lg:inline lg:ml-2 mt-1 lg:mt-0">
                   - Filtered by {selectedState}
                   <Button
                     variant="ghost"
@@ -58,13 +58,13 @@ export default function Dashboard() {
                   </Button>
                 </span>
               )}
-            </p>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-sm">
-              <label className="text-slate-600">Date Range:</label>
+          <div className="flex items-center justify-between lg:justify-end space-x-2 lg:space-x-4">
+            <div className="flex items-center space-x-2 text-xs lg:text-sm">
+              <label className="text-slate-600 hidden lg:inline">Date Range:</label>
               <Select value={dateRange} onValueChange={handleDateRangeChange}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-32 lg:w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -84,24 +84,24 @@ export default function Dashboard() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         <MetricsCards dateRange={dateRange} />
 
-        <div className="mb-8">
+        <div className="mb-6 lg:mb-8">
           <GeospatialMap dateRange={dateRange} onStateSelect={handleStateSelect} selectedState={selectedState} />
         </div>
 
-        <div className="mb-8">
+        <div className="mb-6 lg:mb-8">
           <TemporalChart dateRange={dateRange} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8 mb-6 lg:mb-8">
           <TaxonomicChart dateRange={dateRange} />
           <TopContributors dateRange={dateRange} />
           <SpeciesFrequency dateRange={dateRange} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
           <StateRecords dateRange={dateRange} />
           <ObservationSources dateRange={dateRange} />
         </div>

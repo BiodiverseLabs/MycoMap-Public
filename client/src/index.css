@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile text overflow fixes */
+@layer base {
+  .card-content {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  /* Prevent text from overflowing in small containers */
+  .text-truncate-mobile {
+    @apply truncate lg:text-clip;
+  }
+  
+  /* Better responsive font scaling */
+  .responsive-text {
+    @apply text-xs sm:text-sm lg:text-base;
+  }
+  
+  /* Ensure proper spacing in mobile cards */
+  .mobile-card-spacing {
+    @apply p-3 lg:p-4;
+  }
+}
+
 :root {
       --background: 0 0% 100%;
 --foreground: 20 14.3% 4.1%;
