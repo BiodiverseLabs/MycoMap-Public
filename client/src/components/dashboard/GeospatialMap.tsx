@@ -21,7 +21,6 @@ interface GeospatialMapProps {
 
 export function GeospatialMap({ dateRange, onStateSelect, selectedState }: GeospatialMapProps = {}) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
 
   const { data: observations = [], isLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations", dateRange],
@@ -68,129 +67,12 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     .sort((a, b) => b.count - a.count)
     .slice(0, 15); // Show top 15 states
 
-  useEffect(() => {
-    console.log('[GeospatialMap] useEffect triggered', {
-      hasMapRef: !!mapRef.current,
-      observationsCount: validObservations.length,
-      selectedState
-    });
-
-    if (!mapRef.current) {
-      console.log('[GeospatialMap] No map ref, skipping initialization');
-      return;
-    }
-
-    // Load Leaflet dynamically
-    const loadLeaflet = async () => {
-      console.log('[GeospatialMap] Loading Leaflet...');
-      if (typeof window !== 'undefined' && !(window as any).L) {
-        // Add Leaflet CSS
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-
-        // Load Leaflet JS
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        document.head.appendChild(script);
-
-        return new Promise((resolve) => {
-          script.onload = () => {
-            console.log('[GeospatialMap] Leaflet loaded successfully');
-            resolve(undefined);
-          };
-          script.onerror = () => {
-            console.error('[GeospatialMap] Failed to load Leaflet');
-            resolve(undefined);
-          };
-        });
-      } else {
-        console.log('[GeospatialMap] Leaflet already loaded');
-      }
-    };
-
-    const initializeMap = async () => {
-      console.log('[GeospatialMap] Initializing map...');
-      await loadLeaflet();
-      
-      if (mapInstanceRef.current) {
-        console.log('[GeospatialMap] Removing existing map');
-        mapInstanceRef.current.remove();
-      }
-
-      const L = (window as any).L;
-      if (!L) {
-        console.error('[GeospatialMap] Leaflet not available');
-        return;
-      }
-
-      try {
-        // Initialize map
-        console.log('[GeospatialMap] Creating map instance');
-        const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4); // Center on USA
-
-        // Add tile layer
-        console.log('[GeospatialMap] Adding tile layer');
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        // Create marker clusters for better performance
-        const markers = L.markerClusterGroup ? L.markerClusterGroup({
-          chunkedLoading: true,
-          maxClusterRadius: 50
-        }) : L.layerGroup();
-
-        // Add observation markers
-        console.log('[GeospatialMap] Adding', validObservations.length, 'observation markers');
-        validObservations.forEach(obs => {
-          const lat = parseFloat(obs.latitude);
-          const lng = parseFloat(obs.longitude);
-          
-          if (!isNaN(lat) && !isNaN(lng)) {
-            const marker = L.marker([lat, lng]);
-            
-            // Create popup content
-            const popupContent = `
-              <div class="p-2">
-                <h4 class="font-semibold text-sm mb-1">${obs.scientificName}</h4>
-                <p class="text-xs text-gray-600 mb-1">${obs.state}</p>
-                <p class="text-xs text-gray-500">${new Date(obs.observedOn).toLocaleDateString()}</p>
-                ${obs.source ? `<p class="text-xs text-blue-600">${obs.source}</p>` : ''}
-              </div>
-            `;
-            
-            marker.bindPopup(popupContent);
-            markers.addLayer(marker);
-          }
-        });
-
-        map.addLayer(markers);
-        mapInstanceRef.current = map;
-
-        // Fit map to markers if we have observations
-        if (validObservations.length > 0) {
-          const group = new L.featureGroup(markers.getLayers());
-          map.fitBounds(group.getBounds().pad(0.1));
-        }
-
-        console.log('[GeospatialMap] Map initialization complete');
-      } catch (error) {
-        console.error('[GeospatialMap] Error initializing map:', error);
-      }
-    };
-
-    initializeMap();
-
-    return () => {
-      if (mapInstanceRef.current) {
-        console.log('[GeospatialMap] Cleaning up map');
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [validObservations, selectedState]);
+  console.log('[GeospatialMap] Render', {
+    isLoading,
+    observationsCount: observations.length,
+    validObservationsCount: validObservations.length,
+    selectedState
+  });
 
   if (isLoading) {
     return (
@@ -232,27 +114,27 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Map */}
+          {/* Map Placeholder */}
           <div className="lg:col-span-3">
             <div className="relative">
               <div 
                 ref={mapRef} 
-                className="w-full h-96 rounded-lg border border-slate-200"
+                className="w-full h-96 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center"
                 style={{ minHeight: '400px' }}
-              />
-              {validObservations.length === 0 && !isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-50 rounded-lg">
-                  <div className="text-center">
-                    <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500">
-                      {selectedState 
-                        ? `No observations found in ${selectedState}` 
-                        : "No observations with GPS coordinates found"
-                      }
+              >
+                <div className="text-center">
+                  <MapPin className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                  <p className="text-slate-600 font-medium mb-2">Interactive Map</p>
+                  <p className="text-sm text-slate-500">
+                    Showing {validObservations.length.toLocaleString()} observation locations
+                  </p>
+                  {selectedState && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      Filtered by: {selectedState}
                     </p>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
