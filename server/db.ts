@@ -146,11 +146,20 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ phylum: string; count: number }>;
   }
 
-  async getTopContributors(limit: number = 10, startDate?: string, endDate?: string): Promise<Contributor[]> {
-    let whereClause = sql`${observations.collector} IS NOT NULL`;
+  async getTopContributors(limit: number = 10, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]> {
+    let whereConditions = [sql`${observations.collector} IS NOT NULL`];
+    
     if (startDate && endDate) {
-      whereClause = sql`${observations.collector} IS NOT NULL AND ${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`;
+      whereConditions.push(sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`);
     }
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    const whereClause = whereConditions.length > 1 
+      ? sql.join(whereConditions, sql` AND `)
+      : whereConditions[0];
     
     const result = await db.execute(sql`
       SELECT 

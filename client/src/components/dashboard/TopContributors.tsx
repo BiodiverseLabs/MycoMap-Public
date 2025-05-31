@@ -17,11 +17,14 @@ interface TopContributorsProps {
 
 export function TopContributors({ dateRange, state }: TopContributorsProps) {
   const { data: contributors = [], isLoading } = useQuery<Contributor[]>({
-    queryKey: ["/api/contributors", dateRange],
+    queryKey: ["/api/contributors", dateRange, state],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange) {
         params.append('dateRange', dateRange);
+      }
+      if (state) {
+        params.append('state', state);
       }
       const response = await fetch(`/api/contributors?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch contributors');

@@ -17,13 +17,16 @@ interface SpeciesFrequencyProps {
 
 export function SpeciesFrequency({ dateRange, state }: SpeciesFrequencyProps) {
   const { data: species = [], isLoading } = useQuery<Species[]>({
-    queryKey: ["/api/species", { type: 'top', limit: '5' }, dateRange],
+    queryKey: ["/api/species", { type: 'top', limit: '5' }, dateRange, state],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('type', 'top');
       params.append('limit', '5');
       if (dateRange) {
         params.append('dateRange', dateRange);
+      }
+      if (state) {
+        params.append('state', state);
       }
       const response = await fetch(`/api/species?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch species');

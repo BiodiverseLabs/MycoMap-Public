@@ -35,10 +35,10 @@ export interface IStorage {
     count: number;
   }>>;
   
-  getTopContributors(limit?: number, startDate?: string, endDate?: string): Promise<Contributor[]>;
-  getTopSpecies(limit?: number): Promise<Species[]>;
-  getRareSpecies(maxObservations?: number): Promise<Species[]>;
-  getRecentStateRecords(limit?: number): Promise<Observation[]>;
+  getTopContributors(limit?: number, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]>;
+  getTopSpecies(limit?: number, state?: string): Promise<Species[]>;
+  getRareSpecies(maxObservations?: number, state?: string): Promise<Species[]>;
+  getRecentStateRecords(limit?: number, state?: string): Promise<Observation[]>;
   
   // Uploads
   createUpload(upload: InsertUpload): Promise<Upload>;
