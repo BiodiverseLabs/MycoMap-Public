@@ -19,6 +19,14 @@ export default function Dashboard() {
     console.log('Exporting data...');
   };
 
+  const handleDateRangeChange = (newDateRange: string) => {
+    console.log(`[Dashboard] Date range changing from "${dateRange}" to "${newDateRange}"`);
+    setDateRange(newDateRange);
+  };
+
+  // Debug logging for state
+  console.log(`[Dashboard] Current dateRange state: "${dateRange}"`);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -33,7 +41,7 @@ export default function Dashboard() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-sm">
               <label className="text-slate-600">Date Range:</label>
-              <Select value={dateRange} onValueChange={setDateRange}>
+              <Select value={dateRange} onValueChange={handleDateRangeChange}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>

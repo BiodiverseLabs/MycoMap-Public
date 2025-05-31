@@ -14,18 +14,30 @@ interface MetricsCardsProps {
 }
 
 export function MetricsCards({ dateRange }: MetricsCardsProps) {
-  const { data: metrics, isLoading } = useQuery<Metrics>({
+  const { data: metrics, isLoading, error } = useQuery<Metrics>({
     queryKey: ["/api/metrics", dateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
-      const response = await fetch(`/api/metrics?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch metrics');
-      return response.json();
+      const url = `/api/metrics?${params.toString()}`;
+      console.log(`[MetricsCards] Fetching metrics with dateRange: ${dateRange}, URL: ${url}`);
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch metrics: ${response.status}`);
+      
+      const data = await response.json();
+      console.log(`[MetricsCards] Received data for dateRange ${dateRange}:`, data);
+      return data;
     }
   });
+
+  // Add debug logging for props and state changes
+  console.log(`[MetricsCards] Rendering with dateRange: ${dateRange}, isLoading: ${isLoading}, hasData: ${!!metrics}`);
+  if (error) {
+    console.error(`[MetricsCards] Error:`, error);
+  }
 
   const cards = [
     {

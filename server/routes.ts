@@ -42,6 +42,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { startDate, endDate, dateRange } = req.query;
       
+      console.log(`[API] GET /api/metrics - dateRange: "${dateRange}", startDate: "${startDate}", endDate: "${endDate}"`);
+      
       // Convert dateRange to actual dates
       let actualStartDate: string | undefined;
       let actualEndDate: string | undefined;
@@ -70,7 +72,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actualEndDate = endDate as string;
       }
       
+      console.log(`[API] Calculated dates - actualStartDate: "${actualStartDate}", actualEndDate: "${actualEndDate}"`);
+      
       const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate);
+      console.log(`[API] Metrics result:`, metrics);
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching metrics:", error);
