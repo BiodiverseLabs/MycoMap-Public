@@ -209,15 +209,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }).filter(obs => obs.scientificName); // Filter out rows without scientific name
 
-      // Insert observations in batches
-      const batchSize = 100;
+      // Insert observations in batches (increased batch size for better performance)
+      const batchSize = 1000;
       let insertedCount = 0;
+      
+      console.log(`Processed ${observations.length} valid observations, starting batch insert...`);
       
       for (let i = 0; i < observations.length; i += batchSize) {
         const batch = observations.slice(i, i + batchSize);
+        console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(observations.length/batchSize)}`);
         await storage.createObservations(batch);
         insertedCount += batch.length;
+        if (i % 1000 === 0) {
+          console.log(`Progress: ${insertedCount} observations inserted...`);
+        }
       }
+      
+      console.log(`Successfully inserted ${insertedCount} observations total`);
 
       // Update contributor and species statistics
       await updateStatistics();
