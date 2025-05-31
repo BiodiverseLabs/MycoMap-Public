@@ -39,7 +39,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="flex h-screen bg-slate-50">
+        <div className="flex flex-col lg:flex-row h-screen bg-slate-50">
           <Sidebar onOpenAdmin={() => setAdminModalOpen(true)} />
           <main className="flex-1 overflow-hidden">
             <Router />
