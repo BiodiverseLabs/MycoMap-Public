@@ -31,11 +31,15 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     <aside className="w-64 bg-white shadow-sm border-r border-slate-200 flex flex-col">
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <Microscope className="text-primary-foreground text-lg" />
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+            <img 
+              src="/src/assets/MycoMapLogo-notext.PNG" 
+              alt="MycoMap Logo" 
+              className="w-10 h-10 object-contain"
+            />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-slate-900">Macrofungi</h1>
+            <h1 className="text-lg font-semibold text-slate-900">The MycoMap Network</h1>
             <p className="text-sm text-slate-500">Research Dashboard</p>
           </div>
         </div>
