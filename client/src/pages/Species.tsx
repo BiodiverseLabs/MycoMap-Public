@@ -7,7 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Species {
   id: number;
@@ -23,6 +24,7 @@ export default function Species() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedState, setSelectedState] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all_time");
+  const [extrapolate, setExtrapolate] = useState(false);
 
   // Fetch all species data
   const { data: allSpecies = [], isLoading: speciesLoading } = useQuery({
@@ -142,6 +144,67 @@ export default function Species() {
 
     return { totalSpecies, veryCommon, common, uncommon, rare, veryRare, recentSpecies, temporaryCodeNames };
   }, [filteredSpecies]);
+
+  // Calculate extrapolation data and estimates
+  const extrapolationData = useMemo(() => {
+    if (!extrapolate || accumulationData.length < 10) {
+      return { 
+        extendedData: accumulationData, 
+        estimatedTotal: null, 
+        observationsFor95: null 
+      };
+    }
+
+    // Use logarithmic model: S = a * ln(N) + b
+    // Where S = species count, N = observation number
+    const n = accumulationData.length;
+    const lastPoint = accumulationData[n - 1];
+    
+    // Take last 30% of data for fitting to avoid early sampling bias
+    const fitStart = Math.floor(n * 0.7);
+    const fitData = accumulationData.slice(fitStart);
+    
+    // Calculate logarithmic regression
+    let sumLnX = 0, sumY = 0, sumLnXY = 0, sumLnX2 = 0;
+    fitData.forEach(point => {
+      const lnX = Math.log(point.observationNumber);
+      sumLnX += lnX;
+      sumY += point.uniqueSpeciesCount;
+      sumLnXY += lnX * point.uniqueSpeciesCount;
+      sumLnX2 += lnX * lnX;
+    });
+    
+    const m = fitData.length;
+    const a = (m * sumLnXY - sumLnX * sumY) / (m * sumLnX2 - sumLnX * sumLnX);
+    const b = (sumY - a * sumLnX) / m;
+    
+    // Estimate asymptotic maximum using curve analysis
+    const currentSpecies = lastPoint.uniqueSpeciesCount;
+    const currentObs = lastPoint.observationNumber;
+    
+    // Estimate maximum based on curve flattening
+    const estimatedTotal = Math.round(currentSpecies + (a * Math.log(currentObs * 3)) + b - currentSpecies);
+    const observationsFor95 = Math.round(Math.exp((estimatedTotal * 0.95 - b) / a));
+    
+    // Extend curve to show extrapolation
+    const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
+    const extendedData = accumulationData.map(point => ({
+      ...point,
+      extrapolatedSpecies: null
+    }));
+    
+    // Add extrapolated points
+    for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
+      const predictedSpecies = Math.round(a * Math.log(i) + b);
+      extendedData.push({
+        observationNumber: i,
+        uniqueSpeciesCount: null,
+        extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
+      });
+    }
+    
+    return { extendedData, estimatedTotal, observationsFor95 };
+  }, [accumulationData, extrapolate]);
 
   return (
     <div className="flex flex-col h-full">
@@ -391,64 +454,136 @@ export default function Species() {
         {/* Species Accumulation Curve */}
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Species Accumulation Curve
-              {selectedState !== "all" && (
-                <Badge variant="secondary">State: {selectedState}</Badge>
-              )}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Species Accumulation Curve
+                {selectedState !== "all" && (
+                  <Badge variant="secondary">State: {selectedState}</Badge>
+                )}
+              </CardTitle>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="extrapolate"
+                  checked={extrapolate}
+                  onCheckedChange={(checked) => setExtrapolate(checked === true)}
+                />
+                <label htmlFor="extrapolate" className="text-sm font-medium">
+                  Extrapolate
+                </label>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {accumulationLoading ? (
               <div className="h-80 flex items-center justify-center">
                 <div className="text-slate-500">Loading accumulation curve...</div>
               </div>
-            ) : accumulationData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={accumulationData} margin={{ top: 5, right: 30, left: 80, bottom: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="observationNumber" 
-                      tickFormatter={(value) => {
-                        if (value >= 10000) {
-                          return `${(value / 1000).toFixed(0)}k`;
-                        }
-                        return value.toString();
-                      }}
-                      interval="preserveStartEnd"
-                      tick={{ fontSize: 12 }}
-                      label={{ value: 'Number of Observations', position: 'insideBottom', offset: -10 }}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => {
-                        if (value >= 1000) {
-                          return `${(value / 1000).toFixed(0)}k`;
-                        }
-                        return value.toString();
-                      }}
-                      label={{ 
-                        value: 'Cumulative Species Count', 
-                        angle: -90, 
-                        position: 'insideLeft',
-                        style: { textAnchor: 'middle' }
-                      }}
-                    />
-                    <Tooltip 
-                      formatter={(value, name) => [value.toLocaleString(), 'Species Count']}
-                      labelFormatter={(label) => `Observation ${label.toLocaleString()}`}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="uniqueSpeciesCount" 
-                      stroke="#8884d8" 
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+            ) : extrapolationData.extendedData.length > 0 ? (
+              <div>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={extrapolationData.extendedData} margin={{ top: 5, right: 30, left: 80, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="observationNumber" 
+                        tickFormatter={(value) => {
+                          if (value >= 10000) {
+                            return `${(value / 1000).toFixed(0)}k`;
+                          }
+                          return value.toString();
+                        }}
+                        interval="preserveStartEnd"
+                        tick={{ fontSize: 12 }}
+                        label={{ value: 'Number of Observations', position: 'insideBottom', offset: -10 }}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => {
+                          if (value >= 1000) {
+                            return `${(value / 1000).toFixed(0)}k`;
+                          }
+                          return value.toString();
+                        }}
+                        label={{ 
+                          value: 'Cumulative Species Count', 
+                          angle: -90, 
+                          position: 'insideLeft',
+                          style: { textAnchor: 'middle' }
+                        }}
+                      />
+                      <Tooltip 
+                        formatter={(value, name) => [value.toLocaleString(), name]}
+                        labelFormatter={(label) => `Observation ${label.toLocaleString()}`}
+                      />
+                      {/* Observed data line */}
+                      <Line 
+                        type="monotone" 
+                        dataKey="uniqueSpeciesCount" 
+                        stroke="#8884d8" 
+                        strokeWidth={2}
+                        dot={false}
+                        connectNulls={false}
+                        name="Observed Species"
+                      />
+                      {/* Extrapolated line */}
+                      {extrapolate && (
+                        <Line 
+                          type="monotone" 
+                          dataKey="extrapolatedSpecies" 
+                          stroke="#ff7300" 
+                          strokeWidth={2}
+                          dot={false}
+                          strokeDasharray="5 5"
+                          connectNulls={false}
+                          name="Projected Species"
+                        />
+                      )}
+                      {/* Reference line for estimated total */}
+                      {extrapolate && extrapolationData.estimatedTotal && (
+                        <ReferenceLine 
+                          y={extrapolationData.estimatedTotal} 
+                          stroke="red" 
+                          strokeDasharray="3 3" 
+                          label={{ value: "Estimated Total", position: "insideTopRight" }}
+                        />
+                      )}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Extrapolation Statistics */}
+                {extrapolate && extrapolationData.estimatedTotal && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Estimated Total Species</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-primary">
+                          {extrapolationData.estimatedTotal?.toLocaleString()}
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Based on logarithmic curve fitting
+                        </p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Observations for 95% Coverage</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-primary">
+                          {extrapolationData.observationsFor95?.toLocaleString()}
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1">
+                          To reach 95% of estimated total species
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="h-80 flex items-center justify-center">
