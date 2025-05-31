@@ -62,7 +62,7 @@ export function MetricsCards({ dateRange }: MetricsCardsProps) {
       change: "+5.3%",
     },
     {
-      title: "States/Provinces/Regions Covered",
+      title: "Regions Covered",
       value: metrics?.statesCovered || 0,
       icon: MapPin,
       color: "bg-purple-100 text-purple-600",
@@ -109,10 +109,7 @@ export function MetricsCards({ dateRange }: MetricsCardsProps) {
                   <Icon className="text-xl" />
                 </div>
               </div>
-              <div className="flex items-center mt-4 text-sm">
-                <span className="text-green-600 font-medium">{card.change}</span>
-                {index < 3 && <span className="text-slate-600 ml-1">from last month</span>}
-              </div>
+
             </CardContent>
           </Card>
         );
