@@ -292,7 +292,10 @@ export class DatabaseStorage implements IStorage {
         ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
         ${observations.species} as "scientificName",
         ${observations.commonName} as "commonName",
-        COUNT(*)::int as "observationCount"
+        COUNT(*)::int as "observationCount",
+        MIN(${observations.observedOn}) as "firstObserved",
+        MAX(${observations.observedOn}) as "lastObserved",
+        COUNT(DISTINCT ${observations.state}) as "stateCount"
       FROM ${observations}
       WHERE ${whereClause}
       GROUP BY ${observations.species}, ${observations.commonName}
