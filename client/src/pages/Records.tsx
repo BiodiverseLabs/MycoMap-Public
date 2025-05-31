@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Users, Eye, Dna } from "lucide-react";
+import { Link } from "wouter";
 
 interface StateRecord {
   state: string;
@@ -75,6 +76,11 @@ function MostGlobalFirstsByState() {
             })}
           </div>
         )}
+        <div className="mt-4 pt-4 border-t">
+          <Link href="/records/states-global-firsts" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            See all records →
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
@@ -130,6 +136,11 @@ function MostGlobalFirstsByContributor() {
             })}
           </div>
         )}
+        <div className="mt-4 pt-4 border-t">
+          <Link href="/records/contributors-global-firsts" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            See all records →
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
@@ -185,6 +196,11 @@ function MostObservations() {
             })}
           </div>
         )}
+        <div className="mt-4 pt-4 border-t">
+          <Link href="/records/most-observations" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            See all records →
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
@@ -244,6 +260,11 @@ function MostSpecies() {
             })}
           </div>
         )}
+        <div className="mt-4 pt-4 border-t">
+          <Link href="/records/most-species" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            See all records →
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
