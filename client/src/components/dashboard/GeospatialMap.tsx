@@ -79,84 +79,99 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       mapInstanceRef.current.remove();
     }
 
-    // Fix Leaflet default marker icons
-    delete (L.Icon.Default.prototype as any)._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    });
-
-    // Create map instance
-    const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
-
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    // Create heatmap data points
-    const heatmapData: [number, number, number][] = [];
-    const bounds: L.LatLngBounds = L.latLngBounds([]);
-    
-    validObservations.forEach(obs => {
-      const lat = parseFloat(obs.latitude);
-      const lng = parseFloat(obs.longitude);
-      
-      if (!isNaN(lat) && !isNaN(lng)) {
-        heatmapData.push([lat, lng, 1]); // [latitude, longitude, intensity]
-        bounds.extend([lat, lng]);
-      }
-    });
-
-    // Add heatmap using a simple circle-based approach
-    if (heatmapData.length > 0) {
-      // Group nearby points and create circles with varying opacity based on density
-      const gridSize = 0.1; // Degree grid size for grouping
-      const densityMap = new Map<string, { lat: number; lng: number; count: number }>();
-      
-      heatmapData.forEach(([lat, lng]) => {
-        const gridLat = Math.floor(lat / gridSize) * gridSize;
-        const gridLng = Math.floor(lng / gridSize) * gridSize;
-        const key = `${gridLat},${gridLng}`;
+    // Load Leaflet.heat plugin dynamically
+    const loadHeatPlugin = async () => {
+      if (!(window as any).L || !(window as any).L.heatLayer) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js';
+        document.head.appendChild(script);
         
-        if (densityMap.has(key)) {
-          const existing = densityMap.get(key)!;
-          existing.count++;
-        } else {
-          densityMap.set(key, { lat: gridLat + gridSize/2, lng: gridLng + gridSize/2, count: 1 });
+        return new Promise((resolve) => {
+          script.onload = resolve;
+          script.onerror = resolve;
+        });
+      }
+    };
+
+    const initializeMap = async () => {
+      await loadHeatPlugin();
+
+      // Create map instance
+      const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Create heatmap data points
+      const heatmapData: [number, number, number][] = [];
+      const bounds: L.LatLngBounds = L.latLngBounds([]);
+      
+      validObservations.forEach(obs => {
+        const lat = parseFloat(obs.latitude);
+        const lng = parseFloat(obs.longitude);
+        
+        if (!isNaN(lat) && !isNaN(lng)) {
+          heatmapData.push([lat, lng, 0.8]); // [latitude, longitude, intensity]
+          bounds.extend([lat, lng]);
         }
       });
-      
-      // Find max count for normalization
-      const maxCount = Math.max(...Array.from(densityMap.values()).map(d => d.count));
-      
-      // Add circles for each density cluster
-      densityMap.forEach(({ lat, lng, count }) => {
-        const intensity = count / maxCount;
-        const radius = Math.max(2000, intensity * 15000); // Radius in meters
-        const opacity = Math.max(0.1, intensity * 0.8);
-        
-        L.circle([lat, lng], {
-          radius: radius,
-          fillColor: intensity > 0.7 ? '#ff4444' : intensity > 0.4 ? '#ff8800' : '#4CAF50',
-          color: 'transparent',
-          fillOpacity: opacity,
-          weight: 0
-        }).addTo(map).bindPopup(`
-          <div style="font-family: system-ui;">
-            <h4 style="margin: 0 0 8px 0; font-weight: 600;">Observation Cluster</h4>
-            <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${count} observations in this area</p>
-            ${selectedState ? `<p style="margin: 0; color: #3b82f6; font-size: 12px;">${selectedState}</p>` : ''}
-          </div>
-        `);
-      });
-      
-      // Fit map to observation bounds
-      map.fitBounds(bounds.pad(0.1));
-    }
 
-    mapInstanceRef.current = map;
+      // Add heatmap layer if plugin is available
+      if (heatmapData.length > 0) {
+        if ((window as any).L && (window as any).L.heatLayer) {
+          const heat = (window as any).L.heatLayer(heatmapData, {
+            radius: 20,
+            blur: 15,
+            maxZoom: 17,
+            max: 1.0,
+            gradient: {
+              0.0: 'blue',
+              0.2: 'cyan', 
+              0.4: 'lime',
+              0.6: 'yellow',
+              0.8: 'orange',
+              1.0: 'red'
+            }
+          }).addTo(map);
+          
+          // Fit map to observation bounds
+          map.fitBounds(bounds.pad(0.1));
+        } else {
+          // Fallback to simple markers if heat plugin fails
+          validObservations.slice(0, 500).forEach(obs => {
+            const lat = parseFloat(obs.latitude);
+            const lng = parseFloat(obs.longitude);
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+              L.circleMarker([lat, lng], {
+                radius: 3,
+                fillColor: '#3388ff',
+                color: 'white',
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.7
+              }).addTo(map).bindPopup(`
+                <div style="font-family: system-ui;">
+                  <h4 style="margin: 0 0 8px 0; font-weight: 600;">${obs.scientificName}</h4>
+                  <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${obs.state}</p>
+                  <p style="margin: 0 0 4px 0; color: #888; font-size: 12px;">${new Date(obs.observedOn).toLocaleDateString()}</p>
+                </div>
+              `);
+            }
+          });
+          
+          if (bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.1));
+          }
+        }
+      }
+
+      mapInstanceRef.current = map;
+    };
+
+    initializeMap();
 
     return () => {
       if (mapInstanceRef.current) {
