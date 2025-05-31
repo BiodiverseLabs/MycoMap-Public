@@ -8,7 +8,11 @@ interface TemporalData {
   count: number;
 }
 
-export function TemporalChart() {
+interface TemporalChartProps {
+  dateRange?: string;
+}
+
+export function TemporalChart({ dateRange }: TemporalChartProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
   const [groupBy, setGroupBy] = useState<'month' | 'quarter' | 'year'>('month');

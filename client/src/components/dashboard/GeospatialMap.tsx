@@ -12,7 +12,11 @@ interface Observation {
   observedOn: string;
 }
 
-export function GeospatialMap() {
+interface GeospatialMapProps {
+  dateRange?: string;
+}
+
+export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');

@@ -7,7 +7,11 @@ interface TaxonomicData {
   count: number;
 }
 
-export function TaxonomicChart() {
+interface TaxonomicChartProps {
+  dateRange?: string;
+}
+
+export function TaxonomicChart({ dateRange }: TaxonomicChartProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
 
