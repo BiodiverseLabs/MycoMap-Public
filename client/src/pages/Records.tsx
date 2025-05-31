@@ -52,20 +52,27 @@ function MostGlobalFirstsByState() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {stateData.slice(0, 15).map((state, index) => (
-              <div key={state.state} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                    {index + 1}
-                  </span>
-                  <span className="font-medium">{state.state}</span>
+            {stateData.slice(0, 15).map((state, index) => {
+              const isTopThree = index < 3;
+              const badgeColors = ['bg-yellow-500', 'bg-gray-500', 'bg-orange-500'];
+              
+              return (
+                <div key={state.state} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
+                      isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <span className={isTopThree ? "font-semibold" : "font-medium"}>{state.state}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{state.globalFirstCount.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">{state.percentage.toFixed(1)}%</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-semibold">{state.globalFirstCount.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">{state.percentage.toFixed(1)}%</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -95,25 +102,32 @@ function MostGlobalFirstsByContributor() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {contributorData.slice(0, 15).map((contributor, index) => (
-              <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <div className="font-medium">{contributor.name}</div>
-                    {contributor.affiliation && (
-                      <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
-                    )}
+            {contributorData.slice(0, 15).map((contributor, index) => {
+              const isTopThree = index < 3;
+              const badgeColors = ['bg-yellow-500', 'bg-gray-500', 'bg-orange-500'];
+              
+              return (
+                <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
+                      isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div>
+                      <div className={isTopThree ? "font-semibold" : "font-medium"}>{contributor.name}</div>
+                      {contributor.affiliation && (
+                        <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{contributor.globalFirstCount.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">{contributor.percentage.toFixed(1)}%</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-semibold">{contributor.globalFirstCount.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">{contributor.percentage.toFixed(1)}%</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -143,25 +157,32 @@ function MostObservations() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {contributorData.slice(0, 15).map((contributor, index) => (
-              <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <div className="font-medium">{contributor.name}</div>
-                    {contributor.affiliation && (
-                      <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
-                    )}
+            {contributorData.slice(0, 15).map((contributor, index) => {
+              const isTopThree = index < 3;
+              const badgeColors = ['bg-blue-500', 'bg-gray-500', 'bg-purple-500'];
+              
+              return (
+                <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
+                      isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div>
+                      <div className={isTopThree ? "font-semibold" : "font-medium"}>{contributor.name}</div>
+                      {contributor.affiliation && (
+                        <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{contributor.observationCount.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">observations</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-semibold">{contributor.observationCount.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">observations</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -195,25 +216,32 @@ function MostSpecies() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {speciesData.slice(0, 15).map((contributor, index) => (
-              <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <div className="font-medium">{contributor.name}</div>
-                    {contributor.affiliation && (
-                      <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
-                    )}
+            {speciesData.slice(0, 15).map((contributor, index) => {
+              const isTopThree = index < 3;
+              const badgeColors = ['bg-green-500', 'bg-gray-500', 'bg-teal-500'];
+              
+              return (
+                <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
+                      isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div>
+                      <div className={isTopThree ? "font-semibold" : "font-medium"}>{contributor.name}</div>
+                      {contributor.affiliation && (
+                        <div className="text-xs text-muted-foreground">{contributor.affiliation}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{contributor.speciesCount.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">species</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-semibold">{contributor.speciesCount.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">species</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
