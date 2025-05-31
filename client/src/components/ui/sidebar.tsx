@@ -10,6 +10,7 @@ import {
   Settings 
 } from "lucide-react";
 import { Button } from "./button";
+// Use a base64 encoded version or public path for better production compatibility
 
 interface SidebarProps {
   onOpenAdmin: () => void;
@@ -31,12 +32,8 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     <aside className="w-64 bg-white shadow-sm border-r border-slate-200 flex flex-col">
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center space-x-3">
-          <div className="w-16 h-16 rounded-lg flex items-center justify-center">
-            <img 
-              src="/src/assets/MycoMapLogo-notext.PNG" 
-              alt="MycoMap Logo" 
-              className="w-16 h-16 object-contain"
-            />
+          <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
+            <Microscope className="w-8 h-8 text-primary" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-slate-900">The MycoMap Network</h1>
