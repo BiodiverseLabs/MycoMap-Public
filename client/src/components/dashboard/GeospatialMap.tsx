@@ -69,10 +69,20 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     .slice(0, 15); // Show top 15 states
 
   useEffect(() => {
-    if (!mapRef.current || !validObservations.length) return;
+    console.log('[GeospatialMap] useEffect triggered', {
+      hasMapRef: !!mapRef.current,
+      observationsCount: validObservations.length,
+      selectedState
+    });
+
+    if (!mapRef.current) {
+      console.log('[GeospatialMap] No map ref, skipping initialization');
+      return;
+    }
 
     // Load Leaflet dynamically
     const loadLeaflet = async () => {
+      console.log('[GeospatialMap] Loading Leaflet...');
       if (typeof window !== 'undefined' && !(window as any).L) {
         // Add Leaflet CSS
         const link = document.createElement('link');
@@ -86,65 +96,88 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         document.head.appendChild(script);
 
         return new Promise((resolve) => {
-          script.onload = resolve;
+          script.onload = () => {
+            console.log('[GeospatialMap] Leaflet loaded successfully');
+            resolve(undefined);
+          };
+          script.onerror = () => {
+            console.error('[GeospatialMap] Failed to load Leaflet');
+            resolve(undefined);
+          };
         });
+      } else {
+        console.log('[GeospatialMap] Leaflet already loaded');
       }
     };
 
     const initializeMap = async () => {
+      console.log('[GeospatialMap] Initializing map...');
       await loadLeaflet();
       
       if (mapInstanceRef.current) {
+        console.log('[GeospatialMap] Removing existing map');
         mapInstanceRef.current.remove();
       }
 
       const L = (window as any).L;
-      if (!L) return;
+      if (!L) {
+        console.error('[GeospatialMap] Leaflet not available');
+        return;
+      }
 
-      // Initialize map
-      const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4); // Center on USA
+      try {
+        // Initialize map
+        console.log('[GeospatialMap] Creating map instance');
+        const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4); // Center on USA
 
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+        // Add tile layer
+        console.log('[GeospatialMap] Adding tile layer');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-      // Create marker clusters for better performance
-      const markers = L.markerClusterGroup ? L.markerClusterGroup({
-        chunkedLoading: true,
-        maxClusterRadius: 50
-      }) : L.layerGroup();
+        // Create marker clusters for better performance
+        const markers = L.markerClusterGroup ? L.markerClusterGroup({
+          chunkedLoading: true,
+          maxClusterRadius: 50
+        }) : L.layerGroup();
 
-      // Add observation markers
-      validObservations.forEach(obs => {
-        const lat = parseFloat(obs.latitude);
-        const lng = parseFloat(obs.longitude);
-        
-        if (!isNaN(lat) && !isNaN(lng)) {
-          const marker = L.marker([lat, lng]);
+        // Add observation markers
+        console.log('[GeospatialMap] Adding', validObservations.length, 'observation markers');
+        validObservations.forEach(obs => {
+          const lat = parseFloat(obs.latitude);
+          const lng = parseFloat(obs.longitude);
           
-          // Create popup content
-          const popupContent = `
-            <div class="p-2">
-              <h4 class="font-semibold text-sm mb-1">${obs.scientificName}</h4>
-              <p class="text-xs text-gray-600 mb-1">${obs.state}</p>
-              <p class="text-xs text-gray-500">${new Date(obs.observedOn).toLocaleDateString()}</p>
-              ${obs.source ? `<p class="text-xs text-blue-600">${obs.source}</p>` : ''}
-            </div>
-          `;
-          
-          marker.bindPopup(popupContent);
-          markers.addLayer(marker);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const marker = L.marker([lat, lng]);
+            
+            // Create popup content
+            const popupContent = `
+              <div class="p-2">
+                <h4 class="font-semibold text-sm mb-1">${obs.scientificName}</h4>
+                <p class="text-xs text-gray-600 mb-1">${obs.state}</p>
+                <p class="text-xs text-gray-500">${new Date(obs.observedOn).toLocaleDateString()}</p>
+                ${obs.source ? `<p class="text-xs text-blue-600">${obs.source}</p>` : ''}
+              </div>
+            `;
+            
+            marker.bindPopup(popupContent);
+            markers.addLayer(marker);
+          }
+        });
+
+        map.addLayer(markers);
+        mapInstanceRef.current = map;
+
+        // Fit map to markers if we have observations
+        if (validObservations.length > 0) {
+          const group = new L.featureGroup(markers.getLayers());
+          map.fitBounds(group.getBounds().pad(0.1));
         }
-      });
 
-      map.addLayer(markers);
-      mapInstanceRef.current = map;
-
-      // Fit map to markers if we have observations
-      if (validObservations.length > 0) {
-        const group = new L.featureGroup(markers.getLayers());
-        map.fitBounds(group.getBounds().pad(0.1));
+        console.log('[GeospatialMap] Map initialization complete');
+      } catch (error) {
+        console.error('[GeospatialMap] Error initializing map:', error);
       }
     };
 
@@ -152,11 +185,12 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
 
     return () => {
       if (mapInstanceRef.current) {
+        console.log('[GeospatialMap] Cleaning up map');
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [validObservations]);
+  }, [validObservations, selectedState]);
 
   if (isLoading) {
     return (
