@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { MapPin, User, Calendar, Award, X } from "lucide-react";
+import { ContributorMap } from "@/components/dashboard/ContributorMap";
 
 interface Contributor {
   id: string;
@@ -370,32 +371,29 @@ export default function Contributors() {
                   </Card>
                 </div>
 
-                {/* Detailed Species List */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Species Contributions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {contributorStats.topSpecies.map((item: any, index: number) => (
-                          <div key={item.species} className="flex items-center justify-between p-2 border border-slate-100 rounded">
-                            <div className="flex items-center gap-3">
-                              <div className="w-6 h-6 bg-primary/10 text-primary rounded text-sm flex items-center justify-center">
-                                {index + 1}
-                              </div>
-                              <span className="text-sm text-slate-700">{item.species}</span>
-                            </div>
-                            <Badge variant="secondary">{item.count}</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                {/* Map and Details */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Contributor Map */}
+                  <div className="lg:col-span-2">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <MapPin className="w-5 h-5" />
+                          Contribution Map
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-96">
+                          <ContributorMap observations={contributorObservations} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
 
+                  {/* Geographic Summary */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Geographic Distribution</CardTitle>
+                      <CardTitle>Geographic Summary</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -414,6 +412,28 @@ export default function Contributors() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Species Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Species Contributions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {contributorStats.topSpecies.map((item: any, index: number) => (
+                        <div key={item.species} className="flex items-center justify-between p-3 border border-slate-100 rounded">
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 bg-primary/10 text-primary rounded text-sm flex items-center justify-center">
+                              {index + 1}
+                            </div>
+                            <span className="text-sm text-slate-700 truncate">{item.species}</span>
+                          </div>
+                          <Badge variant="secondary">{item.count}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
               </>
             ) : (
               <Card>
