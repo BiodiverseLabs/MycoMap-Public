@@ -95,10 +95,19 @@ export default function ActivityFeed() {
   const handleScroll = useCallback(() => {
     const scrollPosition = window.innerHeight + document.documentElement.scrollTop;
     const pageHeight = document.documentElement.offsetHeight;
-    const threshold = pageHeight - 1000;
+    const threshold = pageHeight - 500; // Reduced threshold for more sensitive triggering
+    
+    console.log('Scroll check:', {
+      scrollPosition: Math.round(scrollPosition),
+      pageHeight: Math.round(pageHeight),
+      threshold: Math.round(threshold),
+      hasNextPage,
+      isFetchingNextPage,
+      shouldTrigger: scrollPosition >= threshold && hasNextPage && !isFetchingNextPage
+    });
     
     if (scrollPosition >= threshold && hasNextPage && !isFetchingNextPage) {
-      console.log('Triggering fetchNextPage - hasNextPage:', hasNextPage, 'isFetchingNextPage:', isFetchingNextPage);
+      console.log('🚀 Triggering fetchNextPage');
       fetchNextPage();
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
@@ -331,6 +340,20 @@ export default function ActivityFeed() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+
+          {hasNextPage && !isFetchingNextPage && (
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => {
+                  console.log('Manual Load More clicked');
+                  fetchNextPage();
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Load More Records ({allRecords.length} of many)
+              </button>
             </div>
           )}
 
