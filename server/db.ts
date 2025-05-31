@@ -281,7 +281,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -334,6 +334,7 @@ export class DatabaseStorage implements IStorage {
         CASE WHEN species_rank_global = 1 THEN true ELSE false END as "isFirstGlobal",
         CASE WHEN species_rank_state = 1 THEN true ELSE false END as "isFirstInState"
       FROM ranked_observations
+      ${stateFirstsOnly ? sql`WHERE species_rank_state = 1` : sql``}
       ORDER BY "datasetRecordNumber"
       LIMIT ${limit} OFFSET ${offset}
     `);

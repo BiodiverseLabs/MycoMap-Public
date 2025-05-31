@@ -4,9 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 
 interface StateRecord {
   id: number;
-  scientificName: string;
+  species: string;
   state: string;
-  observedOn: string;
+  reportDate: string;
+  source: string;
+  referenceNumber: string;
+  datasetRecordNumber: number;
+  stateRecordNumber: number;
+  isFirstGlobal: boolean;
+  isFirstInState: boolean;
 }
 
 interface StateRecordsProps {
@@ -15,7 +21,12 @@ interface StateRecordsProps {
 
 export function StateRecords({ dateRange }: StateRecordsProps) {
   const { data: records = [], isLoading } = useQuery<StateRecord[]>({
-    queryKey: ["/api/state-records"],
+    queryKey: ["/api/record-index", { stateFirstsOnly: true }],
+    queryFn: async () => {
+      const response = await fetch('/api/record-index?limit=10&stateFirstsOnly=true');
+      if (!response.ok) throw new Error('Failed to fetch state records');
+      return response.json();
+    }
   });
 
   const formatDate = (dateString: string) => {
@@ -78,19 +89,26 @@ export function StateRecords({ dateRange }: StateRecordsProps) {
                 <th className="text-left text-sm font-medium text-slate-600 pb-3">Species</th>
                 <th className="text-left text-sm font-medium text-slate-600 pb-3">State</th>
                 <th className="text-left text-sm font-medium text-slate-600 pb-3">Date</th>
+                <th className="text-left text-sm font-medium text-slate-600 pb-3">Record #</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {records.slice(0, 5).map((record) => (
                 <tr key={record.id}>
                   <td className="py-3 text-sm text-slate-900 italic">
-                    {record.scientificName}
+                    {record.species}
+                    {record.isFirstGlobal && (
+                      <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">1st Global</Badge>
+                    )}
                   </td>
                   <td className="py-3 text-sm text-slate-600">
                     {record.state}
                   </td>
                   <td className="py-3 text-sm text-slate-600">
-                    {formatDate(record.observedOn)}
+                    {formatDate(record.reportDate)}
+                  </td>
+                  <td className="py-3 text-sm text-slate-600">
+                    #{record.stateRecordNumber}
                   </td>
                 </tr>
               ))}

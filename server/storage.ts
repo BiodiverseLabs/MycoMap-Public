@@ -50,7 +50,7 @@ export interface IStorage {
   upsertSpecies(species: InsertSpecies): Promise<Species>;
   
   // Record Index
-  getRecordIndex(limit?: number, offset?: number): Promise<Array<{
+  getRecordIndex(limit?: number, offset?: number, stateFirstsOnly?: boolean): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -318,7 +318,7 @@ export class MemoryStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -334,14 +334,14 @@ export class MemoryStorage implements IStorage {
     const sortedObs = this.observations
       .filter(obs => obs.species && obs.observedOn)
       .sort((a, b) => {
-        const dateA = new Date(a.observedOn).getTime();
-        const dateB = new Date(b.observedOn).getTime();
+        const dateA = new Date(a.observedOn || '').getTime();
+        const dateB = new Date(b.observedOn || '').getTime();
         if (dateA !== dateB) return dateA - dateB;
         return a.species!.localeCompare(b.species!);
       });
 
-    const result = sortedObs.slice(offset, offset + limit).map((obs, index) => {
-      const globalIndex = offset + index + 1;
+    const result = sortedObs.map((obs, index) => {
+      const globalIndex = index + 1;
       const stateObs = sortedObs.filter(o => o.state === obs.state);
       const stateIndex = stateObs.findIndex(o => o.id === obs.id) + 1;
       
@@ -352,7 +352,7 @@ export class MemoryStorage implements IStorage {
         id: obs.id,
         species: obs.species!,
         state: obs.state || 'Unknown',
-        reportDate: obs.observedOn,
+        reportDate: obs.observedOn || '',
         source: obs.source || 'Unknown',
         referenceNumber: obs.observationId || 'N/A',
         datasetRecordNumber: globalIndex,
@@ -362,7 +362,12 @@ export class MemoryStorage implements IStorage {
       };
     });
 
-    return result;
+    // Filter for state firsts only if requested
+    const filteredResult = stateFirstsOnly 
+      ? result.filter(record => record.isFirstInState)
+      : result;
+
+    return filteredResult.slice(offset, offset + limit);
   }
 }
 
