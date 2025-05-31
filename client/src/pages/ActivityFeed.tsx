@@ -47,10 +47,13 @@ export default function ActivityFeed() {
     hasNextPage,
     isFetchingNextPage,
     isLoading,
-    isError
+    isError,
+    error
   } = useInfiniteQuery({
     queryKey: ["/api/activity-feed", filter, selectedState, startDate, endDate, speciesFilter],
     queryFn: async ({ pageParam = 0 }) => {
+      console.log('ActivityFeed queryFn called with:', { pageParam, filter, selectedState, startDate, endDate, speciesFilter });
+      
       const params = new URLSearchParams();
       params.append('limit', RECORDS_PER_PAGE.toString());
       params.append('offset', (pageParam * RECORDS_PER_PAGE).toString());

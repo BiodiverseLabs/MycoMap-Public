@@ -412,7 +412,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false, startDate?: string, endDate?: string, species?: string): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -432,6 +432,18 @@ export class DatabaseStorage implements IStorage {
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+
+    if (startDate) {
+      whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+    }
+
+    if (endDate) {
+      whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+    }
+
+    if (species) {
+      whereConditions.push(sql`LOWER(${observations.species}) LIKE LOWER(${'%' + species + '%'})`);
     }
     
     const baseWhereClause = sql.join(whereConditions, sql` AND `);
@@ -478,8 +490,8 @@ export class DatabaseStorage implements IStorage {
       ${(() => {
         const conditions = [];
         if (globalFirstsOnly) conditions.push(sql`species_rank_global = 1`);
-        if (stateFirstsOnly) conditions.push(sql`species_rank_state = 1`);
-        if (recent && !globalFirstsOnly && !stateFirstsOnly) conditions.push(sql`(species_rank_global = 1 OR species_rank_state = 1)`);
+        else if (stateFirstsOnly) conditions.push(sql`species_rank_state = 1`);
+        else if (recent) conditions.push(sql`(species_rank_global = 1 OR species_rank_state = 1)`);
         return conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
       })()}
       ORDER BY ${recent ? sql`"reportDate" DESC` : sql`"datasetRecordNumber"`}
