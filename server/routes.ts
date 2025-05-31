@@ -260,6 +260,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Processing Excel file:', filePath);
       console.log('File exists:', fs.existsSync(filePath));
       
+      // Clear existing data to avoid duplicates
+      await storage.clearAllData();
+      
       // Dynamically import XLSX with proper CommonJS handling
       const XLSX = await import('xlsx');
       const { readFile, utils } = XLSX.default;

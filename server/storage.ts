@@ -62,6 +62,9 @@ export interface IStorage {
     isFirstGlobal: boolean;
     isFirstInState: boolean;
   }>>;
+  
+  // Data management
+  clearAllData(): Promise<void>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -379,6 +382,14 @@ export class MemoryStorage implements IStorage {
     }
 
     return filteredResult.slice(offset, offset + limit);
+  }
+
+  async clearAllData(): Promise<void> {
+    this.observations = [];
+    this.uploads = [];
+    this.contributors = [];
+    this.species = [];
+    this.users = [];
   }
 }
 

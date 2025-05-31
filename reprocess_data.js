@@ -86,4 +86,5 @@ async function reprocessData() {
   }
 }
 
-reprocessData();
+// Don't auto-run
+// reprocessData();

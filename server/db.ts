@@ -353,4 +353,10 @@ export class DatabaseStorage implements IStorage {
       isFirstInState: boolean;
     }>;
   }
+
+  async clearAllData(): Promise<void> {
+    await db.execute(sql`DELETE FROM ${observations}`);
+    await db.execute(sql`DELETE FROM ${contributors}`);
+    await db.execute(sql`DELETE FROM ${species}`);
+  }
 }
