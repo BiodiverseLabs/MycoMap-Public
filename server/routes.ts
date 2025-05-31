@@ -17,13 +17,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analytics endpoints
   app.get("/api/observations", async (req, res) => {
     try {
-      const { startDate, endDate, state, contributor, species } = req.query;
+      const { startDate, endDate, state, contributor, species, dateRange } = req.query;
+      
+      // Convert dateRange to actual dates (same logic as metrics endpoint)
+      let actualStartDate = startDate as string;
+      let actualEndDate = endDate as string;
+      
+      if (dateRange === 'last_30_days') {
+        actualStartDate = '2025-01-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'last_6_months') {
+        actualStartDate = '2024-10-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'last_year') {
+        actualStartDate = '2024-01-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'all_time') {
+        // Don't set date filters for all time
+        actualStartDate = undefined as any;
+        actualEndDate = undefined as any;
+      }
       
       let observations;
-      if (startDate && endDate) {
+      if (actualStartDate && actualEndDate) {
         observations = await storage.getObservationsByDateRange(
-          startDate as string, 
-          endDate as string
+          actualStartDate, 
+          actualEndDate
         );
       } else if (state) {
         observations = await storage.getObservationsByState(state as string);
