@@ -306,8 +306,8 @@ export class DatabaseStorage implements IStorage {
             ORDER BY ${observations.observedOn}, ${observations.species}
           ) as "datasetRecordNumber",
           ROW_NUMBER() OVER (
-            PARTITION BY ${observations.state}
-            ORDER BY ${observations.observedOn}, ${observations.species}
+            PARTITION BY ${observations.species}, ${observations.state}
+            ORDER BY ${observations.observedOn}
           ) as "stateRecordNumber",
           ROW_NUMBER() OVER (
             PARTITION BY ${observations.species}

@@ -342,11 +342,15 @@ export class MemoryStorage implements IStorage {
 
     const result = sortedObs.map((obs, index) => {
       const globalIndex = index + 1;
-      const stateObs = sortedObs.filter(o => o.state === obs.state);
-      const stateIndex = stateObs.findIndex(o => o.id === obs.id) + 1;
+      
+      // Get all observations of this same species in this same state, sorted by date
+      const sameSpeciesInState = sortedObs.filter(o => 
+        o.species === obs.species && o.state === obs.state
+      );
+      const stateSpeciesIndex = sameSpeciesInState.findIndex(o => o.id === obs.id) + 1;
       
       const firstGlobalForSpecies = sortedObs.find(o => o.species === obs.species);
-      const firstStateForSpecies = stateObs.find(o => o.species === obs.species);
+      const firstStateForSpecies = sameSpeciesInState[0]; // First of this species in this state
       
       return {
         id: obs.id,
@@ -356,7 +360,7 @@ export class MemoryStorage implements IStorage {
         source: obs.source || 'Unknown',
         referenceNumber: obs.observationId || 'N/A',
         datasetRecordNumber: globalIndex,
-        stateRecordNumber: stateIndex,
+        stateRecordNumber: stateSpeciesIndex,
         isFirstGlobal: firstGlobalForSpecies?.id === obs.id,
         isFirstInState: firstStateForSpecies?.id === obs.id
       };
