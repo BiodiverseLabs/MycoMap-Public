@@ -16,6 +16,15 @@ interface MetricsCardsProps {
 export function MetricsCards({ dateRange }: MetricsCardsProps) {
   const { data: metrics, isLoading } = useQuery<Metrics>({
     queryKey: ["/api/metrics", dateRange],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange) {
+        params.append('dateRange', dateRange);
+      }
+      const response = await fetch(`/api/metrics?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch metrics');
+      return response.json();
+    }
   });
 
   const cards = [
