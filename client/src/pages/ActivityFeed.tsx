@@ -39,15 +39,7 @@ export default function ActivityFeed() {
     },
   });
 
-  // Fetch species for filter dropdown
-  const { data: speciesData } = useQuery({
-    queryKey: ['/api/species'],
-    queryFn: async () => {
-      const response = await fetch('/api/species?limit=1000');
-      if (!response.ok) throw new Error('Failed to fetch species');
-      return response.json();
-    },
-  });
+
 
   const {
     data,
@@ -190,20 +182,13 @@ export default function ActivityFeed() {
             {/* Species Filter */}
             <div className="flex items-center gap-2">
               <Search className="w-4 h-4 text-slate-500" />
-              <Select value={speciesFilter} onValueChange={setSpeciesFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="All Species" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Species</SelectItem>
-                  {speciesData?.slice(0, 100).map((species: any) => (
-                    <SelectItem key={species.id} value={species.scientificName}>
-                      <em>{species.scientificName}</em>
-                      {species.commonName && ` (${species.commonName})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                type="text"
+                placeholder="Search species..."
+                value={speciesFilter === 'all' ? '' : speciesFilter}
+                onChange={(e) => setSpeciesFilter(e.target.value || 'all')}
+                className="w-[200px]"
+              />
             </div>
           </div>
 
