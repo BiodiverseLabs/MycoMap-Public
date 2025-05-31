@@ -159,8 +159,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Processing Excel file:', filePath);
       console.log('File exists:', fs.existsSync(filePath));
       
-      // Dynamically import XLSX with proper module resolution
-      const { readFile, utils } = await import('xlsx');
+      // Dynamically import XLSX with proper CommonJS handling
+      const XLSX = await import('xlsx');
+      const { readFile, utils } = XLSX.default;
       
       // Read Excel file
       const workbook = readFile(filePath);
