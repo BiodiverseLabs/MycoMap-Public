@@ -11,6 +11,7 @@ import Temporal from "@/pages/Temporal";
 import Taxonomic from "@/pages/Taxonomic";
 import Contributors from "@/pages/Contributors";
 import Species from "@/pages/Species";
+import SpeciesDetail from "@/pages/SpeciesDetail";
 import AdminModal from "@/components/admin/AdminModal";
 import NotFound from "@/pages/not-found";
 
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
       <Route path="/contributors" component={Contributors} />
+      <Route path="/species/:name" component={SpeciesDetail} />
       <Route path="/species" component={Species} />
       <Route component={NotFound} />
     </Switch>

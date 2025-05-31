@@ -1,0 +1,394 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useRoute, Link } from "wouter";
+import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock } from "lucide-react";
+
+declare global {
+  interface Window {
+    L: any;
+  }
+}
+
+interface Observation {
+  id: number;
+  observationId: string;
+  latitude: string;
+  longitude: string;
+  state: string;
+  observedOn: string;
+  source: string;
+  contributor: string;
+}
+
+interface SpeciesDetailData {
+  scientificName: string;
+  commonName: string | null;
+  observationCount: number;
+  firstObserved: string | null;
+  lastObserved: string | null;
+  stateCount: number | null;
+}
+
+export default function SpeciesDetail() {
+  const [match, params] = useRoute("/species/:name");
+  const speciesName = params?.name ? decodeURIComponent(params.name) : "";
+  
+  const [selectedState, setSelectedState] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all_time");
+  
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+
+  // Fetch species observations
+  const { data: observations = [], isLoading: observationsLoading } = useQuery({
+    queryKey: ["/api/observations", { species: speciesName }],
+    queryFn: async () => {
+      const response = await fetch(`/api/observations?species=${encodeURIComponent(speciesName)}`);
+      if (!response.ok) throw new Error('Failed to fetch observations');
+      return response.json();
+    },
+    enabled: !!speciesName
+  });
+
+  // Fetch species details
+  const { data: speciesData, isLoading: speciesLoading } = useQuery({
+    queryKey: ["/api/species", { name: speciesName }],
+    queryFn: async () => {
+      const response = await fetch(`/api/species?name=${encodeURIComponent(speciesName)}`);
+      if (!response.ok) throw new Error('Failed to fetch species details');
+      const data = await response.json();
+      return data[0] || null;
+    },
+    enabled: !!speciesName
+  });
+
+  // Get unique states for filter
+  const states = useMemo(() => {
+    const stateSet = new Set(observations.map((obs: Observation) => obs.state).filter(Boolean));
+    return Array.from(stateSet).sort();
+  }, [observations]);
+
+  // Filter observations based on state and date
+  const filteredObservations = useMemo(() => {
+    let filtered = observations;
+
+    // State filter
+    if (selectedState !== "all") {
+      filtered = filtered.filter((obs: Observation) => obs.state === selectedState);
+    }
+
+    // Date filter
+    if (dateFilter !== "all_time") {
+      const now = new Date();
+      let cutoffDate: Date;
+      
+      switch (dateFilter) {
+        case "last_year":
+          cutoffDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+          break;
+        case "last_5_years":
+          cutoffDate = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+          break;
+        case "recent":
+          cutoffDate = new Date(2020, 0, 1);
+          break;
+        default:
+          cutoffDate = new Date(0);
+      }
+
+      filtered = filtered.filter((obs: Observation) => 
+        obs.observedOn && new Date(obs.observedOn) >= cutoffDate
+      );
+    }
+
+    return filtered;
+  }, [observations, selectedState, dateFilter]);
+
+  // Calculate species metrics
+  const metrics = useMemo(() => {
+    if (!observations.length) return null;
+
+    const stateDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
+      acc[obs.state] = (acc[obs.state] || 0) + 1;
+      return acc;
+    }, {});
+
+    const contributors = new Set(observations.map((obs: Observation) => obs.contributor)).size;
+    
+    const yearDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
+      const year = new Date(obs.observedOn).getFullYear().toString();
+      acc[year] = (acc[year] || 0) + 1;
+      return acc;
+    }, {});
+
+    const sourceDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
+      acc[obs.source] = (acc[obs.source] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      stateDistribution,
+      contributors,
+      yearDistribution,
+      sourceDistribution,
+      totalObservations: observations.length,
+      statesCount: Object.keys(stateDistribution).length
+    };
+  }, [observations]);
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapRef.current || !window.L) return;
+
+    // Clean up existing map
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    // Create new map instance
+    mapInstanceRef.current = window.L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+
+    // Add tile layer
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 18,
+    }).addTo(mapInstanceRef.current);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update map markers
+  useEffect(() => {
+    if (!mapInstanceRef.current || !filteredObservations.length) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => mapInstanceRef.current.removeLayer(marker));
+    markersRef.current = [];
+
+    // Add new markers
+    const validObservations = filteredObservations.filter((obs: Observation) => 
+      obs.latitude && obs.longitude && 
+      !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude))
+    );
+
+    validObservations.forEach((obs: Observation) => {
+      const marker = window.L.marker([parseFloat(obs.latitude), parseFloat(obs.longitude)])
+        .bindPopup(`
+          <div>
+            <strong>${obs.observedOn}</strong><br>
+            ${obs.state}<br>
+            Source: ${obs.source}<br>
+            Observer: ${obs.contributor}
+          </div>
+        `);
+      marker.addTo(mapInstanceRef.current);
+      markersRef.current.push(marker);
+    });
+
+    // Fit map to bounds
+    if (validObservations.length > 0) {
+      const bounds = window.L.latLngBounds(
+        validObservations.map((obs: Observation) => [parseFloat(obs.latitude), parseFloat(obs.longitude)])
+      );
+      mapInstanceRef.current.fitBounds(bounds, { padding: [20, 20] });
+    }
+  }, [filteredObservations]);
+
+  if (!match || !speciesName) {
+    return <div>Species not found</div>;
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <header className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="flex items-center gap-4">
+          <Link href="/species">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Species
+            </Button>
+          </Link>
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900 italic">{speciesName}</h2>
+            {speciesData?.commonName && (
+              <p className="text-slate-600 mt-1">{speciesData.commonName}</p>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-6">
+        {/* Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Total Observations
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-primary">{metrics?.totalObservations || 0}</div>
+              <p className="text-sm text-slate-600 mt-1">
+                {filteredObservations.length} matching filters
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Geographic Range
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-600">{metrics?.statesCount || 0}</div>
+              <p className="text-sm text-slate-600 mt-1">
+                states/provinces
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Contributors
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-blue-600">{metrics?.contributors || 0}</div>
+              <p className="text-sm text-slate-600 mt-1">
+                unique observers
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Observation Period
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold text-orange-600">
+                {speciesData?.firstObserved && speciesData?.lastObserved ? 
+                  `${new Date(speciesData.firstObserved).getFullYear()} - ${new Date(speciesData.lastObserved).getFullYear()}` :
+                  'Unknown'
+                }
+              </div>
+              <p className="text-sm text-slate-600 mt-1">
+                first to last observed
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Map and Filters */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Observation Map
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4 flex gap-4">
+                  <Select value={selectedState} onValueChange={setSelectedState}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Filter by state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All States</SelectItem>
+                      {states.map((state) => (
+                        <SelectItem key={state} value={state}>{state}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Filter by date" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all_time">All Time</SelectItem>
+                      <SelectItem value="last_year">Last Year</SelectItem>
+                      <SelectItem value="last_5_years">Last 5 Years</SelectItem>
+                      <SelectItem value="recent">Since 2020</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div ref={mapRef} className="h-96 rounded-lg border border-slate-200"></div>
+                
+                <div className="mt-2 text-sm text-slate-600">
+                  Showing {filteredObservations.length} of {observations.length} observations
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            {/* State Distribution */}
+            {metrics && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Top States</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Object.entries(metrics.stateDistribution)
+                      .sort(([,a], [,b]) => (b as number) - (a as number))
+                      .slice(0, 5)
+                      .map(([state, count]) => (
+                        <div key={state} className="flex justify-between items-center">
+                          <span className="text-sm">{state}</span>
+                          <Badge variant="secondary">{count}</Badge>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Source Distribution */}
+            {metrics && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Data Sources</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Object.entries(metrics.sourceDistribution)
+                      .sort(([,a], [,b]) => (b as number) - (a as number))
+                      .map(([source, count]) => (
+                        <div key={source} className="flex justify-between items-center">
+                          <span className="text-sm">{source}</span>
+                          <Badge variant="outline">{count}</Badge>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

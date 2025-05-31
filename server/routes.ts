@@ -17,7 +17,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analytics endpoints
   app.get("/api/observations", async (req, res) => {
     try {
-      const { startDate, endDate, state, contributor } = req.query;
+      const { startDate, endDate, state, contributor, species } = req.query;
       
       let observations;
       if (startDate && endDate) {
@@ -35,6 +35,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (contributor) {
         observations = observations.filter(obs => 
           obs.observer === contributor || obs.collector === contributor
+        );
+      }
+      
+      // Filter by species if specified
+      if (species) {
+        observations = observations.filter(obs => 
+          obs.scientificName === species
         );
       }
       

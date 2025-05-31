@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award } from "lucide-react";
+import { Link } from "wouter";
 
 interface Species {
   id: number;
@@ -335,33 +336,35 @@ export default function Species() {
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {filteredSpecies.slice(0, 50).map((species: Species) => (
-                  <div key={species.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-slate-900 italic">{species.scientificName}</h3>
-                      {species.commonName && (
-                        <p className="text-sm text-slate-600">{species.commonName}</p>
-                      )}
-                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                        {species.firstObserved && (
-                          <span>First: {new Date(species.firstObserved).getFullYear()}</span>
+                  <Link key={species.id} href={`/species/${encodeURIComponent(species.scientificName)}`}>
+                    <div className="flex items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-slate-900 italic hover:text-primary">{species.scientificName}</h3>
+                        {species.commonName && (
+                          <p className="text-sm text-slate-600">{species.commonName}</p>
                         )}
-                        {species.lastObserved && (
-                          <span>Last: {new Date(species.lastObserved).getFullYear()}</span>
-                        )}
-                        {species.stateCount && (
-                          <span>{species.stateCount} states</span>
-                        )}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                          {species.firstObserved && (
+                            <span>First: {new Date(species.firstObserved).getFullYear()}</span>
+                          )}
+                          {species.lastObserved && (
+                            <span>Last: {new Date(species.lastObserved).getFullYear()}</span>
+                          )}
+                          {species.stateCount && (
+                            <span>{species.stateCount} states</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant={
+                          (species.observationCount || 0) >= 50 ? "default" :
+                          (species.observationCount || 0) >= 11 ? "secondary" : "outline"
+                        }>
+                          {species.observationCount || 0} obs
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={
-                        (species.observationCount || 0) > 100 ? "default" :
-                        (species.observationCount || 0) > 10 ? "secondary" : "outline"
-                      }>
-                        {species.observationCount || 0} obs
-                      </Badge>
-                    </div>
-                  </div>
+                  </Link>
                 ))}
                 {filteredSpecies.length > 50 && (
                   <div className="text-center py-4 text-slate-500">
