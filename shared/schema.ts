@@ -102,6 +102,27 @@ export const species = pgTable("species", {
   lastObservedIdx: index("species_last_observed_idx").on(table.lastObserved),
 }));
 
+// GPS coordinate index table for fast map loading
+export const gpsIndex = pgTable("gps_index", {
+  id: serial("id").primaryKey(),
+  observationId: integer("observation_id").notNull().references(() => observations.id),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }).notNull(),
+  state: text("state"),
+  species: text("species"),
+  observedOn: date("observed_on"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Spatial index for geographic queries
+  locationIdx: index("gps_location_idx").on(table.latitude, table.longitude),
+  // Index for state-based filtering
+  stateIdx: index("gps_state_idx").on(table.state),
+  // Index for observation lookup
+  observationIdx: index("gps_observation_idx").on(table.observationId),
+  // Composite index for filtered map queries
+  stateLocationIdx: index("gps_state_location_idx").on(table.state, table.latitude, table.longitude),
+}));
+
 // Relations
 export const observationsRelations = relations(observations, ({ one }) => ({
   contributor: one(contributors, {
@@ -138,6 +159,11 @@ export const insertSpeciesSchema = createInsertSchema(species).omit({
   id: true,
 });
 
+export const insertGpsIndexSchema = createInsertSchema(gpsIndex).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertObservation = z.infer<typeof insertObservationSchema>;
 export type Observation = typeof observations.$inferSelect;
@@ -147,6 +173,9 @@ export type Upload = typeof uploads.$inferSelect;
 
 export type InsertContributor = z.infer<typeof insertContributorSchema>;
 export type Contributor = typeof contributors.$inferSelect;
+
+export type InsertGpsIndex = z.infer<typeof insertGpsIndexSchema>;
+export type GpsIndex = typeof gpsIndex.$inferSelect;
 
 export type InsertSpecies = z.infer<typeof insertSpeciesSchema>;
 export type Species = typeof species.$inferSelect;

@@ -649,4 +649,117 @@ export class DatabaseStorage implements IStorage {
       uniqueSpeciesCount: parseInt(row.uniqueSpeciesCount as string)
     }));
   }
+
+  // GPS Index optimization methods for faster map loading
+  async buildGpsIndex(): Promise<void> {
+    const { gpsIndex } = schema;
+    
+    // Clear existing GPS index
+    await db.delete(gpsIndex);
+    
+    // Populate GPS index from observations with valid coordinates
+    await db.execute(sql`
+      INSERT INTO gps_index (observation_id, latitude, longitude, state, species, observed_on)
+      SELECT 
+        id,
+        latitude,
+        longitude,
+        state,
+        species,
+        observed_on
+      FROM observations 
+      WHERE latitude IS NOT NULL 
+        AND longitude IS NOT NULL 
+        AND latitude != '0' 
+        AND longitude != '0'
+        AND CAST(latitude AS DECIMAL) BETWEEN -90 AND 90
+        AND CAST(longitude AS DECIMAL) BETWEEN -180 AND 180
+    `);
+    
+    console.log('[GPS Index] GPS index rebuilt successfully');
+  }
+
+  async getMapDataOptimized(limit: number = 15000, state?: string): Promise<Array<{
+    latitude: number;
+    longitude: number;
+    species?: string;
+  }>> {
+    const { gpsIndex } = schema;
+    const startTime = Date.now();
+    
+    try {
+      let query = db.select({
+        latitude: gpsIndex.latitude,
+        longitude: gpsIndex.longitude,
+        species: gpsIndex.species,
+      }).from(gpsIndex);
+
+      if (state) {
+        query = query.where(eq(gpsIndex.state, state));
+      }
+
+      query = query.limit(limit);
+      
+      const result = await query;
+      const endTime = Date.now();
+      
+      console.log(`[GPS Index] Retrieved ${result.length} coordinates in ${endTime - startTime}ms (state: ${state || 'all'})`);
+      
+      return result.map(row => ({
+        latitude: parseFloat(row.latitude.toString()),
+        longitude: parseFloat(row.longitude.toString()),
+        species: row.species || undefined,
+      }));
+    } catch (error) {
+      console.log('[GPS Index] Falling back to direct observations query');
+      return this.getMapDataFallback(limit, state);
+    }
+  }
+
+  async getMapDataFallback(limit: number = 7000, state?: string): Promise<Array<{
+    latitude: number;
+    longitude: number;
+    species?: string;
+  }>> {
+    const { observations } = schema;
+    const startTime = Date.now();
+    
+    const whereConditions = [
+      isNotNull(observations.latitude),
+      isNotNull(observations.longitude),
+      ne(observations.latitude, '0'),
+      ne(observations.longitude, '0'),
+    ];
+
+    if (state) {
+      whereConditions.push(eq(observations.state, state));
+    }
+
+    const result = await db.select({
+      latitude: observations.latitude,
+      longitude: observations.longitude,
+      species: observations.species,
+    })
+    .from(observations)
+    .where(and(...whereConditions))
+    .limit(limit);
+
+    const endTime = Date.now();
+    console.log(`[GPS Fallback] Retrieved ${result.length} coordinates in ${endTime - startTime}ms`);
+
+    return result.map(row => ({
+      latitude: parseFloat(row.latitude!),
+      longitude: parseFloat(row.longitude!),
+      species: row.species || undefined,
+    }));
+  }
+
+  async clearAllData(): Promise<void> {
+    const { gpsIndex, observations, contributors, species, uploads } = schema;
+    await db.delete(gpsIndex);
+    await db.delete(observations);
+    await db.delete(contributors);
+    await db.delete(species);
+    await db.delete(uploads);
+  }
 }
