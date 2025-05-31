@@ -111,9 +111,14 @@ export default function Species() {
     const veryRare = filteredSpecies.filter(s => (s.observationCount || 0) >= 1 && (s.observationCount || 0) <= 2).length;
     const recentSpecies = filteredSpecies.filter(s => {
       if (!s.lastObserved) return false;
-      const lastYear = new Date();
-      lastYear.setFullYear(lastYear.getFullYear() - 1);
-      return new Date(s.lastObserved) >= lastYear;
+      try {
+        const threeYearsAgo = new Date();
+        threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+        const lastObservedDate = new Date(s.lastObserved);
+        return lastObservedDate >= threeYearsAgo;
+      } catch {
+        return false;
+      }
     }).length;
     
     // Count temporary code names (species with quotes or numerals)
@@ -262,7 +267,7 @@ export default function Species() {
             <CardContent>
               <div className="text-3xl font-bold text-blue-600">{stats.recentSpecies}</div>
               <p className="text-sm text-slate-600 mt-1">
-                Observed in last year
+                Observed in last 3 years
               </p>
             </CardContent>
           </Card>
