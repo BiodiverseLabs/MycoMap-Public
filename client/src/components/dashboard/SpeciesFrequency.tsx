@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 interface Species {
   id: number;
@@ -112,6 +114,13 @@ export function SpeciesFrequency({ dateRange }: SpeciesFrequencyProps) {
             );
           })}
         </div>
+        {species.length > 0 && (
+          <Link href="/species">
+            <Button variant="ghost" className="w-full mt-4 text-primary hover:text-primary/80">
+              View All Species
+            </Button>
+          </Link>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 interface Contributor {
   id: number;
@@ -99,10 +100,12 @@ export function TopContributors({ dateRange }: TopContributorsProps) {
             </div>
           ))}
         </div>
-        {contributors.length > 5 && (
-          <Button variant="ghost" className="w-full mt-4 text-primary hover:text-primary/80">
-            View All Contributors
-          </Button>
+        {contributors.length > 0 && (
+          <Link href="/contributors">
+            <Button variant="ghost" className="w-full mt-4 text-primary hover:text-primary/80">
+              View All Contributors
+            </Button>
+          </Link>
         )}
       </CardContent>
     </Card>
