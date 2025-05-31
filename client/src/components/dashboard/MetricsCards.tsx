@@ -62,7 +62,7 @@ export function MetricsCards({ dateRange }: MetricsCardsProps) {
       change: "+5.3%",
     },
     {
-      title: "States Covered",
+      title: "States/Provinces/Regions Covered",
       value: metrics?.statesCovered || 0,
       icon: MapPin,
       color: "bg-purple-100 text-purple-600",
