@@ -6,7 +6,7 @@ interface Contributor {
   id: number;
   name: string;
   affiliation: string | null;
-  observation_count: number;
+  observationCount: number;
 }
 
 interface TopContributorsProps {
@@ -94,7 +94,7 @@ export function TopContributors({ dateRange }: TopContributorsProps) {
                 </div>
               </div>
               <span className="text-sm font-medium text-slate-900">
-                {contributor.observation_count ? contributor.observation_count.toLocaleString() : '0'}
+                {contributor.observationCount ? contributor.observationCount.toLocaleString() : '0'}
               </span>
             </div>
           ))}
