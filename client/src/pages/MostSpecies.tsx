@@ -25,9 +25,9 @@ export default function MostSpecies() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Records
               </Link>
-              <h1 className="text-3xl font-bold tracking-tight">Contributors with Most Species Discoveries</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Contributors with Most Species Documented</h1>
               <p className="text-muted-foreground mt-2">
-                Complete ranking of contributors by their unique species discovery count in macrofungi data
+                Complete ranking of contributors by their unique species documentation count in macrofungi data
               </p>
             </div>
 

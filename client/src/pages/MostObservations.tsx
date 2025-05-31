@@ -25,9 +25,9 @@ export default function MostObservations() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Records
               </Link>
-              <h1 className="text-3xl font-bold tracking-tight">Contributors with Most Observations</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Contributors with Most Sequenced Specimens</h1>
               <p className="text-muted-foreground mt-2">
-                Complete ranking of contributors by their total observation count in macrofungi data
+                Complete ranking of contributors by their sequenced specimen count in macrofungi DNA data
               </p>
             </div>
 
@@ -68,7 +68,7 @@ export default function MostObservations() {
                           </div>
                           <div className="text-right">
                             <div className={isTopThree ? "font-bold text-xl" : "font-semibold text-lg"}>{contributor.observationCount.toLocaleString()}</div>
-                            <div className="text-sm text-muted-foreground">observations</div>
+                            <div className="text-sm text-muted-foreground">specimens</div>
                           </div>
                         </div>
                       );

@@ -156,7 +156,7 @@ function MostObservations() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Eye className="h-5 w-5 text-blue-500" />
-          Most Observations
+          Most Sequenced Specimens
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -189,7 +189,7 @@ function MostObservations() {
                   </div>
                   <div className="text-right">
                     <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{contributor.observationCount.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">observations</div>
+                    <div className="text-xs text-muted-foreground">specimens</div>
                   </div>
                 </div>
               );
@@ -216,7 +216,7 @@ function MostSpecies() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Dna className="h-5 w-5 text-green-500" />
-          Most Species Discovered
+          Most Species Documented
         </CardTitle>
       </CardHeader>
       <CardContent>
