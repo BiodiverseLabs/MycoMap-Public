@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
-import { MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MapPin, SortAsc, BarChart3 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -24,6 +24,7 @@ interface GeospatialMapProps {
 export function GeospatialMap({ dateRange, onStateSelect, selectedState }: GeospatialMapProps = {}) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const [sortBy, setSortBy] = useState<'count' | 'alphabetical'>('count');
 
   // Fetch observations with state filtering
   const { data: observations = [], isLoading } = useQuery<Observation[]>({
@@ -80,9 +81,16 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     return true;
   });
 
-  // Use full dataset state counts for filter sidebar
+  // Use full dataset state counts for filter sidebar with sorting
   const sortedStates = stateCounts
     .filter((item: any) => item.state && item.state !== 'Unknown')
+    .sort((a: any, b: any) => {
+      if (sortBy === 'alphabetical') {
+        return a.state.localeCompare(b.state);
+      } else {
+        return b.count - a.count; // Sort by count descending
+      }
+    })
     .slice(0, 20); // Show top 20 states from full dataset
 
   // Initialize map when component mounts and observations are available
@@ -315,7 +323,33 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
           {/* State Selector */}
           <div className="lg:col-span-1">
             <div className="bg-slate-50 rounded-lg p-4">
-              <h4 className="font-medium text-slate-900 mb-3">Filter by State</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-slate-900">Filter by State</h4>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setSortBy('count')}
+                    className={`px-2 py-1 rounded text-xs transition-colors ${
+                      sortBy === 'count'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-white text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title="Sort by observation count"
+                  >
+                    <BarChart3 className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setSortBy('alphabetical')}
+                    className={`px-2 py-1 rounded text-xs transition-colors ${
+                      sortBy === 'alphabetical'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-white text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title="Sort alphabetically"
+                  >
+                    <SortAsc className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {sortedStates.map((item) => (
                   <button

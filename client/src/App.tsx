@@ -19,6 +19,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/geospatial" component={Geospatial} />
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
