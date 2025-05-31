@@ -31,11 +31,11 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     <aside className="w-64 bg-white shadow-sm border-r border-slate-200 flex flex-col">
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-lg flex items-center justify-center">
+          <div className="w-14 h-14 rounded-lg flex items-center justify-center">
             <img 
               src="/src/assets/MycoMapLogo-notext.PNG" 
               alt="MycoMap Logo" 
-              className="w-12 h-12 object-contain"
+              className="w-14 h-14 object-contain"
             />
           </div>
           <div>
