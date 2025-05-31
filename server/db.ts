@@ -556,4 +556,45 @@ export class DatabaseStorage implements IStorage {
       percentage: number;
     }>;
   }
+
+  async getSpeciesAccumulation(state?: string): Promise<Array<{
+    observationNumber: number;
+    uniqueSpeciesCount: number;
+  }>> {
+    let whereClause = sql`WHERE ${observations.species} IS NOT NULL AND ${observations.species} != ''`;
+    
+    if (state && state !== 'all') {
+      whereClause = sql`WHERE ${observations.species} IS NOT NULL AND ${observations.species} != '' AND ${observations.state} = ${state}`;
+    }
+
+    const result = await db.execute(sql`
+      WITH ordered_observations AS (
+        SELECT 
+          ${observations.species},
+          ${observations.observedOn},
+          ROW_NUMBER() OVER (ORDER BY ${observations.observedOn}, ${observations.id}) as observation_number
+        FROM ${observations}
+        ${whereClause}
+      ),
+      cumulative_species AS (
+        SELECT 
+          observation_number,
+          COUNT(DISTINCT species) OVER (
+            ORDER BY observation_number 
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+          ) as unique_species_count
+        FROM ordered_observations
+      )
+      SELECT DISTINCT
+        observation_number as "observationNumber",
+        unique_species_count as "uniqueSpeciesCount"
+      FROM cumulative_species
+      ORDER BY observation_number
+    `);
+
+    return result.rows.map(row => ({
+      observationNumber: parseInt(row.observationNumber as string),
+      uniqueSpeciesCount: parseInt(row.uniqueSpeciesCount as string)
+    }));
+  }
 }

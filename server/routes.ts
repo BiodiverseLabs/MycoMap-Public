@@ -265,6 +265,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get species accumulation curve data
+  app.get("/api/species-accumulation", async (req, res) => {
+    try {
+      const { state } = req.query;
+      const data = await storage.getSpeciesAccumulation(state as string);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching species accumulation data:", error);
+      res.status(500).json({ error: "Failed to fetch species accumulation data" });
+    }
+  });
+
   // Upload endpoints
   app.get("/api/uploads", async (req, res) => {
     try {

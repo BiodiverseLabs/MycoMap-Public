@@ -99,6 +99,12 @@ export interface IStorage {
     count: number;
     percentage: number;
   }>>;
+  
+  // Species accumulation curve
+  getSpeciesAccumulation(state?: string): Promise<Array<{
+    observationNumber: number;
+    uniqueSpeciesCount: number;
+  }>>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -578,6 +584,36 @@ export class MemoryStorage implements IStorage {
         percentage: total > 0 ? (count / total) * 100 : 0
       }))
       .sort((a, b) => b.count - a.count);
+  }
+
+  async getSpeciesAccumulation(state?: string): Promise<Array<{
+    observationNumber: number;
+    uniqueSpeciesCount: number;
+  }>> {
+    let filteredObs = this.observations.filter(obs => obs.species && obs.species.trim() !== '');
+    
+    if (state && state !== 'all') {
+      filteredObs = filteredObs.filter(obs => obs.state === state);
+    }
+    
+    // Sort by observed date, then by id for consistent ordering
+    filteredObs.sort((a, b) => {
+      const dateCompare = new Date(a.observedOn).getTime() - new Date(b.observedOn).getTime();
+      return dateCompare !== 0 ? dateCompare : a.id - b.id;
+    });
+    
+    const result: Array<{ observationNumber: number; uniqueSpeciesCount: number }> = [];
+    const seenSpecies = new Set<string>();
+    
+    filteredObs.forEach((obs, index) => {
+      seenSpecies.add(obs.species);
+      result.push({
+        observationNumber: index + 1,
+        uniqueSpeciesCount: seenSpecies.size
+      });
+    });
+    
+    return result;
   }
 }
 
