@@ -24,9 +24,9 @@ export default function Species() {
 
   // Fetch all species data
   const { data: allSpecies = [], isLoading: speciesLoading } = useQuery({
-    queryKey: ["/api/species", { limit: 10000 }],
+    queryKey: ["/api/species"],
     queryFn: async () => {
-      const response = await fetch('/api/species?limit=10000');
+      const response = await fetch('/api/species');
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json();
     }
@@ -115,8 +115,14 @@ export default function Species() {
       lastYear.setFullYear(lastYear.getFullYear() - 1);
       return new Date(s.lastObserved) >= lastYear;
     }).length;
+    
+    // Count temporary code names (species with quotes or numerals)
+    const temporaryCodeNames = filteredSpecies.filter(s => {
+      const name = s.scientificName || '';
+      return /['"\d]/.test(name); // Contains single quote, double quote, or numeral
+    }).length;
 
-    return { totalSpecies, veryCommon, common, uncommon, rare, veryRare, recentSpecies };
+    return { totalSpecies, veryCommon, common, uncommon, rare, veryRare, recentSpecies, temporaryCodeNames };
   }, [filteredSpecies]);
 
   return (
@@ -215,7 +221,7 @@ export default function Species() {
         </Card>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -227,6 +233,21 @@ export default function Species() {
               <div className="text-3xl font-bold text-primary">{stats.totalSpecies}</div>
               <p className="text-sm text-slate-600 mt-1">
                 {allSpecies.length > 0 ? ((stats.totalSpecies / allSpecies.length) * 100).toFixed(1) : 0}% of database
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                Temporary Code Names
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-purple-600">{stats.temporaryCodeNames}</div>
+              <p className="text-sm text-slate-600 mt-1">
+                Species with quotes or numerals
               </p>
             </CardContent>
           </Card>
