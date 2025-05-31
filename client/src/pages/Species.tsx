@@ -624,7 +624,7 @@ export default function Species() {
 
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Discovery Rate</CardTitle>
+                          <CardTitle className="text-sm">Recent Discovery Rate</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-xl font-bold text-primary">
@@ -634,7 +634,7 @@ export default function Species() {
                               : 'N/A'}
                           </div>
                           <p className="text-xs text-slate-600 mt-1">
-                            Species per 1000 observations
+                            Species per 1000 recent observations
                           </p>
                         </CardContent>
                       </Card>
