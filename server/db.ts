@@ -169,13 +169,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTopSpecies(limit: number = 10): Promise<Species[]> {
-    return await db.select().from(species).orderBy(desc(species.observationCount)).limit(limit);
+    const result = await db.execute(sql`
+      SELECT 
+        ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
+        ${observations.scientificName} as "scientificName",
+        ${observations.commonName} as "commonName",
+        COUNT(*)::int as "observationCount"
+      FROM ${observations}
+      WHERE ${observations.scientificName} IS NOT NULL
+      GROUP BY ${observations.scientificName}, ${observations.commonName}
+      ORDER BY "observationCount" DESC
+      LIMIT ${limit}
+    `);
+    
+    return result.rows as Species[];
   }
 
   async getRareSpecies(maxObservations: number = 3): Promise<Species[]> {
-    return await db.select().from(species)
-      .where(sql`${species.observationCount} <= ${maxObservations}`)
-      .orderBy(asc(species.observationCount));
+    const result = await db.execute(sql`
+      SELECT 
+        ROW_NUMBER() OVER (ORDER BY COUNT(*) ASC) as id,
+        ${observations.scientificName} as "scientificName",
+        ${observations.commonName} as "commonName",
+        COUNT(*)::int as "observationCount"
+      FROM ${observations}
+      WHERE ${observations.scientificName} IS NOT NULL
+      GROUP BY ${observations.scientificName}, ${observations.commonName}
+      HAVING COUNT(*) <= ${maxObservations}
+      ORDER BY "observationCount" ASC
+      LIMIT 10
+    `);
+    
+    return result.rows as Species[];
   }
 
   async getRecentStateRecords(limit: number = 10): Promise<Observation[]> {
