@@ -133,13 +133,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/species", async (req, res) => {
     try {
-      const { limit = '10', type = 'top' } = req.query;
+      const { limit = '10', type = 'top', state } = req.query;
       
       let species;
       if (type === 'rare') {
-        species = await storage.getRareSpecies(parseInt(limit as string));
+        species = await storage.getRareSpecies(parseInt(limit as string), state as string);
       } else {
-        species = await storage.getTopSpecies(parseInt(limit as string));
+        species = await storage.getTopSpecies(parseInt(limit as string), state as string);
       }
       
       res.json(species);
@@ -162,12 +162,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/record-index", async (req, res) => {
     try {
-      const { limit = '50', offset = '0', stateFirstsOnly = 'false', recent = 'false' } = req.query;
+      const { limit = '50', offset = '0', stateFirstsOnly = 'false', recent = 'false', state } = req.query;
       const index = await storage.getRecordIndex(
         parseInt(limit as string), 
         parseInt(offset as string),
         stateFirstsOnly === 'true',
-        recent === 'true'
+        recent === 'true',
+        state as string
       );
       res.json(index);
     } catch (error) {

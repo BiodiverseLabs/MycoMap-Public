@@ -177,7 +177,17 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Contributor[];
   }
 
-  async getTopSpecies(limit: number = 10): Promise<Species[]> {
+  async getTopSpecies(limit: number = 10, state?: string): Promise<Species[]> {
+    let whereConditions = [sql`${observations.species} IS NOT NULL AND ${observations.species} != ''`];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    const whereClause = whereConditions.length > 1 
+      ? sql.join(whereConditions, sql` AND `)
+      : whereConditions[0];
+    
     const result = await db.execute(sql`
       SELECT 
         ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
@@ -185,7 +195,7 @@ export class DatabaseStorage implements IStorage {
         ${observations.commonName} as "commonName",
         COUNT(*)::int as "observationCount"
       FROM ${observations}
-      WHERE ${observations.species} IS NOT NULL AND ${observations.species} != ''
+      WHERE ${whereClause}
       GROUP BY ${observations.species}, ${observations.commonName}
       ORDER BY "observationCount" DESC
       LIMIT ${limit}
