@@ -40,7 +40,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/metrics", async (req, res) => {
     try {
-      const metrics = await storage.getObservationMetrics();
+      const { startDate, endDate, dateRange } = req.query;
+      
+      // Convert dateRange to actual dates
+      let actualStartDate: string | undefined;
+      let actualEndDate: string | undefined;
+      
+      if (dateRange === 'last_30_days') {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        actualStartDate = thirtyDaysAgo.toISOString().split('T')[0];
+        actualEndDate = now.toISOString().split('T')[0];
+      } else if (startDate && endDate) {
+        actualStartDate = startDate as string;
+        actualEndDate = endDate as string;
+      }
+      
+      const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate);
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching metrics:", error);
@@ -195,7 +211,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           infraspecies: null, // Not present in your data
           observer: row['Sequence Owner'] || null,
           collector: row['Collector'] || null,
-          observedOn: row['Report Date'] || null,
+          observedOn: row['Report Date'] ? 
+            new Date((row['Report Date'] - 25569) * 86400 * 1000).toISOString().split('T')[0] : null,
           latitude: row['Latitude'] ? String(row['Latitude']) : null,
           longitude: row['Longitude'] ? String(row['Longitude']) : null,
           placeGuess: row['City'] || null,

@@ -49,7 +49,7 @@ export function GeospatialMap() {
 
     // Clear existing layers
     mapInstance.eachLayer((layer: any) => {
-      if (layer instanceof L.Marker || layer instanceof L.HeatLayer) {
+      if (layer instanceof L.Marker) {
         mapInstance.removeLayer(layer);
       }
     });

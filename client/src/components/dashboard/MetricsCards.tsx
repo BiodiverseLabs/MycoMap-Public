@@ -9,9 +9,13 @@ interface Metrics {
   statesCovered: number;
 }
 
-export function MetricsCards() {
+interface MetricsCardsProps {
+  dateRange?: string;
+}
+
+export function MetricsCards({ dateRange }: MetricsCardsProps) {
   const { data: metrics, isLoading } = useQuery<Metrics>({
-    queryKey: ["/api/metrics"],
+    queryKey: ["/api/metrics", dateRange],
   });
 
   const cards = [
