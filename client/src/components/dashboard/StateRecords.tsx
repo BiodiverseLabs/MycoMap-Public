@@ -38,6 +38,17 @@ export function StateRecords({ dateRange }: StateRecordsProps) {
     }
   };
 
+  const getObservationLink = (source: string, referenceNumber: string) => {
+    if (!referenceNumber || referenceNumber === 'N/A') return null;
+    
+    if (source?.toLowerCase().includes('inaturalist') || source?.toLowerCase().includes('inat')) {
+      return `https://www.inaturalist.org/observations/${referenceNumber}`;
+    } else if (source?.toLowerCase().includes('mushroom') || source?.toLowerCase().includes('observer')) {
+      return `https://www.mushroomobserver.org/${referenceNumber}`;
+    }
+    return null;
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -92,25 +103,40 @@ export function StateRecords({ dateRange }: StateRecordsProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {records.slice(0, 5).map((record) => (
-                <tr key={record.id}>
-                  <td className="py-3 text-sm text-slate-900 italic">
-                    {record.species}
-                    {record.isFirstGlobal && (
-                      <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">1st Global</Badge>
-                    )}
-                    {record.isFirstInState && (
-                      <Badge className="ml-2 bg-green-100 text-green-800 text-xs">1st State</Badge>
-                    )}
-                  </td>
-                  <td className="py-3 text-sm text-slate-600">
-                    {record.state}
-                  </td>
-                  <td className="py-3 text-sm text-slate-600">
-                    {formatDate(record.reportDate)}
-                  </td>
-                </tr>
-              ))}
+              {records.slice(0, 5).map((record) => {
+                const observationLink = getObservationLink(record.source, record.referenceNumber);
+                
+                return (
+                  <tr key={record.id}>
+                    <td className="py-3 text-sm text-slate-900 italic">
+                      {observationLink ? (
+                        <a 
+                          href={observationLink} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {record.species}
+                        </a>
+                      ) : (
+                        record.species
+                      )}
+                      {record.isFirstGlobal && (
+                        <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">1st Global</Badge>
+                      )}
+                      {record.isFirstInState && (
+                        <Badge className="ml-2 bg-green-100 text-green-800 text-xs">1st State</Badge>
+                      )}
+                    </td>
+                    <td className="py-3 text-sm text-slate-600">
+                      {record.state}
+                    </td>
+                    <td className="py-3 text-sm text-slate-600">
+                      {formatDate(record.reportDate)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
