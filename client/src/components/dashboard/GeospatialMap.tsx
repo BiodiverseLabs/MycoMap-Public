@@ -41,8 +41,15 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
 
   // Filter observations with valid coordinates and by state if selected
   const validObservations = observations.filter(obs => {
-    const hasValidCoords = obs.latitude && obs.longitude && 
-      !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude));
+    // Handle both string and number coordinates from database
+    const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
+    const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
+    
+    const hasValidCoords = lat && lng && 
+      !isNaN(lat) && !isNaN(lng) &&
+      lat !== 0 && lng !== 0 &&
+      lat >= -90 && lat <= 90 &&
+      lng >= -180 && lng <= 180;
     
     if (!hasValidCoords) return false;
     if (selectedState && obs.state !== selectedState) return false;
@@ -115,13 +122,20 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       const bounds: L.LatLngBounds = L.latLngBounds([]);
       
       validObservations.forEach(obs => {
-        const lat = parseFloat(obs.latitude);
-        const lng = parseFloat(obs.longitude);
+        const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
+        const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
         
-        if (!isNaN(lat) && !isNaN(lng)) {
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
           heatmapData.push([lat, lng, 0.8]); // [latitude, longitude, intensity]
           bounds.extend([lat, lng]);
         }
+      });
+
+      console.log('[GeospatialMap] Heatmap data ready:', {
+        heatmapLength: heatmapData.length,
+        hasLeaflet: !!(window as any).L,
+        hasHeatLayer: !!(window as any).L && !!(window as any).L.heatLayer,
+        sampleData: heatmapData.slice(0, 3)
       });
 
       // Add heatmap layer if plugin is available
@@ -147,12 +161,13 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
           // Always use continental US bounds for consistent view
           map.fitBounds(continentalUSBounds);
         } else {
+          console.log('[GeospatialMap] Heat plugin not available, using fallback markers');
           // Fallback to simple markers if heat plugin fails
           validObservations.slice(0, 500).forEach(obs => {
-            const lat = parseFloat(obs.latitude);
-            const lng = parseFloat(obs.longitude);
+            const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
+            const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
             
-            if (!isNaN(lat) && !isNaN(lng)) {
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
               L.circleMarker([lat, lng], {
                 radius: 3,
                 fillColor: '#3388ff',
