@@ -96,7 +96,7 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     const initializeMap = async () => {
       await loadHeatPlugin();
 
-      // Create map instance
+      // Create map instance centered on continental US
       const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
 
       // Add OpenStreetMap tiles
