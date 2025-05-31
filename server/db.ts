@@ -92,7 +92,7 @@ export class DatabaseStorage implements IStorage {
       db.execute(sql`SELECT COUNT(DISTINCT ${observations.scientificName})::int as count FROM ${observations} WHERE ${whereClause}`),
       
       // Active contributors count
-      db.execute(sql`SELECT COUNT(DISTINCT ${observations.observer})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.observer} IS NOT NULL`),
+      db.execute(sql`SELECT COUNT(DISTINCT ${observations.collector})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.collector} IS NOT NULL`),
       
       // States covered count
       db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`)
@@ -146,8 +146,26 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ phylum: string; count: number }>;
   }
 
-  async getTopContributors(limit: number = 10): Promise<Contributor[]> {
-    return await db.select().from(contributors).orderBy(desc(contributors.observationCount)).limit(limit);
+  async getTopContributors(limit: number = 10, startDate?: string, endDate?: string): Promise<Contributor[]> {
+    let whereClause = sql`${observations.collector} IS NOT NULL`;
+    if (startDate && endDate) {
+      whereClause = sql`${observations.collector} IS NOT NULL AND ${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`;
+    }
+    
+    const result = await db.execute(sql`
+      SELECT 
+        ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
+        ${observations.collector} as name,
+        NULL as affiliation,
+        COUNT(*)::int as observation_count
+      FROM ${observations}
+      WHERE ${whereClause}
+      GROUP BY ${observations.collector}
+      ORDER BY observation_count DESC
+      LIMIT ${limit}
+    `);
+    
+    return result.rows as Contributor[];
   }
 
   async getTopSpecies(limit: number = 10): Promise<Species[]> {

@@ -103,8 +103,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contributors", async (req, res) => {
     try {
-      const { limit = '10' } = req.query;
-      const contributors = await storage.getTopContributors(parseInt(limit as string));
+      const { limit = '10', dateRange } = req.query;
+      
+      // Convert dateRange to actual dates (same logic as metrics)
+      let actualStartDate: string | undefined;
+      let actualEndDate: string | undefined;
+      
+      if (dateRange === 'last_30_days') {
+        actualStartDate = '2025-01-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'last_6_months') {
+        actualStartDate = '2024-10-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'last_year') {
+        actualStartDate = '2024-01-01';
+        actualEndDate = '2025-04-18';
+      } else if (dateRange === 'all_time') {
+        actualStartDate = undefined;
+        actualEndDate = undefined;
+      }
+      
+      const contributors = await storage.getTopContributors(parseInt(limit as string), actualStartDate, actualEndDate);
       res.json(contributors);
     } catch (error) {
       console.error("Error fetching contributors:", error);
