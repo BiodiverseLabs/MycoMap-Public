@@ -54,7 +54,7 @@ function MostGlobalFirstsByState() {
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {stateData.slice(0, 15).map((state, index) => {
               const isTopThree = index < 3;
-              const badgeColors = ['bg-yellow-500', 'bg-gray-500', 'bg-orange-500'];
+              const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
               
               return (
                 <div key={state.state} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -104,7 +104,7 @@ function MostGlobalFirstsByContributor() {
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {contributorData.slice(0, 15).map((contributor, index) => {
               const isTopThree = index < 3;
-              const badgeColors = ['bg-yellow-500', 'bg-gray-500', 'bg-orange-500'];
+              const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
               
               return (
                 <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -159,7 +159,7 @@ function MostObservations() {
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {contributorData.slice(0, 15).map((contributor, index) => {
               const isTopThree = index < 3;
-              const badgeColors = ['bg-blue-500', 'bg-gray-500', 'bg-purple-500'];
+              const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
               
               return (
                 <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -218,7 +218,7 @@ function MostSpecies() {
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {speciesData.slice(0, 15).map((contributor, index) => {
               const isTopThree = index < 3;
-              const badgeColors = ['bg-green-500', 'bg-gray-500', 'bg-teal-500'];
+              const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
               
               return (
                 <div key={contributor.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
