@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Activity, MapPin, Calendar, User, Globe, Flag } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Activity, MapPin, Calendar, User, Globe, Flag, Search, Filter } from "lucide-react";
 
 interface RecordItem {
   id: number;
@@ -22,6 +24,30 @@ const RECORDS_PER_PAGE = 20;
 
 export default function ActivityFeed() {
   const [filter, setFilter] = useState<'all' | 'global' | 'state'>('all');
+  const [selectedState, setSelectedState] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [speciesFilter, setSpeciesFilter] = useState<string>('all');
+
+  // Fetch states for filter dropdown
+  const { data: statesData } = useQuery({
+    queryKey: ['/api/observations/summary', 'states'],
+    queryFn: async () => {
+      const response = await fetch('/api/observations/summary?aggregate=states');
+      if (!response.ok) throw new Error('Failed to fetch states');
+      return response.json();
+    },
+  });
+
+  // Fetch species for filter dropdown
+  const { data: speciesData } = useQuery({
+    queryKey: ['/api/species'],
+    queryFn: async () => {
+      const response = await fetch('/api/species?limit=1000');
+      if (!response.ok) throw new Error('Failed to fetch species');
+      return response.json();
+    },
+  });
 
   const {
     data,
@@ -31,11 +57,12 @@ export default function ActivityFeed() {
     isLoading,
     isError
   } = useInfiniteQuery({
-    queryKey: ["/api/activity-feed", filter],
+    queryKey: ["/api/activity-feed", filter, selectedState, startDate, endDate, speciesFilter],
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams();
       params.append('limit', RECORDS_PER_PAGE.toString());
       params.append('offset', (pageParam * RECORDS_PER_PAGE).toString());
+      params.append('recent', 'true'); // Sort by newest first
       
       if (filter === 'global') {
         params.append('stateFirstsOnly', 'false');
@@ -43,6 +70,22 @@ export default function ActivityFeed() {
       } else if (filter === 'state') {
         params.append('stateFirstsOnly', 'true');
         params.append('globalFirstsOnly', 'false');
+      }
+
+      if (selectedState) {
+        params.append('state', selectedState);
+      }
+
+      if (startDate) {
+        params.append('startDate', startDate);
+      }
+
+      if (endDate) {
+        params.append('endDate', endDate);
+      }
+
+      if (speciesFilter) {
+        params.append('species', speciesFilter);
       }
       
       const response = await fetch(`/api/record-index?${params.toString()}`);
@@ -91,7 +134,7 @@ export default function ActivityFeed() {
   return (
     <div className="flex flex-col h-full">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
               <Activity className="w-6 h-6" />
@@ -101,7 +144,70 @@ export default function ActivityFeed() {
               Real-time stream of recent observations and discoveries
             </p>
           </div>
-          
+        </div>
+
+        {/* Filter Controls */}
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-4">
+            {/* State Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-slate-500" />
+              <Select value={selectedState} onValueChange={setSelectedState}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All States" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All States</SelectItem>
+                  {statesData?.map((state: any) => (
+                    <SelectItem key={state.state} value={state.state}>
+                      {state.state} ({state.count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date Range Filters */}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <Input
+                type="date"
+                placeholder="Start Date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-[140px]"
+              />
+              <span className="text-slate-500">to</span>
+              <Input
+                type="date"
+                placeholder="End Date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-[140px]"
+              />
+            </div>
+
+            {/* Species Filter */}
+            <div className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-slate-500" />
+              <Select value={speciesFilter} onValueChange={setSpeciesFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All Species" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Species</SelectItem>
+                  {speciesData?.slice(0, 100).map((species: any) => (
+                    <SelectItem key={species.id} value={species.scientificName}>
+                      <em>{species.scientificName}</em>
+                      {species.commonName && ` (${species.commonName})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Record Type Filters */}
           <div className="flex gap-2">
             <Button
               variant={filter === 'all' ? 'default' : 'outline'}
