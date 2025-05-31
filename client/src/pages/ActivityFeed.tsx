@@ -263,8 +263,8 @@ export default function ActivityFeed() {
             </Card>
           )}
 
-          {allRecords.map((record: RecordItem) => (
-            <Card key={`${record.id}-${record.datasetRecordNumber}`} className="hover:shadow-md transition-shadow">
+          {allRecords.map((record: RecordItem, index: number) => (
+            <Card key={`${record.id}-${record.datasetRecordNumber}-${index}`} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

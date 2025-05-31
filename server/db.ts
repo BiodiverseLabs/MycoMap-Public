@@ -443,7 +443,12 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (species) {
-      whereConditions.push(sql`LOWER(${observations.species}) LIKE LOWER(${'%' + species + '%'})`);
+      // More precise species search - exact match or starts with the search term
+      whereConditions.push(sql`(
+        LOWER(${observations.species}) = LOWER(${species}) OR
+        LOWER(${observations.species}) LIKE LOWER(${species + ' %'}) OR
+        LOWER(${observations.species}) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
+      )`);
     }
     
     const baseWhereClause = sql.join(whereConditions, sql` AND `);
