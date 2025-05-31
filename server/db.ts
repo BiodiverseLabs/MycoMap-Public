@@ -204,10 +204,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentStateRecords(limit: number = 10): Promise<Observation[]> {
-    return await db.select().from(observations)
-      .where(eq(observations.isFirstStateRecord, true))
-      .orderBy(desc(observations.observedOn))
-      .limit(limit);
+    const result = await db.execute(sql`
+      SELECT 
+        ${observations.id} as id,
+        ${observations.species} as "scientificName",
+        ${observations.state} as state,
+        ${observations.observedOn} as "observedOn"
+      FROM ${observations}
+      WHERE ${observations.isFirstStateRecord} = true 
+        AND ${observations.species} IS NOT NULL 
+        AND ${observations.species} != ''
+      ORDER BY ${observations.observedOn} DESC
+      LIMIT ${limit}
+    `);
+    
+    return result.rows as Observation[];
   }
 
   // Uploads
