@@ -30,13 +30,28 @@ export default function Temporal() {
     }
   });
 
-  // Calculate growth rates from yearly data
-  const growthRates = yearlyData.length > 1 ? yearlyData.slice(-4).map((curr: any, index: number, arr: any[]) => {
-    if (index === 0) return null;
-    const prev = arr[index - 1];
-    const rate = prev.count > 0 ? ((curr.count - prev.count) / prev.count * 100) : 0;
-    return { year: curr.period, rate: Number(rate.toFixed(1)) };
-  }).filter((item: any) => item !== null).slice(-3) : [];
+  // Calculate year-over-year growth rates from yearly data
+  const growthRates = yearlyData.length > 1 ? (() => {
+    const sortedYears = [...yearlyData].sort((a: any, b: any) => parseInt(a.period) - parseInt(b.period));
+    const rates = [];
+    
+    for (let i = 1; i < sortedYears.length; i++) {
+      const curr = sortedYears[i];
+      const prev = sortedYears[i - 1];
+      
+      if (prev.count > 0) {
+        const rate = ((curr.count - prev.count) / prev.count * 100);
+        rates.push({ 
+          year: curr.period, 
+          rate: Number(rate.toFixed(1)),
+          count: curr.count,
+          prevCount: prev.count
+        });
+      }
+    }
+    
+    return rates.slice(-3); // Show last 3 years of growth
+  })() : [];
 
   return (
     <div className="flex flex-col h-full">
