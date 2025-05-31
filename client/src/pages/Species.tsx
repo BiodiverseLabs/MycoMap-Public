@@ -407,14 +407,18 @@ export default function Species() {
             ) : accumulationData.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={accumulationData}>
+                  <LineChart data={accumulationData} margin={{ left: 60, right: 20, bottom: 60, top: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="observationNumber" 
-                      label={{ value: 'Number of Observations', position: 'insideBottom', offset: -5 }}
+                      type="number"
+                      scale="linear"
+                      domain={['dataMin', 'dataMax']}
+                      tickCount={8}
+                      label={{ value: 'Number of Observations', position: 'insideBottom', offset: -10 }}
                     />
                     <YAxis 
-                      label={{ value: 'Cumulative Species Count', angle: -90, position: 'insideLeft' }}
+                      label={{ value: 'Cumulative Species Count', angle: -90, position: 'insideLeft', textAnchor: 'middle' }}
                     />
                     <Tooltip 
                       formatter={(value, name) => [value, 'Species Count']}
