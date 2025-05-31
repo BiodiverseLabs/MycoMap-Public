@@ -475,8 +475,13 @@ export class DatabaseStorage implements IStorage {
         CASE WHEN species_rank_global = 1 THEN true ELSE false END as "isFirstGlobal",
         CASE WHEN species_rank_state = 1 THEN true ELSE false END as "isFirstInState"
       FROM ranked_observations
-      ${stateFirstsOnly ? sql`WHERE species_rank_state = 1` : sql``}
-      ${recent ? sql`WHERE (species_rank_global = 1 OR species_rank_state = 1)` : sql``}
+      ${(() => {
+        const conditions = [];
+        if (globalFirstsOnly) conditions.push(sql`species_rank_global = 1`);
+        if (stateFirstsOnly) conditions.push(sql`species_rank_state = 1`);
+        if (recent && !globalFirstsOnly && !stateFirstsOnly) conditions.push(sql`(species_rank_global = 1 OR species_rank_state = 1)`);
+        return conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+      })()}
       ORDER BY ${recent ? sql`"reportDate" DESC` : sql`"datasetRecordNumber"`}
       LIMIT ${limit} OFFSET ${offset}
     `);

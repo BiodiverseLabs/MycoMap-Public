@@ -150,7 +150,7 @@ export default function ActivityFeed() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All States</SelectItem>
-                  {statesData?.map((state: any) => (
+                  {statesData?.sort((a: any, b: any) => a.state.localeCompare(b.state)).map((state: any) => (
                     <SelectItem key={state.state} value={state.state}>
                       {state.state} ({state.count})
                     </SelectItem>
