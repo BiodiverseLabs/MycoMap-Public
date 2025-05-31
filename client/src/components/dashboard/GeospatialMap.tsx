@@ -98,6 +98,12 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
 
       // Create map instance centered on continental US
       const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+      
+      // Set bounds to continental US if no observations to fit
+      const continentalUSBounds = L.latLngBounds(
+        [20.0, -130.0], // Southwest corner
+        [50.0, -65.0]   // Northeast corner
+      );
 
       // Add OpenStreetMap tiles
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -136,8 +142,9 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
             }
           }).addTo(map);
           
-          // Fit map to observation bounds
-          map.fitBounds(bounds.pad(0.1));
+          // Fit map to observation bounds or default to continental US
+          // Always use continental US bounds for consistent view
+          map.fitBounds(continentalUSBounds);
         } else {
           // Fallback to simple markers if heat plugin fails
           validObservations.slice(0, 500).forEach(obs => {
@@ -162,9 +169,8 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
             }
           });
           
-          if (bounds.isValid()) {
-            map.fitBounds(bounds.pad(0.1));
-          }
+          // Use continental US bounds for consistent view
+          map.fitBounds(continentalUSBounds);
         }
       }
 
