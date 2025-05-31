@@ -1,7 +1,54 @@
 import { TaxonomicChart } from "@/components/dashboard/TaxonomicChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Taxonomic() {
+  // Fetch family distribution data
+  const { data: familyData = [], isLoading: familyLoading } = useQuery({
+    queryKey: ["/api/family-distribution"],
+    queryFn: async () => {
+      const response = await fetch('/api/family-distribution');
+      if (!response.ok) throw new Error('Failed to fetch family distribution');
+      return response.json();
+    }
+  });
+
+  // Fetch phylum distribution data
+  const { data: phylumData = [], isLoading: phylumLoading } = useQuery({
+    queryKey: ["/api/taxonomic-distribution"],
+    queryFn: async () => {
+      const response = await fetch('/api/taxonomic-distribution');
+      if (!response.ok) throw new Error('Failed to fetch phylum distribution');
+      return response.json();
+    }
+  });
+
+  // Fetch class distribution data
+  const { data: classData = [], isLoading: classLoading } = useQuery({
+    queryKey: ["/api/class-distribution"],
+    queryFn: async () => {
+      const response = await fetch('/api/class-distribution');
+      if (!response.ok) throw new Error('Failed to fetch class distribution');
+      return response.json();
+    }
+  });
+
+  // Fetch order distribution data
+  const { data: orderData = [], isLoading: orderLoading } = useQuery({
+    queryKey: ["/api/order-distribution"],
+    queryFn: async () => {
+      const response = await fetch('/api/order-distribution');
+      if (!response.ok) throw new Error('Failed to fetch order distribution');
+      return response.json();
+    }
+  });
+
+  const getProgressWidth = (count: number, maxCount: number) => {
+    return Math.round((count / maxCount) * 100);
+  };
+
+  const maxFamilyCount = familyData.length > 0 ? familyData[0].count : 1;
+
   return (
     <div className="flex flex-col h-full">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
@@ -22,47 +69,31 @@ export default function Taxonomic() {
               <CardTitle>Family Distribution</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Agaricaceae</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-16 bg-slate-200 rounded-full h-2">
-                      <div className="bg-primary h-2 rounded-full w-[85%]"></div>
+              {familyLoading ? (
+                <div className="text-slate-500">Loading family data...</div>
+              ) : (
+                <div className="space-y-3">
+                  {familyData.slice(0, 5).map((family: any, index: number) => (
+                    <div key={family.family} className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600 truncate flex-1">{family.family}</span>
+                      <div className="flex items-center space-x-2 ml-2">
+                        <div className="w-16 bg-slate-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              index === 0 ? 'bg-primary' : 
+                              index === 1 ? 'bg-green-500' : 
+                              index === 2 ? 'bg-yellow-500' : 
+                              index === 3 ? 'bg-purple-500' : 'bg-blue-500'
+                            }`}
+                            style={{ width: `${getProgressWidth(family.count, maxFamilyCount)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-12 text-right">{family.count.toLocaleString()}</span>
+                      </div>
                     </div>
-                    <span className="text-sm font-medium w-12">1,234</span>
-                  </div>
+                  ))}
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Polyporaceae</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-16 bg-slate-200 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full w-[68%]"></div>
-                    </div>
-                    <span className="text-sm font-medium w-12">987</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Boletaceae</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-16 bg-slate-200 rounded-full h-2">
-                      <div className="bg-yellow-500 h-2 rounded-full w-[52%]"></div>
-                    </div>
-                    <span className="text-sm font-medium w-12">756</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-600">Russulaceae</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-16 bg-slate-200 rounded-full h-2">
-                      <div className="bg-purple-500 h-2 rounded-full w-[45%]"></div>
-                    </div>
-                    <span className="text-sm font-medium w-12">623</span>
-                  </div>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -73,20 +104,18 @@ export default function Taxonomic() {
               <CardTitle className="text-base">Phylum Stats</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Basidiomycota</span>
-                  <span className="font-medium">8,234</span>
+              {phylumLoading ? (
+                <div className="text-slate-500 text-sm">Loading...</div>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  {phylumData.slice(0, 3).map((phylum: any) => (
+                    <div key={phylum.phylum} className="flex justify-between">
+                      <span className="truncate">{phylum.phylum}</span>
+                      <span className="font-medium">{phylum.count.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between">
-                  <span>Ascomycota</span>
-                  <span className="font-medium">3,891</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Others</span>
-                  <span className="font-medium">722</span>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -95,20 +124,18 @@ export default function Taxonomic() {
               <CardTitle className="text-base">Class Diversity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Agaricomycetes</span>
-                  <span className="font-medium">6,543</span>
+              {classLoading ? (
+                <div className="text-slate-500 text-sm">Loading...</div>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  {classData.slice(0, 3).map((classItem: any) => (
+                    <div key={classItem.class} className="flex justify-between">
+                      <span className="truncate">{classItem.class}</span>
+                      <span className="font-medium">{classItem.count.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between">
-                  <span>Sordariomycetes</span>
-                  <span className="font-medium">1,876</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Eurotiomycetes</span>
-                  <span className="font-medium">1,234</span>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -117,40 +144,38 @@ export default function Taxonomic() {
               <CardTitle className="text-base">Order Analysis</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Agaricales</span>
-                  <span className="font-medium">4,567</span>
+              {orderLoading ? (
+                <div className="text-slate-500 text-sm">Loading...</div>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  {orderData.slice(0, 3).map((order: any) => (
+                    <div key={order.order} className="flex justify-between">
+                      <span className="truncate">{order.order}</span>
+                      <span className="font-medium">{order.count.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between">
-                  <span>Polyporales</span>
-                  <span className="font-medium">2,134</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Boletales</span>
-                  <span className="font-medium">1,876</span>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">New Taxa</CardTitle>
+              <CardTitle className="text-base">Recent Records</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>This Year</span>
-                  <span className="font-medium text-green-600">23</span>
+                  <span>Total Families</span>
+                  <span className="font-medium">{familyData.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Last Year</span>
-                  <span className="font-medium">18</span>
+                  <span>Total Classes</span>
+                  <span className="font-medium">{classData.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Total New</span>
-                  <span className="font-medium">156</span>
+                  <span>Total Orders</span>
+                  <span className="font-medium">{orderData.length}</span>
                 </div>
               </div>
             </CardContent>

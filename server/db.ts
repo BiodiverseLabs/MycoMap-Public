@@ -146,6 +146,60 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ phylum: string; count: number }>;
   }
 
+  async getFamilyDistribution(): Promise<Array<{
+    family: string;
+    count: number;
+  }>> {
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(${observations.family}, 'Unknown') as family,
+        COUNT(*)::int as count
+      FROM ${observations}
+      WHERE ${observations.family} IS NOT NULL AND ${observations.family} != ''
+      GROUP BY ${observations.family}
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+    
+    return result.rows as Array<{ family: string; count: number }>;
+  }
+
+  async getClassDistribution(): Promise<Array<{
+    class: string;
+    count: number;
+  }>> {
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(${observations.class}, 'Unknown') as class,
+        COUNT(*)::int as count
+      FROM ${observations}
+      WHERE ${observations.class} IS NOT NULL AND ${observations.class} != ''
+      GROUP BY ${observations.class}
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+    
+    return result.rows as Array<{ class: string; count: number }>;
+  }
+
+  async getOrderDistribution(): Promise<Array<{
+    order: string;
+    count: number;
+  }>> {
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(${observations.order}, 'Unknown') as "order",
+        COUNT(*)::int as count
+      FROM ${observations}
+      WHERE ${observations.order} IS NOT NULL AND ${observations.order} != ''
+      GROUP BY ${observations.order}
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+    
+    return result.rows as Array<{ order: string; count: number }>;
+  }
+
   async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {
     const result = await db.execute(sql`
       WITH seasonal_data AS (

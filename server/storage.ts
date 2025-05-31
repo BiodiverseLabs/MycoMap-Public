@@ -35,6 +35,21 @@ export interface IStorage {
     count: number;
   }>>;
   
+  getFamilyDistribution(): Promise<Array<{
+    family: string;
+    count: number;
+  }>>;
+  
+  getClassDistribution(): Promise<Array<{
+    class: string;
+    count: number;
+  }>>;
+  
+  getOrderDistribution(): Promise<Array<{
+    order: string;
+    count: number;
+  }>>;
+  
   getSeasonalPatterns(): Promise<Array<{
     season: string;
     count: number;
@@ -242,6 +257,60 @@ export class MemoryStorage implements IStorage {
     return Array.from(distribution.entries())
       .map(([phylum, count]) => ({ phylum, count }))
       .sort((a, b) => b.count - a.count);
+  }
+
+  async getFamilyDistribution(): Promise<Array<{
+    family: string;
+    count: number;
+  }>> {
+    const distribution = new Map<string, number>();
+    
+    this.observations.forEach(obs => {
+      if (obs.family) {
+        distribution.set(obs.family, (distribution.get(obs.family) || 0) + 1);
+      }
+    });
+
+    return Array.from(distribution.entries())
+      .map(([family, count]) => ({ family, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }
+
+  async getClassDistribution(): Promise<Array<{
+    class: string;
+    count: number;
+  }>> {
+    const distribution = new Map<string, number>();
+    
+    this.observations.forEach(obs => {
+      if (obs.class) {
+        distribution.set(obs.class, (distribution.get(obs.class) || 0) + 1);
+      }
+    });
+
+    return Array.from(distribution.entries())
+      .map(([className, count]) => ({ class: className, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }
+
+  async getOrderDistribution(): Promise<Array<{
+    order: string;
+    count: number;
+  }>> {
+    const distribution = new Map<string, number>();
+    
+    this.observations.forEach(obs => {
+      if (obs.order) {
+        distribution.set(obs.order, (distribution.get(obs.order) || 0) + 1);
+      }
+    });
+
+    return Array.from(distribution.entries())
+      .map(([order, count]) => ({ order, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
   }
 
   async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {

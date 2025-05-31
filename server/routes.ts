@@ -121,6 +121,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/family-distribution", async (req, res) => {
+    try {
+      const distribution = await storage.getFamilyDistribution();
+      res.json(distribution);
+    } catch (error) {
+      console.error("Error fetching family distribution:", error);
+      res.status(500).json({ error: "Failed to fetch family distribution" });
+    }
+  });
+
+  app.get("/api/class-distribution", async (req, res) => {
+    try {
+      const distribution = await storage.getClassDistribution();
+      res.json(distribution);
+    } catch (error) {
+      console.error("Error fetching class distribution:", error);
+      res.status(500).json({ error: "Failed to fetch class distribution" });
+    }
+  });
+
+  app.get("/api/order-distribution", async (req, res) => {
+    try {
+      const distribution = await storage.getOrderDistribution();
+      res.json(distribution);
+    } catch (error) {
+      console.error("Error fetching order distribution:", error);
+      res.status(500).json({ error: "Failed to fetch order distribution" });
+    }
+  });
+
   app.get("/api/contributors", async (req, res) => {
     try {
       const { limit = '10', dateRange, state } = req.query;
