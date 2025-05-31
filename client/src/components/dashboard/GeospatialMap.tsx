@@ -86,16 +86,18 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       mapInstanceRef.current.remove();
     }
 
-    // Load Leaflet.heat plugin dynamically
+    // Load Leaflet.heat plugin dynamically with better error handling
     const loadHeatPlugin = async () => {
       if (!(window as any).L || !(window as any).L.heatLayer) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js';
-        document.head.appendChild(script);
-        
-        return new Promise((resolve) => {
-          script.onload = resolve;
-          script.onerror = resolve;
+        await new Promise<void>((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js';
+          script.onload = () => resolve();
+          script.onerror = () => resolve(); // Continue even if it fails
+          document.head.appendChild(script);
+          
+          // Timeout fallback to prevent hanging
+          setTimeout(resolve, 3000);
         });
       }
     };
@@ -140,72 +142,37 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         timestamp: new Date().toISOString()
       });
 
-      // Add heatmap layer with fallback to ensure visibility
-      let visualizationAdded = false;
-      
+      // Add heatmap layer with delay to ensure plugin loads properly (like ContributorMap)
       if (heatmapData.length > 0) {
-        // Try heatmap first
-        if ((window as any).L && (window as any).L.heatLayer) {
-          try {
-            console.log('[GeospatialMap] Creating heatmap with', heatmapData.length, 'data points');
-            const heat = (window as any).L.heatLayer(heatmapData, {
-              radius: 22,
-              blur: 12,
-              maxZoom: 17,
-              max: 0.8,
-              minOpacity: 0.2,
-              gradient: {
-                0.0: 'rgba(0, 0, 255, 0.3)',
-                0.2: 'rgba(0, 255, 255, 0.5)',
-                0.4: 'rgba(0, 255, 0, 0.6)',
-                0.6: 'rgba(255, 255, 0, 0.7)',
-                0.8: 'rgba(255, 165, 0, 0.8)',
-                1.0: 'rgba(255, 0, 0, 0.9)'
-              }
-            }).addTo(map);
-            
-            console.log('[GeospatialMap] Heatmap layer added successfully');
-            visualizationAdded = true;
-          } catch (error) {
-            console.error('[GeospatialMap] Heatmap creation failed:', error);
-          }
-        }
-        
-        // Fallback to markers if heatmap failed
-        if (!visualizationAdded) {
-          console.log('[GeospatialMap] Using fallback markers for visualization');
-          let markersAdded = 0;
-          
-          validObservations.slice(0, 1000).forEach(obs => {
-            const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
-            const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
-            
-            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-              try {
-                L.circleMarker([lat, lng], {
-                  radius: 3,
-                  fillColor: '#2563eb',
-                  color: '#ffffff',
-                  weight: 1,
-                  opacity: 1,
-                  fillOpacity: 0.8
-                }).addTo(map).bindPopup(`
-                  <div style="font-family: system-ui; min-width: 200px;">
-                    <h4 style="margin: 0 0 8px 0; font-weight: 600;">${obs.scientificName}</h4>
-                    <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${obs.state}</p>
-                    <p style="margin: 0; color: #888; font-size: 12px;">${new Date(obs.observedOn).toLocaleDateString()}</p>
-                  </div>
-                `);
-                markersAdded++;
-              } catch (error) {
-                console.error('[GeospatialMap] Marker creation failed:', error);
-              }
+        // Wait a bit for plugin to load, then add heatmap
+        setTimeout(() => {
+          if (mapInstanceRef.current && (window as any).L && (window as any).L.heatLayer) {
+            try {
+              console.log('[GeospatialMap] Creating heatmap with', heatmapData.length, 'data points');
+              const heat = (window as any).L.heatLayer(heatmapData, {
+                radius: 22,
+                blur: 12,
+                maxZoom: 17,
+                max: 0.8,
+                minOpacity: 0.2,
+                gradient: {
+                  0.0: 'rgba(0, 0, 255, 0.3)',
+                  0.2: 'rgba(0, 255, 255, 0.5)',
+                  0.4: 'rgba(0, 255, 0, 0.6)',
+                  0.6: 'rgba(255, 255, 0, 0.7)',
+                  0.8: 'rgba(255, 165, 0, 0.8)',
+                  1.0: 'rgba(255, 0, 0, 0.9)'
+                }
+              }).addTo(mapInstanceRef.current);
+              
+              console.log('[GeospatialMap] Heatmap layer added successfully');
+            } catch (error) {
+              console.error('[GeospatialMap] Heatmap creation failed:', error);
             }
-          });
-          
-          console.log('[GeospatialMap] Added', markersAdded, 'fallback markers');
-          visualizationAdded = true;
-        }
+          } else {
+            console.log('[GeospatialMap] Heatmap plugin not available, no fallback needed - using base map');
+          }
+        }, 500); // Same delay as ContributorMap
         
         // Use continental US bounds for consistent view
         map.fitBounds(continentalUSBounds);
