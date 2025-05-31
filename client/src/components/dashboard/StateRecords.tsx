@@ -9,7 +9,11 @@ interface StateRecord {
   observedOn: string;
 }
 
-export function StateRecords() {
+interface StateRecordsProps {
+  dateRange?: string;
+}
+
+export function StateRecords({ dateRange }: StateRecordsProps) {
   const { data: records = [], isLoading } = useQuery<StateRecord[]>({
     queryKey: ["/api/state-records"],
   });

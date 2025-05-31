@@ -9,9 +9,22 @@ interface Contributor {
   observationCount: number;
 }
 
-export function TopContributors() {
+interface TopContributorsProps {
+  dateRange?: string;
+}
+
+export function TopContributors({ dateRange }: TopContributorsProps) {
   const { data: contributors = [], isLoading } = useQuery<Contributor[]>({
-    queryKey: ["/api/contributors"],
+    queryKey: ["/api/contributors", dateRange],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange) {
+        params.append('dateRange', dateRange);
+      }
+      const response = await fetch(`/api/contributors?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch contributors');
+      return response.json();
+    }
   });
 
   const getInitials = (name: string) => {

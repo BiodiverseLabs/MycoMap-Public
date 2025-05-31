@@ -10,7 +10,11 @@ interface RareSpecies {
   lastObserved: string | null;
 }
 
-export function RareSpecies() {
+interface RareSpeciesProps {
+  dateRange?: string;
+}
+
+export function RareSpecies({ dateRange }: RareSpeciesProps) {
   const { data: species = [], isLoading } = useQuery<RareSpecies[]>({
     queryKey: ["/api/species", { type: 'rare', limit: '5' }],
   });

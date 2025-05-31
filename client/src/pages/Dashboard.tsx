@@ -66,19 +66,19 @@ export default function Dashboard() {
         <MetricsCards dateRange={dateRange} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <GeospatialMap />
-          <TemporalChart />
+          <GeospatialMap dateRange={dateRange} />
+          <TemporalChart dateRange={dateRange} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <TaxonomicChart />
-          <TopContributors />
-          <SpeciesFrequency />
+          <TaxonomicChart dateRange={dateRange} />
+          <TopContributors dateRange={dateRange} />
+          <SpeciesFrequency dateRange={dateRange} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <StateRecords />
-          <RareSpecies />
+          <StateRecords dateRange={dateRange} />
+          <RareSpecies dateRange={dateRange} />
         </div>
       </div>
     </div>

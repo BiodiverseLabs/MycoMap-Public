@@ -8,9 +8,24 @@ interface Species {
   observationCount: number;
 }
 
-export function SpeciesFrequency() {
+interface SpeciesFrequencyProps {
+  dateRange?: string;
+}
+
+export function SpeciesFrequency({ dateRange }: SpeciesFrequencyProps) {
   const { data: species = [], isLoading } = useQuery<Species[]>({
-    queryKey: ["/api/species", { type: 'top', limit: '5' }],
+    queryKey: ["/api/species", { type: 'top', limit: '5' }, dateRange],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('type', 'top');
+      params.append('limit', '5');
+      if (dateRange) {
+        params.append('dateRange', dateRange);
+      }
+      const response = await fetch(`/api/species?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch species');
+      return response.json();
+    }
   });
 
   const maxCount = species.length > 0 ? species[0].observationCount : 1;
