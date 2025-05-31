@@ -465,7 +465,7 @@ export class MemoryStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -513,16 +513,25 @@ export class MemoryStorage implements IStorage {
       };
     });
 
-    // Filter for state firsts only if requested
-    let filteredResult = stateFirstsOnly 
-      ? result.filter(record => record.isFirstInState)
-      : result;
+    // Apply filters
+    let filteredResult = result;
+
+    if (stateFirstsOnly) {
+      filteredResult = filteredResult.filter(record => record.isFirstInState);
+    }
+
+    if (globalFirstsOnly) {
+      filteredResult = filteredResult.filter(record => record.isFirstGlobal);
+    }
 
     // If recent is requested, show records that are either global firsts or state firsts, ordered by most recent date
     if (recent) {
-      filteredResult = result
+      filteredResult = filteredResult
         .filter(record => record.isFirstGlobal || record.isFirstInState)
         .sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
+    } else {
+      // Default sort by most recent
+      filteredResult = filteredResult.sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
     }
 
     return filteredResult.slice(offset, offset + limit);
