@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { MapPin } from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 interface Observation {
   id: number;
@@ -21,6 +23,7 @@ interface GeospatialMapProps {
 
 export function GeospatialMap({ dateRange, onStateSelect, selectedState }: GeospatialMapProps = {}) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
   const { data: observations = [], isLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations", dateRange],
@@ -66,6 +69,69 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 15); // Show top 15 states
+
+  // Initialize map when component mounts and observations are available
+  useEffect(() => {
+    if (!mapRef.current || isLoading) return;
+
+    // Clean up existing map
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+    }
+
+    // Fix Leaflet default marker icons
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    });
+
+    // Create map instance
+    const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add markers for observations
+    const markers: L.Marker[] = [];
+    validObservations.slice(0, 1000).forEach(obs => { // Limit to 1000 for performance
+      const lat = parseFloat(obs.latitude);
+      const lng = parseFloat(obs.longitude);
+      
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const marker = L.marker([lat, lng]).addTo(map);
+        
+        marker.bindPopup(`
+          <div style="font-family: system-ui;">
+            <h4 style="margin: 0 0 8px 0; font-weight: 600;">${obs.scientificName}</h4>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${obs.state}</p>
+            <p style="margin: 0 0 4px 0; color: #888; font-size: 12px;">${new Date(obs.observedOn).toLocaleDateString()}</p>
+            ${obs.source ? `<p style="margin: 0; color: #3b82f6; font-size: 12px;">${obs.source}</p>` : ''}
+          </div>
+        `);
+        
+        markers.push(marker);
+      }
+    });
+
+    // Fit map to markers if we have observations
+    if (markers.length > 0) {
+      const group = new L.featureGroup(markers);
+      map.fitBounds(group.getBounds().pad(0.1));
+    }
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [validObservations, isLoading]);
 
   console.log('[GeospatialMap] Render', {
     isLoading,
@@ -114,27 +180,27 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Map Placeholder */}
+          {/* Map */}
           <div className="lg:col-span-3">
             <div className="relative">
               <div 
                 ref={mapRef} 
-                className="w-full h-96 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center"
+                className="w-full h-96 rounded-lg border border-slate-200"
                 style={{ minHeight: '400px' }}
-              >
-                <div className="text-center">
-                  <MapPin className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600 font-medium mb-2">Interactive Map</p>
-                  <p className="text-sm text-slate-500">
-                    Showing {validObservations.length.toLocaleString()} observation locations
-                  </p>
-                  {selectedState && (
-                    <p className="text-sm text-blue-600 mt-2">
-                      Filtered by: {selectedState}
+              />
+              {validObservations.length === 0 && !isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-50 rounded-lg">
+                  <div className="text-center">
+                    <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-500">
+                      {selectedState 
+                        ? `No observations found in ${selectedState}` 
+                        : "No observations with GPS coordinates found"
+                      }
                     </p>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
