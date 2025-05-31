@@ -12,9 +12,10 @@ interface Species {
 
 interface SpeciesFrequencyProps {
   dateRange?: string;
+  state?: string;
 }
 
-export function SpeciesFrequency({ dateRange }: SpeciesFrequencyProps) {
+export function SpeciesFrequency({ dateRange, state }: SpeciesFrequencyProps) {
   const { data: species = [], isLoading } = useQuery<Species[]>({
     queryKey: ["/api/species", { type: 'top', limit: '5' }, dateRange],
     queryFn: async () => {

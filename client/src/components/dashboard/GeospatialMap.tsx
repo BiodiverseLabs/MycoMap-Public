@@ -15,9 +15,11 @@ interface Observation {
 
 interface GeospatialMapProps {
   dateRange?: string;
+  onStateSelect?: (state: string) => void;
+  selectedState?: string | null;
 }
 
-export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
+export function GeospatialMap({ dateRange, onStateSelect, selectedState }: GeospatialMapProps = {}) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
@@ -35,11 +37,36 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
     }
   });
 
-  // Filter observations with valid coordinates
-  const validObservations = observations.filter(obs => 
-    obs.latitude && obs.longitude && 
-    !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude))
-  );
+  // Filter observations with valid coordinates and by state if selected
+  const validObservations = observations.filter(obs => {
+    const hasValidCoords = obs.latitude && obs.longitude && 
+      !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude));
+    
+    if (!hasValidCoords) return false;
+    if (selectedState && obs.state !== selectedState) return false;
+    
+    return true;
+  });
+
+  // Group observations by state for state selector
+  const stateGroups = observations.reduce((acc, obs) => {
+    const state = obs.state || 'Unknown';
+    if (!acc[state]) {
+      acc[state] = { count: 0, species: new Set() };
+    }
+    acc[state].count++;
+    acc[state].species.add(obs.scientificName);
+    return acc;
+  }, {} as Record<string, { count: number; species: Set<string> }>);
+
+  const sortedStates = Object.entries(stateGroups)
+    .map(([state, data]) => ({
+      state,
+      count: data.count,
+      speciesCount: data.species.size
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15); // Show top 15 states
 
   useEffect(() => {
     if (!mapRef.current || !validObservations.length) return;
@@ -164,23 +191,69 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
           {observations.length > validObservations.length && 
             ` (${observations.length - validObservations.length} without coordinates)`
           }
+          {selectedState && (
+            <span className="ml-2 text-blue-600 font-medium">- Filtered by {selectedState}</span>
+          )}
         </p>
       </CardHeader>
       <CardContent>
-        <div className="relative">
-          <div 
-            ref={mapRef} 
-            className="w-full h-96 rounded-lg border border-slate-200"
-            style={{ minHeight: '400px' }}
-          />
-          {validObservations.length === 0 && !isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-50 rounded-lg">
-              <div className="text-center">
-                <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">No observations with GPS coordinates found</p>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Map */}
+          <div className="lg:col-span-3">
+            <div className="relative">
+              <div 
+                ref={mapRef} 
+                className="w-full h-96 rounded-lg border border-slate-200"
+                style={{ minHeight: '400px' }}
+              />
+              {validObservations.length === 0 && !isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-50 rounded-lg">
+                  <div className="text-center">
+                    <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-500">
+                      {selectedState 
+                        ? `No observations found in ${selectedState}` 
+                        : "No observations with GPS coordinates found"
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* State Selector */}
+          <div className="lg:col-span-1">
+            <div className="bg-slate-50 rounded-lg p-4">
+              <h4 className="font-medium text-slate-900 mb-3">Filter by State</h4>
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {sortedStates.map((item) => (
+                  <button
+                    key={item.state}
+                    onClick={() => onStateSelect?.(item.state)}
+                    className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                      selectedState === item.state
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                        : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <div className="font-medium">{item.state}</div>
+                    <div className="text-xs text-slate-500">
+                      {item.count.toLocaleString()} obs, {item.speciesCount} species
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {selectedState && (
+                <button
+                  onClick={() => onStateSelect?.('')}
+                  className="w-full mt-3 px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 rounded text-slate-700"
+                >
+                  Clear Filter
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

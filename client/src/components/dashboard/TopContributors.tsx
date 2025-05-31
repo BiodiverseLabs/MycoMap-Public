@@ -12,9 +12,10 @@ interface Contributor {
 
 interface TopContributorsProps {
   dateRange?: string;
+  state?: string;
 }
 
-export function TopContributors({ dateRange }: TopContributorsProps) {
+export function TopContributors({ dateRange, state }: TopContributorsProps) {
   const { data: contributors = [], isLoading } = useQuery<Contributor[]>({
     queryKey: ["/api/contributors", dateRange],
     queryFn: async () => {

@@ -17,9 +17,10 @@ interface StateRecord {
 
 interface StateRecordsProps {
   dateRange?: string;
+  state?: string;
 }
 
-export function StateRecords({ dateRange }: StateRecordsProps) {
+export function StateRecords({ dateRange, state }: StateRecordsProps) {
   const { data: records = [], isLoading } = useQuery<StateRecord[]>({
     queryKey: ["/api/record-index", { recent: true }],
     queryFn: async () => {
