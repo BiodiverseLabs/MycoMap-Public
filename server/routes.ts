@@ -446,38 +446,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { state, limit } = req.query;
       const limitNum = limit ? parseInt(limit as string) : 10;
       
-      // Get actual global first records from database
-      const records = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
-      const globalFirsts = records.filter(record => record.isFirstGlobal);
+      // Get all observations to access observer field
+      const observations = await storage.getAllObservations();
       
-      // Filter by state if specified
-      const filteredRecords = state 
-        ? globalFirsts.filter(record => record.state === state)
-        : globalFirsts;
+      // Filter for global firsts and by state if specified
+      const globalFirsts = observations.filter(obs => {
+        const matchesGlobal = obs.isFirstGlobal;
+        const matchesState = !state || obs.state === state;
+        return matchesGlobal && matchesState && obs.observer;
+      });
       
-      // Group by contributor and count
-      const contributorGroups = filteredRecords.reduce((acc, record) => {
-        const contributorId = record.id.toString(); // Use record ID as contributor identifier for now
-        acc[contributorId] = (acc[contributorId] || 0) + 1;
+      // Group by observer (contributor) and count
+      const contributorGroups = globalFirsts.reduce((acc, obs) => {
+        const observerName = obs.observer;
+        if (observerName) {
+          acc[observerName] = (acc[observerName] || 0) + 1;
+        }
         return acc;
       }, {} as Record<string, number>);
-      
-      // Get all contributors to match names
-      const contributors = await storage.getTopContributors(1000);
       
       const total = Object.values(contributorGroups).reduce((sum, count) => sum + count, 0);
       
       const data = Object.entries(contributorGroups)
-        .map(([contributorId, count]) => {
-          const contributor = contributors.find(c => c.id === contributorId);
-          return {
-            id: contributorId,
-            name: contributor?.name || 'Unknown',
-            affiliation: contributor?.affiliation,
-            globalFirstCount: count,
-            percentage: total > 0 ? (count / total) * 100 : 0
-          };
-        })
+        .map(([name, count]) => ({
+          id: name.replace(/\s+/g, '_').toLowerCase(), // Create simple ID from name
+          name: name,
+          affiliation: undefined, // Observer field doesn't include affiliation
+          globalFirstCount: count,
+          percentage: total > 0 ? (count / total) * 100 : 0
+        }))
         .sort((a, b) => b.globalFirstCount - a.globalFirstCount)
         .slice(0, limitNum);
       
