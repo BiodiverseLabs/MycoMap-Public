@@ -407,21 +407,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Global first records endpoints - temporary implementation
+  // Global first records endpoints
   app.get("/api/states/global-firsts", async (req, res) => {
     try {
-      // Return sample data for now until we implement proper backend logic
-      const sampleData = [
-        { state: "California", globalFirstCount: 1542, percentage: 24.3 },
-        { state: "Michigan", globalFirstCount: 892, percentage: 14.1 },
-        { state: "Texas", globalFirstCount: 687, percentage: 10.8 },
-        { state: "Florida", globalFirstCount: 445, percentage: 7.0 },
-        { state: "North Carolina", globalFirstCount: 334, percentage: 5.3 },
-        { state: "New York", globalFirstCount: 298, percentage: 4.7 },
-        { state: "Oregon", globalFirstCount: 256, percentage: 4.0 },
-        { state: "Washington", globalFirstCount: 234, percentage: 3.7 }
-      ];
-      res.json(sampleData);
+      const { state } = req.query;
+      
+      // Get actual global first records from database
+      const records = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
+      const globalFirsts = records.filter(record => record.isFirstGlobal);
+      
+      // Group by state and count
+      const stateGroups = globalFirsts.reduce((acc, record) => {
+        if (state && record.state !== state) return acc;
+        acc[record.state] = (acc[record.state] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const total = Object.values(stateGroups).reduce((sum, count) => sum + count, 0);
+      
+      const data = Object.entries(stateGroups)
+        .map(([stateName, count]) => ({
+          state: stateName,
+          globalFirstCount: count,
+          percentage: total > 0 ? (count / total) * 100 : 0
+        }))
+        .sort((a, b) => b.globalFirstCount - a.globalFirstCount)
+        .slice(0, 20);
+      
+      res.json(data);
     } catch (error) {
       console.error("Error fetching states with global firsts:", error);
       res.status(500).json({ error: "Failed to fetch states with global firsts" });
@@ -430,18 +443,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contributors/global-firsts", async (req, res) => {
     try {
-      // Return sample data for now until we implement proper backend logic
-      const sampleData = [
-        { id: "1", name: "Stephen Russell", affiliation: "University of Michigan", globalFirstCount: 234, percentage: 15.2 },
-        { id: "2", name: "Michael Beug", affiliation: "The Evergreen State College", globalFirstCount: 189, percentage: 12.3 },
-        { id: "3", name: "Dianna Smith", affiliation: "California Academy of Sciences", globalFirstCount: 156, percentage: 10.1 },
-        { id: "4", name: "Tom Volk", affiliation: "University of Wisconsin", globalFirstCount: 134, percentage: 8.7 },
-        { id: "5", name: "Alan Rockefeller", globalFirstCount: 98, percentage: 6.4 },
-        { id: "6", name: "Noah Siegel", affiliation: "OMAS", globalFirstCount: 87, percentage: 5.7 },
-        { id: "7", name: "Danny Miller", affiliation: "SVIMS", globalFirstCount: 76, percentage: 4.9 },
-        { id: "8", name: "Else Vellinga", affiliation: "UC Berkeley", globalFirstCount: 65, percentage: 4.2 }
-      ];
-      res.json(sampleData);
+      const { state, limit } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 10;
+      
+      // Get actual global first records from database
+      const records = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
+      const globalFirsts = records.filter(record => record.isFirstGlobal);
+      
+      // Filter by state if specified
+      const filteredRecords = state 
+        ? globalFirsts.filter(record => record.state === state)
+        : globalFirsts;
+      
+      // Group by contributor and count
+      const contributorGroups = filteredRecords.reduce((acc, record) => {
+        const contributorId = record.id.toString(); // Use record ID as contributor identifier for now
+        acc[contributorId] = (acc[contributorId] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Get all contributors to match names
+      const contributors = await storage.getTopContributors(1000);
+      
+      const total = Object.values(contributorGroups).reduce((sum, count) => sum + count, 0);
+      
+      const data = Object.entries(contributorGroups)
+        .map(([contributorId, count]) => {
+          const contributor = contributors.find(c => c.id === contributorId);
+          return {
+            id: contributorId,
+            name: contributor?.name || 'Unknown',
+            affiliation: contributor?.affiliation,
+            globalFirstCount: count,
+            percentage: total > 0 ? (count / total) * 100 : 0
+          };
+        })
+        .sort((a, b) => b.globalFirstCount - a.globalFirstCount)
+        .slice(0, limitNum);
+      
+      res.json(data);
     } catch (error) {
       console.error("Error fetching contributors with global firsts:", error);
       res.status(500).json({ error: "Failed to fetch contributors with global firsts" });
