@@ -77,8 +77,8 @@ export default function Temporal() {
                 {monthlyLoading ? (
                   <div className="text-slate-500">Loading monthly data...</div>
                 ) : (
-                  <div className="relative w-64 h-64">
-                    <svg width="256" height="256" className="transform -rotate-90">
+                  <div className="relative w-80 h-80">
+                    <svg width="320" height="320" className="transform -rotate-90">
                       {(() => {
                         const total = monthlyData.reduce((sum: number, month: any) => sum + month.count, 0);
                         let currentAngle = 0;
@@ -92,59 +92,51 @@ export default function Temporal() {
                           const angle = (month.count / total) * 360;
                           const startAngle = currentAngle;
                           const endAngle = currentAngle + angle;
+                          const midAngle = startAngle + angle / 2;
                           currentAngle += angle;
                           
-                          const x1 = 128 + 100 * Math.cos((startAngle * Math.PI) / 180);
-                          const y1 = 128 + 100 * Math.sin((startAngle * Math.PI) / 180);
-                          const x2 = 128 + 100 * Math.cos((endAngle * Math.PI) / 180);
-                          const y2 = 128 + 100 * Math.sin((endAngle * Math.PI) / 180);
+                          const x1 = 160 + 120 * Math.cos((startAngle * Math.PI) / 180);
+                          const y1 = 160 + 120 * Math.sin((startAngle * Math.PI) / 180);
+                          const x2 = 160 + 120 * Math.cos((endAngle * Math.PI) / 180);
+                          const y2 = 160 + 120 * Math.sin((endAngle * Math.PI) / 180);
+                          
+                          // Label position
+                          const labelX = 160 + 80 * Math.cos((midAngle * Math.PI) / 180);
+                          const labelY = 160 + 80 * Math.sin((midAngle * Math.PI) / 180);
                           
                           const largeArcFlag = angle > 180 ? 1 : 0;
+                          const monthName = month.month.trim().substring(0, 3);
                           
                           return (
-                            <path
-                              key={month.month}
-                              d={`M 128 128 L ${x1} ${y1} A 100 100 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
-                              fill={colors[index % colors.length]}
-                              stroke="white"
-                              strokeWidth="2"
-                              className="hover:opacity-80 transition-opacity"
-                            />
+                            <g key={month.month}>
+                              <path
+                                d={`M 160 160 L ${x1} ${y1} A 120 120 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
+                                fill={colors[index % colors.length]}
+                                stroke="white"
+                                strokeWidth="2"
+                                className="hover:opacity-80 transition-opacity cursor-pointer"
+                              >
+                                <title>{`${month.month.trim()}: ${month.count.toLocaleString()} observations`}</title>
+                              </path>
+                              <text
+                                x={labelX}
+                                y={labelY}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                className="fill-white text-xs font-medium pointer-events-none transform rotate-90"
+                                style={{ transformOrigin: `${labelX}px ${labelY}px` }}
+                              >
+                                {monthName}
+                              </text>
+                            </g>
                           );
                         });
                       })()}
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900">
-                          {monthlyData.reduce((sum: number, month: any) => sum + month.count, 0).toLocaleString()}
-                        </div>
-                        <div className="text-sm text-gray-600">Total</div>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
-              {!monthlyLoading && monthlyData.length > 0 && (
-                <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-                  {monthlyData.slice(0, 12).map((month: any, index: number) => {
-                    const colors = [
-                      '#3B82F6', '#10B981', '#F59E0B', '#EF4444', 
-                      '#8B5CF6', '#06B6D4', '#84CC16', '#F97316',
-                      '#EC4899', '#6366F1', '#14B8A6', '#F43F5E'
-                    ];
-                    return (
-                      <div key={month.month} className="flex items-center space-x-1">
-                        <div 
-                          className="w-3 h-3 rounded-sm" 
-                          style={{ backgroundColor: colors[index % colors.length] }}
-                        />
-                        <span className="truncate">{month.month.trim()}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+
             </CardContent>
           </Card>
         </div>
