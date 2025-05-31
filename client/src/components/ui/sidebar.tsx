@@ -10,7 +10,8 @@ import {
   Settings,
   Activity,
   Menu,
-  X
+  X,
+  Trophy
 } from "lucide-react";
 import { Button } from "./button";
 import { useState, useEffect } from "react";
@@ -30,6 +31,7 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },
     { href: "/contributors", label: "Contributors", icon: Users },
+    { href: "/records", label: "Records", icon: Trophy },
     { href: "/species", label: "Species Analysis", icon: Dna },
   ];
 

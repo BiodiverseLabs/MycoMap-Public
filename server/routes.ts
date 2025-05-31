@@ -495,6 +495,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contributors species endpoint
+  app.get("/api/contributors/species", async (req, res) => {
+    try {
+      const { state, limit } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 15;
+      
+      // Get all observations to access collector and species data
+      const observations = await storage.getAllObservations();
+      
+      // Filter by state if specified
+      const filteredObs = state 
+        ? observations.filter(obs => obs.state === state)
+        : observations;
+      
+      // Group by collector and count unique species
+      const contributorSpecies = filteredObs.reduce((acc, obs) => {
+        if (!obs.collector || !obs.scientificName) return acc;
+        
+        if (!acc[obs.collector]) {
+          acc[obs.collector] = new Set();
+        }
+        acc[obs.collector].add(obs.scientificName);
+        return acc;
+      }, {} as Record<string, Set<string>>);
+      
+      const data = Object.entries(contributorSpecies)
+        .map(([name, speciesSet]) => ({
+          id: name.replace(/\s+/g, '_').toLowerCase(),
+          name: name,
+          affiliation: undefined,
+          speciesCount: speciesSet.size
+        }))
+        .sort((a, b) => b.speciesCount - a.speciesCount)
+        .slice(0, limitNum);
+      
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching contributors species:", error);
+      res.status(500).json({ error: "Failed to fetch contributors species" });
+    }
+  });
+
   // Upload endpoints
   app.get("/api/uploads", async (req, res) => {
     try {
