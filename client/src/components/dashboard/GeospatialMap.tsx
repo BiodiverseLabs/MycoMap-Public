@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { MapPin, BarChart3 } from "lucide-react";
 
 interface Observation {
@@ -18,9 +18,7 @@ interface GeospatialMapProps {
 }
 
 export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [mapInstance, setMapInstance] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<'map' | 'chart'>('map');
+  const [viewMode, setViewMode] = useState<'chart' | 'coordinates'>('chart');
 
   const { data: observations = [], isLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations", dateRange],
@@ -29,68 +27,12 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
-      params.append('limit', '500'); // Limit for map performance
+      params.append('limit', '100'); // Small limit for performance
       const response = await fetch(`/api/observations?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch observations');
       return response.json();
     }
   });
-
-  // Initialize map
-  useEffect(() => {
-    if (!mapRef.current || mapInstance || !observations.length || viewMode !== 'map') return;
-
-    // Load Leaflet dynamically
-    import('leaflet').then((L) => {
-      // Fix default marker icons
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      });
-
-      // Create map
-      const map = L.map(mapRef.current!).setView([39.8283, -98.5795], 4);
-      
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-
-      // Add markers
-      const validObservations = observations.filter(obs => 
-        obs.latitude && obs.longitude && 
-        !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude))
-      );
-
-      validObservations.forEach(obs => {
-        const lat = parseFloat(obs.latitude);
-        const lng = parseFloat(obs.longitude);
-        
-        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-          L.marker([lat, lng])
-            .bindPopup(`
-              <div>
-                <strong>${obs.scientificName}</strong><br>
-                State: ${obs.state}<br>
-                Date: ${new Date(obs.observedOn).toLocaleDateString()}
-              </div>
-            `)
-            .addTo(map);
-        }
-      });
-
-      setMapInstance(map);
-    });
-
-    return () => {
-      if (mapInstance) {
-        mapInstance.remove();
-        setMapInstance(null);
-      }
-    };
-  }, [observations, viewMode, mapInstance]);
 
   // Group observations by state for chart view
   const stateGroups = observations.reduce((acc, obs) => {
@@ -111,6 +53,23 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
+
+  // Get valid coordinates for coordinate view
+  const validCoordinates = observations
+    .filter(obs => 
+      obs.latitude && obs.longitude && 
+      !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude))
+    )
+    .map(obs => ({
+      ...obs,
+      lat: parseFloat(obs.latitude),
+      lng: parseFloat(obs.longitude)
+    }))
+    .filter(obs => 
+      obs.lat >= -90 && obs.lat <= 90 && 
+      obs.lng >= -180 && obs.lng <= 180
+    )
+    .slice(0, 20); // Limit to 20 for display
 
   function getBarColor(index: number): string {
     const colors = [
@@ -153,18 +112,10 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
           <div>
             <CardTitle>Geographic Distribution</CardTitle>
             <p className="text-sm text-slate-600">
-              {viewMode === 'map' ? 'Interactive map view' : 'Top states by observation count'} ({observations.length.toLocaleString()} observations)
+              {viewMode === 'chart' ? 'Top states by observation count' : 'Sample coordinates'} ({observations.length.toLocaleString()} observations)
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'map' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('map')}
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              Map
-            </Button>
             <Button
               variant={viewMode === 'chart' ? 'default' : 'outline'}
               size="sm"
@@ -173,29 +124,19 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
               <BarChart3 className="h-4 w-4 mr-1" />
               Chart
             </Button>
+            <Button
+              variant={viewMode === 'coordinates' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('coordinates')}
+            >
+              <MapPin className="h-4 w-4 mr-1" />
+              Coordinates
+            </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        {viewMode === 'map' ? (
-          <div className="space-y-4">
-            <div 
-              ref={mapRef} 
-              className="w-full h-96 rounded-lg border"
-              style={{ minHeight: '400px' }}
-            />
-            {observations.length > 0 && (
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  Showing {observations.filter(obs => 
-                    obs.latitude && obs.longitude && 
-                    !isNaN(parseFloat(obs.latitude)) && !isNaN(parseFloat(obs.longitude))
-                  ).length} observations with valid coordinates
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
+        {viewMode === 'chart' ? (
           <div className="space-y-3">
             {sortedStates.map((item, index) => {
               const percentage = (item.count / observations.length) * 100;
@@ -224,6 +165,30 @@ export function GeospatialMap({ dateRange }: GeospatialMapProps = {}) {
                 </div>
               );
             })}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+              {validCoordinates.map((obs, index) => (
+                <div key={obs.id} className="p-3 border rounded-lg bg-slate-50">
+                  <div className="font-medium text-sm text-slate-900 mb-1">
+                    {obs.scientificName}
+                  </div>
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <div>📍 {obs.lat.toFixed(4)}, {obs.lng.toFixed(4)}</div>
+                    <div>📍 {obs.state}</div>
+                    <div>📅 {new Date(obs.observedOn).toLocaleDateString()}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {validCoordinates.length > 0 && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  Showing {validCoordinates.length} observations with valid coordinates from sample of {observations.length}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
