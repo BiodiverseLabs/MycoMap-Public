@@ -572,23 +572,34 @@ export class DatabaseStorage implements IStorage {
         SELECT 
           ${observations.species},
           ${observations.observedOn},
+          ${observations.id},
           ROW_NUMBER() OVER (ORDER BY ${observations.observedOn}, ${observations.id}) as observation_number
         FROM ${observations}
         ${whereClause}
       ),
-      cumulative_species AS (
+      species_first_appearance AS (
         SELECT 
-          observation_number,
-          COUNT(DISTINCT species) OVER (
-            ORDER BY observation_number 
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-          ) as unique_species_count
+          species,
+          MIN(observation_number) as first_observation
         FROM ordered_observations
+        GROUP BY species
+      ),
+      accumulation_points AS (
+        SELECT 
+          o.observation_number,
+          COUNT(s.species) as new_species_count
+        FROM ordered_observations o
+        LEFT JOIN species_first_appearance s ON o.observation_number = s.first_observation
+        GROUP BY o.observation_number
+        ORDER BY o.observation_number
       )
-      SELECT DISTINCT
+      SELECT 
         observation_number as "observationNumber",
-        unique_species_count as "uniqueSpeciesCount"
-      FROM cumulative_species
+        SUM(new_species_count) OVER (
+          ORDER BY observation_number 
+          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) as "uniqueSpeciesCount"
+      FROM accumulation_points
       ORDER BY observation_number
     `);
 
