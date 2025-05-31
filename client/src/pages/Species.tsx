@@ -104,8 +104,11 @@ export default function Species() {
   // Calculate statistics
   const stats = useMemo(() => {
     const totalSpecies = filteredSpecies.length;
-    const commonSpecies = filteredSpecies.filter(s => (s.observationCount || 0) > 100).length;
-    const rareSpecies = filteredSpecies.filter(s => (s.observationCount || 0) <= 3).length;
+    const veryCommon = filteredSpecies.filter(s => (s.observationCount || 0) > 100).length;
+    const common = filteredSpecies.filter(s => (s.observationCount || 0) >= 10 && (s.observationCount || 0) <= 100).length;
+    const uncommon = filteredSpecies.filter(s => (s.observationCount || 0) >= 5 && (s.observationCount || 0) <= 9).length;
+    const rare = filteredSpecies.filter(s => (s.observationCount || 0) >= 2 && (s.observationCount || 0) <= 4).length;
+    const veryRare = filteredSpecies.filter(s => (s.observationCount || 0) >= 1 && (s.observationCount || 0) <= 2).length;
     const recentSpecies = filteredSpecies.filter(s => {
       if (!s.lastObserved) return false;
       const lastYear = new Date();
@@ -113,7 +116,7 @@ export default function Species() {
       return new Date(s.lastObserved) >= lastYear;
     }).length;
 
-    return { totalSpecies, commonSpecies, rareSpecies, recentSpecies };
+    return { totalSpecies, veryCommon, common, uncommon, rare, veryRare, recentSpecies };
   }, [filteredSpecies]);
 
   return (
@@ -212,7 +215,7 @@ export default function Species() {
         </Card>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -224,36 +227,6 @@ export default function Species() {
               <div className="text-3xl font-bold text-primary">{stats.totalSpecies}</div>
               <p className="text-sm text-slate-600 mt-1">
                 {allSpecies.length > 0 ? ((stats.totalSpecies / allSpecies.length) * 100).toFixed(1) : 0}% of database
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Award className="w-4 h-4" />
-                Common Species
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats.commonSpecies}</div>
-              <p className="text-sm text-slate-600 mt-1">
-                Over 100 observations each
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                Rare Species
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-orange-600">{stats.rareSpecies}</div>
-              <p className="text-sm text-slate-600 mt-1">
-                3 or fewer observations
               </p>
             </CardContent>
           </Card>
@@ -273,6 +246,53 @@ export default function Species() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Rare-Common Distribution Panel */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              Species Rarity Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-2xl font-bold text-green-700">{stats.veryCommon}</div>
+                <div className="text-sm font-medium text-green-600">Very Common</div>
+                <div className="text-xs text-green-500">&gt;100 obs.</div>
+              </div>
+              
+              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-2xl font-bold text-blue-700">{stats.common}</div>
+                <div className="text-sm font-medium text-blue-600">Common</div>
+                <div className="text-xs text-blue-500">10-100 obs.</div>
+              </div>
+              
+              <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="text-2xl font-bold text-yellow-700">{stats.uncommon}</div>
+                <div className="text-sm font-medium text-yellow-600">Uncommon</div>
+                <div className="text-xs text-yellow-500">5-10 obs.</div>
+              </div>
+              
+              <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="text-2xl font-bold text-orange-700">{stats.rare}</div>
+                <div className="text-sm font-medium text-orange-600">Rare</div>
+                <div className="text-xs text-orange-500">2-5 obs.</div>
+              </div>
+              
+              <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="text-2xl font-bold text-red-700">{stats.veryRare}</div>
+                <div className="text-sm font-medium text-red-600">Very Rare</div>
+                <div className="text-xs text-red-500">1-2 obs.</div>
+              </div>
+            </div>
+            
+            <div className="mt-4 text-sm text-slate-600 text-center">
+              Distribution based on total observation counts per species
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Species List */}
         <Card>
