@@ -129,7 +129,7 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         if ((window as any).L && (window as any).L.heatLayer) {
           const heat = (window as any).L.heatLayer(heatmapData, {
             radius: 22,
-            blur: 20,
+            blur: 12,
             maxZoom: 17,
             max: 0.8,
             minOpacity: 0.2,
