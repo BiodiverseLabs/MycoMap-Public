@@ -49,16 +49,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let actualEndDate: string | undefined;
       
       if (dateRange === 'last_30_days') {
-        // Calculate from the most recent observation date (2025-04-18)
-        actualStartDate = '2025-03-19'; // 30 days before 2025-04-18
+        // Recent observations from 2025
+        actualStartDate = '2025-01-01';
         actualEndDate = '2025-04-18';
       } else if (dateRange === 'last_6_months') {
-        // Calculate from the most recent observation date (2025-04-18)
-        actualStartDate = '2024-10-18'; // 6 months before 2025-04-18
+        // Last 6 months of data
+        actualStartDate = '2024-10-01';
         actualEndDate = '2025-04-18';
       } else if (dateRange === 'last_year') {
-        // Calculate from the most recent observation date (2025-04-18)
-        actualStartDate = '2024-04-18'; // 1 year before 2025-04-18
+        // All 2024-2025 data
+        actualStartDate = '2024-01-01';
         actualEndDate = '2025-04-18';
       } else if (dateRange === 'all_time') {
         // Don't set date filters for all time

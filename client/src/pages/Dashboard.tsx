@@ -46,9 +46,9 @@ export default function Dashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                  <SelectItem value="last_30_days">2025 data</SelectItem>
                   <SelectItem value="last_6_months">Last 6 months</SelectItem>
-                  <SelectItem value="last_year">Last year</SelectItem>
+                  <SelectItem value="last_year">2024-2025</SelectItem>
                   <SelectItem value="all_time">All time</SelectItem>
                 </SelectContent>
               </Select>
