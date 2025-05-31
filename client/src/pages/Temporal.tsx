@@ -32,7 +32,17 @@ export default function Temporal() {
 
   // Calculate year-over-year growth rates from yearly data
   const growthRates = yearlyData.length > 1 ? (() => {
-    const sortedYears = [...yearlyData].sort((a: any, b: any) => parseInt(a.period) - parseInt(b.period));
+    // Group by year and sum counts
+    const yearlyTotals = yearlyData.reduce((acc: any, item: any) => {
+      const year = item.period.split('-')[0]; // Extract year from "YYYY-MM" format
+      acc[year] = (acc[year] || 0) + item.count;
+      return acc;
+    }, {});
+    
+    const sortedYears = Object.entries(yearlyTotals)
+      .map(([year, count]: [string, any]) => ({ year: parseInt(year), count }))
+      .sort((a, b) => a.year - b.year);
+    
     const rates = [];
     
     for (let i = 1; i < sortedYears.length; i++) {
@@ -42,7 +52,7 @@ export default function Temporal() {
       if (prev.count > 0) {
         const rate = ((curr.count - prev.count) / prev.count * 100);
         rates.push({ 
-          year: curr.period, 
+          year: curr.year.toString(), 
           rate: Number(rate.toFixed(1)),
           count: curr.count,
           prevCount: prev.count
@@ -50,7 +60,7 @@ export default function Temporal() {
       }
     }
     
-    return rates.slice(-3); // Show last 3 years of growth
+    return rates.slice(-5); // Show last 5 years of growth
   })() : [];
 
   return (
