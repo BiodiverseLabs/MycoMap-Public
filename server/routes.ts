@@ -51,6 +51,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         actualStartDate = thirtyDaysAgo.toISOString().split('T')[0];
         actualEndDate = now.toISOString().split('T')[0];
+      } else if (dateRange === 'last_6_months') {
+        const now = new Date();
+        const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+        actualStartDate = sixMonthsAgo.toISOString().split('T')[0];
+        actualEndDate = now.toISOString().split('T')[0];
+      } else if (dateRange === 'last_year') {
+        const now = new Date();
+        const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        actualStartDate = oneYearAgo.toISOString().split('T')[0];
+        actualEndDate = now.toISOString().split('T')[0];
+      } else if (dateRange === 'all_time') {
+        // Don't set date filters for all time
+        actualStartDate = undefined;
+        actualEndDate = undefined;
       } else if (startDate && endDate) {
         actualStartDate = startDate as string;
         actualEndDate = endDate as string;
