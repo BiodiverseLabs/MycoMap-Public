@@ -344,6 +344,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate as string,
         species as string
       );
+      
+      console.log(`[DEBUG] Record index query - limit: ${limit}, offset: ${offset}, stateFirstsOnly: ${stateFirstsOnly}, state: ${state}, returned: ${index.length} records`);
+      
       res.json(index);
     } catch (error) {
       console.error("Error fetching record index:", error);
