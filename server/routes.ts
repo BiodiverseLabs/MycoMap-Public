@@ -199,7 +199,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/species", async (req, res) => {
     try {
-      const { limit, type = 'top', state } = req.query;
+      const { limit, type = 'top', state, name } = req.query;
+      
+      // If searching for a specific species by name
+      if (name) {
+        const allSpecies = await storage.getTopSpecies(50000);
+        const matchedSpecies = allSpecies.filter(s => s.scientificName === name);
+        res.json(matchedSpecies);
+        return;
+      }
       
       // Use a very high limit if no specific limit is provided to get all species
       const speciesLimit = limit ? parseInt(limit as string) : 50000;
