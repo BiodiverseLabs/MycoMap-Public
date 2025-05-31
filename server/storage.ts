@@ -305,4 +305,6 @@ export class MemoryStorage implements IStorage {
   }
 }
 
-export const storage = new MemoryStorage();
+// Use database storage instead of memory storage
+import { DatabaseStorage } from "./db";
+export const storage = new DatabaseStorage();
