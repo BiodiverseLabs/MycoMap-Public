@@ -65,6 +65,13 @@ export interface IStorage {
   
   // Data management
   clearAllData(): Promise<void>;
+  
+  // Source analytics
+  getObservationSources(dateRange?: string): Promise<Array<{
+    source: string;
+    count: number;
+    percentage: number;
+  }>>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -390,6 +397,56 @@ export class MemoryStorage implements IStorage {
     this.contributors = [];
     this.species = [];
     this.users = [];
+  }
+
+  async getObservationSources(dateRange?: string): Promise<Array<{
+    source: string;
+    count: number;
+    percentage: number;
+  }>> {
+    // Filter observations by date range if provided
+    let filteredObs = this.observations;
+    
+    if (dateRange && dateRange !== 'all_time') {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (dateRange) {
+        case 'last_30_days':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+          break;
+        case 'last_6_months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+          break;
+        case 'last_year':
+          startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+          break;
+        default:
+          startDate = new Date(0);
+      }
+      
+      filteredObs = this.observations.filter(obs => 
+        obs.observedOn && new Date(obs.observedOn) >= startDate
+      );
+    }
+
+    // Count observations by source
+    const sourceCounts = new Map<string, number>();
+    const total = filteredObs.length;
+
+    filteredObs.forEach(obs => {
+      const source = obs.source || 'Unknown';
+      sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+    });
+
+    // Convert to array with percentages
+    return Array.from(sourceCounts.entries())
+      .map(([source, count]) => ({
+        source,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0
+      }))
+      .sort((a, b) => b.count - a.count);
   }
 }
 

@@ -359,4 +359,60 @@ export class DatabaseStorage implements IStorage {
     await db.execute(sql`DELETE FROM ${contributors}`);
     await db.execute(sql`DELETE FROM ${species}`);
   }
+
+  async getObservationSources(dateRange?: string): Promise<Array<{
+    source: string;
+    count: number;
+    percentage: number;
+  }>> {
+    let whereClause = sql`WHERE 1=1`;
+    
+    if (dateRange && dateRange !== 'all_time') {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (dateRange) {
+        case 'last_30_days':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+          break;
+        case 'last_6_months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+          break;
+        case 'last_year':
+          startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+          break;
+        default:
+          startDate = new Date(0);
+      }
+      
+      whereClause = sql`WHERE ${observations.observedOn} >= ${startDate.toISOString().split('T')[0]}`;
+    }
+
+    const result = await db.execute(sql`
+      WITH source_counts AS (
+        SELECT 
+          COALESCE(${observations.source}, 'Unknown') as source,
+          COUNT(*) as count
+        FROM ${observations}
+        ${whereClause}
+        GROUP BY COALESCE(${observations.source}, 'Unknown')
+      ),
+      total_count AS (
+        SELECT SUM(count) as total FROM source_counts
+      )
+      SELECT 
+        sc.source,
+        sc.count,
+        ROUND((sc.count * 100.0 / tc.total), 2) as percentage
+      FROM source_counts sc
+      CROSS JOIN total_count tc
+      ORDER BY sc.count DESC
+    `);
+
+    return result.rows as Array<{
+      source: string;
+      count: number;
+      percentage: number;
+    }>;
+  }
 }

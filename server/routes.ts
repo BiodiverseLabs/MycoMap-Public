@@ -176,6 +176,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/observation-sources", async (req, res) => {
+    try {
+      const { dateRange } = req.query;
+      const sources = await storage.getObservationSources(dateRange as string);
+      res.json(sources);
+    } catch (error) {
+      console.error("Error fetching observation sources:", error);
+      res.status(500).json({ error: "Failed to fetch observation sources" });
+    }
+  });
+
   // Upload endpoints
   app.get("/api/uploads", async (req, res) => {
     try {

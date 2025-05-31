@@ -5,7 +5,7 @@ import { TaxonomicChart } from "@/components/dashboard/TaxonomicChart";
 import { TopContributors } from "@/components/dashboard/TopContributors";
 import { SpeciesFrequency } from "@/components/dashboard/SpeciesFrequency";
 import { StateRecords } from "@/components/dashboard/StateRecords";
-import { RareSpecies } from "@/components/dashboard/RareSpecies";
+import { ObservationSources } from "@/components/dashboard/ObservationSources";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <StateRecords dateRange={dateRange} />
-          <RareSpecies dateRange={dateRange} />
+          <ObservationSources dateRange={dateRange} />
         </div>
       </div>
     </div>
