@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { CloudUpload } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { CloudUpload, FileCheck, Loader2 } from "lucide-react";
 import { useState, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -15,19 +16,48 @@ export function FileUpload() {
     autoNotify: false,
   });
   const [dragOver, setDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'uploading' | 'processing'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
+      setUploadPhase('uploading');
+      setUploadProgress(0);
+      
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await apiRequest('POST', '/api/upload', formData);
-      return response.json();
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.random() * 10;
+        });
+      }, 100);
+      
+      try {
+        const response = await apiRequest('POST', '/api/upload', formData);
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+        setUploadPhase('processing');
+        
+        return response.json();
+      } catch (error) {
+        clearInterval(progressInterval);
+        setUploadPhase('idle');
+        setUploadProgress(0);
+        throw error;
+      }
     },
     onSuccess: () => {
+      setTimeout(() => {
+        setUploadPhase('idle');
+        setUploadProgress(0);
+      }, 2000);
+      
       toast({
         title: "Upload Successful",
         description: "File uploaded successfully and is being processed",
@@ -35,6 +65,8 @@ export function FileUpload() {
       queryClient.invalidateQueries({ queryKey: ['/api/uploads'] });
     },
     onError: (error: Error) => {
+      setUploadPhase('idle');
+      setUploadProgress(0);
       toast({
         title: "Upload Failed",
         description: error.message,
@@ -110,18 +142,49 @@ export function FileUpload() {
             onDragLeave={handleDragLeave}
           >
             <div className="mb-4">
-              <CloudUpload className="mx-auto h-12 w-12 text-slate-400" />
+              {uploadPhase === 'uploading' ? (
+                <Loader2 className="mx-auto h-12 w-12 text-blue-500 animate-spin" />
+              ) : uploadPhase === 'processing' ? (
+                <FileCheck className="mx-auto h-12 w-12 text-green-500" />
+              ) : (
+                <CloudUpload className="mx-auto h-12 w-12 text-slate-400" />
+              )}
             </div>
-            <p className="text-slate-600 mb-2">Drop your Excel file here or</p>
-            <Button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadMutation.isPending}
-            >
-              {uploadMutation.isPending ? 'Uploading...' : 'Choose File'}
-            </Button>
-            <p className="text-sm text-slate-500 mt-3">
-              Supports .xlsx, .xls files up to 50MB
-            </p>
+            
+            {uploadPhase !== 'idle' && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">
+                    {uploadPhase === 'uploading' ? 'Uploading...' : 'Processing...'}
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    {Math.round(uploadProgress)}%
+                  </span>
+                </div>
+                <Progress value={uploadProgress} className="w-full" />
+                {uploadPhase === 'processing' && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    File uploaded successfully, processing data...
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {uploadPhase === 'idle' && (
+              <>
+                <p className="text-slate-600 mb-2">Drop your Excel file here or</p>
+                <Button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadMutation.isPending}
+                >
+                  Choose File
+                </Button>
+                <p className="text-sm text-slate-500 mt-3">
+                  Supports .xlsx, .xls files up to 50MB
+                </p>
+              </>
+            )}
+            
             <input
               ref={fileInputRef}
               type="file"

@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 interface Upload {
   id: number;
@@ -100,9 +102,24 @@ export function UploadHistory() {
                     {upload.recordCount.toLocaleString()}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge className={getStatusColor(upload.status)}>
-                      {upload.status}
-                    </Badge>
+                    {upload.status === 'processing' ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                          <Badge className={getStatusColor(upload.status)}>
+                            Processing
+                          </Badge>
+                        </div>
+                        <Progress value={75} className="w-full h-2" />
+                        <p className="text-xs text-slate-500">
+                          Processing data and updating statistics...
+                        </p>
+                      </div>
+                    ) : (
+                      <Badge className={getStatusColor(upload.status)}>
+                        {upload.status}
+                      </Badge>
+                    )}
                   </td>
                 </tr>
               ))}
