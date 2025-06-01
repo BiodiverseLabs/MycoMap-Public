@@ -163,7 +163,6 @@ export class DatabaseStorage implements IStorage {
       WHERE ${observations.family} IS NOT NULL AND ${observations.family} != ''
       GROUP BY ${observations.family}
       ORDER BY count DESC
-      LIMIT 10
     `);
     
     return result.rows as Array<{ family: string; count: number }>;
