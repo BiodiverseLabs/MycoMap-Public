@@ -220,7 +220,7 @@ export default function SpeciesDetail() {
             <strong>${obs.observedOn}</strong><br>
             ${obs.state}<br>
             Source: ${obs.source}<br>
-            Observer: ${obs.contributor}
+            Observer: ${obs.observer || 'Unknown'}
           </div>
         `);
       marker.addTo(mapInstanceRef.current);
