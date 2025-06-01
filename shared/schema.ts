@@ -155,6 +155,43 @@ export const gpsIndex = pgTable("gps_index", {
   stateLocationIdx: index("gps_state_location_idx").on(table.state, table.latitude, table.longitude),
 }));
 
+// Red List assessments table for conservation status
+export const redlistAssessments = pgTable("redlist_assessments", {
+  id: serial("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull().unique(),
+  internalTaxonId: text("internal_taxon_id"),
+  scientificName: text("scientific_name").notNull(),
+  redlistCategory: text("redlist_category"),
+  redlistCriteria: text("redlist_criteria"),
+  yearPublished: integer("year_published"),
+  assessmentDate: timestamp("assessment_date"),
+  criteriaVersion: text("criteria_version"),
+  language: text("language"),
+  rationale: text("rationale"),
+  habitat: text("habitat"),
+  threats: text("threats"),
+  population: text("population"),
+  populationTrend: text("population_trend"),
+  range: text("range"),
+  useTrade: text("use_trade"),
+  systems: text("systems"),
+  conservationActions: text("conservation_actions"),
+  realm: text("realm"),
+  yearLastSeen: integer("year_last_seen"),
+  possiblyExtinct: boolean("possibly_extinct").default(false),
+  possiblyExtinctInTheWild: boolean("possibly_extinct_in_the_wild").default(false),
+  scopes: text("scopes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Index for scientific name lookups
+  scientificNameIdx: index("redlist_scientific_name_idx").on(table.scientificName),
+  // Index for conservation category
+  categoryIdx: index("redlist_category_idx").on(table.redlistCategory),
+  // Index for assessment ID
+  assessmentIdx: index("redlist_assessment_idx").on(table.assessmentId),
+}));
+
 // Relations
 export const observationsRelations = relations(observations, ({ one }) => ({
   contributor: one(contributors, {
@@ -196,6 +233,12 @@ export const insertGpsIndexSchema = createInsertSchema(gpsIndex).omit({
   updatedAt: true,
 });
 
+export const insertRedlistAssessmentSchema = createInsertSchema(redlistAssessments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertObservation = z.infer<typeof insertObservationSchema>;
 export type Observation = typeof observations.$inferSelect;
@@ -211,6 +254,9 @@ export type GpsIndex = typeof gpsIndex.$inferSelect;
 
 export type InsertSpecies = z.infer<typeof insertSpeciesSchema>;
 export type Species = typeof species.$inferSelect;
+
+export type InsertRedlistAssessment = z.infer<typeof insertRedlistAssessmentSchema>;
+export type RedlistAssessment = typeof redlistAssessments.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

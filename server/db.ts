@@ -3,10 +3,10 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 import { 
-  users, observations, uploads, contributors, species,
+  users, observations, uploads, contributors, species, redlistAssessments,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
-  type Species, type InsertSpecies
+  type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like } from 'drizzle-orm';
 import type { IStorage } from "./storage";
@@ -1002,5 +1002,29 @@ export class DatabaseStorage implements IStorage {
     await db.update(observations)
       .set(taxonomyData)
       .where(eq(observations.id, id));
+  }
+
+  // Red List assessments methods
+  async createRedlistAssessments(assessments: InsertRedlistAssessment[]): Promise<RedlistAssessment[]> {
+    return await db.insert(redlistAssessments)
+      .values(assessments)
+      .returning();
+  }
+
+  async getRedlistAssessments(): Promise<RedlistAssessment[]> {
+    return await db.select()
+      .from(redlistAssessments)
+      .orderBy(desc(redlistAssessments.createdAt));
+  }
+
+  async getRedlistAssessmentByScientificName(scientificName: string): Promise<RedlistAssessment | undefined> {
+    const [assessment] = await db.select()
+      .from(redlistAssessments)
+      .where(eq(redlistAssessments.scientificName, scientificName));
+    return assessment || undefined;
+  }
+
+  async clearRedlistAssessments(): Promise<void> {
+    await db.delete(redlistAssessments);
   }
 }
