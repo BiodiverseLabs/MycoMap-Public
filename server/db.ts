@@ -675,13 +675,13 @@ export class DatabaseStorage implements IStorage {
     
     // Populate GPS index from observations with valid coordinates
     await db.execute(sql`
-      INSERT INTO gps_index (observation_id, latitude, longitude, state, species, observed_on)
+      INSERT INTO gps_index (observation_id, latitude, longitude, state, scientific_name, observed_on)
       SELECT 
         id,
         latitude,
         longitude,
         state,
-        species,
+        scientific_name,
         observed_on
       FROM observations 
       WHERE latitude IS NOT NULL 
@@ -711,7 +711,7 @@ export class DatabaseStorage implements IStorage {
       
       // Use raw SQL for smaller requests
       let sqlQuery = `
-        SELECT latitude, longitude, species 
+        SELECT latitude, longitude, scientific_name as species 
         FROM gps_index 
       `;
       

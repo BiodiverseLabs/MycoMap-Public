@@ -139,7 +139,7 @@ export const gpsIndex = pgTable("gps_index", {
   latitude: decimal("latitude", { precision: 10, scale: 8 }).notNull(),
   longitude: decimal("longitude", { precision: 11, scale: 8 }).notNull(),
   state: text("state"),
-  species: text("species"),
+  scientificName: text("scientific_name"),
   observedOn: date("observed_on"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
