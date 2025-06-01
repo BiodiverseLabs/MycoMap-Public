@@ -1,50 +1,38 @@
 import XLSX from 'xlsx';
 
-// Create a test Excel file with sample macrofungi data
-const testData = [
-  {
-    'Observation ID': 'TEST001',
-    'Scientific Name': 'Agaricus bisporus',
-    'Common Name': 'Button Mushroom',
-    'Phylum': 'Basidiomycota',
-    'Class': 'Agaricomycetes',
-    'Order': 'Agaricales',
-    'Family': 'Agaricaceae',
-    'Genus': 'Agaricus',
-    'Species': 'bisporus',
-    'Latitude': '40.7128',
-    'Longitude': '-74.0060',
-    'State': 'New York',
-    'Observed On': '2024-05-15',
-    'Observer': 'Test Observer',
-    'Collector': 'Test Collector',
-    'Institution': 'Test University'
-  },
-  {
-    'Observation ID': 'TEST002',
-    'Scientific Name': 'Pleurotus ostreatus',
-    'Common Name': 'Oyster Mushroom',
-    'Phylum': 'Basidiomycota',
-    'Class': 'Agaricomycetes',
-    'Order': 'Agaricales',
-    'Family': 'Pleurotaceae',
-    'Genus': 'Pleurotus',
-    'Species': 'ostreatus',
-    'Latitude': '34.0522',
-    'Longitude': '-118.2437',
-    'State': 'California',
-    'Observed On': '2024-05-20',
-    'Observer': 'Test Observer 2',
-    'Collector': 'Test Collector 2',
-    'Institution': 'Test Institute'
-  }
+const workbook = XLSX.readFile('./attached_assets/Validated Observations05.30.25.xlsx');
+const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+// Get just the first row to see actual column headers
+const headerRange = XLSX.utils.decode_range(worksheet['!ref']);
+headerRange.e.r = 0; // Only first row
+const headerData = XLSX.utils.sheet_to_json(worksheet, { 
+  range: headerRange,
+  header: 1 
+});
+
+const actualColumns = headerData[0].filter(col => col && col.trim() !== '');
+
+console.log('=== ACTUAL COLUMNS IN YOUR EXCEL FILE ===');
+actualColumns.forEach((col, i) => {
+  console.log(`${(i + 1).toString().padStart(2)}. ${col}`);
+});
+
+// Fields we currently map
+const currentlyMapped = [
+  'Reference Number', 'Genus', 'Species', 'Variety', 'Sequence Owner', 
+  'Collector', 'Report Date', 'Latitude', 'Longitude', 'City', 'State', 
+  'Country', 'GenBank Accession #', 'MyCoPortal #', 'DNA Sequence', 
+  'Sequence', 'First State Record', 'Multiple Genotypes Under Name', 
+  'Source Database', 'Source URL', 'Phylum', 'Class', 'Order', 'Family'
 ];
 
-// Create workbook and worksheet
-const ws = XLSX.utils.json_to_sheet(testData);
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, 'Validated Observations');
+console.log('\n=== UNMAPPED FIELDS IN YOUR EXCEL ===');
+const unmapped = actualColumns.filter(col => !currentlyMapped.includes(col));
+unmapped.forEach((col, i) => {
+  console.log(`${(i + 1).toString().padStart(2)}. ${col}`);
+});
 
-// Write test file
-XLSX.writeFile(wb, 'test_observations.xlsx');
-console.log('Test Excel file created: test_observations.xlsx');
+console.log(`\nTotal: ${actualColumns.length} columns`);
+console.log(`Mapped: ${currentlyMapped.filter(f => actualColumns.includes(f)).length}`);
+console.log(`Unmapped: ${unmapped.length}`);

@@ -767,8 +767,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('Raw data length:', rawData.length);
       if (rawData.length > 0) {
-        console.log('Available columns:', Object.keys(rawData[0]));
-        console.log('Sample row:', rawData[0]);
+        const allColumns = Object.keys(rawData[0]);
+        console.log('Available columns:', allColumns);
+        
+        // Currently mapped fields
+        const mapped = [
+          'Reference Number', 'Genus', 'Species', 'Variety', 'Sequence Owner', 
+          'Collector', 'Report Date', 'Latitude', 'Longitude', 'City', 'State', 
+          'Country', 'GenBank Accession #', 'MyCoPortal #', 'DNA Sequence', 
+          'Sequence', 'First State Record', 'Multiple Genotypes Under Name', 
+          'Source Database', 'Source URL', 'Phylum', 'Class', 'Order', 'Family'
+        ];
+        
+        const unmapped = allColumns.filter(col => !mapped.includes(col));
+        console.log('UNMAPPED FIELDS:', unmapped);
+        console.log(`Total: ${allColumns.length}, Mapped: ${mapped.filter(f => allColumns.includes(f)).length}, Unmapped: ${unmapped.length}`);
       }
 
       // Transform and validate data using actual column names from your file
