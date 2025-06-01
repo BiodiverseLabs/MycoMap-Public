@@ -923,8 +923,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Additional mapped fields
           collectionNumber: row['Collection Number'] || null,
-          creationDate: row['Creation Date'] ? 
-            new Date((row['Creation Date'] - 25569) * 86400 * 1000).toISOString().split('T')[0] : null,
+          creationDate: (() => {
+            try {
+              if (!row['Creation Date']) return null;
+              const dateValue = row['Creation Date'];
+              if (typeof dateValue === 'number') {
+                // Excel serial date
+                const date = new Date((dateValue - 25569) * 86400 * 1000);
+                return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+              } else if (dateValue instanceof Date) {
+                return isNaN(dateValue.getTime()) ? null : dateValue.toISOString().split('T')[0];
+              } else if (typeof dateValue === 'string') {
+                const date = new Date(dateValue);
+                return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+              }
+              return null;
+            } catch (e) {
+              return null;
+            }
+          })(),
           verified: row['Verified'] || null,
           kingdom: row['Kingdom'] || null,
           authority: row['Authority'] || null,
