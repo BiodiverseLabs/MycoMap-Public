@@ -1,13 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Shield, Leaf, MapPin, TrendingUp, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Shield, Leaf, MapPin, TrendingUp, AlertTriangle, Search } from "lucide-react";
 import type { Observation } from "@shared/schema";
 
 export default function Conservation() {
+  const [redlistCategoryFilter, setRedlistCategoryFilter] = useState<string>("all");
+  const [speciesSearchFilter, setSpeciesSearchFilter] = useState<string>("");
+
   const { data: rareSpecies = [], isLoading: rareLoading } = useQuery<any[]>({
     queryKey: ["/api/species?type=rare&limit=50"]
   });
@@ -79,6 +85,26 @@ export default function Conservation() {
     vulnerable: redlistSpeciesData.filter(s => s.redlistCategory?.toLowerCase().includes('vulnerable')).length,
     possiblyExtinct: redlistSpeciesData.filter(s => s.possiblyExtinct).length
   };
+
+  // Get unique Red List categories for filter dropdown
+  const uniqueCategories = Array.from(new Set(
+    redlistSpeciesData.map(s => s.redlistCategory).filter(Boolean)
+  )).sort();
+
+  // Filter Red List species data based on filters
+  const filteredRedlistSpecies = redlistSpeciesData.filter(species => {
+    // Category filter
+    if (redlistCategoryFilter !== "all" && species.redlistCategory !== redlistCategoryFilter) {
+      return false;
+    }
+    
+    // Species search filter
+    if (speciesSearchFilter && !species.scientificName.toLowerCase().includes(speciesSearchFilter.toLowerCase())) {
+      return false;
+    }
+    
+    return true;
+  });
 
   // Get state distribution for rare species
   const stateDistribution = observations.reduce((acc: { [key: string]: Set<string> }, obs) => {
@@ -409,94 +435,135 @@ export default function Conservation() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {/* Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Input
+                        placeholder="Search species..."
+                        value={speciesSearchFilter}
+                        onChange={(e) => setSpeciesSearchFilter(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  <div className="sm:w-64">
+                    <Select value={redlistCategoryFilter} onValueChange={setRedlistCategoryFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Filter by Red List Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {uniqueCategories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 {redlistLoading || observationsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="text-slate-500">Loading Red List analysis...</div>
                   </div>
-                ) : redlistSpeciesData.length === 0 ? (
+                ) : filteredRedlistSpecies.length === 0 ? (
                   <div className="text-center py-8">
                     <Shield className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                    <div className="text-lg font-medium text-slate-600">No Red List Species Found</div>
-                    <div className="text-sm text-slate-500">None of the observed species match the Red List database</div>
+                    <div className="text-lg font-medium text-slate-600">
+                      {redlistSpeciesData.length === 0 ? "No Red List Species Found" : "No Species Match Filters"}
+                    </div>
+                    <div className="text-sm text-slate-500">
+                      {redlistSpeciesData.length === 0 
+                        ? "None of the observed species match the Red List database"
+                        : "Try adjusting your filters to see more results"
+                      }
+                    </div>
                   </div>
                 ) : (
-                  <ScrollArea className="h-96">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Scientific Name</TableHead>
-                          <TableHead>Red List Category</TableHead>
-                          <TableHead>Red List Criteria</TableHead>
-                          <TableHead>Year Published</TableHead>
-                          <TableHead>Observations</TableHead>
-                          <TableHead>States Found</TableHead>
-                          <TableHead>Status Flags</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {redlistSpeciesData.map((species, index) => {
-                          let categoryColor = 'bg-gray-100 text-gray-800';
+                  <div>
+                    <div className="text-sm text-slate-500 mb-4">
+                      Showing {filteredRedlistSpecies.length} of {redlistSpeciesData.length} Red List species
+                    </div>
+                    <ScrollArea className="h-96">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Scientific Name</TableHead>
+                            <TableHead>Red List Category</TableHead>
+                            <TableHead>Red List Criteria</TableHead>
+                            <TableHead>Year Published</TableHead>
+                            <TableHead>Observations</TableHead>
+                            <TableHead>States Found</TableHead>
+                            <TableHead>Status Flags</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredRedlistSpecies.map((species, index) => {
+                            let categoryColor = 'bg-gray-100 text-gray-800';
                           
-                          if (species.redlistCategory?.toLowerCase().includes('critically endangered')) {
-                            categoryColor = 'bg-red-100 text-red-800';
-                          } else if (species.redlistCategory?.toLowerCase().includes('endangered')) {
-                            categoryColor = 'bg-orange-100 text-orange-800';
-                          } else if (species.redlistCategory?.toLowerCase().includes('vulnerable')) {
-                            categoryColor = 'bg-yellow-100 text-yellow-800';
-                          }
+                            if (species.redlistCategory?.toLowerCase().includes('critically endangered')) {
+                              categoryColor = 'bg-red-100 text-red-800';
+                            } else if (species.redlistCategory?.toLowerCase().includes('endangered')) {
+                              categoryColor = 'bg-orange-100 text-orange-800';
+                            } else if (species.redlistCategory?.toLowerCase().includes('vulnerable')) {
+                              categoryColor = 'bg-yellow-100 text-yellow-800';
+                            }
 
-                          return (
-                            <TableRow key={index}>
-                              <TableCell>
-                                <div className="font-medium text-slate-900">
-                                  {species.scientificName}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={categoryColor}>
-                                  {species.redlistCategory || 'Not Specified'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-sm text-slate-600">
-                                  {species.redlistCriteria || 'N/A'}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-sm text-slate-500">
-                                  {species.yearPublished || 'Unknown'}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="secondary">
-                                  {species.observationCount}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-sm text-slate-600">
-                                  {species.stateCount} state{species.stateCount !== 1 ? 's' : ''}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  {species.possiblyExtinct && (
-                                    <Badge className="bg-black text-white text-xs">
-                                      Possibly Extinct
-                                    </Badge>
-                                  )}
-                                  {species.possiblyExtinctInTheWild && (
-                                    <Badge className="bg-gray-800 text-white text-xs">
-                                      Possibly Extinct in Wild
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
+                            return (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  <div className="font-medium text-slate-900">
+                                    {species.scientificName}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className={categoryColor}>
+                                    {species.redlistCategory || 'Not Specified'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm text-slate-600">
+                                    {species.redlistCriteria || 'N/A'}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm text-slate-500">
+                                    {species.yearPublished || 'Unknown'}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">
+                                    {species.observationCount}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-sm text-slate-600">
+                                    {species.stateCount} state{species.stateCount !== 1 ? 's' : ''}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-1">
+                                    {species.possiblyExtinct && (
+                                      <Badge className="bg-black text-white text-xs">
+                                        Possibly Extinct
+                                      </Badge>
+                                    )}
+                                    {species.possiblyExtinctInTheWild && (
+                                      <Badge className="bg-gray-800 text-white text-xs">
+                                        Possibly Extinct in Wild
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </div>
                 )}
               </CardContent>
             </Card>
