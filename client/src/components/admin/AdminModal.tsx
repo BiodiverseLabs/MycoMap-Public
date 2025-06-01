@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { FileUpload } from "./FileUpload";
 import { UploadHistory } from "./UploadHistory";
 import { ProcessingStatus } from "./ProcessingStatus";
+import { RedListUpload } from "./RedListUpload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
@@ -36,6 +37,11 @@ export default function AdminModal({ open, onOpenChange }: AdminModalProps) {
           <FileUpload />
           <UploadHistory />
           <ProcessingStatus />
+        </div>
+
+        {/* Red List Management */}
+        <div className="mt-8">
+          <RedListUpload />
         </div>
 
         {/* System Stats */}

@@ -1258,6 +1258,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  // Red List assessments routes
+  app.get("/api/redlist-assessments", async (req, res) => {
+    try {
+      const assessments = await storage.getRedlistAssessments();
+      res.json(assessments);
+    } catch (error) {
+      console.error('Error fetching Red List assessments:', error);
+      res.status(500).json({ error: 'Failed to fetch Red List assessments' });
+    }
+  });
+
+  // Upload and process Red List CSV
+  app.post("/api/redlist-upload", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      console.log(`Processing Red List CSV upload: ${req.file.originalname}`);
+      
+      // Process the CSV file
+      const csvData = req.file.buffer.toString('utf-8');
+      const lines = csvData.split('\n').filter(line => line.trim());
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      console.log(`CSV headers: ${headers.join(', ')}`);
+      
+      const assessments = [];
+      let processedCount = 0;
+      let errorCount = 0;
+      
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+          
+          if (values.length < headers.length) continue;
+          
+          // Only process rows with valid scientific name
+          const scientificName = values[2]?.trim();
+          if (!scientificName) continue;
+          
+          const assessment = {
+            assessmentId: values[0] || `auto-${Date.now()}-${i}`,
+            internalTaxonId: values[1] || null,
+            scientificName: scientificName,
+            redlistCategory: values[3] || null,
+            redlistCriteria: values[4] || null,
+            yearPublished: values[5] ? parseInt(values[5]) : null,
+            assessmentDate: values[6] ? new Date(values[6]) : null,
+            criteriaVersion: values[7] || null,
+            language: values[8] || null,
+            rationale: values[9] || null,
+            habitat: values[10] || null,
+            threats: values[11] || null,
+            population: values[12] || null,
+            populationTrend: values[13] || null,
+            range: values[14] || null,
+            useTrade: values[15] || null,
+            systems: values[16] || null,
+            conservationActions: values[17] || null,
+            realm: values[18] || null,
+            yearLastSeen: values[19] ? parseInt(values[19]) : null,
+            possiblyExtinct: values[20] === 'true',
+            possiblyExtinctInTheWild: values[21] === 'true',
+            scopes: values[22] || null
+          };
+          
+          assessments.push(assessment);
+          processedCount++;
+        } catch (rowError) {
+          console.error(`Error processing row ${i}:`, rowError);
+          errorCount++;
+        }
+      }
+      
+      console.log(`Parsed ${assessments.length} Red List assessments from CSV`);
+      
+      // Save to database in batches
+      const batchSize = 100;
+      let savedCount = 0;
+      
+      for (let i = 0; i < assessments.length; i += batchSize) {
+        const batch = assessments.slice(i, i + batchSize);
+        await storage.createRedlistAssessments(batch);
+        savedCount += batch.length;
+        console.log(`Saved batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(assessments.length/batchSize)}`);
+      }
+      
+      console.log(`✓ Red List upload completed: ${savedCount} assessments saved`);
+      
+      res.json({
+        success: true,
+        message: `Successfully processed ${savedCount} Red List assessments`,
+        stats: {
+          totalProcessed: processedCount,
+          saved: savedCount,
+          errors: errorCount
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error processing Red List upload:', error);
+      res.status(500).json({ 
+        error: 'Failed to process Red List upload',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Clear Red List assessments
+  app.delete("/api/redlist-assessments", async (req, res) => {
+    try {
+      await storage.clearRedlistAssessments();
+      res.json({ success: true, message: 'All Red List assessments cleared' });
+    } catch (error) {
+      console.error('Error clearing Red List assessments:', error);
+      res.status(500).json({ error: 'Failed to clear Red List assessments' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
