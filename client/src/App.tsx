@@ -19,6 +19,10 @@ import ContributorsGlobalFirsts from "@/pages/ContributorsGlobalFirsts";
 import ContributorsStateFirsts from "@/pages/ContributorsStateFirsts";
 import MostObservations from "@/pages/MostObservations";
 import MostSpecies from "@/pages/MostSpecies";
+import PhylumDetail from "@/pages/PhylumDetail";
+import ClassDetail from "@/pages/ClassDetail";
+import OrderDetail from "@/pages/OrderDetail";
+import GenusDetail from "@/pages/GenusDetail";
 import AdminModal from "@/components/admin/AdminModal";
 import NotFound from "@/pages/not-found";
 
@@ -31,6 +35,10 @@ function Router() {
       <Route path="/geospatial" component={Geospatial} />
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
+      <Route path="/taxonomic/phylum" component={PhylumDetail} />
+      <Route path="/taxonomic/class" component={ClassDetail} />
+      <Route path="/taxonomic/order" component={OrderDetail} />
+      <Route path="/taxonomic/genus" component={GenusDetail} />
       <Route path="/contributors" component={Contributors} />
       <Route path="/records" component={Records} />
       <Route path="/records/states-global-firsts" component={StatesGlobalFirsts} />

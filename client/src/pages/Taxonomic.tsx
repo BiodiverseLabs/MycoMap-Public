@@ -1,6 +1,8 @@
 import { TaxonomicChart } from "@/components/dashboard/TaxonomicChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { ExternalLink } from "lucide-react";
 
 export default function Taxonomic() {
   // Fetch family distribution data
@@ -124,6 +126,14 @@ export default function Taxonomic() {
                       <span className="font-medium">{phylum.count.toLocaleString()}</span>
                     </div>
                   ))}
+                  <div className="pt-2 mt-2 border-t">
+                    <Link href="/taxonomic/phylum">
+                      <div className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+                        <span>See all records</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </div>
+                    </Link>
+                  </div>
                 </div>
               )}
             </CardContent>
