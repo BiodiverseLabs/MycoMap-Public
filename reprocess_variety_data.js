@@ -115,11 +115,8 @@ async function reprocessVarietyData() {
       
       console.log(`Records still needing updates: ${remaining.length}`);
       
-      // Stop after reasonable number to avoid timeouts
-      if (totalUpdated >= 1000) {
-        console.log('Stopping at 1000 updates to prevent timeout');
-        break;
-      }
+      // Continue processing until all records are complete
+      // No artificial limit - process everything
     }
     
     // Final status
