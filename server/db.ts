@@ -940,4 +940,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(observations.classificationUpdate, true))
       .orderBy(desc(observations.updatedAt));
   }
+
+  async updateObservationTaxonomy(id: number, taxonomyData: {
+    kingdom?: string;
+    phylum?: string;
+    class?: string;
+    order?: string;
+    family?: string;
+    genus?: string;
+    classificationUpdate?: boolean;
+  }): Promise<void> {
+    await db.update(observations)
+      .set(taxonomyData)
+      .where(eq(observations.id, id));
+  }
 }
