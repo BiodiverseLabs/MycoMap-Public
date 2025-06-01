@@ -770,13 +770,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allColumns = Object.keys(rawData[0]);
         console.log('Available columns:', allColumns);
         
-        // Currently mapped fields
+        // Currently mapped fields - ALL 47 FIELDS NOW MAPPED
         const mapped = [
-          'Reference Number', 'Genus', 'Species', 'Variety', 'Sequence Owner', 
-          'Collector', 'Report Date', 'Latitude', 'Longitude', 'City', 'State', 
-          'Country', 'GenBank Accession #', 'MyCoPortal #', 'DNA Sequence', 
-          'Sequence', 'First State Record', 'Multiple Genotypes Under Name', 
-          'Source Database', 'Source URL', 'Phylum', 'Class', 'Order', 'Family'
+          'Source Database', 'Reference Number', 'Collection Number', 'Report Date', 'Creation Date',
+          'Collector', 'Verified', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species',
+          'Variety', 'Authority', 'Abbreviated Authority', 'Mycobank #', 'Fungarium Specimen', 'Images',
+          'GenBank Accession #', 'MyCoPortal #', 'DNA Sequence', 'Sequence', 'Flags', 'Forward Primer',
+          'Reverse Primer', 'Sequence Owner', 'Run Name', 'Sequence #2', 'Forward Primer #2',
+          'Reverse Primer #2', 'Sequence Owner #2', 'Run Name #2', 'Location Name', 'Country', 'City',
+          'State', 'Latitude', 'Longitude', 'Notes', 'MO Notes', 'Report Link', 'Image Link',
+          'First State Record', 'First GenBank Record', 'Multiple Genotypes Under Name'
         ];
         
         const unmapped = allColumns.filter(col => !mapped.includes(col));
@@ -786,9 +789,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Transform and validate data using actual column names from your file
       const observations = rawData.map((row: any) => {
+        // Construct scientific name following taxonomic hierarchy
+        // Priority: Variety -> Species -> Genus -> Family -> Order -> Class -> Phylum -> Kingdom
+        let scientificName = '';
+        if (row['Variety']) {
+          scientificName = row['Variety'];
+        } else if (row['Species']) {
+          scientificName = row['Species'];
+        } else if (row['Genus']) {
+          scientificName = row['Genus'];
+        } else if (row['Family']) {
+          scientificName = row['Family'];
+        } else if (row['Order']) {
+          scientificName = row['Order'];
+        } else if (row['Class']) {
+          scientificName = row['Class'];
+        } else if (row['Phylum']) {
+          scientificName = row['Phylum'];
+        } else if (row['Kingdom']) {
+          scientificName = row['Kingdom'];
+        } else {
+          scientificName = 'Unknown';
+        }
+        
         return {
           observationId: row['Reference Number'] || `${Date.now()}-${Math.random()}`,
-          scientificName: `${row['Genus'] || ''} ${row['Species'] || ''}`.trim(),
+          scientificName: scientificName,
           commonName: null, // Not present in your data
           phylum: row['Phylum'] || null,
           class: row['Class'] || null,
@@ -810,6 +836,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mycoportalNumber: row['MyCoPortal #'] || null,
           dnaSequence: row['DNA Sequence'] || null,
           sequence: row['Sequence'] || null,
+          
+          // Additional mapped fields
+          collectionNumber: row['Collection Number'] || null,
+          creationDate: row['Creation Date'] ? 
+            new Date((row['Creation Date'] - 25569) * 86400 * 1000).toISOString().split('T')[0] : null,
+          verified: row['Verified'] || null,
+          kingdom: row['Kingdom'] || null,
+          authority: row['Authority'] || null,
+          abbreviatedAuthority: row['Abbreviated Authority'] || null,
+          mycobankNumber: row['Mycobank #'] || null,
+          fungariumSpecimen: row['Fungarium Specimen'] || null,
+          images: row['Images'] || null,
+          flags: row['Flags'] || null,
+          forwardPrimer: row['Forward Primer'] || null,
+          reversePrimer: row['Reverse Primer'] || null,
+          runName: row['Run Name'] || null,
+          sequence2: row['Sequence #2'] || null,
+          forwardPrimer2: row['Forward Primer #2'] || null,
+          reversePrimer2: row['Reverse Primer #2'] || null,
+          sequenceOwner2: row['Sequence Owner #2'] || null,
+          runName2: row['Run Name #2'] || null,
+          locationName: row['Location Name'] || null,
+          notes: row['Notes'] || null,
+          moNotes: row['MO Notes'] || null,
+          reportLink: row['Report Link'] || null,
+          imageLink: row['Image Link'] || null,
+          firstGenbankRecord: row['First GenBank Record'] === 'yes',
+          
           isFirstStateRecord: row['First State Record'] === 'yes',
           hasMultipleGenotypes: row['Multiple Genotypes Under Name'] === 'yes',
           source: row['Source Database'] || row['Source'] || row['source'] || 'Unknown',
