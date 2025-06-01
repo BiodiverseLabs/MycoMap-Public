@@ -322,7 +322,7 @@ export default function SpeciesDetail() {
 
         {/* Map and Filters */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -364,6 +364,55 @@ export default function SpeciesDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Seasonal Distribution */}
+            {seasonalData && seasonalData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Seasonal Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Chart */}
+                    <div className="flex items-end justify-between h-32 gap-1">
+                      {seasonalData.map((monthData: any) => {
+                        const maxCount = Math.max(...seasonalData.map((m: any) => m.count));
+                        const height = maxCount > 0 ? (monthData.count / maxCount) * 100 : 0;
+                        
+                        return (
+                          <div key={monthData.month} className="flex-1 flex flex-col items-center gap-1">
+                            <div className="text-xs text-slate-600 font-medium">
+                              {monthData.count > 0 ? monthData.count : ''}
+                            </div>
+                            <div 
+                              className="w-full bg-blue-500 rounded-sm transition-all duration-300 min-h-[2px]"
+                              style={{ height: `${Math.max(height, monthData.count > 0 ? 8 : 0)}%` }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Month labels */}
+                    <div className="flex justify-between">
+                      {seasonalData.map((monthData: any) => (
+                        <div key={monthData.month} className="flex-1 text-center">
+                          <div className="text-xs text-slate-600 font-medium">
+                            {monthData.month}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-500 text-center">
+                    Observations by month of year
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -405,46 +454,6 @@ export default function SpeciesDetail() {
                           <Badge variant="outline">{count}</Badge>
                         </div>
                       ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Seasonal Distribution */}
-            {seasonalData && seasonalData.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    Seasonal Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {seasonalData.map((monthData: any) => {
-                      const maxCount = Math.max(...seasonalData.map((m: any) => m.count));
-                      const percentage = maxCount > 0 ? (monthData.count / maxCount) * 100 : 0;
-                      
-                      return (
-                        <div key={monthData.month} className="flex items-center gap-2">
-                          <div className="w-8 text-xs text-slate-600 font-medium">
-                            {monthData.month}
-                          </div>
-                          <div className="flex-1 h-4 bg-slate-100 rounded-sm relative overflow-hidden">
-                            <div 
-                              className="h-full bg-blue-500 rounded-sm transition-all duration-300"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <div className="w-8 text-xs text-slate-600 text-right">
-                            {monthData.count}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3 text-xs text-slate-500 text-center">
-                    Observations by month
                   </div>
                 </CardContent>
               </Card>
