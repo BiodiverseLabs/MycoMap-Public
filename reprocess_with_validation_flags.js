@@ -1,149 +1,172 @@
-import XLSX from 'xlsx';
-import fs from 'fs';
-import { db } from './server/db.ts';
-import { observations, contributors, species } from './shared/schema.ts';
+import { db } from './server/db.js';
+import { observations } from './shared/schema.js';
+import { eq, and, isNotNull, sql } from 'drizzle-orm';
 
 async function reprocessWithValidationFlags() {
   try {
-    console.log('Starting data reprocessing with validation flags...');
+    console.log('=== ULTRA-FAST CLASSIFICATION AUTOMATION ===');
     
-    // Clear existing data
-    await db.delete(observations);
-    await db.delete(contributors);
-    await db.delete(species);
-    console.log('Cleared existing data');
+    const startTime = Date.now();
     
-    // Read Excel file
-    const filePath = './attached_assets/Validated Observations05.30.25.xlsx';
-    const workbook = XLSX.readFile(filePath);
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rawData = XLSX.utils.sheet_to_json(worksheet);
+    // Step 1: Load all needed data in single queries
+    console.log('Loading data...');
     
-    console.log(`Processing ${rawData.length} records...`);
+    const [needingUpdates, referenceData] = await Promise.all([
+      db.select({
+        id: observations.id,
+        species: observations.species,
+        infraspecies: observations.infraspecies
+      }).from(observations).where(eq(observations.classificationUpdate, true)),
+      
+      db.select({
+        genus: observations.genus,
+        kingdom: observations.kingdom,
+        phylum: observations.phylum,
+        class: observations.class,
+        order: observations.order,
+        family: observations.family
+      }).from(observations).where(and(
+        isNotNull(observations.genus),
+        isNotNull(observations.kingdom),
+        isNotNull(observations.phylum),
+        isNotNull(observations.class),
+        isNotNull(observations.order),
+        isNotNull(observations.family)
+      ))
+    ]);
     
-    // Transform data with validation flags
-    const processedObservations = rawData.map(row => {
-      // Construct scientific name following taxonomic hierarchy
-      let scientificName = '';
-      if (row['Variety']) {
-        scientificName = row['Variety'];
-      } else if (row['Species']) {
-        scientificName = row['Species'];
-      } else if (row['Genus']) {
-        scientificName = row['Genus'];
-      } else if (row['Family']) {
-        scientificName = row['Family'];
-      } else if (row['Order']) {
-        scientificName = row['Order'];
-      } else if (row['Class']) {
-        scientificName = row['Class'];
-      } else if (row['Phylum']) {
-        scientificName = row['Phylum'];
-      } else if (row['Kingdom']) {
-        scientificName = row['Kingdom'];
-      } else {
-        scientificName = 'Unknown';
+    console.log(`Records needing updates: ${needingUpdates.length}`);
+    console.log(`Reference records: ${referenceData.length}`);
+    
+    // Step 2: Build genus index
+    const genusIndex = new Map();
+    referenceData.forEach(ref => {
+      const key = ref.genus.toLowerCase().trim();
+      if (!genusIndex.has(key)) {
+        genusIndex.set(key, ref);
+      }
+    });
+    
+    console.log(`Genus index: ${genusIndex.size} unique genera`);
+    
+    // Step 3: Process matches in memory
+    const updateIds = [];
+    const updateData = new Map();
+    
+    needingUpdates.forEach(record => {
+      let targetGenus = null;
+      
+      if (record.species) {
+        targetGenus = record.species.split(' ')[0].toLowerCase().trim();
+      } else if (record.infraspecies) {
+        targetGenus = record.infraspecies.split(' ')[0].toLowerCase().trim();
       }
       
-      // Check for name_update flag: Species or Variety is missing
-      const nameUpdate = !row['Species'] && !row['Variety'];
+      if (targetGenus && genusIndex.has(targetGenus)) {
+        const taxonomy = genusIndex.get(targetGenus);
+        updateIds.push(record.id);
+        updateData.set(record.id, taxonomy);
+      }
+    });
+    
+    console.log(`Matches found: ${updateIds.length} out of ${needingUpdates.length}`);
+    console.log(`Success rate: ${(updateIds.length / needingUpdates.length * 100).toFixed(1)}%`);
+    
+    // Step 4: Use SQL-based bulk updates for maximum efficiency
+    if (updateIds.length > 0) {
+      console.log('Executing ultra-fast SQL bulk updates...');
       
-      // Check for classification_update flag: has species/variety but missing higher taxonomy
-      const hasSpeciesOrVariety = row['Species'] || row['Variety'];
-      const missingHigherTaxonomy = hasSpeciesOrVariety && (
-        !row['Kingdom'] || !row['Phylum'] || !row['Class'] || 
-        !row['Order'] || !row['Family'] || !row['Genus']
-      );
-      const classificationUpdate = missingHigherTaxonomy;
-
-      return {
-        observationId: row['Reference Number'] || `${Date.now()}-${Math.random()}`,
-        scientificName: scientificName,
-        commonName: null,
-        phylum: row['Phylum'] || null,
-        class: row['Class'] || null,
-        order: row['Order'] || null,
-        family: row['Family'] || null,
-        genus: row['Genus'] || null,
-        species: row['Species'] || null,
-        infraspecies: row['Variety'] || null,
-        observer: row['Sequence Owner'] || null,
-        collector: row['Collector'] || null,
-        observedOn: row['Report Date'] ? 
-          new Date((row['Report Date'] - 25569) * 86400 * 1000).toISOString().split('T')[0] : null,
-        latitude: row['Latitude'] ? String(row['Latitude']) : null,
-        longitude: row['Longitude'] ? String(row['Longitude']) : null,
-        placeGuess: row['City'] || null,
-        state: row['State'] || null,
-        country: row['Country'] || null,
-        genbankAccession: row['GenBank Accession #'] || null,
-        mycoportalNumber: row['MyCoPortal #'] || null,
-        dnaSequence: row['DNA Sequence'] || null,
-        sequence: row['Sequence'] || null,
-        collectionNumber: row['Collection Number'] || null,
-        creationDate: row['Creation Date'] ? 
-          new Date((row['Creation Date'] - 25569) * 86400 * 1000).toISOString().split('T')[0] : null,
-        verified: row['Verified'] || null,
-        kingdom: row['Kingdom'] || null,
-        authority: row['Authority'] || null,
-        abbreviatedAuthority: row['Abbreviated Authority'] || null,
-        mycobankNumber: row['Mycobank #'] || null,
-        fungariumSpecimen: row['Fungarium Specimen'] || null,
-        images: row['Images'] || null,
-        flags: row['Flags'] || null,
-        forwardPrimer: row['Forward Primer'] || null,
-        reversePrimer: row['Reverse Primer'] || null,
-        runName: row['Run Name'] || null,
-        sequence2: row['Sequence #2'] || null,
-        forwardPrimer2: row['Forward Primer #2'] || null,
-        reversePrimer2: row['Reverse Primer #2'] || null,
-        sequenceOwner2: row['Sequence Owner #2'] || null,
-        runName2: row['Run Name #2'] || null,
-        locationName: row['Location Name'] || null,
-        notes: row['Notes'] || null,
-        moNotes: row['MO Notes'] || null,
-        reportLink: row['Report Link'] || null,
-        imageLink: row['Image Link'] || null,
-        firstGenbankRecord: row['First GenBank Record'] === 'yes',
-        isFirstStateRecord: row['First State Record'] === 'yes',
-        hasMultipleGenotypes: row['Multiple Genotypes Under Name'] === 'yes',
-        source: row['Source Database'] || 'Unknown',
-        sourceUrl: null,
-        nameUpdate: nameUpdate,
-        classificationUpdate: classificationUpdate,
-      };
-    }).filter(obs => obs.scientificName);
-    
-    // Insert in batches
-    const batchSize = 1000;
-    let insertedCount = 0;
-    
-    console.log(`Processed ${processedObservations.length} valid observations, starting batch insert...`);
-    
-    for (let i = 0; i < processedObservations.length; i += batchSize) {
-      const batch = processedObservations.slice(i, i + batchSize);
-      console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(processedObservations.length/batchSize)}`);
+      // Process in manageable chunks
+      const CHUNK_SIZE = 1000;
+      let totalUpdated = 0;
       
-      await db.insert(observations).values(batch);
-      insertedCount += batch.length;
-      console.log(`✓ Batch inserted successfully. Total inserted: ${insertedCount}`);
+      for (let i = 0; i < updateIds.length; i += CHUNK_SIZE) {
+        const chunk = updateIds.slice(i, i + CHUNK_SIZE);
+        console.log(`Processing chunk ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(updateIds.length/CHUNK_SIZE)} (${chunk.length} records)`);
+        
+        try {
+          // Create a CASE statement for bulk update
+          const whenClauses = chunk.map(id => {
+            const data = updateData.get(id);
+            return `WHEN ${id} THEN '${data.kingdom}'`;
+          }).join(' ');
+          
+          // Execute bulk update using raw SQL for maximum performance
+          await db.execute(sql`
+            UPDATE observations 
+            SET 
+              kingdom = CASE id ${sql.raw(whenClauses)} END,
+              phylum = CASE id ${sql.raw(chunk.map(id => {
+                const data = updateData.get(id);
+                return `WHEN ${id} THEN '${data.phylum}'`;
+              }).join(' '))} END,
+              class = CASE id ${sql.raw(chunk.map(id => {
+                const data = updateData.get(id);
+                return `WHEN ${id} THEN '${data.class}'`;
+              }).join(' '))} END,
+              "order" = CASE id ${sql.raw(chunk.map(id => {
+                const data = updateData.get(id);
+                return `WHEN ${id} THEN '${data.order}'`;
+              }).join(' '))} END,
+              family = CASE id ${sql.raw(chunk.map(id => {
+                const data = updateData.get(id);
+                return `WHEN ${id} THEN '${data.family}'`;
+              }).join(' '))} END,
+              genus = CASE id ${sql.raw(chunk.map(id => {
+                const data = updateData.get(id);
+                return `WHEN ${id} THEN '${data.genus}'`;
+              }).join(' '))} END,
+              classification_update = false
+            WHERE id IN (${chunk.join(',')})
+          `);
+          
+          totalUpdated += chunk.length;
+          console.log(`Chunk complete: ${totalUpdated}/${updateIds.length} total updated`);
+          
+        } catch (chunkError) {
+          console.error(`Chunk failed: ${chunkError.message}`);
+          
+          // Fallback to individual updates for this chunk
+          console.log('Falling back to individual updates for this chunk...');
+          for (const id of chunk) {
+            try {
+              const data = updateData.get(id);
+              await db.update(observations)
+                .set({
+                  kingdom: data.kingdom,
+                  phylum: data.phylum,
+                  class: data.class,
+                  order: data.order,
+                  family: data.family,
+                  genus: data.genus,
+                  classificationUpdate: false
+                })
+                .where(eq(observations.id, id));
+              
+              totalUpdated++;
+            } catch (individualError) {
+              console.error(`Failed to update record ${id}: ${individualError.message}`);
+            }
+          }
+        }
+      }
+      
+      console.log(`Bulk updates complete: ${totalUpdated} records updated`);
     }
     
-    // Count validation flags
-    const nameUpdateCount = processedObservations.filter(obs => obs.nameUpdate).length;
-    const classificationUpdateCount = processedObservations.filter(obs => obs.classificationUpdate).length;
+    // Final verification
+    const remaining = await db.select().from(observations).where(eq(observations.classificationUpdate, true));
+    const totalTime = Date.now() - startTime;
     
-    console.log(`\n=== VALIDATION FLAG SUMMARY ===`);
-    console.log(`Total observations: ${insertedCount}`);
-    console.log(`Name updates needed: ${nameUpdateCount} (${((nameUpdateCount/insertedCount)*100).toFixed(1)}%)`);
-    console.log(`Classification updates needed: ${classificationUpdateCount} (${((classificationUpdateCount/insertedCount)*100).toFixed(1)}%)`);
-    console.log(`\nName Update: Flagged when Species OR Variety is missing`);
-    console.log(`Classification Update: Flagged when Species/Variety exists but Kingdom, Phylum, Class, Order, Family, or Genus is missing`);
-    
-    console.log('\nReprocessing completed successfully!');
+    console.log('=== FINAL RESULTS ===');
+    console.log(`Total processing time: ${(totalTime / 1000).toFixed(1)} seconds`);
+    console.log(`Records automated: ${updateIds.length}`);
+    console.log(`Records still needing manual review: ${remaining.length}`);
+    console.log(`Processing speed: ${(updateIds.length / (totalTime / 1000)).toFixed(0)} records/second`);
+    console.log(`Manual workload reduction: ${((updateIds.length / needingUpdates.length) * 100).toFixed(1)}%`);
     
   } catch (error) {
-    console.error('Error during reprocessing:', error);
+    console.error('Error in ultra-fast classification:', error);
   } finally {
     process.exit(0);
   }
