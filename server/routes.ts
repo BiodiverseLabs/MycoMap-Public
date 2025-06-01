@@ -554,10 +554,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const speciesName = decodeURIComponent(req.params.name);
       const observations = await storage.getAllObservations();
       
+      console.log(`[Seasonal] Looking for species: "${speciesName}"`);
+      console.log(`[Seasonal] Total observations: ${observations.length}`);
+      
+      // Sample a few observations to check field names
+      if (observations.length > 0) {
+        console.log(`[Seasonal] Sample observation fields:`, Object.keys(observations[0]));
+        console.log(`[Seasonal] Sample scientificName values:`, observations.slice(0, 3).map(o => o.scientificName));
+      }
+      
       // Filter observations for the specific species
       const speciesObservations = observations.filter(obs => 
         obs.scientificName === speciesName && obs.observedOn
       );
+      
+      console.log(`[Seasonal] Found ${speciesObservations.length} observations for species "${speciesName}"`);
       
       // Initialize month counts
       const monthCounts = Array.from({ length: 12 }, (_, i) => ({
@@ -573,6 +584,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           monthCounts[month].count++;
         }
       });
+      
+      console.log(`[Seasonal] Month distribution:`, monthCounts.map(m => `${m.month}: ${m.count}`).join(', '));
       
       res.json(monthCounts);
     } catch (error) {
