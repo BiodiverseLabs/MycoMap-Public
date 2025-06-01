@@ -16,6 +16,7 @@ import type { Observation } from "@shared/schema";
 export default function Conservation() {
   const [redlistCategoryFilter, setRedlistCategoryFilter] = useState<string[]>([]);
   const [speciesSearchFilter, setSpeciesSearchFilter] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("species");
 
   const { data: rareSpecies = [], isLoading: rareLoading } = useQuery<any[]>({
     queryKey: ["/api/species?type=rare&limit=50"]
@@ -155,74 +156,140 @@ export default function Conservation() {
           </div>
         </div>
 
-        {/* Conservation Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
-                <div>
-                  <div className="text-2xl font-bold text-red-600">
-                    {conservationMetrics.criticallyRare}
+        {/* Dynamic Panels - Context-aware based on active tab */}
+        {activeTab === "redlist" ? (
+          // Red List Species Panels
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Shield className="w-5 h-5 text-red-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-red-600">
+                      {redlistSpeciesData.length}
+                    </div>
+                    <div className="text-sm text-slate-500">Total Red List Species</div>
+                    <div className="text-xs text-slate-400">Species in database</div>
                   </div>
-                  <div className="text-sm text-slate-500">Critically Rare</div>
-                  <div className="text-xs text-slate-400">Single observation</div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-2">
-                <Leaf className="w-5 h-5 text-orange-500" />
-                <div>
-                  <div className="text-2xl font-bold text-orange-600">
-                    {conservationMetrics.vulnerable}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {redlistSpeciesData.filter(s => s.observationCount > 0).length}
+                    </div>
+                    <div className="text-sm text-slate-500">With Observations</div>
+                    <div className="text-xs text-slate-400">Found in our records</div>
                   </div>
-                  <div className="text-sm text-slate-500">Vulnerable</div>
-                  <div className="text-xs text-slate-400">≤3 observations</div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-5 h-5 text-blue-500" />
-                <div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {conservationMetrics.endemic}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Leaf className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {redlistSpeciesData.reduce((sum, s) => sum + s.observationCount, 0)}
+                    </div>
+                    <div className="text-sm text-slate-500">Total Observations</div>
+                    <div className="text-xs text-slate-400">Red List species observations</div>
                   </div>
-                  <div className="text-sm text-slate-500">State Endemic</div>
-                  <div className="text-xs text-slate-400">Single state only</div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5 text-green-500" />
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {conservationMetrics.totalSpecies}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-5 h-5 text-purple-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {redlistSpeciesData.length > 0 ? Math.round((redlistSpeciesData.filter(s => s.observationCount > 0).length / redlistSpeciesData.length) * 100) : 0}%
+                    </div>
+                    <div className="text-sm text-slate-500">Coverage Rate</div>
+                    <div className="text-xs text-slate-400">Red List species found</div>
                   </div>
-                  <div className="text-sm text-slate-500">Rare Species</div>
-                  <div className="text-xs text-slate-400">Total tracked</div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          // General Conservation Metrics (for species and states tabs)
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-red-600">
+                      {conservationMetrics.criticallyRare}
+                    </div>
+                    <div className="text-sm text-slate-500">Critically Rare</div>
+                    <div className="text-xs text-slate-400">Single observation</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Tabs defaultValue="species" className="w-full">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Leaf className="w-5 h-5 text-orange-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {conservationMetrics.vulnerable}
+                    </div>
+                    <div className="text-sm text-slate-500">Vulnerable</div>
+                    <div className="text-xs text-slate-400">≤3 observations</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-5 h-5 text-blue-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {conservationMetrics.endemic}
+                    </div>
+                    <div className="text-sm text-slate-500">State Endemic</div>
+                    <div className="text-xs text-slate-400">Single state only</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {conservationMetrics.totalSpecies}
+                    </div>
+                    <div className="text-sm text-slate-500">Rare Species</div>
+                    <div className="text-xs text-slate-400">Total tracked</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="species">Rare Species</TabsTrigger>
-            <TabsTrigger value="redlist">Red List Species</TabsTrigger>
             <TabsTrigger value="states">State Analysis</TabsTrigger>
+            <TabsTrigger value="redlist">Red List Species</TabsTrigger>
           </TabsList>
 
           <TabsContent value="species" className="space-y-4">
