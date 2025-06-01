@@ -120,6 +120,7 @@ export default function Updates() {
                     <TableRow>
                       <TableHead>Observation ID</TableHead>
                       <TableHead>Current Name</TableHead>
+                      <TableHead>Source Database</TableHead>
                       <TableHead>Collector</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Date</TableHead>
@@ -137,6 +138,11 @@ export default function Updates() {
                           {record.genus && record.genus !== record.scientificName && (
                             <div className="text-sm text-slate-500">{record.genus}</div>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {record.source || 'Unknown'}
+                          </Badge>
                         </TableCell>
                         <TableCell>{record.collector || record.observer || 'Unknown'}</TableCell>
                         <TableCell>{record.state}</TableCell>
@@ -206,6 +212,7 @@ export default function Updates() {
                     <TableRow>
                       <TableHead>Observation ID</TableHead>
                       <TableHead>Species</TableHead>
+                      <TableHead>Source Database</TableHead>
                       <TableHead>Missing Taxonomy</TableHead>
                       <TableHead>Collector</TableHead>
                       <TableHead>State</TableHead>
