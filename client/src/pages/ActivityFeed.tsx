@@ -215,6 +215,18 @@ export default function ActivityFeed() {
                 className="w-[200px]"
               />
             </div>
+
+            {/* Collector Filter */}
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-slate-500" />
+              <Input
+                type="text"
+                placeholder="Search collector..."
+                value={collectorFilter === 'all' ? '' : collectorFilter}
+                onChange={(e) => setCollectorFilter(e.target.value || 'all')}
+                className="w-[200px]"
+              />
+            </div>
           </div>
 
           {/* Record Type Filters */}
@@ -305,7 +317,13 @@ export default function ActivityFeed() {
                       </div>
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
-                        {record.source}
+                        {record.collector || 'Unknown'}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
+                      <div className="flex items-center gap-1">
+                        Source: {record.source}
                       </div>
                     </div>
                     
