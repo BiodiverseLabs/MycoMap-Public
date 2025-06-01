@@ -810,18 +810,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { readFile, utils } = XLSX.default;
       console.log('✓ XLSX library imported');
       
-      // Read Excel file
-      const workbook = readFile(filePath);
-      console.log('Workbook loaded, sheet names:', workbook.SheetNames);
+      // Read Excel file with streaming to handle large files
+      console.log('Reading Excel file...');
+      const workbook = readFile(filePath, { cellDates: true });
+      console.log('✓ Workbook loaded, sheet names:', workbook.SheetNames);
       const sheetName = workbook.SheetNames.find((name: string) => 
         name.toLowerCase().includes('validated') || 
         name.toLowerCase().includes('observation')
       ) || workbook.SheetNames[0];
       
       const worksheet = workbook.Sheets[sheetName];
+      console.log('Converting sheet to JSON (this may take a moment for large files)...');
       const rawData = utils.sheet_to_json(worksheet);
 
-      console.log('Raw data length:', rawData.length);
+      console.log('✓ Raw data length:', rawData.length);
       if (rawData.length > 0) {
         const allColumns = Object.keys(rawData[0]);
         console.log('Available columns:', allColumns);
@@ -843,8 +845,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Total: ${allColumns.length}, Mapped: ${mapped.filter(f => allColumns.includes(f)).length}, Unmapped: ${unmapped.length}`);
       }
 
-      // Transform and validate data using actual column names from your file
-      const observations = rawData.map((row: any) => {
+      // Process data in batches to handle large files
+      const BATCH_SIZE = 1000; // Process 1000 records at a time
+      const totalBatches = Math.ceil(rawData.length / BATCH_SIZE);
+      console.log(`Processing ${rawData.length} records in ${totalBatches} batches of ${BATCH_SIZE}`);
+
+      let totalProcessed = 0;
+      let nameUpdateCount = 0;
+      let classificationUpdateCount = 0;
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const startIdx = batchIndex * BATCH_SIZE;
+        const endIdx = Math.min(startIdx + BATCH_SIZE, rawData.length);
+        const batch = rawData.slice(startIdx, endIdx);
+        
+        console.log(`Processing batch ${batchIndex + 1}/${totalBatches} (records ${startIdx + 1}-${endIdx})`);
+
+        // Transform and validate data using actual column names from your file
+        const observations = batch.map((row: any) => {
         // Construct scientific name following taxonomic hierarchy
         // Priority: Variety -> Species -> Genus -> Family -> Order -> Class -> Phylum -> Kingdom
         let scientificName = '';
