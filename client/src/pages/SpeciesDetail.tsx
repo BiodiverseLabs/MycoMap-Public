@@ -141,11 +141,19 @@ export default function SpeciesDetail() {
       return acc;
     }, {});
 
+    const collectorDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
+      if (obs.collector) {
+        acc[obs.collector] = (acc[obs.collector] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
     return {
       stateDistribution,
       contributors,
       yearDistribution,
       sourceDistribution,
+      collectorDistribution,
       totalObservations: observations.length,
       statesCount: Object.keys(stateDistribution).length
     };
@@ -435,6 +443,28 @@ export default function SpeciesDetail() {
                       .map(([state, count]) => (
                         <div key={state} className="flex justify-between items-center">
                           <span className="text-sm">{state}</span>
+                          <Badge variant="secondary">{count}</Badge>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Top Collectors */}
+            {metrics && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Top Collectors</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Object.entries(metrics.collectorDistribution)
+                      .sort(([,a], [,b]) => (b as number) - (a as number))
+                      .slice(0, 5)
+                      .map(([collector, count]) => (
+                        <div key={collector} className="flex justify-between items-center">
+                          <span className="text-sm truncate">{collector}</span>
                           <Badge variant="secondary">{count}</Badge>
                         </div>
                       ))}
