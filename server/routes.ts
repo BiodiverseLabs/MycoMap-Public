@@ -736,6 +736,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auto-populate-classification-updates", async (req, res) => {
+    try {
+      console.log('Manual trigger: Starting automated classification updates...');
+      await autoPopulateClassificationUpdates();
+      res.json({ message: "Automated classification updates completed successfully" });
+    } catch (error) {
+      console.error("Error in automated classification updates:", error);
+      res.status(500).json({ error: "Failed to run automated classification updates" });
+    }
+  });
+
   app.post("/api/upload", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
