@@ -282,7 +282,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTopSpecies(limit: number = 10, state?: string): Promise<Species[]> {
-    let whereConditions = [sql`${observations.species} IS NOT NULL AND ${observations.species} != ''`];
+    let whereConditions = [sql`${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != ''`];
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
@@ -616,7 +616,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       WITH ordered_observations AS (
         SELECT 
-          ${observations.scientificName},
+          ${observations.scientificName} as scientific_name,
           ${observations.observedOn},
           ${observations.id},
           ROW_NUMBER() OVER (ORDER BY ${observations.observedOn}, ${observations.id}) as observation_number
@@ -633,7 +633,7 @@ export class DatabaseStorage implements IStorage {
       accumulation_points AS (
         SELECT 
           o.observation_number,
-          COUNT(s.species) as new_species_count
+          COUNT(s.scientific_name) as new_species_count
         FROM ordered_observations o
         LEFT JOIN species_first_appearance s ON o.observation_number = s.first_observation
         GROUP BY o.observation_number
