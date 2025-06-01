@@ -80,8 +80,8 @@ export default function Updates() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-        {/* Name Updates Panel */}
-        <Card>
+          {/* Name Updates Panel */}
+          <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -273,16 +273,17 @@ export default function Updates() {
               </ScrollArea>
             )}
           </CardContent>
-        </Card>
+          </Card>
+        </div>
 
         {/* Summary Statistics */}
         <Card>
-        <CardHeader>
-          <CardTitle>Update Summary</CardTitle>
-          <CardDescription>Overview of records requiring taxonomic updates</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <CardHeader>
+            <CardTitle>Update Summary</CardTitle>
+            <CardDescription>Overview of records requiring taxonomic updates</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-amber-600">
                 {nameLoading ? "..." : nameUpdates.length}
