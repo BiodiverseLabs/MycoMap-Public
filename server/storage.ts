@@ -18,7 +18,7 @@ export interface IStorage {
   createObservations(observations: InsertObservation[]): Promise<Observation[]>;
   
   // Analytics
-  getObservationMetrics(startDate?: string, endDate?: string): Promise<{
+  getObservationMetrics(startDate?: string, endDate?: string, state?: string): Promise<{
     totalObservations: number;
     uniqueSpecies: number;
     activeContributors: number;
@@ -223,25 +223,30 @@ export class MemoryStorage implements IStorage {
     return newObservations;
   }
 
-  async getObservationMetrics(startDate?: string, endDate?: string): Promise<{
+  async getObservationMetrics(startDate?: string, endDate?: string, state?: string): Promise<{
     totalObservations: number;
     uniqueSpecies: number;
     activeContributors: number;
     statesCovered: number;
   }> {
-    // Filter observations by date range if provided
+    // Filter observations by date range and state if provided
     let filteredObservations = this.observations;
+    
     if (startDate && endDate) {
-      filteredObservations = this.observations.filter(obs => {
+      filteredObservations = filteredObservations.filter(obs => {
         if (!obs.observedOn) return false;
         const obsDate = obs.observedOn;
         return obsDate >= startDate && obsDate <= endDate;
       });
     }
+    
+    if (state) {
+      filteredObservations = filteredObservations.filter(obs => obs.state === state);
+    }
 
     const uniqueSpecies = new Set(filteredObservations.map(o => o.scientificName)).size;
     const activeContributors = new Set(filteredObservations.map(o => o.observer).filter(Boolean)).size;
-    const statesCovered = new Set(filteredObservations.map(o => o.state).filter(Boolean)).size;
+    const statesCovered = state ? 1 : new Set(filteredObservations.map(o => o.state).filter(Boolean)).size;
 
     return {
       totalObservations: filteredObservations.length,

@@ -76,7 +76,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Analytics
-  async getObservationMetrics(startDate?: string, endDate?: string): Promise<{
+  async getObservationMetrics(startDate?: string, endDate?: string, state?: string): Promise<{
     totalObservations: number;
     uniqueSpecies: number;
     activeContributors: number;
@@ -84,8 +84,17 @@ export class DatabaseStorage implements IStorage {
   }> {
     // Use optimized SQL queries instead of loading all records
     let whereClause = sql`1=1`;
+    
     if (startDate && endDate) {
       whereClause = sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`;
+    }
+    
+    if (state) {
+      if (startDate && endDate) {
+        whereClause = sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate} AND ${observations.state} = ${state}`;
+      } else {
+        whereClause = sql`${observations.state} = ${state}`;
+      }
     }
     
     // Execute all metric queries in parallel for better performance
@@ -99,8 +108,10 @@ export class DatabaseStorage implements IStorage {
       // Active contributors count
       db.execute(sql`SELECT COUNT(DISTINCT ${observations.collector})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.collector} IS NOT NULL`),
       
-      // States covered count
-      db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`)
+      // States covered count (always 1 when filtering by state, otherwise count distinct states)
+      state ? 
+        Promise.resolve({ rows: [{ count: 1 }] }) :
+        db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`)
     ]);
     
     return {

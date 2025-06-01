@@ -136,9 +136,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/metrics", async (req, res) => {
     try {
-      const { startDate, endDate, dateRange } = req.query;
+      const { startDate, endDate, dateRange, state } = req.query;
       
-      console.log(`[API] GET /api/metrics - dateRange: "${dateRange}", startDate: "${startDate}", endDate: "${endDate}"`);
+      console.log(`[API] GET /api/metrics - dateRange: "${dateRange}", startDate: "${startDate}", endDate: "${endDate}", state: "${state}"`);
       
       // Convert dateRange to actual dates
       let actualStartDate: string | undefined;
@@ -167,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API] Calculated dates - actualStartDate: "${actualStartDate}", actualEndDate: "${actualEndDate}"`);
       
-      const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate);
+      const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate, state as string);
       console.log(`[API] Metrics result:`, metrics);
       res.json(metrics);
     } catch (error) {

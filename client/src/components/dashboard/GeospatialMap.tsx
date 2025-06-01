@@ -62,6 +62,20 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     }
   });
 
+  // Fetch total record count to show records without GPS coordinates
+  const { data: totalRecords } = useQuery({
+    queryKey: ["/api/metrics", selectedState],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedState) {
+        params.append('state', selectedState);
+      }
+      const response = await fetch(`/api/metrics?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch total records');
+      return response.json();
+    }
+  });
+
   // GPS index returns pre-validated coordinates, minimal filtering needed
   const validObservations = observations.filter(obs => {
     const lat = obs.latitude;
@@ -279,9 +293,11 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         </CardTitle>
         <p className="text-sm text-slate-600">
           {validObservations.length.toLocaleString()} observations with GPS coordinates
-          {observations.length > validObservations.length && 
-            ` (${observations.length - validObservations.length} without coordinates)`
-          }
+          {totalRecords && (
+            <span className="text-slate-500">
+              {" "}• {(totalRecords.totalObservations - validObservations.length).toLocaleString()} without coordinates
+            </span>
+          )}
           {selectedState && (
             <span className="ml-2 text-blue-600 font-medium">- Filtered by {selectedState}</span>
           )}
