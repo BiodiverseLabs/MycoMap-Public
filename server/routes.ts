@@ -1275,32 +1275,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload and process Red List CSV
-  app.post("/api/redlist-upload", upload.single('file'), async (req, res) => {
+  app.post("/api/redlist-upload", uploadMemory.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
       console.log(`Processing Red List CSV upload: ${req.file.originalname}`);
-      console.log(`File details:`, {
-        size: req.file.size,
-        mimetype: req.file.mimetype,
-        hasBuffer: !!req.file.buffer,
-        hasPath: !!req.file.path,
-        destination: req.file.destination,
-        filename: req.file.filename
-      });
       
-      // Process the CSV file
-      let csvData;
-      if (req.file.buffer) {
-        csvData = req.file.buffer.toString('utf-8');
-      } else if (req.file.path) {
-        const fs = require('fs');
-        csvData = fs.readFileSync(req.file.path, 'utf-8');
-      } else {
-        throw new Error('No file data available');
-      }
+      // Process the CSV file from disk
+      const csvData = fs.readFileSync(req.file.path, 'utf-8');
       const lines = csvData.split('\n').filter(line => line.trim());
       const headers = lines[0].split(',').map(h => h.trim());
       
