@@ -17,12 +17,12 @@ interface StateRecord {
 
 interface StateRecordsProps {
   dateRange?: string;
-  state?: string;
+  selectedState?: string | null;
 }
 
-export function StateRecords({ dateRange, state }: StateRecordsProps) {
+export function StateRecords({ dateRange, selectedState }: StateRecordsProps) {
   const { data: records = [], isLoading } = useQuery<StateRecord[]>({
-    queryKey: ["/api/record-index", { recent: true }, dateRange, state],
+    queryKey: ["/api/record-index", { recent: true }, dateRange, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('limit', '10');
@@ -30,8 +30,8 @@ export function StateRecords({ dateRange, state }: StateRecordsProps) {
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
-      if (state) {
-        params.append('state', state);
+      if (selectedState) {
+        params.append('state', selectedState);
       }
       const response = await fetch(`/api/record-index?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch recent records');

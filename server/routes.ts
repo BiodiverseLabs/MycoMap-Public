@@ -239,7 +239,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/taxonomic-distribution", async (req, res) => {
     try {
-      const distribution = await storage.getTaxonomicDistribution();
+      const { state } = req.query;
+      const distribution = await storage.getTaxonomicDistribution(state as string);
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching taxonomic distribution:", error);

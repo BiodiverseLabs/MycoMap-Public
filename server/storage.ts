@@ -30,7 +30,7 @@ export interface IStorage {
     count: number;
   }>>;
   
-  getTaxonomicDistribution(): Promise<Array<{
+  getTaxonomicDistribution(state?: string): Promise<Array<{
     phylum: string;
     count: number;
   }>>;
@@ -289,13 +289,14 @@ export class MemoryStorage implements IStorage {
       .sort((a, b) => a.period.localeCompare(b.period));
   }
 
-  async getTaxonomicDistribution(): Promise<Array<{
+  async getTaxonomicDistribution(state?: string): Promise<Array<{
     phylum: string;
     count: number;
   }>> {
     const distribution = new Map<string, number>();
     
     this.observations.forEach(obs => {
+      if (state && obs.state !== state) return;
       if (obs.phylum) {
         distribution.set(obs.phylum, (distribution.get(obs.phylum) || 0) + 1);
       }

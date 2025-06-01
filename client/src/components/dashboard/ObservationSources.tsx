@@ -11,15 +11,19 @@ interface SourceData {
 
 interface ObservationSourcesProps {
   dateRange?: string;
+  selectedState?: string | null;
 }
 
-export function ObservationSources({ dateRange }: ObservationSourcesProps) {
+export function ObservationSources({ dateRange, selectedState }: ObservationSourcesProps) {
   const { data: rawSources = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/observation-sources", dateRange],
+    queryKey: ["/api/observation-sources", dateRange, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange && dateRange !== 'all_time') {
         params.append('dateRange', dateRange);
+      }
+      if (selectedState) {
+        params.append('state', selectedState);
       }
       
       const response = await fetch(`/api/observation-sources?${params}`);
