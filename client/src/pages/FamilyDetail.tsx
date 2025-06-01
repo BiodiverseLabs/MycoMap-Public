@@ -61,13 +61,13 @@ export default function FamilyDetail() {
         </div>
       </header>
 
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-6 overflow-y-auto">
         <Card>
           <CardHeader>
             <CardTitle>All Families ({families.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-200">
