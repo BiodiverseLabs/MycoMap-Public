@@ -1,53 +1,32 @@
 import XLSX from 'xlsx';
-import fs from 'fs';
 
-try {
-  const filePath = './attached_assets/Validated Observations05.30.25.xlsx';
-  console.log('File exists:', fs.existsSync(filePath));
-  
-  const workbook = XLSX.readFile(filePath);
-  console.log('Sheet names:', workbook.SheetNames);
-  
-  const sheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[sheetName];
-  const data = XLSX.utils.sheet_to_json(worksheet);
-  
-  console.log('\nTotal rows:', data.length);
-  console.log('\nAvailable columns:');
-  if (data.length > 0) {
-    Object.keys(data[0]).forEach((col, index) => {
-      console.log(`${(index + 1).toString().padStart(2)}. ${col}`);
-    });
-    
-    // Check for variety/infraspecies related columns
-    const varietyColumns = Object.keys(data[0]).filter(col => 
-      col.toLowerCase().includes('variety') || 
-      col.toLowerCase().includes('infraspecies') ||
-      col.toLowerCase().includes('subspecies') ||
-      col.toLowerCase().includes('var.')
-    );
-    
-    if (varietyColumns.length > 0) {
-      console.log('\nFound variety/infraspecies related columns:');
-      varietyColumns.forEach(col => {
-        const nonNullCount = data.filter(row => row[col] && row[col] !== '').length;
-        console.log(`  "${col}": ${nonNullCount} non-empty values out of ${data.length}`);
-        
-        if (nonNullCount > 0) {
-          const samples = data
-            .filter(row => row[col] && row[col] !== '')
-            .slice(0, 5)
-            .map(row => row[col]);
-          console.log(`    Sample values: ${samples.join(', ')}`);
-        }
-      });
-    } else {
-      console.log('\nNo variety or infraspecies related columns found');
-    }
-    
-    console.log('\nSample row:');
-    console.log(data[0]);
+// Read the Excel file
+const workbook = XLSX.readFile('./attached_assets/Validated Observations05.30.25.xlsx');
+const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+// Get column headers
+const headers = data[0];
+console.log('All Excel columns:');
+headers.forEach((header, index) => {
+  if (header) {
+    console.log(`${(index + 1).toString().padStart(2)}. ${header}`);
   }
-} catch (error) {
-  console.error('Error:', error);
-}
+});
+
+// Currently mapped columns in our system
+const mapped = [
+  'Reference Number', 'Genus', 'Species', 'Variety', 'Sequence Owner', 'Collector',
+  'Report Date', 'Latitude', 'Longitude', 'City', 'State', 'Country',
+  'GenBank Accession #', 'MyCoPortal #', 'DNA Sequence', 'Sequence',
+  'First State Record', 'Multiple Genotypes Under Name', 'Source Database',
+  'Source URL', 'Phylum', 'Class', 'Order', 'Family'
+];
+
+console.log('\n\nUnmapped columns:');
+const unmapped = headers.filter(h => h && !mapped.includes(h));
+unmapped.forEach((col, idx) => {
+  console.log(`${(idx + 1).toString().padStart(2)}. ${col}`);
+});
+
+console.log(`\nSummary: ${headers.filter(h => h).length} total columns, ${mapped.length} mapped, ${unmapped.length} unmapped`);
