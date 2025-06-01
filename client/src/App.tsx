@@ -20,6 +20,7 @@ import ContributorsStateFirsts from "@/pages/ContributorsStateFirsts";
 import MostObservations from "@/pages/MostObservations";
 import MostSpecies from "@/pages/MostSpecies";
 import PhylumDetail from "@/pages/PhylumDetail";
+import FamilyDetail from "@/pages/FamilyDetail";
 import ClassDetail from "@/pages/ClassDetail";
 import OrderDetail from "@/pages/OrderDetail";
 import GenusDetail from "@/pages/GenusDetail";
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
       <Route path="/taxonomic/phylum" component={PhylumDetail} />
+      <Route path="/taxonomic/family" component={FamilyDetail} />
       <Route path="/taxonomic/class" component={ClassDetail} />
       <Route path="/taxonomic/order" component={OrderDetail} />
       <Route path="/taxonomic/genus" component={GenusDetail} />

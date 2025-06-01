@@ -109,6 +109,14 @@ export default function Taxonomic() {
                       </div>
                     </div>
                   ))}
+                  <div className="pt-3 mt-3 border-t">
+                    <Link href="/taxonomic/family">
+                      <div className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
+                        <span>See all records</span>
+                        <ExternalLink className="h-4 w-4" />
+                      </div>
+                    </Link>
+                  </div>
                 </div>
               )}
             </CardContent>
