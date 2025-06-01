@@ -648,6 +648,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/reprocess-validation-flags", async (req, res) => {
+    try {
+      // Create a temporary upload record for the existing file
+      const upload = await storage.createUpload({
+        filename: 'validated_observations.xlsx',
+        originalName: 'Validated Observations05.30.25.xlsx',
+        uploadDate: new Date(),
+        status: 'processing'
+      });
+
+      const filePath = path.join(__dirname, '../uploads/validated_observations.xlsx');
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Excel file not found. Please upload the file first." });
+      }
+
+      // Process with new validation flags
+      processExcelFile(upload.id, filePath, upload.originalName)
+        .then(() => {
+          console.log("Reprocessing with validation flags completed successfully");
+        })
+        .catch(error => {
+          console.error("Error reprocessing file:", error);
+          storage.updateUploadStatus(upload.id, 'failed', error.message);
+        });
+
+      res.json({ 
+        message: "Reprocessing started with validation flags",
+        uploadId: upload.id 
+      });
+    } catch (error) {
+      console.error("Error starting reprocessing:", error);
+      res.status(500).json({ error: "Failed to start reprocessing" });
+    }
+  });
+
   app.post("/api/reprocess-upload/:id", async (req, res) => {
     try {
       const uploadId = parseInt(req.params.id);

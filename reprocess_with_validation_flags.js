@@ -1,7 +1,7 @@
 import XLSX from 'xlsx';
 import fs from 'fs';
-import { db } from './server/db.js';
-import { observations, contributors, species } from './shared/schema.js';
+import { db } from './server/db.ts';
+import { observations, contributors, species } from './shared/schema.ts';
 
 async function reprocessWithValidationFlags() {
   try {
