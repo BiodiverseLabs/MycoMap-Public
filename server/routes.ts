@@ -747,7 +747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           family: row['Family'] || null,
           genus: row['Genus'] || null,
           species: row['Species'] || null,
-          infraspecies: null, // Not present in your data
+          infraspecies: row['Variety'] || null,
           observer: row['Sequence Owner'] || null,
           collector: row['Collector'] || null,
           observedOn: row['Report Date'] ? 
