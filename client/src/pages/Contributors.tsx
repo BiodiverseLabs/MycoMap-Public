@@ -41,7 +41,7 @@ export default function Contributors() {
 
   // Fetch contributor's specific observations when selected
   const { data: contributorObservations = [], isLoading: observationsLoading } = useQuery({
-    queryKey: ["/api/observations", { contributor: selectedContributor?.name }],
+    queryKey: ["/api/observations", { collector: selectedContributor?.name }],
     queryFn: async () => {
       if (!selectedContributor) return [];
       const response = await fetch(`/api/observations?contributor=${encodeURIComponent(selectedContributor.name)}`);

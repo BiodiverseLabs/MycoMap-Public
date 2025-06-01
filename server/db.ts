@@ -251,7 +251,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTopContributors(limit: number = 10, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]> {
-    let whereConditions = [sql`${observations.collector} IS NOT NULL`];
+    let whereConditions = [sql`(${observations.collector} IS NOT NULL OR ${observations.observer} IS NOT NULL)`];
     
     if (startDate && endDate) {
       whereConditions.push(sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`);
@@ -266,14 +266,19 @@ export class DatabaseStorage implements IStorage {
       : whereConditions[0];
     
     const result = await db.execute(sql`
+      WITH contributor_data AS (
+        SELECT COALESCE(${observations.collector}, ${observations.observer}) as name
+        FROM ${observations}
+        WHERE ${whereClause}
+      )
       SELECT 
         ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
-        ${observations.collector} as name,
+        name,
         NULL as affiliation,
         COUNT(*)::int as "observationCount"
-      FROM ${observations}
-      WHERE ${whereClause}
-      GROUP BY ${observations.collector}
+      FROM contributor_data
+      WHERE name IS NOT NULL
+      GROUP BY name
       ORDER BY "observationCount" DESC
       LIMIT ${limit}
     `);
