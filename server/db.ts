@@ -972,6 +972,24 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(observations.updatedAt));
   }
 
+  async getObservationsWithEncodingIssues(): Promise<Observation[]> {
+    const { observations } = schema;
+    return await db.select()
+      .from(observations)
+      .where(or(
+        like(observations.scientificName, '%â€œ%'),
+        like(observations.scientificName, '%â€%'),
+        like(observations.scientificName, '%â€™%'),
+        like(observations.collector, '%â€œ%'),
+        like(observations.collector, '%â€%'),
+        like(observations.collector, '%â€™%'),
+        like(observations.state, '%â€œ%'),
+        like(observations.state, '%â€%'),
+        like(observations.state, '%â€™%')
+      ))
+      .orderBy(desc(observations.updatedAt));
+  }
+
   async updateObservationTaxonomy(id: number, taxonomyData: {
     kingdom?: string;
     phylum?: string;

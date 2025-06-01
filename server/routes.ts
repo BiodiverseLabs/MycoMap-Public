@@ -82,6 +82,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get observations with character encoding issues
+  app.get("/api/observations/encoding-issues", async (req, res) => {
+    try {
+      const observations = await storage.getObservationsWithEncodingIssues();
+      res.json(observations);
+    } catch (error) {
+      console.error("Error fetching observations with encoding issues:", error);
+      res.status(500).json({ error: "Failed to fetch observations with encoding issues" });
+    }
+  });
+
   app.get("/api/observations/summary", async (req, res) => {
     try {
       const { dateRange, aggregate } = req.query;
