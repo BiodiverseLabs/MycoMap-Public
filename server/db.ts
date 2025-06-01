@@ -700,40 +700,42 @@ export class DatabaseStorage implements IStorage {
     longitude: number;
     species?: string;
   }>> {
+    const { observations } = schema;
     const startTime = Date.now();
     
     try {
-      // Force chunked approach for large requests to bypass driver limits
-      if (limit > 20000) {
-        console.log(`[GPS Index] Using chunked approach for ${limit} coordinates`);
-        return this.getMapDataChunked(limit, state);
-      }
-      
-      // Use raw SQL for smaller requests
-      let sqlQuery = `
-        SELECT latitude, longitude, scientific_name as species 
-        FROM gps_index 
-      `;
-      
+      // Use direct observations query with optimized filtering
+      const whereConditions = [
+        isNotNull(observations.latitude),
+        isNotNull(observations.longitude),
+        ne(observations.latitude, 0),
+        ne(observations.longitude, 0),
+      ];
+
       if (state) {
-        sqlQuery += ` WHERE state = '${state.replace(/'/g, "''")}'`;
+        whereConditions.push(eq(observations.state, state));
       }
-      
-      sqlQuery += ` LIMIT ${limit}`;
-      
-      const result = await db.execute(sql.raw(sqlQuery));
+
+      const result = await db.select({
+        latitude: observations.latitude,
+        longitude: observations.longitude,
+        species: observations.scientificName,
+      })
+      .from(observations)
+      .where(and(...whereConditions))
+      .limit(limit);
+
       const endTime = Date.now();
-      
-      console.log(`[GPS Index] Retrieved ${result.rows.length} coordinates in ${endTime - startTime}ms (state: ${state || 'all'})`);
-      
-      return result.rows.map((row: any) => ({
-        latitude: parseFloat(row.latitude),
-        longitude: parseFloat(row.longitude),
+      console.log(`[Map Data] Retrieved ${result.length} coordinates in ${endTime - startTime}ms (state: ${state || 'all'})`);
+
+      return result.map(row => ({
+        latitude: parseFloat(row.latitude!.toString()),
+        longitude: parseFloat(row.longitude!.toString()),
         species: row.species || undefined,
       }));
     } catch (error) {
-      console.log('[GPS Index] Falling back to direct observations query');
-      return this.getMapDataFallback(limit, state);
+      console.log('[Map Data] Error, using fallback with reduced limit');
+      return this.getMapDataFallback(Math.min(limit, 20000), state);
     }
   }
 
