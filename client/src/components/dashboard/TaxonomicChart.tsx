@@ -92,7 +92,7 @@ export function TaxonomicChart({ dateRange }: TaxonomicChartProps = {}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Taxonomic Distribution</CardTitle>
+        <CardTitle>Phylum Distribution</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-64">
