@@ -29,10 +29,10 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     { href: "/", label: "Dashboard", icon: BarChart3 },
     { href: "/activity", label: "Activity Feed", icon: Activity },
     { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
+    { href: "/species", label: "Species Analysis", icon: Dna },
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },
     { href: "/contributors", label: "Contributors", icon: Users },
-    { href: "/species", label: "Species Analysis", icon: Dna },
     { href: "/records", label: "Records", icon: Trophy },
   ];
 
