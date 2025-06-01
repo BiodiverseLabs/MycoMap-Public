@@ -384,13 +384,18 @@ export default function SpeciesDetail() {
                         
                         return (
                           <div key={monthData.month} className="flex-1 flex flex-col items-center gap-1">
-                            <div className="text-xs text-slate-600 font-medium">
+                            <div className="text-xs text-slate-600 font-medium h-4">
                               {monthData.count > 0 ? monthData.count : ''}
                             </div>
-                            <div 
-                              className="w-full bg-blue-500 rounded-sm transition-all duration-300 min-h-[2px]"
-                              style={{ height: `${Math.max(height, monthData.count > 0 ? 8 : 0)}%` }}
-                            />
+                            <div className="w-full flex justify-center">
+                              <div 
+                                className="w-8 bg-blue-500 rounded-sm transition-all duration-300"
+                                style={{ 
+                                  height: `${Math.max(height * 0.8, monthData.count > 0 ? 4 : 0)}px`,
+                                  maxHeight: '96px'
+                                }}
+                              />
+                            </div>
                           </div>
                         );
                       })}
