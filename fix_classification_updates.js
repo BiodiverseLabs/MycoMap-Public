@@ -1,60 +1,61 @@
-import fetch from 'node-fetch';
+import { db } from './server/db.js';
+import { observations } from './shared/schema.js';
+import { eq, and, isNotNull } from 'drizzle-orm';
 
 async function fixClassificationUpdates() {
   try {
-    console.log('Running automated classification updates to fix pending records...');
+    console.log('Starting automated classification updates...');
     
-    // Get current classification updates
-    const response = await fetch('http://localhost:5000/api/observations/classification-updates');
-    const classificationUpdates = await response.json();
+    // Get records needing classification updates
+    const classificationUpdates = await db
+      .select()
+      .from(observations)
+      .where(eq(observations.classificationUpdate, true));
     
     console.log(`Found ${classificationUpdates.length} records needing classification updates`);
     
-    if (classificationUpdates.length === 0) {
-      console.log('No classification updates needed');
-      return;
-    }
+    // Get complete taxonomy records for reference
+    const completeRecords = await db
+      .select()
+      .from(observations)
+      .where(and(
+        isNotNull(observations.genus),
+        isNotNull(observations.kingdom),
+        isNotNull(observations.phylum),
+        isNotNull(observations.class),
+        isNotNull(observations.order),
+        isNotNull(observations.family)
+      ));
     
-    // Get all observations for reference data
-    console.log('Fetching reference taxonomy data...');
-    const allResponse = await fetch('http://localhost:5000/api/observations');
-    const allObservations = await allResponse.json();
-    
-    // Build genus lookup table from complete records
+    // Build genus lookup
     const genusLookup = new Map();
-    allObservations.forEach(obs => {
-      if (obs.genus && obs.kingdom && obs.phylum && obs.class && obs.order && obs.family) {
-        const genusKey = obs.genus.toLowerCase().trim();
-        if (!genusLookup.has(genusKey)) {
-          genusLookup.set(genusKey, {
-            kingdom: obs.kingdom,
-            phylum: obs.phylum,
-            class: obs.class,
-            order: obs.order,
-            family: obs.family,
-            genus: obs.genus
-          });
-        }
+    completeRecords.forEach(obs => {
+      const genusKey = obs.genus.toLowerCase().trim();
+      if (!genusLookup.has(genusKey)) {
+        genusLookup.set(genusKey, {
+          kingdom: obs.kingdom,
+          phylum: obs.phylum,
+          class: obs.class,
+          order: obs.order,
+          family: obs.family,
+          genus: obs.genus
+        });
       }
     });
     
-    console.log(`Built genus lookup table with ${genusLookup.size} reference entries`);
+    console.log(`Built genus lookup with ${genusLookup.size} reference entries`);
     
     let updatedCount = 0;
-    let processedCount = 0;
     
-    // Process in smaller batches to see progress
+    // Process in smaller batches to avoid timeouts
     const batchSize = 50;
-    
-    for (let i = 0; i < Math.min(classificationUpdates.length, 1000); i += batchSize) {
+    for (let i = 0; i < classificationUpdates.length; i += batchSize) {
       const batch = classificationUpdates.slice(i, i + batchSize);
-      console.log(`Processing batch ${Math.floor(i/batchSize) + 1} (records ${i + 1}-${Math.min(i + batchSize, classificationUpdates.length)})`);
+      console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(classificationUpdates.length/batchSize)}`);
       
       for (const record of batch) {
-        processedCount++;
-        
-        // Extract genus candidate from species or variety
         let genusCandidate = null;
+        
         if (record.species) {
           genusCandidate = record.species.split(' ')[0].toLowerCase().trim();
         } else if (record.infraspecies) {
@@ -64,56 +65,41 @@ async function fixClassificationUpdates() {
         if (genusCandidate && genusLookup.has(genusCandidate)) {
           const taxonomyRef = genusLookup.get(genusCandidate);
           
-          // Prepare update data
-          const updateData = {
-            kingdom: record.kingdom || taxonomyRef.kingdom,
-            phylum: record.phylum || taxonomyRef.phylum,
-            class: record.class || taxonomyRef.class,
-            order: record.order || taxonomyRef.order,
-            family: record.family || taxonomyRef.family,
-            genus: record.genus || taxonomyRef.genus,
-            classificationUpdate: false
-          };
+          await db
+            .update(observations)
+            .set({
+              kingdom: record.kingdom || taxonomyRef.kingdom,
+              phylum: record.phylum || taxonomyRef.phylum,
+              class: record.class || taxonomyRef.class,
+              order: record.order || taxonomyRef.order,
+              family: record.family || taxonomyRef.family,
+              genus: record.genus || taxonomyRef.genus,
+              classificationUpdate: false
+            })
+            .where(eq(observations.id, record.id));
           
-          try {
-            // Use direct SQL update via our storage method (simulated)
-            const updateResponse = await fetch(`http://localhost:5000/api/observations/${record.id}/update-taxonomy`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updateData)
-            });
-            
-            if (updateResponse.ok) {
-              updatedCount++;
-              if (updatedCount % 10 === 0) {
-                console.log(`✓ Updated ${updatedCount} records so far...`);
-              }
-            }
-          } catch (updateError) {
-            // Skip individual update errors
-          }
+          updatedCount++;
         }
       }
       
-      // Progress report
-      console.log(`Batch complete. Processed: ${processedCount}, Updated: ${updatedCount}`);
-      
-      // Small delay between batches
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log(`Progress: ${updatedCount} records updated so far...`);
     }
     
-    console.log(`\n=== CLASSIFICATION UPDATE RESULTS ===`);
-    console.log(`Records processed: ${processedCount}`);
-    console.log(`Successfully updated: ${updatedCount}`);
-    console.log(`Success rate: ${((updatedCount/processedCount) * 100).toFixed(1)}%`);
+    // Check final results
+    const remainingUpdates = await db
+      .select()
+      .from(observations)
+      .where(eq(observations.classificationUpdate, true));
     
-    // Check remaining count
-    const finalResponse = await fetch('http://localhost:5000/api/observations/classification-updates');
-    const finalUpdates = await finalResponse.json();
-    console.log(`Remaining classification updates: ${finalUpdates.length}`);
+    console.log(`✓ Automated classification updates completed`);
+    console.log(`✓ ${updatedCount} records automatically updated`);
+    console.log(`✓ ${remainingUpdates.length} records still need manual review`);
+    console.log(`✓ Manual work reduced by ${((updatedCount / classificationUpdates.length) * 100).toFixed(1)}%`);
     
   } catch (error) {
-    console.error('Error running classification updates:', error);
+    console.error('Error in automated classification updates:', error);
+  } finally {
+    process.exit(0);
   }
 }
 
