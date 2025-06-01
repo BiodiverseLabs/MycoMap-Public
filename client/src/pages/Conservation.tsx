@@ -178,13 +178,13 @@ export default function Conservation() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
                   <div>
-                    <div className="text-2xl font-bold text-green-600">
-                      {redlistSpeciesData.filter(s => s.observationCount > 0).length}
+                    <div className="text-2xl font-bold text-red-600">
+                      {redlistSpeciesData.filter(s => s.redlistCategory?.toLowerCase().includes('critically endangered')).length}
                     </div>
-                    <div className="text-sm text-slate-500">With Observations</div>
-                    <div className="text-xs text-slate-400">Found in our records</div>
+                    <div className="text-sm text-slate-500">Critically Endangered</div>
+                    <div className="text-xs text-slate-400">Highest threat level</div>
                   </div>
                 </div>
               </CardContent>
@@ -193,13 +193,13 @@ export default function Conservation() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2">
-                  <Leaf className="w-5 h-5 text-blue-500" />
+                  <AlertTriangle className="w-5 h-5 text-orange-500" />
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">
-                      {redlistSpeciesData.reduce((sum, s) => sum + s.observationCount, 0)}
+                    <div className="text-2xl font-bold text-orange-600">
+                      {redlistSpeciesData.filter(s => s.redlistCategory?.toLowerCase().includes('endangered') && !s.redlistCategory?.toLowerCase().includes('critically')).length}
                     </div>
-                    <div className="text-sm text-slate-500">Total Observations</div>
-                    <div className="text-xs text-slate-400">Red List species observations</div>
+                    <div className="text-sm text-slate-500">Endangered</div>
+                    <div className="text-xs text-slate-400">High threat level</div>
                   </div>
                 </div>
               </CardContent>
@@ -208,13 +208,13 @@ export default function Conservation() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2">
-                  <MapPin className="w-5 h-5 text-purple-500" />
+                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
                   <div>
-                    <div className="text-2xl font-bold text-purple-600">
-                      {redlistSpeciesData.length > 0 ? Math.round((redlistSpeciesData.filter(s => s.observationCount > 0).length / redlistSpeciesData.length) * 100) : 0}%
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {redlistSpeciesData.filter(s => s.redlistCategory?.toLowerCase().includes('vulnerable')).length}
                     </div>
-                    <div className="text-sm text-slate-500">Coverage Rate</div>
-                    <div className="text-xs text-slate-400">Red List species found</div>
+                    <div className="text-sm text-slate-500">Vulnerable</div>
+                    <div className="text-xs text-slate-400">Moderate threat level</div>
                   </div>
                 </div>
               </CardContent>
@@ -452,65 +452,6 @@ export default function Conservation() {
           </TabsContent>
 
           <TabsContent value="redlist" className="space-y-4">
-            {/* Red List Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-red-600">
-                        {redlistMetrics.criticallyEndangered}
-                      </div>
-                      <div className="text-sm text-slate-500">Critically Endangered</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <AlertTriangle className="w-5 h-5 text-orange-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-orange-600">
-                        {redlistMetrics.endangered}
-                      </div>
-                      <div className="text-sm text-slate-500">Endangered</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Leaf className="w-5 h-5 text-yellow-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-yellow-600">
-                        {redlistMetrics.vulnerable}
-                      </div>
-                      <div className="text-sm text-slate-500">Vulnerable</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Shield className="w-5 h-5 text-purple-600" />
-                    <div>
-                      <div className="text-2xl font-bold text-purple-600">
-                        {redlistMetrics.totalRedlistSpecies}
-                      </div>
-                      <div className="text-sm text-slate-500">Total Red List</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
             <Card>
               <CardHeader>
                 <CardTitle>Red List Species in Observations</CardTitle>
