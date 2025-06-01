@@ -845,24 +845,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Total: ${allColumns.length}, Mapped: ${mapped.filter(f => allColumns.includes(f)).length}, Unmapped: ${unmapped.length}`);
       }
 
-      // Process data in batches to handle large files
-      const BATCH_SIZE = 1000; // Process 1000 records at a time
-      const totalBatches = Math.ceil(rawData.length / BATCH_SIZE);
-      console.log(`Processing ${rawData.length} records in ${totalBatches} batches of ${BATCH_SIZE}`);
-
-      let totalProcessed = 0;
-      let nameUpdateCount = 0;
-      let classificationUpdateCount = 0;
-
-      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-        const startIdx = batchIndex * BATCH_SIZE;
-        const endIdx = Math.min(startIdx + BATCH_SIZE, rawData.length);
-        const batch = rawData.slice(startIdx, endIdx);
-        
-        console.log(`Processing batch ${batchIndex + 1}/${totalBatches} (records ${startIdx + 1}-${endIdx})`);
-
-        // Transform and validate data using actual column names from your file
-        const observations = batch.map((row: any) => {
+      // Transform and validate data using actual column names from your file
+      const observations = rawData.map((row: any) => {
         // Construct scientific name following taxonomic hierarchy
         // Priority: Variety -> Species -> Genus -> Family -> Order -> Class -> Phylum -> Kingdom
         let scientificName = '';
