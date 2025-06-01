@@ -822,6 +822,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           scientificName = 'Unknown';
         }
         
+        // Check for name_update flag: Species or Variety is missing
+        const nameUpdate = !row['Species'] && !row['Variety'];
+        
+        // Check for classification_update flag: has species/variety but missing higher taxonomy
+        const hasSpeciesOrVariety = row['Species'] || row['Variety'];
+        const missingHigherTaxonomy = hasSpeciesOrVariety && (
+          !row['Kingdom'] || !row['Phylum'] || !row['Class'] || 
+          !row['Order'] || !row['Family'] || !row['Genus']
+        );
+        const classificationUpdate = missingHigherTaxonomy;
+
         return {
           observationId: row['Reference Number'] || `${Date.now()}-${Math.random()}`,
           scientificName: scientificName,
@@ -878,6 +889,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hasMultipleGenotypes: row['Multiple Genotypes Under Name'] === 'yes',
           source: row['Source Database'] || row['Source'] || row['source'] || 'Unknown',
           sourceUrl: row['Source URL'] || row['source_url'] || null,
+          nameUpdate: nameUpdate,
+          classificationUpdate: classificationUpdate,
         };
       }).filter(obs => obs.scientificName); // Filter out rows without scientific name
 

@@ -64,6 +64,8 @@ export const observations = pgTable("observations", {
   hasMultipleGenotypes: boolean("has_multiple_genotypes").default(false),
   source: text("source"), // iNaturalist or Mushroom Observer
   sourceUrl: text("source_url"),
+  nameUpdate: boolean("name_update").default(false),
+  classificationUpdate: boolean("classification_update").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
