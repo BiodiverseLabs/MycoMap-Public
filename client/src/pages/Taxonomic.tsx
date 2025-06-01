@@ -85,7 +85,7 @@ export default function Taxonomic() {
                 <div className="text-slate-500">Loading family data...</div>
               ) : (
                 <div className="space-y-3">
-                  {familyData.slice(0, 5).map((family: any, index: number) => (
+                  {familyData.slice(0, 10).map((family: any, index: number) => (
                     <div key={family.family} className="flex items-center justify-between">
                       <span className="text-sm text-slate-600 truncate flex-1">{family.family}</span>
                       <div className="flex items-center space-x-2 ml-2">
@@ -95,7 +95,12 @@ export default function Taxonomic() {
                               index === 0 ? 'bg-primary' : 
                               index === 1 ? 'bg-green-500' : 
                               index === 2 ? 'bg-yellow-500' : 
-                              index === 3 ? 'bg-purple-500' : 'bg-blue-500'
+                              index === 3 ? 'bg-purple-500' : 
+                              index === 4 ? 'bg-blue-500' :
+                              index === 5 ? 'bg-pink-500' :
+                              index === 6 ? 'bg-indigo-500' :
+                              index === 7 ? 'bg-orange-500' :
+                              index === 8 ? 'bg-teal-500' : 'bg-red-500'
                             }`}
                             style={{ width: `${getProgressWidth(family.count, maxFamilyCount)}%` }}
                           />
