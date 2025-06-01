@@ -295,7 +295,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as id,
-        ${observations.species} as "scientificName",
+        ${observations.scientificName} as "scientificName",
         ${observations.commonName} as "commonName",
         COUNT(*)::int as "observationCount",
         MIN(${observations.observedOn}) as "firstObserved",
@@ -303,7 +303,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(DISTINCT ${observations.state}) as "stateCount"
       FROM ${observations}
       WHERE ${whereClause}
-      GROUP BY ${observations.species}, ${observations.commonName}
+      GROUP BY ${observations.scientificName}, ${observations.commonName}
       ORDER BY "observationCount" DESC
       LIMIT ${limit}
     `);
@@ -312,7 +312,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRareSpecies(maxObservations: number = 3, state?: string): Promise<Species[]> {
-    let whereConditions = [sql`${observations.species} IS NOT NULL AND ${observations.species} != ''`];
+    let whereConditions = [sql`${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != ''`];
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
@@ -325,12 +325,12 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         ROW_NUMBER() OVER (ORDER BY COUNT(*) ASC) as id,
-        ${observations.species} as "scientificName",
+        ${observations.scientificName} as "scientificName",
         ${observations.commonName} as "commonName",
         COUNT(*)::int as "observationCount"
       FROM ${observations}
       WHERE ${whereClause}
-      GROUP BY ${observations.species}, ${observations.commonName}
+      GROUP BY ${observations.scientificName}, ${observations.commonName}
       HAVING COUNT(*) <= ${maxObservations}
       ORDER BY "observationCount" ASC
       LIMIT 10
@@ -343,13 +343,13 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         ${observations.id} as id,
-        ${observations.species} as "scientificName",
+        ${observations.scientificName} as "scientificName",
         ${observations.state} as state,
         ${observations.observedOn} as "observedOn"
       FROM ${observations}
       WHERE ${observations.isFirstStateRecord} = true 
-        AND ${observations.species} IS NOT NULL 
-        AND ${observations.species} != ''
+        AND ${observations.scientificName} IS NOT NULL 
+        AND ${observations.scientificName} != ''
       ORDER BY ${observations.observedOn} DESC
       LIMIT ${limit}
     `);
@@ -804,7 +804,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.select({
       latitude: observations.latitude,
       longitude: observations.longitude,
-      species: observations.species,
+      species: observations.scientificName,
     })
     .from(observations)
     .where(and(...whereConditions))
