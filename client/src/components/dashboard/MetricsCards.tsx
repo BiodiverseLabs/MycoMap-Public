@@ -11,24 +11,28 @@ interface Metrics {
 
 interface MetricsCardsProps {
   dateRange?: string;
+  selectedState?: string | null;
 }
 
-export function MetricsCards({ dateRange }: MetricsCardsProps) {
+export function MetricsCards({ dateRange, selectedState }: MetricsCardsProps) {
   const { data: metrics, isLoading, error } = useQuery<Metrics>({
-    queryKey: ["/api/metrics", dateRange],
+    queryKey: ["/api/metrics", dateRange, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
+      if (selectedState) {
+        params.append('state', selectedState);
+      }
       const url = `/api/metrics?${params.toString()}`;
-      console.log(`[MetricsCards] Fetching metrics with dateRange: ${dateRange}, URL: ${url}`);
+      console.log(`[MetricsCards] Fetching metrics with dateRange: ${dateRange}, state: ${selectedState}, URL: ${url}`);
       
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Failed to fetch metrics: ${response.status}`);
       
       const data = await response.json();
-      console.log(`[MetricsCards] Received data for dateRange ${dateRange}:`, data);
+      console.log(`[MetricsCards] Received data for dateRange ${dateRange}, state ${selectedState}:`, data);
       return data;
     }
   });

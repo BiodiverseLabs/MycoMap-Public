@@ -91,7 +91,7 @@ export default function Dashboard() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <MetricsCards dateRange={dateRange} />
+        <MetricsCards dateRange={dateRange} selectedState={selectedState} />
 
         <div className="mb-6 lg:mb-8">
           <GeospatialMap dateRange={dateRange} onStateSelect={handleStateSelect} selectedState={selectedState} />
