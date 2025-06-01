@@ -128,7 +128,7 @@ export default function SpeciesDetail() {
       return acc;
     }, {});
 
-    const contributors = new Set(observations.map((obs: Observation) => obs.contributor)).size;
+    const contributors = new Set(observations.map((obs: Observation) => obs.collector)).size;
     
     const yearDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
       const year = new Date(obs.observedOn).getFullYear().toString();
