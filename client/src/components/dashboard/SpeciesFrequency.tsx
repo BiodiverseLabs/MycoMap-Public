@@ -12,12 +12,12 @@ interface Species {
 
 interface SpeciesFrequencyProps {
   dateRange?: string;
-  state?: string;
+  selectedState?: string | null;
 }
 
-export function SpeciesFrequency({ dateRange, state }: SpeciesFrequencyProps) {
+export function SpeciesFrequency({ dateRange, selectedState }: SpeciesFrequencyProps) {
   const { data: species = [], isLoading } = useQuery<Species[]>({
-    queryKey: ["/api/species", { type: 'top', limit: '5' }, dateRange, state],
+    queryKey: ["/api/species", { type: 'top', limit: '5' }, dateRange, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('type', 'top');
@@ -25,8 +25,8 @@ export function SpeciesFrequency({ dateRange, state }: SpeciesFrequencyProps) {
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
-      if (state) {
-        params.append('state', state);
+      if (selectedState) {
+        params.append('state', selectedState);
       }
       const response = await fetch(`/api/species?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch species');

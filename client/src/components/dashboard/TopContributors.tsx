@@ -12,19 +12,19 @@ interface Contributor {
 
 interface TopContributorsProps {
   dateRange?: string;
-  state?: string;
+  selectedState?: string | null;
 }
 
-export function TopContributors({ dateRange, state }: TopContributorsProps) {
+export function TopContributors({ dateRange, selectedState }: TopContributorsProps) {
   const { data: contributors = [], isLoading } = useQuery<Contributor[]>({
-    queryKey: ["/api/contributors", dateRange, state],
+    queryKey: ["/api/contributors", dateRange, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateRange) {
         params.append('dateRange', dateRange);
       }
-      if (state) {
-        params.append('state', state);
+      if (selectedState) {
+        params.append('state', selectedState);
       }
       const response = await fetch(`/api/contributors?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch contributors');

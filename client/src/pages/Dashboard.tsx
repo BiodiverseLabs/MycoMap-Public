@@ -98,18 +98,18 @@ export default function Dashboard() {
         </div>
 
         <div className="mb-6 lg:mb-8">
-          <TemporalChart dateRange={dateRange} />
+          <TemporalChart dateRange={dateRange} selectedState={selectedState} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8 mb-6 lg:mb-8">
-          <TaxonomicChart dateRange={dateRange} />
-          <TopContributors dateRange={dateRange} />
-          <SpeciesFrequency dateRange={dateRange} />
+          <TaxonomicChart dateRange={dateRange} selectedState={selectedState} />
+          <TopContributors dateRange={dateRange} selectedState={selectedState} />
+          <SpeciesFrequency dateRange={dateRange} selectedState={selectedState} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
-          <StateRecords dateRange={dateRange} />
-          <ObservationSources dateRange={dateRange} />
+          <StateRecords dateRange={dateRange} selectedState={selectedState} />
+          <ObservationSources dateRange={dateRange} selectedState={selectedState} />
         </div>
       </div>
     </div>
