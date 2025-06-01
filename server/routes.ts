@@ -1007,50 +1007,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Processed ${observations.length} valid observations`);
       console.log(`Validation flags: ${nameUpdateCount} name updates, ${classificationUpdateCount} classification updates`);
 
-      // Insert observations in batches (increased batch size for better performance)
-      const batchSize = 1000;
+      // Insert observations in batches with enhanced monitoring
+      const batchSize = 500; // Reduced batch size for better stability
       let insertedCount = 0;
+      const totalBatches = Math.ceil(observations.length / batchSize);
       
-      console.log(`Starting batch insert...`);
+      console.log(`Starting batch insert with enhanced monitoring...`);
+      console.log(`Total records: ${observations.length}, Batch size: ${batchSize}, Total batches: ${totalBatches}`);
       
       for (let i = 0; i < observations.length; i += batchSize) {
+        const batchNum = Math.floor(i/batchSize) + 1;
         const batch = observations.slice(i, i + batchSize);
-        console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(observations.length/batchSize)} (records ${i + 1}-${Math.min(i + batchSize, observations.length)})`);
+        const recordRange = `${i + 1}-${Math.min(i + batchSize, observations.length)}`;
+        
+        console.log(`[${new Date().toISOString()}] Starting batch ${batchNum}/${totalBatches} (records ${recordRange})`);
         
         try {
+          const startTime = Date.now();
           await storage.createObservations(batch);
+          const endTime = Date.now();
           insertedCount += batch.length;
-          console.log(`✓ Batch inserted successfully. Total inserted: ${insertedCount}`);
+          
+          const batchDuration = endTime - startTime;
+          const avgTimePerRecord = batchDuration / batch.length;
+          const progressPercent = ((insertedCount / observations.length) * 100).toFixed(1);
+          
+          console.log(`✓ Batch ${batchNum}/${totalBatches} completed in ${batchDuration}ms (${avgTimePerRecord.toFixed(1)}ms/record)`);
+          console.log(`  Total inserted: ${insertedCount}/${observations.length} (${progressPercent}%)`);
+          
+          // Memory usage monitoring
+          const memUsage = process.memoryUsage();
+          const memMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+          console.log(`  Memory usage: ${memMB}MB heap, ${Math.round(memUsage.rss / 1024 / 1024)}MB RSS`);
+          
         } catch (batchError) {
-          console.error(`✗ Error inserting batch ${Math.floor(i/batchSize) + 1}:`, batchError);
+          console.error(`✗ BATCH ERROR - Batch ${batchNum}/${totalBatches} failed:`, {
+            error: batchError.message,
+            batchSize: batch.length,
+            recordRange,
+            insertedSoFar: insertedCount,
+            memoryUsage: process.memoryUsage()
+          });
           throw batchError;
         }
         
-        if (insertedCount % 5000 === 0) {
-          console.log(`Progress milestone: ${insertedCount} observations inserted...`);
+        // Progress milestones
+        if (insertedCount % 2500 === 0) {
+          console.log(`=== PROGRESS MILESTONE: ${insertedCount} observations inserted ===`);
         }
+        
+        // Small delay to prevent overwhelming the database
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
       
-      console.log(`Successfully inserted ${insertedCount} observations total`);
+      console.log(`✓ Successfully inserted ${insertedCount} observations total`);
 
-      // Update all index tables and statistics
-      console.log('Updating contributor statistics...');
-      await updateContributorStatistics();
+      // Update all index tables and statistics with monitoring
+      console.log(`[${new Date().toISOString()}] Starting post-insertion processing...`);
       
-      console.log('Updating species statistics...');
-      await updateSpeciesStatistics();
-      
-      console.log('Building GPS index for map performance...');
-      await storage.buildGpsIndex();
-      
-      console.log('All index tables updated successfully');
+      try {
+        console.log('Phase 1: Updating contributor statistics...');
+        const contribStart = Date.now();
+        await updateContributorStatistics();
+        console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
+        
+        console.log('Phase 2: Updating species statistics...');
+        const speciesStart = Date.now();
+        await updateSpeciesStatistics();
+        console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
+        
+        console.log('Phase 3: Building GPS index for map performance...');
+        const gpsStart = Date.now();
+        await storage.buildGpsIndex();
+        console.log(`✓ GPS index completed in ${Date.now() - gpsStart}ms`);
+        
+        console.log('✓ All index tables updated successfully');
 
-      // Auto-populate classification updates by matching genus
-      console.log('Starting automated classification updates...');
-      await autoPopulateClassificationUpdates();
+        // Auto-populate classification updates by matching genus
+        console.log('Phase 4: Starting automated classification updates...');
+        const classificationStart = Date.now();
+        await autoPopulateClassificationUpdates();
+        console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
 
-      // Update upload status
-      await storage.updateUploadStatus(uploadId, 'completed');
+        // Update upload status
+        console.log(`[${new Date().toISOString()}] Upload processing completed successfully`);
+        await storage.updateUploadStatus(uploadId, 'completed');
+        
+      } catch (postError) {
+        console.error(`✗ POST-INSERTION ERROR during processing:`, {
+          error: postError.message,
+          stack: postError.stack,
+          uploadId,
+          insertedRecords: insertedCount
+        });
+        await storage.updateUploadStatus(uploadId, 'failed', `Post-insertion error: ${postError.message}`);
+        throw postError;
+      }
 
       // Clean up uploaded file
       fs.unlinkSync(filePath);
