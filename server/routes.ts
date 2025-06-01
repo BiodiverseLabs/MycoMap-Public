@@ -699,9 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Clear existing data first
-      await db.execute(sql`DELETE FROM ${observations}`);
-      await db.execute(sql`DELETE FROM ${contributors}`);
-      await db.execute(sql`DELETE FROM ${species}`);
+      await storage.clearAllData();
 
       // Reprocess with updated field mapping
       processExcelFile(uploadId, filePath, upload.originalName)
@@ -825,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('✓ Raw data length:', rawData.length);
       if (rawData.length > 0) {
-        const allColumns = Object.keys(rawData[0]);
+        const allColumns = Object.keys(rawData[0] as any);
         console.log('Available columns:', allColumns);
         
         // Currently mapped fields - ALL 47 FIELDS NOW MAPPED
@@ -894,8 +892,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           infraspecies: row['Variety'] || null,
           observer: row['Sequence Owner'] || null,
           collector: row['Collector'] || null,
-          observedOn: row['Report Date'] ? 
-            new Date((row['Report Date'] - 25569) * 86400 * 1000).toISOString().split('T')[0] : null,
+          observedOn: (() => {
+            try {
+              if (!row['Report Date']) return null;
+              const dateValue = row['Report Date'];
+              if (typeof dateValue === 'number') {
+                // Excel serial date
+                const date = new Date((dateValue - 25569) * 86400 * 1000);
+                return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+              } else if (dateValue instanceof Date) {
+                return isNaN(dateValue.getTime()) ? null : dateValue.toISOString().split('T')[0];
+              } else if (typeof dateValue === 'string') {
+                const date = new Date(dateValue);
+                return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+              }
+              return null;
+            } catch (e) {
+              return null;
+            }
+          })(),
           latitude: row['Latitude'] ? String(row['Latitude']) : null,
           longitude: row['Longitude'] ? String(row['Longitude']) : null,
           placeGuess: row['City'] || null,
@@ -942,12 +957,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }).filter(obs => obs.scientificName); // Filter out rows without scientific name
 
+      // Count validation flags
+      let nameUpdateCount = 0;
+      let classificationUpdateCount = 0;
+      
+      observations.forEach(obs => {
+        if (obs.nameUpdate) nameUpdateCount++;
+        if (obs.classificationUpdate) classificationUpdateCount++;
+      });
+
+      console.log(`Processed ${observations.length} valid observations`);
+      console.log(`Validation flags: ${nameUpdateCount} name updates, ${classificationUpdateCount} classification updates`);
+
       // Insert observations in batches (increased batch size for better performance)
       const batchSize = 1000;
       let insertedCount = 0;
       
-      console.log(`Processed ${observations.length} valid observations, starting batch insert...`);
-      console.log(`Sample observation structure:`, JSON.stringify(observations[0], null, 2));
+      console.log(`Starting batch insert...`);
       
       for (let i = 0; i < observations.length; i += batchSize) {
         const batch = observations.slice(i, i + batchSize);
