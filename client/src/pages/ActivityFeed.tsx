@@ -163,74 +163,10 @@ export default function ActivityFeed() {
           </div>
         </div>
 
-        {/* Filter Controls */}
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-4">
-            {/* State Filter */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-500" />
-              <Select value={selectedState} onValueChange={setSelectedState}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All States" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All States</SelectItem>
-                  {statesData?.sort((a: any, b: any) => a.state.localeCompare(b.state)).map((state: any) => (
-                    <SelectItem key={state.state} value={state.state}>
-                      {state.state} ({state.count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Date Range Filters */}
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-500" />
-              <Input
-                type="date"
-                placeholder="Start Date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-[140px]"
-              />
-              <span className="text-slate-500">to</span>
-              <Input
-                type="date"
-                placeholder="End Date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-[140px]"
-              />
-            </div>
-
-            {/* Species Filter */}
-            <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-slate-500" />
-              <Input
-                type="text"
-                placeholder="Search species..."
-                value={speciesFilter === 'all' ? '' : speciesFilter}
-                onChange={(e) => setSpeciesFilter(e.target.value || 'all')}
-                className="w-[200px]"
-              />
-            </div>
-
-            {/* Collector Filter */}
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-slate-500" />
-              <Input
-                type="text"
-                placeholder="Search collector..."
-                value={collectorFilter === 'all' ? '' : collectorFilter}
-                onChange={(e) => setCollectorFilter(e.target.value || 'all')}
-                className="w-[200px]"
-              />
-            </div>
-          </div>
-
-          {/* Record Type Filters */}
-          <div className="flex gap-2">
+        {/* Filter Controls - Mobile Optimized */}
+        <div className="space-y-3">
+          {/* Record Type Filters - Most Important, Always Visible */}
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={filter === 'all' ? 'default' : 'outline'}
               size="sm"
@@ -254,6 +190,71 @@ export default function ActivityFeed() {
               <Flag className="w-4 h-4 mr-1" />
               State Firsts
             </Button>
+          </div>
+
+          {/* Search Filters - Compact Grid Layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* State Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <Select value={selectedState} onValueChange={setSelectedState}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All States" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All States</SelectItem>
+                  {statesData?.sort((a: any, b: any) => a.state.localeCompare(b.state)).map((state: any) => (
+                    <SelectItem key={state.state} value={state.state}>
+                      {state.state} ({state.count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Species Filter */}
+            <div className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <Input
+                type="text"
+                placeholder="Species..."
+                value={speciesFilter === 'all' ? '' : speciesFilter}
+                onChange={(e) => setSpeciesFilter(e.target.value || 'all')}
+                className="w-full"
+              />
+            </div>
+
+            {/* Collector Filter */}
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <Input
+                type="text"
+                placeholder="Collector..."
+                value={collectorFilter === 'all' ? '' : collectorFilter}
+                onChange={(e) => setCollectorFilter(e.target.value || 'all')}
+                className="w-full"
+              />
+            </div>
+
+            {/* Date Range - Compact */}
+            <div className="flex items-center gap-1">
+              <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full text-xs"
+                title="Start Date"
+              />
+              <span className="text-slate-400 text-xs">to</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full text-xs"
+                title="End Date"
+              />
+            </div>
           </div>
         </div>
       </header>

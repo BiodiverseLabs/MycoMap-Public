@@ -35,6 +35,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/activity" component={ActivityFeed} />
+      <Route path="/activity-feed" component={ActivityFeed} />
       <Route path="/geospatial" component={Geospatial} />
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
