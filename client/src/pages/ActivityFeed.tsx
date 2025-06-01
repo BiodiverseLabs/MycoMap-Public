@@ -18,6 +18,7 @@ interface RecordItem {
   stateRecordNumber: number;
   isFirstGlobal: boolean;
   isFirstInState: boolean;
+  collector: string;
 }
 
 const RECORDS_PER_PAGE = 20;
@@ -28,6 +29,7 @@ export default function ActivityFeed() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [speciesFilter, setSpeciesFilter] = useState<string>('all');
+  const [collectorFilter, setCollectorFilter] = useState<string>('all');
 
   // Fetch states for filter dropdown
   const { data: statesData } = useQuery({
@@ -50,7 +52,7 @@ export default function ActivityFeed() {
     isError,
     error
   } = useInfiniteQuery({
-    queryKey: ["/api/activity-feed", filter, selectedState, startDate, endDate, speciesFilter],
+    queryKey: ["/api/activity-feed", filter, selectedState, startDate, endDate, speciesFilter, collectorFilter],
     queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams();
       params.append('limit', RECORDS_PER_PAGE.toString());
@@ -79,6 +81,10 @@ export default function ActivityFeed() {
 
       if (speciesFilter && speciesFilter !== 'all') {
         params.append('species', speciesFilter);
+      }
+
+      if (collectorFilter && collectorFilter !== 'all') {
+        params.append('collector', collectorFilter);
       }
       
       const response = await fetch(`/api/record-index?${params.toString()}`);

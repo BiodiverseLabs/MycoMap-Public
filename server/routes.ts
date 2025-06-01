@@ -390,7 +390,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         state,
         startDate,
         endDate,
-        species
+        species,
+        collector
       } = req.query;
       
       const index = await storage.getRecordIndex(
@@ -402,7 +403,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         globalFirstsOnly === 'true',
         startDate as string,
         endDate as string,
-        species as string
+        species as string,
+        collector as string
       );
       
       console.log(`[DEBUG] Record index query - limit: ${limit}, offset: ${offset}, stateFirstsOnly: ${stateFirstsOnly}, state: ${state}, returned: ${index.length} records`);

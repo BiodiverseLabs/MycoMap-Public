@@ -82,7 +82,7 @@ export interface IStorage {
   upsertSpecies(species: InsertSpecies): Promise<Species>;
   
   // Record Index
-  getRecordIndex(limit?: number, offset?: number, stateFirstsOnly?: boolean, recent?: boolean, state?: string, globalFirstsOnly?: boolean, startDate?: string, endDate?: string, species?: string): Promise<Array<{
+  getRecordIndex(limit?: number, offset?: number, stateFirstsOnly?: boolean, recent?: boolean, state?: string, globalFirstsOnly?: boolean, startDate?: string, endDate?: string, species?: string, collector?: string): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -93,6 +93,7 @@ export interface IStorage {
     stateRecordNumber: number;
     isFirstGlobal: boolean;
     isFirstInState: boolean;
+    collector: string;
   }>>;
   
   // Data management

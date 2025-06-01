@@ -551,6 +551,7 @@ export class DatabaseStorage implements IStorage {
         "reportDate",
         source,
         "referenceNumber",
+        collector,
         "datasetRecordNumber",
         "stateRecordNumber",
         CASE WHEN species_rank_global = 1 THEN true ELSE false END as "isFirstGlobal",
@@ -574,6 +575,7 @@ export class DatabaseStorage implements IStorage {
       reportDate: string;
       source: string;
       referenceNumber: string;
+      collector: string;
       datasetRecordNumber: number;
       stateRecordNumber: number;
       isFirstGlobal: boolean;
