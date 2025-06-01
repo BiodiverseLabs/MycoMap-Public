@@ -129,6 +129,17 @@ export interface IStorage {
   // Update flags
   getObservationsWithNameUpdates(): Promise<Observation[]>;
   getObservationsWithClassificationUpdates(): Promise<Observation[]>;
+  
+  // Update observation taxonomy
+  updateObservationTaxonomy(id: number, taxonomyData: {
+    kingdom?: string;
+    phylum?: string;
+    class?: string;
+    order?: string;
+    family?: string;
+    genus?: string;
+    classificationUpdate?: boolean;
+  }): Promise<void>;
 }
 
 export class MemoryStorage implements IStorage {

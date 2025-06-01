@@ -1045,6 +1045,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('All index tables updated successfully');
 
+      // Auto-populate classification updates by matching genus
+      console.log('Starting automated classification updates...');
+      await autoPopulateClassificationUpdates();
+
       // Update upload status
       await storage.updateUploadStatus(uploadId, 'completed');
 
@@ -1087,6 +1091,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to serve original dataset file' });
     }
   });
+
+  async function autoPopulateClassificationUpdates() {
+    console.log('Starting automated classification updates by genus matching...');
+    
+    try {
+      // Get all observations with classification update flags
+      const classificationUpdates = await storage.getObservationsWithClassificationUpdates();
+      console.log(`Found ${classificationUpdates.length} records needing classification updates`);
+      
+      if (classificationUpdates.length === 0) {
+        console.log('No classification updates needed');
+        return;
+      }
+      
+      // Get all observations that have complete taxonomy (to use as reference)
+      const allObservations = await storage.getAllObservations();
+      
+      // Create a genus lookup map from complete taxonomy records
+      const genusLookup = new Map();
+      
+      allObservations.forEach(obs => {
+        if (obs.genus && obs.kingdom && obs.phylum && obs.class && 
+            obs.order && obs.family) {
+          // Only use records with complete taxonomy as reference
+          const genusKey = obs.genus.toLowerCase().trim();
+          if (!genusLookup.has(genusKey)) {
+            genusLookup.set(genusKey, {
+              kingdom: obs.kingdom,
+              phylum: obs.phylum,
+              class: obs.class,
+              order: obs.order,
+              family: obs.family,
+              genus: obs.genus
+            });
+          }
+        }
+      });
+      
+      console.log(`Built genus lookup table with ${genusLookup.size} complete taxonomy references`);
+      
+      let updatedCount = 0;
+      const batchSize = 100;
+      
+      // Process classification updates in batches
+      for (let i = 0; i < classificationUpdates.length; i += batchSize) {
+        const batch = classificationUpdates.slice(i, i + batchSize);
+        console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(classificationUpdates.length/batchSize)}`);
+        
+        for (const record of batch) {
+          try {
+            // Extract first word from Species or Variety
+            let genusCandidate = null;
+            
+            if (record.species) {
+              genusCandidate = record.species.split(' ')[0].toLowerCase().trim();
+            } else if (record.infraspecies) { // Variety field
+              genusCandidate = record.infraspecies.split(' ')[0].toLowerCase().trim();
+            }
+            
+            if (genusCandidate && genusLookup.has(genusCandidate)) {
+              const taxonomyRef = genusLookup.get(genusCandidate);
+              
+              // Update the record with missing taxonomy
+              const updateData = {
+                kingdom: record.kingdom || taxonomyRef.kingdom,
+                phylum: record.phylum || taxonomyRef.phylum,
+                class: record.class || taxonomyRef.class,
+                order: record.order || taxonomyRef.order,
+                family: record.family || taxonomyRef.family,
+                genus: record.genus || taxonomyRef.genus,
+                classificationUpdate: false // Remove the flag
+              };
+              
+              // Use storage method to update the observation
+              await storage.updateObservationTaxonomy(record.id, updateData);
+              updatedCount++;
+              
+              console.log(`✓ Updated record ${record.id}: "${genusCandidate}" matched to ${taxonomyRef.genus} family`);
+            }
+          } catch (recordError) {
+            console.error(`Error updating record ${record.id}:`, recordError);
+          }
+        }
+      }
+      
+      console.log(`✓ Automated classification updates completed: ${updatedCount} records updated`);
+      
+    } catch (error) {
+      console.error('Error in automated classification updates:', error);
+    }
+  }
 
   const httpServer = createServer(app);
   return httpServer;
