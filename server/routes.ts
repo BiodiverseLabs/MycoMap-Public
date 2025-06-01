@@ -706,6 +706,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  async function updateContributorStatistics() {
+    console.log('Rebuilding contributor statistics...');
+    // Get all unique contributors from observations
+    const contributorStats = await storage.getTopContributors(10000);
+    console.log(`Found ${contributorStats.length} unique contributors to update`);
+    
+    for (const contributor of contributorStats) {
+      await storage.upsertContributor({
+        name: contributor.name,
+        affiliation: contributor.affiliation || null,
+        observationCount: contributor.observationCount
+      });
+    }
+    console.log('Contributor statistics updated');
+  }
+
+  async function updateSpeciesStatistics() {
+    console.log('Rebuilding species statistics...');
+    // Get all unique species from observations
+    const speciesStats = await storage.getTopSpecies(50000);
+    console.log(`Found ${speciesStats.length} unique species to update`);
+    
+    for (const species of speciesStats) {
+      await storage.upsertSpecies({
+        scientificName: species.scientificName,
+        commonName: species.commonName,
+        phylum: species.phylum,
+        class: species.class,
+        order: species.order,
+        family: species.family,
+        observationCount: species.observationCount
+      });
+    }
+    console.log('Species statistics updated');
+  }
+
   async function processExcelFile(uploadId: number, filePath: string, originalName: string) {
     try {
       console.log('Processing Excel file:', filePath);
@@ -770,21 +806,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let insertedCount = 0;
       
       console.log(`Processed ${observations.length} valid observations, starting batch insert...`);
+      console.log(`Sample observation structure:`, JSON.stringify(observations[0], null, 2));
       
       for (let i = 0; i < observations.length; i += batchSize) {
         const batch = observations.slice(i, i + batchSize);
-        console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(observations.length/batchSize)}`);
-        await storage.createObservations(batch);
-        insertedCount += batch.length;
-        if (i % 1000 === 0) {
-          console.log(`Progress: ${insertedCount} observations inserted...`);
+        console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(observations.length/batchSize)} (records ${i + 1}-${Math.min(i + batchSize, observations.length)})`);
+        
+        try {
+          await storage.createObservations(batch);
+          insertedCount += batch.length;
+          console.log(`✓ Batch inserted successfully. Total inserted: ${insertedCount}`);
+        } catch (batchError) {
+          console.error(`✗ Error inserting batch ${Math.floor(i/batchSize) + 1}:`, batchError);
+          throw batchError;
+        }
+        
+        if (insertedCount % 5000 === 0) {
+          console.log(`Progress milestone: ${insertedCount} observations inserted...`);
         }
       }
       
       console.log(`Successfully inserted ${insertedCount} observations total`);
 
-      // Update contributor and species statistics
-      await updateStatistics();
+      // Update all index tables and statistics
+      console.log('Updating contributor statistics...');
+      await updateContributorStatistics();
+      
+      console.log('Updating species statistics...');
+      await updateSpeciesStatistics();
+      
+      console.log('Building GPS index for map performance...');
+      await storage.buildGpsIndex();
+      
+      console.log('All index tables updated successfully');
 
       // Update upload status
       await storage.updateUploadStatus(uploadId, 'completed');
@@ -806,11 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  async function updateStatistics() {
-    // This would update contributor and species statistics
-    // Implementation would aggregate data from observations table
-    // For now, we'll skip this to keep the example focused
-  }
+
 
   // Serve original Excel file for download
   app.get("/api/export/original", (req, res) => {
