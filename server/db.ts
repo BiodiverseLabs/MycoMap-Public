@@ -721,7 +721,7 @@ export class DatabaseStorage implements IStorage {
     latitude: number;
     longitude: number;
     species?: string;
-    observer?: string;
+    collector?: string;
   }>> {
     const { observations } = schema;
     const startTime = Date.now();
@@ -743,7 +743,7 @@ export class DatabaseStorage implements IStorage {
         latitude: observations.latitude,
         longitude: observations.longitude,
         species: observations.scientificName,
-        observer: observations.observer,
+        collector: observations.collector,
       })
       .from(observations)
       .where(and(...whereConditions))
@@ -756,7 +756,7 @@ export class DatabaseStorage implements IStorage {
         latitude: parseFloat(row.latitude!.toString()),
         longitude: parseFloat(row.longitude!.toString()),
         species: row.species || undefined,
-        observer: row.observer || undefined,
+        collector: row.collector || undefined,
       }));
     } catch (error) {
       console.log('[Map Data] Error, using fallback with reduced limit');
@@ -825,7 +825,7 @@ export class DatabaseStorage implements IStorage {
     latitude: number;
     longitude: number;
     species?: string;
-    observer?: string;
+    collector?: string;
   }>> {
     const { observations } = schema;
     const startTime = Date.now();
@@ -845,7 +845,7 @@ export class DatabaseStorage implements IStorage {
       latitude: observations.latitude,
       longitude: observations.longitude,
       species: observations.scientificName,
-      observer: observations.observer,
+      collector: observations.collector,
     })
     .from(observations)
     .where(and(...whereConditions))
@@ -858,7 +858,7 @@ export class DatabaseStorage implements IStorage {
       latitude: parseFloat(row.latitude!),
       longitude: parseFloat(row.longitude!),
       species: row.species || undefined,
-      observer: row.observer || undefined,
+      collector: row.collector || undefined,
     }));
   }
 
