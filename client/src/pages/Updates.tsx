@@ -241,6 +241,11 @@ export default function Updates() {
                             )}
                           </TableCell>
                           <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {record.source || 'Unknown'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {missingFields.slice(0, 3).map(field => (
                                 <Badge key={field} variant="secondary" className="text-xs">
