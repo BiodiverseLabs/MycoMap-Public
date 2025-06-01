@@ -178,8 +178,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/temporal-trends", async (req, res) => {
     try {
-      const { groupBy = 'month' } = req.query;
-      const trends = await storage.getTemporalTrends(groupBy as 'month' | 'quarter' | 'year');
+      const { groupBy = 'month', state } = req.query;
+      const trends = await storage.getTemporalTrends(groupBy as 'month' | 'quarter' | 'year', state as string);
       res.json(trends);
     } catch (error) {
       console.error("Error fetching temporal trends:", error);

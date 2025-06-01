@@ -11,14 +11,24 @@ interface TaxonomicData {
 
 interface TaxonomicChartProps {
   dateRange?: string;
+  selectedState?: string | null;
 }
 
-export function TaxonomicChart({ dateRange }: TaxonomicChartProps = {}) {
+export function TaxonomicChart({ dateRange, selectedState }: TaxonomicChartProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
 
   const { data: distribution = [], isLoading } = useQuery<TaxonomicData[]>({
-    queryKey: ["/api/taxonomic-distribution"],
+    queryKey: ["/api/taxonomic-distribution", selectedState],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedState) {
+        params.append('state', selectedState);
+      }
+      const response = await fetch(`/api/taxonomic-distribution?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch taxonomic distribution');
+      return response.json();
+    }
   });
 
   useEffect(() => {

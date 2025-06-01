@@ -25,7 +25,7 @@ export interface IStorage {
     statesCovered: number;
   }>;
   
-  getTemporalTrends(groupBy: 'month' | 'quarter' | 'year'): Promise<Array<{
+  getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string): Promise<Array<{
     period: string;
     count: number;
   }>>;
@@ -256,7 +256,7 @@ export class MemoryStorage implements IStorage {
     };
   }
 
-  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year'): Promise<Array<{
+  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string): Promise<Array<{
     period: string;
     count: number;
   }>> {
@@ -264,6 +264,7 @@ export class MemoryStorage implements IStorage {
     
     this.observations.forEach(obs => {
       if (!obs.observedOn) return;
+      if (state && obs.state !== state) return;
       
       const date = new Date(obs.observedOn);
       let period: string;

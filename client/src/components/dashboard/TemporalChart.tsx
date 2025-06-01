@@ -10,11 +10,22 @@ interface TemporalData {
 
 interface TemporalChartProps {
   dateRange?: string;
+  selectedState?: string | null;
 }
 
-export function TemporalChart({ dateRange }: TemporalChartProps = {}) {
+export function TemporalChart({ dateRange, selectedState }: TemporalChartProps = {}) {
   const { data: trends = [], isLoading } = useQuery<TemporalData[]>({
-    queryKey: ["/api/temporal-trends", { groupBy: 'year' }],
+    queryKey: ["/api/temporal-trends", { groupBy: 'year' }, selectedState],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('groupBy', 'year');
+      if (selectedState) {
+        params.append('state', selectedState);
+      }
+      const response = await fetch(`/api/temporal-trends?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch temporal trends');
+      return response.json();
+    }
   });
 
   // Transform period data for yearly display, starting from 2010

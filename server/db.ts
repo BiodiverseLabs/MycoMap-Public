@@ -122,7 +122,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year'): Promise<Array<{
+  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string): Promise<Array<{
     period: string;
     count: number;
   }>> {
@@ -133,12 +133,23 @@ export class DatabaseStorage implements IStorage {
     };
     
     const format = formatMap[groupBy];
+    
+    let whereConditions = [sql`${observations.observedOn} IS NOT NULL`];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    const whereClause = whereConditions.length > 1 
+      ? sql.join(whereConditions, sql` AND `)
+      : whereConditions[0];
+    
     const result = await db.execute(sql`
       SELECT 
         to_char(${observations.observedOn}::date, ${format}) as period,
         COUNT(*)::int as count
       FROM ${observations}
-      WHERE ${observations.observedOn} IS NOT NULL
+      WHERE ${whereClause}
       GROUP BY period
       ORDER BY period
     `);
