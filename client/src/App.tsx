@@ -14,6 +14,7 @@ import Contributors from "@/pages/Contributors";
 import Species from "@/pages/Species";
 import SpeciesDetail from "@/pages/SpeciesDetail";
 import Records from "@/pages/Records";
+import Updates from "@/pages/Updates";
 import StatesGlobalFirsts from "@/pages/StatesGlobalFirsts";
 import ContributorsGlobalFirsts from "@/pages/ContributorsGlobalFirsts";
 import ContributorsStateFirsts from "@/pages/ContributorsStateFirsts";
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/records/contributors-state-firsts" component={ContributorsStateFirsts} />
       <Route path="/records/most-observations" component={MostObservations} />
       <Route path="/records/most-species" component={MostSpecies} />
+      <Route path="/updates" component={Updates} />
       <Route path="/species/:name" component={SpeciesDetail} />
       <Route path="/species" component={Species} />
       <Route component={NotFound} />

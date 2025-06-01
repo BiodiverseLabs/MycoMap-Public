@@ -637,6 +637,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update flags endpoints
+  app.get("/api/observations/name-updates", async (req, res) => {
+    try {
+      const observations = await storage.getObservationsWithNameUpdates();
+      res.json(observations);
+    } catch (error) {
+      console.error("Error fetching observations with name updates:", error);
+      res.status(500).json({ error: "Failed to fetch observations with name updates" });
+    }
+  });
+
+  app.get("/api/observations/classification-updates", async (req, res) => {
+    try {
+      const observations = await storage.getObservationsWithClassificationUpdates();
+      res.json(observations);
+    } catch (error) {
+      console.error("Error fetching observations with classification updates:", error);
+      res.status(500).json({ error: "Failed to fetch observations with classification updates" });
+    }
+  });
+
   // Upload endpoints
   app.get("/api/uploads", async (req, res) => {
     try {
