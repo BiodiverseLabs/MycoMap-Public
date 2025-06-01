@@ -789,15 +789,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function processExcelFile(uploadId: number, filePath: string, originalName: string) {
     try {
-      console.log('Processing Excel file:', filePath);
+      console.log('=== STARTING EXCEL PROCESSING ===');
+      console.log('Upload ID:', uploadId);
+      console.log('File path:', filePath);
+      console.log('Original name:', originalName);
       console.log('File exists:', fs.existsSync(filePath));
       
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`File not found at path: ${filePath}`);
+      }
+      
       // Clear existing data to avoid duplicates
+      console.log('Clearing existing data...');
       await storage.clearAllData();
+      console.log('✓ Data cleared');
       
       // Dynamically import XLSX with proper CommonJS handling
+      console.log('Importing XLSX library...');
       const XLSX = await import('xlsx');
       const { readFile, utils } = XLSX.default;
+      console.log('✓ XLSX library imported');
       
       // Read Excel file
       const workbook = readFile(filePath);
