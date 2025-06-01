@@ -277,6 +277,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/genus-distribution", async (req, res) => {
+    try {
+      const distribution = await storage.getGenusDistribution();
+      res.json(distribution);
+    } catch (error) {
+      console.error("Error fetching genus distribution:", error);
+      res.status(500).json({ error: "Failed to fetch genus distribution" });
+    }
+  });
+
   app.get("/api/contributors", async (req, res) => {
     try {
       const { limit, dateRange, state } = req.query;

@@ -50,6 +50,11 @@ export interface IStorage {
     count: number;
   }>>;
   
+  getGenusDistribution(): Promise<Array<{
+    genus: string;
+    count: number;
+  }>>;
+  
   getSeasonalPatterns(): Promise<Array<{
     season: string;
     count: number;

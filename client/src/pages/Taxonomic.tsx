@@ -43,6 +43,16 @@ export default function Taxonomic() {
     }
   });
 
+  // Fetch genus distribution data
+  const { data: genusData = [], isLoading: genusLoading } = useQuery({
+    queryKey: ["/api/genus-distribution"],
+    queryFn: async () => {
+      const response = await fetch('/api/genus-distribution');
+      if (!response.ok) throw new Error('Failed to fetch genus distribution');
+      return response.json();
+    }
+  });
+
   const getProgressWidth = (count: number, maxCount: number) => {
     return Math.round((count / maxCount) * 100);
   };
@@ -161,23 +171,21 @@ export default function Taxonomic() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Recent Records</CardTitle>
+              <CardTitle className="text-base">Genus Stats</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Total Families</span>
-                  <span className="font-medium">{familyData.length}</span>
+              {genusLoading ? (
+                <div className="text-slate-500 text-sm">Loading...</div>
+              ) : (
+                <div className="space-y-2 text-sm">
+                  {genusData.slice(0, 3).map((genus: any) => (
+                    <div key={genus.genus} className="flex justify-between">
+                      <span className="truncate">{genus.genus}</span>
+                      <span className="font-medium">{genus.count.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between">
-                  <span>Total Classes</span>
-                  <span className="font-medium">{classData.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Orders</span>
-                  <span className="font-medium">{orderData.length}</span>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>

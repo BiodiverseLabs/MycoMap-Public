@@ -205,6 +205,21 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ order: string; count: number }>;
   }
 
+  async getGenusDistribution(): Promise<Array<{ genus: string; count: number }>> {
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(${observations.genus}, 'Unknown') as genus,
+        COUNT(*)::int as count
+      FROM ${observations}
+      WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != ''
+      GROUP BY ${observations.genus}
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+    
+    return result.rows as Array<{ genus: string; count: number }>;
+  }
+
   async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {
     const result = await db.execute(sql`
       WITH seasonal_data AS (
