@@ -430,8 +430,8 @@ export class DatabaseStorage implements IStorage {
     isFirstInState: boolean;
   }>> {
     let whereConditions = [
-      sql`${observations.species} IS NOT NULL`,
-      sql`${observations.species} != ''`,
+      sql`${observations.scientificName} IS NOT NULL`,
+      sql`${observations.scientificName} != ''`,
       sql`${observations.observedOn} IS NOT NULL`
     ];
     
@@ -450,9 +450,9 @@ export class DatabaseStorage implements IStorage {
     if (species) {
       // More precise species search - exact match or starts with the search term
       whereConditions.push(sql`(
-        LOWER(${observations.species}) = LOWER(${species}) OR
-        LOWER(${observations.species}) LIKE LOWER(${species + ' %'}) OR
-        LOWER(${observations.species}) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
+        LOWER(${observations.scientificName}) = LOWER(${species}) OR
+        LOWER(${observations.scientificName}) LIKE LOWER(${species + ' %'}) OR
+        LOWER(${observations.scientificName}) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
       )`);
     }
     
@@ -462,29 +462,29 @@ export class DatabaseStorage implements IStorage {
       WITH global_rankings AS (
         SELECT 
           ${observations.id} as id,
-          ${observations.species} as species,
+          ${observations.scientificName} as species,
           ${observations.state} as state,
           ${observations.observedOn} as "reportDate",
           COALESCE(${observations.source}, 'Unknown') as source,
           COALESCE(${observations.observationId}, 'N/A') as "referenceNumber",
           ROW_NUMBER() OVER (
-            ORDER BY ${observations.observedOn}, ${observations.species}
+            ORDER BY ${observations.observedOn}, ${observations.scientificName}
           ) as "datasetRecordNumber",
           ROW_NUMBER() OVER (
-            PARTITION BY ${observations.species}, ${observations.state}
+            PARTITION BY ${observations.scientificName}, ${observations.state}
             ORDER BY ${observations.observedOn}
           ) as "stateRecordNumber",
           ROW_NUMBER() OVER (
-            PARTITION BY ${observations.species}
+            PARTITION BY ${observations.scientificName}
             ORDER BY ${observations.observedOn}
           ) as species_rank_global,
           ROW_NUMBER() OVER (
-            PARTITION BY ${observations.species}, ${observations.state}
+            PARTITION BY ${observations.scientificName}, ${observations.state}
             ORDER BY ${observations.observedOn}
           ) as species_rank_state
         FROM ${observations}
-        WHERE ${observations.species} IS NOT NULL 
-          AND ${observations.species} != '' 
+        WHERE ${observations.scientificName} IS NOT NULL 
+          AND ${observations.scientificName} != '' 
           AND ${observations.observedOn} IS NOT NULL
       ),
       ranked_observations AS (
@@ -607,16 +607,16 @@ export class DatabaseStorage implements IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
-    let whereClause = sql`WHERE ${observations.species} IS NOT NULL AND ${observations.species} != ''`;
+    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != ''`;
     
     if (state && state !== 'all') {
-      whereClause = sql`WHERE ${observations.species} IS NOT NULL AND ${observations.species} != '' AND ${observations.state} = ${state}`;
+      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.state} = ${state}`;
     }
 
     const result = await db.execute(sql`
       WITH ordered_observations AS (
         SELECT 
-          ${observations.species},
+          ${observations.scientificName},
           ${observations.observedOn},
           ${observations.id},
           ROW_NUMBER() OVER (ORDER BY ${observations.observedOn}, ${observations.id}) as observation_number
@@ -625,10 +625,10 @@ export class DatabaseStorage implements IStorage {
       ),
       species_first_appearance AS (
         SELECT 
-          species,
+          scientific_name,
           MIN(observation_number) as first_observation
         FROM ordered_observations
-        GROUP BY species
+        GROUP BY scientific_name
       ),
       accumulation_points AS (
         SELECT 

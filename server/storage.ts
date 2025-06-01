@@ -635,7 +635,7 @@ export class MemoryStorage implements IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
-    let filteredObs = this.observations.filter(obs => obs.species && obs.species.trim() !== '');
+    let filteredObs = this.observations.filter(obs => obs.scientificName && obs.scientificName.trim() !== '');
     
     if (state && state !== 'all') {
       filteredObs = filteredObs.filter(obs => obs.state === state);
@@ -651,7 +651,7 @@ export class MemoryStorage implements IStorage {
     const seenSpecies = new Set<string>();
     
     filteredObs.forEach((obs, index) => {
-      seenSpecies.add(obs.species);
+      seenSpecies.add(obs.scientificName);
       result.push({
         observationNumber: index + 1,
         uniqueSpeciesCount: seenSpecies.size
