@@ -7,6 +7,7 @@ import multer from "multer";
 // XLSX will be imported dynamically
 import path from "path";
 import fs from "fs";
+import csv from "csv-parser";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -1283,60 +1284,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Processing Red List CSV upload: ${req.file.originalname}`);
       
-      // Process the CSV file from disk
-      const csvData = fs.readFileSync(req.file.path, 'utf-8');
-      const lines = csvData.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim());
-      
-      console.log(`CSV headers: ${headers.join(', ')}`);
-      
-      const assessments = [];
+      // Process the CSV file using csv-parser for proper handling of quoted values
+      const assessments: any[] = [];
       let processedCount = 0;
       let errorCount = 0;
       
-      for (let i = 1; i < lines.length; i++) {
-        try {
-          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-          
-          if (values.length < headers.length) continue;
-          
-          // Only process rows with valid scientific name
-          const scientificName = values[2]?.trim();
-          if (!scientificName) continue;
-          
-          const assessment = {
-            assessmentId: values[0] || `auto-${Date.now()}-${i}`,
-            internalTaxonId: values[1] || null,
-            scientificName: scientificName,
-            redlistCategory: values[3] || null,
-            redlistCriteria: values[4] || null,
-            yearPublished: values[5] ? parseInt(values[5]) : null,
-            assessmentDate: values[6] ? new Date(values[6]) : null,
-            criteriaVersion: values[7] || null,
-            language: values[8] || null,
-            rationale: values[9] || null,
-            habitat: values[10] || null,
-            threats: values[11] || null,
-            population: values[12] || null,
-            populationTrend: values[13] || null,
-            range: values[14] || null,
-            useTrade: values[15] || null,
-            systems: values[16] || null,
-            conservationActions: values[17] || null,
-            realm: values[18] || null,
-            yearLastSeen: values[19] ? parseInt(values[19]) : null,
-            possiblyExtinct: values[20] === 'true',
-            possiblyExtinctInTheWild: values[21] === 'true',
-            scopes: values[22] || null
-          };
-          
-          assessments.push(assessment);
-          processedCount++;
-        } catch (rowError) {
-          console.error(`Error processing row ${i}:`, rowError);
-          errorCount++;
-        }
-      }
+      // Convert buffer to string and create a readable stream
+      const csvString = req.file.buffer.toString('utf-8');
+      const { Readable } = await import('stream');
+      
+      await new Promise<void>((resolve, reject) => {
+        Readable.from([csvString])
+          .pipe(csv())
+          .on('data', (row: any) => {
+            try {
+              // Get scientific name from various possible column headers
+              const scientificName = row.scientificName || row['Scientific Name'] || row['scientific_name'] || row.taxonname || row['Taxon Name'];
+              if (!scientificName?.trim()) return;
+              
+              const assessment = {
+                assessmentId: row.assessmentId || row['Assessment ID'] || `auto-${Date.now()}-${processedCount}`,
+                internalTaxonId: row.internalTaxonId || row['Internal Taxon ID'] || null,
+                scientificName: scientificName.trim(),
+                redlistCategory: row.redlistCategory || row['Redlist Category'] || row.category || null,
+                redlistCriteria: row.redlistCriteria || row['Redlist Criteria'] || row.criteria || null,
+                yearPublished: row.yearPublished || row['Year Published'] ? parseInt(row.yearPublished || row['Year Published']) : null,
+                assessmentDate: row.assessmentDate || row['Assessment Date'] ? new Date(row.assessmentDate || row['Assessment Date']) : null,
+                criteriaVersion: row.criteriaVersion || row['Criteria Version'] || null,
+                language: row.language || row.Language || null,
+                rationale: row.rationale || row.Rationale || null,
+                habitat: row.habitat || row.Habitat || null,
+                threats: row.threats || row.Threats || null,
+                population: row.population || row.Population || null,
+                populationTrend: row.populationTrend || row['Population Trend'] || null,
+                range: row.range || row.Range || null,
+                useTrade: row.useTrade || row['Use Trade'] || null,
+                systems: row.systems || row.Systems || null,
+                conservationActions: row.conservationActions || row['Conservation Actions'] || null,
+                realm: row.realm || row.Realm || null,
+                yearLastSeen: row.yearLastSeen || row['Year Last Seen'] ? parseInt(row.yearLastSeen || row['Year Last Seen']) : null,
+                possiblyExtinct: (row.possiblyExtinct || row['Possibly Extinct']) === 'true',
+                possiblyExtinctInTheWild: (row.possiblyExtinctInTheWild || row['Possibly Extinct in the Wild']) === 'true',
+                scopes: row.scopes || row.Scopes || null
+              };
+              
+              assessments.push(assessment);
+              processedCount++;
+            } catch (rowError) {
+              console.error(`Error processing row:`, rowError);
+              errorCount++;
+            }
+          })
+          .on('end', resolve)
+          .on('error', reject);
+      });
       
       console.log(`Parsed ${assessments.length} Red List assessments from CSV`);
       
