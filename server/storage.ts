@@ -125,6 +125,10 @@ export interface IStorage {
     globalFirstCount: number;
     percentage: number;
   }>>;
+  
+  // Update flags
+  getObservationsWithNameUpdates(): Promise<Observation[]>;
+  getObservationsWithClassificationUpdates(): Promise<Observation[]>;
 }
 
 export class MemoryStorage implements IStorage {

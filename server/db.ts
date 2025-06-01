@@ -924,4 +924,20 @@ export class DatabaseStorage implements IStorage {
     await db.delete(species);
     await db.delete(uploads);
   }
+
+  async getObservationsWithNameUpdates(): Promise<Observation[]> {
+    const { observations } = schema;
+    return await db.select()
+      .from(observations)
+      .where(eq(observations.nameUpdate, true))
+      .orderBy(desc(observations.updatedAt));
+  }
+
+  async getObservationsWithClassificationUpdates(): Promise<Observation[]> {
+    const { observations } = schema;
+    return await db.select()
+      .from(observations)
+      .where(eq(observations.classificationUpdate, true))
+      .orderBy(desc(observations.updatedAt));
+  }
 }
