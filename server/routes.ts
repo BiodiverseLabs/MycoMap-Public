@@ -1,13 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
 import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -817,22 +819,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function updateSpeciesStatistics() {
     console.log('Rebuilding species statistics...');
-    // Get all unique species from observations
-    const speciesStats = await storage.getTopSpecies(50000);
-    console.log(`Found ${speciesStats.length} unique species to update`);
     
-    for (const species of speciesStats) {
-      await storage.upsertSpecies({
-        scientificName: species.scientificName,
-        commonName: species.commonName,
-        phylum: species.phylum,
-        class: species.class,
-        order: species.order,
-        family: species.family,
-        observationCount: species.observationCount
-      });
+    // Use optimized approach: get aggregated data and bulk upsert
+    try {
+      const startTime = Date.now();
+      
+      // Get aggregated species data efficiently
+      const speciesStats = await storage.getTopSpecies(50000);
+      console.log(`Found ${speciesStats.length} unique species to update`);
+      
+      // Process in batches for better performance
+      const batchSize = 1000;
+      for (let i = 0; i < speciesStats.length; i += batchSize) {
+        const batch = speciesStats.slice(i, i + batchSize);
+        
+        // Process batch concurrently
+        await Promise.all(batch.map(async (speciesItem) => {
+          await storage.upsertSpecies({
+            scientificName: speciesItem.scientificName,
+            commonName: speciesItem.commonName,
+            phylum: speciesItem.phylum,
+            class: speciesItem.class,
+            order: speciesItem.order,
+            family: speciesItem.family,
+            observationCount: speciesItem.observationCount
+          });
+        }));
+        
+        // Progress indicator for large datasets
+        if (speciesStats.length > 5000) {
+          const progress = Math.round(((i + batchSize) / speciesStats.length) * 100);
+          console.log(`Species statistics progress: ${Math.min(progress, 100)}% (${Math.min(i + batchSize, speciesStats.length)}/${speciesStats.length})`);
+        }
+      }
+      
+      const duration = Date.now() - startTime;
+      console.log(`✓ Species statistics completed in ${duration}ms - ${speciesStats.length} species processed`);
+    } catch (error) {
+      console.error('Error in species statistics update:', error);
+      console.log('Species statistics update failed');
     }
-    console.log('Species statistics updated');
   }
 
   async function processExcelFile(uploadId: number, filePath: string, originalName: string) {
