@@ -317,8 +317,7 @@ export class MemoryStorage implements IStorage {
 
     return Array.from(distribution.entries())
       .map(([className, count]) => ({ class: className, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .sort((a, b) => b.count - a.count);
   }
 
   async getOrderDistribution(): Promise<Array<{
@@ -335,8 +334,21 @@ export class MemoryStorage implements IStorage {
 
     return Array.from(distribution.entries())
       .map(([order, count]) => ({ order, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .sort((a, b) => b.count - a.count);
+  }
+
+  async getGenusDistribution(): Promise<Array<{ genus: string; count: number }>> {
+    const distribution = new Map<string, number>();
+    
+    this.observations.forEach(obs => {
+      if (obs.genus) {
+        distribution.set(obs.genus, (distribution.get(obs.genus) || 0) + 1);
+      }
+    });
+
+    return Array.from(distribution.entries())
+      .map(([genus, count]) => ({ genus, count }))
+      .sort((a, b) => b.count - a.count);
   }
 
   async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {

@@ -181,7 +181,6 @@ export class DatabaseStorage implements IStorage {
       WHERE ${observations.class} IS NOT NULL AND ${observations.class} != ''
       GROUP BY ${observations.class}
       ORDER BY count DESC
-      LIMIT 10
     `);
     
     return result.rows as Array<{ class: string; count: number }>;
@@ -199,7 +198,6 @@ export class DatabaseStorage implements IStorage {
       WHERE ${observations.order} IS NOT NULL AND ${observations.order} != ''
       GROUP BY ${observations.order}
       ORDER BY count DESC
-      LIMIT 10
     `);
     
     return result.rows as Array<{ order: string; count: number }>;
@@ -214,7 +212,6 @@ export class DatabaseStorage implements IStorage {
       WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != ''
       GROUP BY ${observations.genus}
       ORDER BY count DESC
-      LIMIT 10
     `);
     
     return result.rows as Array<{ genus: string; count: number }>;
