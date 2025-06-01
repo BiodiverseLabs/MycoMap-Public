@@ -11,6 +11,7 @@ import Geospatial from "@/pages/Geospatial";
 import Temporal from "@/pages/Temporal";
 import Taxonomic from "@/pages/Taxonomic";
 import Contributors from "@/pages/Contributors";
+import Conservation from "@/pages/Conservation";
 import Species from "@/pages/Species";
 import SpeciesDetail from "@/pages/SpeciesDetail";
 import Records from "@/pages/Records";
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/taxonomic/class" component={ClassDetail} />
       <Route path="/taxonomic/order" component={OrderDetail} />
       <Route path="/taxonomic/genus" component={GenusDetail} />
+      <Route path="/conservation" component={Conservation} />
       <Route path="/contributors" component={Contributors} />
       <Route path="/records" component={Records} />
       <Route path="/records/states-global-firsts" component={StatesGlobalFirsts} />

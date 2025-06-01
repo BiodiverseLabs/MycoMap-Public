@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Trophy,
-  AlertTriangle
+  AlertTriangle,
+  Shield
 } from "lucide-react";
 import { Button } from "./button";
 import { useState, useEffect } from "react";
@@ -32,6 +33,7 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     { href: "/species", label: "Species Analysis", icon: Dna },
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },
+    { href: "/conservation", label: "Conservation", icon: Shield },
     { href: "/contributors", label: "Contributors", icon: Users },
     { href: "/records", label: "Records", icon: Trophy },
   ];
