@@ -55,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter by contributor if specified
       if (contributor) {
         observations = observations.filter(obs => 
-          obs.observer === contributor || obs.collector === contributor
+          obs.collector === contributor
         );
       }
       
