@@ -69,16 +69,17 @@ export default function Updates() {
   };
 
   return (
-    <div className="flex-1 space-y-6 p-6">
-      <div className="flex items-center space-x-3">
-        <AlertTriangle className="w-8 h-8 text-amber-500" />
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Updates Needed</h1>
-          <p className="text-slate-500">Records flagged for taxonomic updates and corrections</p>
+    <div className="flex-1 h-full overflow-y-auto">
+      <div className="space-y-6 p-6">
+        <div className="flex items-center space-x-3">
+          <AlertTriangle className="w-8 h-8 text-amber-500" />
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Updates Needed</h1>
+            <p className="text-slate-500">Records flagged for taxonomic updates and corrections</p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
         {/* Name Updates Panel */}
         <Card>
           <CardHeader>
@@ -273,10 +274,9 @@ export default function Updates() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Summary Statistics */}
-      <Card>
+        {/* Summary Statistics */}
+        <Card>
         <CardHeader>
           <CardTitle>Update Summary</CardTitle>
           <CardDescription>Overview of records requiring taxonomic updates</CardDescription>
@@ -310,7 +310,8 @@ export default function Updates() {
             </div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
