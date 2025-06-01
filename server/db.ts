@@ -450,7 +450,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false, startDate?: string, endDate?: string, species?: string): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false, startDate?: string, endDate?: string, species?: string, collector?: string): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -461,6 +461,7 @@ export class DatabaseStorage implements IStorage {
     stateRecordNumber: number;
     isFirstGlobal: boolean;
     isFirstInState: boolean;
+    collector: string;
   }>> {
     let whereConditions = [
       sql`${observations.scientificName} IS NOT NULL`,
@@ -488,6 +489,11 @@ export class DatabaseStorage implements IStorage {
         LOWER(${observations.scientificName}) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
       )`);
     }
+
+    if (collector) {
+      // Search collector field with partial matching
+      whereConditions.push(sql`LOWER(${observations.collector}) LIKE LOWER(${'%' + collector + '%'})`);
+    }
     
     const baseWhereClause = sql.join(whereConditions, sql` AND `);
     
@@ -500,6 +506,7 @@ export class DatabaseStorage implements IStorage {
           ${observations.observedOn} as "reportDate",
           COALESCE(${observations.source}, 'Unknown') as source,
           COALESCE(${observations.observationId}, 'N/A') as "referenceNumber",
+          COALESCE(${observations.collector}, 'Unknown') as collector,
           ROW_NUMBER() OVER (
             ORDER BY ${observations.observedOn}, ${observations.scientificName}
           ) as "datasetRecordNumber",
