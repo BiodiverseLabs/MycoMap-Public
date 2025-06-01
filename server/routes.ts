@@ -654,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const upload = await storage.createUpload({
         filename: 'validated_observations.xlsx',
         originalName: 'Validated Observations05.30.25.xlsx',
-        uploadDate: new Date(),
+        recordCount: 0,
         status: 'processing'
       });
 
