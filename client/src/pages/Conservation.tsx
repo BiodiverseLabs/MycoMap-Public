@@ -7,11 +7,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, Leaf, MapPin, TrendingUp, AlertTriangle, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Shield, Leaf, MapPin, TrendingUp, AlertTriangle, Search, ChevronDown, X } from "lucide-react";
 import type { Observation } from "@shared/schema";
 
 export default function Conservation() {
-  const [redlistCategoryFilter, setRedlistCategoryFilter] = useState<string>("all");
+  const [redlistCategoryFilter, setRedlistCategoryFilter] = useState<string[]>([]);
   const [speciesSearchFilter, setSpeciesSearchFilter] = useState<string>("");
 
   const { data: rareSpecies = [], isLoading: rareLoading } = useQuery<any[]>({
@@ -93,8 +96,8 @@ export default function Conservation() {
 
   // Filter Red List species data based on filters
   const filteredRedlistSpecies = redlistSpeciesData.filter(species => {
-    // Category filter
-    if (redlistCategoryFilter !== "all" && species.redlistCategory !== redlistCategoryFilter) {
+    // Category filter - if categories are selected, species must match one of them
+    if (redlistCategoryFilter.length > 0 && !redlistCategoryFilter.includes(species.redlistCategory || '')) {
       return false;
     }
     
@@ -105,6 +108,20 @@ export default function Conservation() {
     
     return true;
   });
+
+  // Helper function to toggle category selection
+  const toggleCategory = (category: string) => {
+    setRedlistCategoryFilter(prev => 
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  // Helper function to clear all category filters
+  const clearCategoryFilters = () => {
+    setRedlistCategoryFilter([]);
+  };
 
   // Get state distribution for rare species
   const stateDistribution = observations.reduce((acc: { [key: string]: Set<string> }, obs) => {
@@ -449,19 +466,51 @@ export default function Conservation() {
                     </div>
                   </div>
                   <div className="sm:w-64">
-                    <Select value={redlistCategoryFilter} onValueChange={setRedlistCategoryFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Filter by Red List Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {uniqueCategories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between">
+                          {redlistCategoryFilter.length === 0 
+                            ? "Filter by Red List Category" 
+                            : `${redlistCategoryFilter.length} categories selected`
+                          }
+                          <ChevronDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-0">
+                        <div className="p-3">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium">Red List Categories</h4>
+                            {redlistCategoryFilter.length > 0 && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={clearCategoryFilters}
+                                className="h-auto p-1"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {uniqueCategories.map((category) => (
+                              <div key={category} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={category}
+                                  checked={redlistCategoryFilter.includes(category)}
+                                  onCheckedChange={() => toggleCategory(category)}
+                                />
+                                <label
+                                  htmlFor={category}
+                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                                >
+                                  {category}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 {redlistLoading || observationsLoading ? (
