@@ -548,6 +548,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Species seasonal distribution endpoint
+  app.get("/api/species/:name/seasonal", async (req, res) => {
+    try {
+      const speciesName = decodeURIComponent(req.params.name);
+      const observations = await storage.getAllObservations();
+      
+      // Filter observations for the specific species
+      const speciesObservations = observations.filter(obs => 
+        obs.scientificName === speciesName && obs.observedOn
+      );
+      
+      // Initialize month counts
+      const monthCounts = Array.from({ length: 12 }, (_, i) => ({
+        month: new Date(0, i).toLocaleString('default', { month: 'short' }),
+        monthNumber: i + 1,
+        count: 0
+      }));
+      
+      // Count observations by month
+      speciesObservations.forEach(obs => {
+        if (obs.observedOn) {
+          const month = new Date(obs.observedOn).getMonth();
+          monthCounts[month].count++;
+        }
+      });
+      
+      res.json(monthCounts);
+    } catch (error) {
+      console.error("Error fetching species seasonal distribution:", error);
+      res.status(500).json({ error: "Failed to fetch species seasonal distribution" });
+    }
+  });
+
   // Contributors species endpoint
   app.get("/api/contributors/species", async (req, res) => {
     try {

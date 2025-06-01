@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3 } from "lucide-react";
 
 declare global {
   interface Window {
@@ -43,6 +43,16 @@ export default function SpeciesDetail() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+
+  // Fetch species seasonal distribution
+  const { data: seasonalData = [], isLoading: seasonalLoading } = useQuery({
+    queryKey: ["/api/species", speciesName, "seasonal"],
+    queryFn: async () => {
+      const response = await fetch(`/api/species/${encodeURIComponent(speciesName)}/seasonal`);
+      if (!response.ok) throw new Error("Failed to fetch seasonal data");
+      return response.json();
+    }
+  });
 
   // Fetch species observations
   const { data: observations = [], isLoading: observationsLoading } = useQuery({
@@ -395,6 +405,46 @@ export default function SpeciesDetail() {
                           <Badge variant="outline">{count}</Badge>
                         </div>
                       ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Seasonal Distribution */}
+            {seasonalData && seasonalData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    Seasonal Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {seasonalData.map((monthData: any) => {
+                      const maxCount = Math.max(...seasonalData.map((m: any) => m.count));
+                      const percentage = maxCount > 0 ? (monthData.count / maxCount) * 100 : 0;
+                      
+                      return (
+                        <div key={monthData.month} className="flex items-center gap-2">
+                          <div className="w-8 text-xs text-slate-600 font-medium">
+                            {monthData.month}
+                          </div>
+                          <div className="flex-1 h-4 bg-slate-100 rounded-sm relative overflow-hidden">
+                            <div 
+                              className="h-full bg-blue-500 rounded-sm transition-all duration-300"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <div className="w-8 text-xs text-slate-600 text-right">
+                            {monthData.count}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 text-xs text-slate-500 text-center">
+                    Observations by month
                   </div>
                 </CardContent>
               </Card>
