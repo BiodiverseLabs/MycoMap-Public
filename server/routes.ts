@@ -407,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         collector as string
       );
       
-      console.log(`[DEBUG] Record index query - limit: ${limit}, offset: ${offset}, stateFirstsOnly: ${stateFirstsOnly}, state: ${state}, returned: ${index.length} records`);
+      console.log(`[DEBUG] Record index query - limit: ${limit}, offset: ${offset}, stateFirstsOnly: ${stateFirstsOnly}, state: ${state}, species: ${species}, collector: ${collector}, returned: ${index.length} records`);
       
       res.json(index);
     } catch (error) {

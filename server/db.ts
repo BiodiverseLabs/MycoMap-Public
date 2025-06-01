@@ -541,6 +541,9 @@ export class DatabaseStorage implements IStorage {
               LOWER(species) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
             )`);
           }
+          if (collector) {
+            conditions.push(sql`LOWER(collector) LIKE LOWER(${'%' + collector + '%'})`);
+          }
           return conditions.length > 0 ? sql.join(conditions, sql` AND `) : sql`1=1`;
         })()}
       )
