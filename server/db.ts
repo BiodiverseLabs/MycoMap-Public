@@ -8,7 +8,7 @@ import {
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies
 } from "@shared/schema";
-import { eq, desc, asc, and, or, isNotNull, ne, sql, count } from 'drizzle-orm';
+import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like } from 'drizzle-orm';
 import type { IStorage } from "./storage";
 
 neonConfig.webSocketConstructor = ws;

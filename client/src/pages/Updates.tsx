@@ -16,6 +16,10 @@ export default function Updates() {
     queryKey: ["/api/observations/classification-updates"]
   });
 
+  const { data: encodingIssues = [], isLoading: encodingLoading } = useQuery<Observation[]>({
+    queryKey: ["/api/observations/encoding-issues"]
+  });
+
   const downloadRecords = (records: Observation[], type: string) => {
     const csv = convertToCSV(records);
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -79,7 +83,7 @@ export default function Updates() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-3">
           {/* Name Updates Panel */}
           <Card>
           <CardHeader>
@@ -286,6 +290,111 @@ export default function Updates() {
             )}
           </CardContent>
           </Card>
+
+          {/* Character Encoding Issues Panel */}
+          <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CardTitle className="text-xl">Character Encoding Issues</CardTitle>
+                <Badge variant="destructive" className="ml-2">
+                  {encodingLoading ? "..." : encodingIssues.length}
+                </Badge>
+              </div>
+              <Button
+                onClick={() => downloadRecords(encodingIssues, 'encoding')}
+                disabled={encodingLoading || encodingIssues.length === 0}
+                size="sm"
+                variant="outline"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+            <CardDescription>
+              Records with UTF-8 character encoding corruption requiring fixes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {encodingLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-slate-500">Loading records...</div>
+              </div>
+            ) : encodingIssues.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-slate-500">No encoding issues found</div>
+              </div>
+            ) : (
+              <ScrollArea className="h-96">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Observation ID</TableHead>
+                      <TableHead>Species</TableHead>
+                      <TableHead>Collector</TableHead>
+                      <TableHead>State</TableHead>
+                      <TableHead>Encoding Issues</TableHead>
+                      <TableHead>Source</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {encodingIssues.slice(0, 100).map((record) => {
+                      const issues = [];
+                      if (record.scientificName && (record.scientificName.includes('â€œ') || record.scientificName.includes('â€') || record.scientificName.includes('â€™'))) {
+                        issues.push('Scientific Name');
+                      }
+                      if (record.collector && (record.collector.includes('â€œ') || record.collector.includes('â€') || record.collector.includes('â€™'))) {
+                        issues.push('Collector');
+                      }
+                      if (record.state && (record.state.includes('â€œ') || record.state.includes('â€') || record.state.includes('â€™'))) {
+                        issues.push('State');
+                      }
+                      
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-mono text-sm">
+                            {record.observationId}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{record.scientificName}</div>
+                            {record.commonName && (
+                              <div className="text-sm text-slate-500">{record.commonName}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{record.collector || 'Unknown'}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{record.state || 'Unknown'}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {issues.map((issue, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {issue}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {record.source || 'Unknown'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                {encodingIssues.length > 100 && (
+                  <div className="mt-4 text-center text-sm text-slate-500">
+                    Showing first 100 of {encodingIssues.length} records. Download for complete list.
+                  </div>
+                )}
+              </ScrollArea>
+            )}
+          </CardContent>
+          </Card>
         </div>
 
         {/* Summary Statistics */}
@@ -309,8 +418,14 @@ export default function Updates() {
               <div className="text-sm text-slate-500">Classification Updates</div>
             </div>
             <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {encodingLoading ? "..." : encodingIssues.length}
+              </div>
+              <div className="text-sm text-slate-500">Encoding Issues</div>
+            </div>
+            <div className="text-center">
               <div className="text-2xl font-bold text-red-600">
-                {nameLoading || classificationLoading ? "..." : nameUpdates.length + classificationUpdates.length}
+                {nameLoading || classificationLoading || encodingLoading ? "..." : nameUpdates.length + classificationUpdates.length + encodingIssues.length}
               </div>
               <div className="text-sm text-slate-500">Total Updates Needed</div>
             </div>

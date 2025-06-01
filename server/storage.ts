@@ -129,6 +129,7 @@ export interface IStorage {
   // Update flags
   getObservationsWithNameUpdates(): Promise<Observation[]>;
   getObservationsWithClassificationUpdates(): Promise<Observation[]>;
+  getObservationsWithEncodingIssues(): Promise<Observation[]>;
   
   // Update observation taxonomy
   updateObservationTaxonomy(id: number, taxonomyData: {
