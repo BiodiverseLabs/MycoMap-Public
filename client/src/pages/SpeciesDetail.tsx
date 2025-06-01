@@ -128,7 +128,7 @@ export default function SpeciesDetail() {
       return acc;
     }, {});
 
-    const contributors = new Set(observations.map((obs: Observation) => obs.collector)).size;
+    const contributors = new Set(observations.map((obs: any) => obs.collector || obs.observer)).size;
     
     const yearDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
       const year = new Date(obs.observedOn).getFullYear().toString();
@@ -141,9 +141,10 @@ export default function SpeciesDetail() {
       return acc;
     }, {});
 
-    const collectorDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
-      if (obs.collector) {
-        acc[obs.collector] = (acc[obs.collector] || 0) + 1;
+    const collectorDistribution = observations.reduce((acc: { [key: string]: number }, obs: any) => {
+      const collector = obs.collector || obs.observer;
+      if (collector) {
+        acc[collector] = (acc[collector] || 0) + 1;
       }
       return acc;
     }, {});
@@ -220,7 +221,7 @@ export default function SpeciesDetail() {
             <strong>${obs.observedOn}</strong><br>
             ${obs.state}<br>
             Source: ${obs.source}<br>
-            Collector: ${obs.collector || 'Unknown'}
+            Collector: ${(obs as any).collector || (obs as any).observer || 'Unknown'}
           </div>
         `);
       marker.addTo(mapInstanceRef.current);
