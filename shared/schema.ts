@@ -30,6 +30,9 @@ export const observations = pgTable("observations", {
   state: text("state"),
   country: text("country"),
   genbankAccession: text("genbank_accession"),
+  mycoportalNumber: text("mycoportal_number"),
+  dnaSequence: text("dna_sequence"),
+  sequence: text("sequence"),
   isFirstStateRecord: boolean("is_first_state_record").default(false),
   hasMultipleGenotypes: boolean("has_multiple_genotypes").default(false),
   source: text("source"), // iNaturalist or Mushroom Observer
