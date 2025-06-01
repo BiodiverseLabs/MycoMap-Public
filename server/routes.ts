@@ -812,6 +812,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // For now, we'll skip this to keep the example focused
   }
 
+  // Serve original Excel file for download
+  app.get("/api/export/original", (req, res) => {
+    try {
+      const filePath = path.join(__dirname, '../attached_assets/Validated Observations05.30.25.xlsx');
+      const fileName = 'Validated_Observations_05.30.25.xlsx';
+      
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      
+      res.sendFile(path.resolve(filePath), (err) => {
+        if (err) {
+          console.error('Error sending file:', err);
+          res.status(404).json({ error: 'Original dataset file not found' });
+        }
+      });
+    } catch (error) {
+      console.error('Error serving original Excel file:', error);
+      res.status(500).json({ error: 'Failed to serve original dataset file' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

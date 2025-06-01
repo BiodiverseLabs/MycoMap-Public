@@ -16,8 +16,14 @@ export default function Dashboard() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
 
   const handleExportData = () => {
-    // Export functionality would be implemented here
     console.log('Exporting data...');
+    // Download the original Excel file
+    const link = document.createElement('a');
+    link.href = '/api/export/original';
+    link.download = 'Validated_Observations_05.30.25.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDateRangeChange = (newDateRange: string) => {
