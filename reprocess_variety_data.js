@@ -1,91 +1,146 @@
-import XLSX from 'xlsx';
-import fs from 'fs';
 import { db } from './server/db.js';
 import { observations } from './shared/schema.js';
+import { eq, and, isNotNull } from 'drizzle-orm';
 
 async function reprocessVarietyData() {
   try {
-    console.log('Starting variety data reprocessing...');
+    console.log('=== CLASSIFICATION AUTOMATION WITH MONITORING ===');
     
-    // Read the original Excel file
-    const filePath = './attached_assets/Validated Observations05.30.25.xlsx';
-    const workbook = XLSX.readFile(filePath);
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(worksheet);
+    const startTime = Date.now();
     
-    console.log(`Found ${data.length} rows in Excel file`);
+    // Get current count
+    const initialCount = await db
+      .select()
+      .from(observations)
+      .where(eq(observations.classificationUpdate, true));
     
-    // Check if Variety column exists
-    const sampleRow = data[0];
-    const hasVarietyColumn = 'Variety' in sampleRow;
-    console.log('Has Variety column:', hasVarietyColumn);
+    console.log(`Starting with ${initialCount.length} records needing classification updates`);
     
-    if (hasVarietyColumn) {
-      // Count non-empty variety values
-      const varietyData = data.filter(row => row['Variety'] && row['Variety'] !== '');
-      console.log(`Found ${varietyData.length} rows with variety data`);
-      
-      if (varietyData.length > 0) {
-        console.log('Sample variety values:', varietyData.slice(0, 5).map(row => row['Variety']));
-        
-        // Update observations with variety data
-        let updateCount = 0;
-        
-        for (const row of varietyData) {
-          const referenceNumber = row['Reference Number'];
-          const variety = row['Variety'];
-          
-          if (referenceNumber && variety) {
-            try {
-              await db.update(observations)
-                .set({ infraspecies: variety })
-                .where(observations.observationId.eq(referenceNumber));
-              updateCount++;
-              
-              if (updateCount % 100 === 0) {
-                console.log(`Updated ${updateCount} records...`);
-              }
-            } catch (error) {
-              console.error(`Error updating record ${referenceNumber}:`, error);
-            }
-          }
-        }
-        
-        console.log(`Successfully updated ${updateCount} records with variety data`);
-        
-        // Verify the updates
-        const updatedCount = await db.select({ count: sql`count(*)` })
-          .from(observations)
-          .where(sql`${observations.infraspecies} IS NOT NULL`);
-        
-        console.log(`Verification: ${updatedCount[0].count} records now have infraspecies data`);
-        
-        // Show most frequent infraspecies
-        const frequentVarieties = await db.select({
-          infraspecies: observations.infraspecies,
-          count: sql`count(*)`
-        })
-        .from(observations)
-        .where(sql`${observations.infraspecies} IS NOT NULL`)
-        .groupBy(observations.infraspecies)
-        .orderBy(sql`count(*) DESC`)
-        .limit(10);
-        
-        console.log('\nTop 10 most frequent infraspecies:');
-        frequentVarieties.forEach((variety, index) => {
-          console.log(`${index + 1}. ${variety.infraspecies}: ${variety.count} occurrences`);
+    // Load reference taxonomy
+    console.log('Building reference taxonomy...');
+    const referenceRecords = await db
+      .select()
+      .from(observations)
+      .where(and(
+        isNotNull(observations.genus),
+        isNotNull(observations.kingdom),
+        isNotNull(observations.phylum),
+        isNotNull(observations.class),
+        isNotNull(observations.order),
+        isNotNull(observations.family)
+      ));
+    
+    // Build genus lookup
+    const genusLookup = new Map();
+    referenceRecords.forEach(record => {
+      const key = record.genus.toLowerCase().trim();
+      if (!genusLookup.has(key)) {
+        genusLookup.set(key, {
+          kingdom: record.kingdom,
+          phylum: record.phylum,
+          class: record.class,
+          order: record.order,
+          family: record.family,
+          genus: record.genus
         });
-        
-      } else {
-        console.log('No variety data found in the Excel file');
       }
-    } else {
-      console.log('No Variety column found in the Excel file');
-      console.log('Available columns:', Object.keys(sampleRow));
+    });
+    
+    console.log(`Reference lookup built: ${genusLookup.size} genera available`);
+    
+    // Process records in small batches for reliability
+    let totalUpdated = 0;
+    const BATCH_SIZE = 100;
+    
+    while (true) {
+      // Get next batch of records needing updates
+      const batch = await db
+        .select()
+        .from(observations)
+        .where(eq(observations.classificationUpdate, true))
+        .limit(BATCH_SIZE);
+      
+      if (batch.length === 0) {
+        console.log('No more records to process');
+        break;
+      }
+      
+      console.log(`\nProcessing batch of ${batch.length} records...`);
+      let batchUpdated = 0;
+      
+      for (const record of batch) {
+        try {
+          let targetGenus = null;
+          
+          // Extract genus from species or infraspecies
+          if (record.species) {
+            targetGenus = record.species.split(' ')[0].toLowerCase().trim();
+          } else if (record.infraspecies) {
+            targetGenus = record.infraspecies.split(' ')[0].toLowerCase().trim();
+          }
+          
+          if (targetGenus && genusLookup.has(targetGenus)) {
+            const taxonomy = genusLookup.get(targetGenus);
+            
+            // Update the record
+            await db
+              .update(observations)
+              .set({
+                kingdom: record.kingdom || taxonomy.kingdom,
+                phylum: record.phylum || taxonomy.phylum,
+                class: record.class || taxonomy.class,
+                order: record.order || taxonomy.order,
+                family: record.family || taxonomy.family,
+                genus: record.genus || taxonomy.genus,
+                classificationUpdate: false
+              })
+              .where(eq(observations.id, record.id));
+            
+            batchUpdated++;
+            totalUpdated++;
+          }
+        } catch (recordError) {
+          console.warn(`Failed to update record ${record.id}: ${recordError.message}`);
+        }
+      }
+      
+      console.log(`Batch complete: ${batchUpdated}/${batch.length} updated`);
+      console.log(`Total updated so far: ${totalUpdated}`);
+      
+      // Progress check
+      const remaining = await db
+        .select()
+        .from(observations)
+        .where(eq(observations.classificationUpdate, true));
+      
+      console.log(`Records still needing updates: ${remaining.length}`);
+      
+      // Stop after reasonable number to avoid timeouts
+      if (totalUpdated >= 1000) {
+        console.log('Stopping at 1000 updates to prevent timeout');
+        break;
+      }
     }
     
+    // Final status
+    const finalCount = await db
+      .select()
+      .from(observations)
+      .where(eq(observations.classificationUpdate, true));
+    
+    const totalTime = Date.now() - startTime;
+    const recordsAutomated = initialCount.length - finalCount.length;
+    
+    console.log('\n=== FINAL RESULTS ===');
+    console.log(`Processing time: ${(totalTime / 1000).toFixed(1)} seconds`);
+    console.log(`Records automated: ${recordsAutomated}`);
+    console.log(`Records still needing manual review: ${finalCount.length}`);
+    console.log(`Processing rate: ${(recordsAutomated / (totalTime / 1000)).toFixed(1)} records/second`);
+    
   } catch (error) {
-    console.error('Error reprocessing variety data:', error);
+    console.error('Error in classification automation:', error);
+  } finally {
+    process.exit(0);
   }
 }
 
