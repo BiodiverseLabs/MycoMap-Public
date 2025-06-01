@@ -561,12 +561,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (observations.length > 0) {
         console.log(`[Seasonal] Sample observation fields:`, Object.keys(observations[0]));
         console.log(`[Seasonal] Sample scientificName values:`, observations.slice(0, 3).map(o => o.scientificName));
+        
+        // Look for observations that might match our species
+        const candidateObservations = observations.filter(obs => 
+          obs.scientificName && (
+            obs.scientificName.toLowerCase().includes('candolleomyces') ||
+            obs.scientificName.toLowerCase().includes('candolleanus') ||
+            (obs.species && obs.species.toLowerCase().includes('candolleomyces'))
+          )
+        ).slice(0, 5);
+        
+        console.log(`[Seasonal] Found ${candidateObservations.length} potential matches for Candolleomyces:`);
+        candidateObservations.forEach(obs => {
+          console.log(`[Seasonal] - scientificName: "${obs.scientificName}", species: "${obs.species}"`);
+        });
       }
       
       // Filter observations for the specific species
-      const speciesObservations = observations.filter(obs => 
-        obs.scientificName === speciesName && obs.observedOn
-      );
+      // Use the same logic as the observations endpoint
+      const speciesObservations = observations.filter(obs => {
+        if (!obs.observedOn) return false;
+        return obs.species === speciesName || obs.scientificName === speciesName;
+      });
       
       console.log(`[Seasonal] Found ${speciesObservations.length} observations for species "${speciesName}"`);
       
