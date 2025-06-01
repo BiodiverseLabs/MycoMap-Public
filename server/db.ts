@@ -1006,9 +1006,48 @@ export class DatabaseStorage implements IStorage {
 
   // Red List assessments methods
   async createRedlistAssessments(assessments: InsertRedlistAssessment[]): Promise<RedlistAssessment[]> {
-    return await db.insert(redlistAssessments)
-      .values(assessments)
-      .returning();
+    const results: RedlistAssessment[] = [];
+    
+    // Process in smaller batches to handle conflicts
+    for (const assessment of assessments) {
+      try {
+        const [result] = await db.insert(redlistAssessments)
+          .values(assessment)
+          .onConflictDoUpdate({
+            target: redlistAssessments.assessmentId,
+            set: {
+              scientificName: assessment.scientificName,
+              redlistCategory: assessment.redlistCategory,
+              redlistCriteria: assessment.redlistCriteria,
+              yearPublished: assessment.yearPublished,
+              assessmentDate: assessment.assessmentDate,
+              criteriaVersion: assessment.criteriaVersion,
+              language: assessment.language,
+              rationale: assessment.rationale,
+              habitat: assessment.habitat,
+              threats: assessment.threats,
+              population: assessment.population,
+              populationTrend: assessment.populationTrend,
+              range: assessment.range,
+              useTrade: assessment.useTrade,
+              systems: assessment.systems,
+              conservationActions: assessment.conservationActions,
+              realm: assessment.realm,
+              yearLastSeen: assessment.yearLastSeen,
+              possiblyExtinct: assessment.possiblyExtinct,
+              possiblyExtinctInTheWild: assessment.possiblyExtinctInTheWild,
+              scopes: assessment.scopes,
+              updatedAt: new Date()
+            }
+          })
+          .returning();
+        results.push(result);
+      } catch (error) {
+        console.warn(`Skipping assessment ${assessment.assessmentId}:`, error);
+      }
+    }
+    
+    return results;
   }
 
   async getRedlistAssessments(): Promise<RedlistAssessment[]> {

@@ -1341,16 +1341,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Parsed ${assessments.length} Red List assessments from CSV`);
       
-      // Save to database in batches
-      const batchSize = 100;
-      let savedCount = 0;
-      
-      for (let i = 0; i < assessments.length; i += batchSize) {
-        const batch = assessments.slice(i, i + batchSize);
-        await storage.createRedlistAssessments(batch);
-        savedCount += batch.length;
-        console.log(`Saved batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(assessments.length/batchSize)}`);
-      }
+      // Save to database with conflict handling
+      const savedAssessments = await storage.createRedlistAssessments(assessments);
+      const savedCount = savedAssessments.length;
       
       console.log(`✓ Red List upload completed: ${savedCount} assessments saved`);
       
