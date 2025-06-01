@@ -154,6 +154,14 @@ export default function Taxonomic() {
                       <span className="font-medium">{classItem.count.toLocaleString()}</span>
                     </div>
                   ))}
+                  <div className="pt-2 mt-2 border-t">
+                    <Link href="/taxonomic/class">
+                      <div className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+                        <span>See all records</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </div>
+                    </Link>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -174,6 +182,14 @@ export default function Taxonomic() {
                       <span className="font-medium">{order.count.toLocaleString()}</span>
                     </div>
                   ))}
+                  <div className="pt-2 mt-2 border-t">
+                    <Link href="/taxonomic/order">
+                      <div className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+                        <span>See all records</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </div>
+                    </Link>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -194,6 +210,14 @@ export default function Taxonomic() {
                       <span className="font-medium">{genus.count.toLocaleString()}</span>
                     </div>
                   ))}
+                  <div className="pt-2 mt-2 border-t">
+                    <Link href="/taxonomic/genus">
+                      <div className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+                        <span>See all records</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </div>
+                    </Link>
+                  </div>
                 </div>
               )}
             </CardContent>
