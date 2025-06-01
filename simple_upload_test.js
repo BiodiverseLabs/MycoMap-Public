@@ -1,54 +1,93 @@
-import XLSX from 'xlsx';
-import fs from 'fs';
+import { db } from './server/db.js';
+import { observations } from './shared/schema.js';
+import { eq, and, isNotNull } from 'drizzle-orm';
 
 async function testExcelReading() {
   try {
-    console.log('Testing Excel file reading...');
+    console.log('Running focused classification update...');
     
-    const filePath = './attached_assets/Validated Observations05.30.25.xlsx';
-    console.log('File exists:', fs.existsSync(filePath));
+    // Get first 500 records needing updates
+    const classificationUpdates = await db
+      .select()
+      .from(observations)
+      .where(eq(observations.classificationUpdate, true))
+      .limit(500);
     
-    if (!fs.existsSync(filePath)) {
-      console.error('File not found!');
-      return;
+    console.log(`Processing ${classificationUpdates.length} records`);
+    
+    // Get reference data
+    const completeRecords = await db
+      .select()
+      .from(observations)
+      .where(and(
+        isNotNull(observations.genus),
+        isNotNull(observations.kingdom),
+        isNotNull(observations.phylum),
+        isNotNull(observations.class),
+        isNotNull(observations.order),
+        isNotNull(observations.family)
+      ))
+      .limit(5000);
+    
+    // Build lookup
+    const genusLookup = new Map();
+    completeRecords.forEach(obs => {
+      const genusKey = obs.genus.toLowerCase().trim();
+      if (!genusLookup.has(genusKey)) {
+        genusLookup.set(genusKey, {
+          kingdom: obs.kingdom,
+          phylum: obs.phylum,
+          class: obs.class,
+          order: obs.order,
+          family: obs.family,
+          genus: obs.genus
+        });
+      }
+    });
+    
+    console.log(`Reference genera: ${genusLookup.size}`);
+    
+    let updated = 0;
+    
+    for (const record of classificationUpdates) {
+      let genusCandidate = null;
+      
+      if (record.species) {
+        genusCandidate = record.species.split(' ')[0].toLowerCase().trim();
+      } else if (record.infraspecies) {
+        genusCandidate = record.infraspecies.split(' ')[0].toLowerCase().trim();
+      }
+      
+      if (genusCandidate && genusLookup.has(genusCandidate)) {
+        const ref = genusLookup.get(genusCandidate);
+        
+        await db
+          .update(observations)
+          .set({
+            kingdom: record.kingdom || ref.kingdom,
+            phylum: record.phylum || ref.phylum,
+            class: record.class || ref.class,
+            order: record.order || ref.order,
+            family: record.family || ref.family,
+            genus: record.genus || ref.genus,
+            classificationUpdate: false
+          })
+          .where(eq(observations.id, record.id));
+        
+        updated++;
+        
+        if (updated % 25 === 0) {
+          console.log(`Progress: ${updated} updated`);
+        }
+      }
     }
     
-    console.log('Reading Excel file...');
-    const workbook = XLSX.readFile(filePath);
-    console.log('Sheet names:', workbook.SheetNames);
-    
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rawData = XLSX.utils.sheet_to_json(worksheet);
-    
-    console.log('Total rows:', rawData.length);
-    console.log('First row keys:', Object.keys(rawData[0] || {}));
-    
-    // Check validation flag logic on first few rows
-    let nameUpdateCount = 0;
-    let classificationUpdateCount = 0;
-    
-    for (let i = 0; i < Math.min(10, rawData.length); i++) {
-      const row = rawData[i];
-      
-      const nameUpdate = !row['Species'] && !row['Variety'];
-      const hasSpeciesOrVariety = row['Species'] || row['Variety'];
-      const missingHigherTaxonomy = hasSpeciesOrVariety && (
-        !row['Kingdom'] || !row['Phylum'] || !row['Class'] || 
-        !row['Order'] || !row['Family'] || !row['Genus']
-      );
-      const classificationUpdate = missingHigherTaxonomy;
-      
-      if (nameUpdate) nameUpdateCount++;
-      if (classificationUpdate) classificationUpdateCount++;
-      
-      console.log(`Row ${i + 1}: Species="${row['Species']}", Variety="${row['Variety']}", nameUpdate=${nameUpdate}, classificationUpdate=${classificationUpdate}`);
-    }
-    
-    console.log(`In first 10 rows: ${nameUpdateCount} name updates, ${classificationUpdateCount} classification updates`);
-    console.log('Excel reading test completed successfully!');
+    console.log(`Complete: ${updated} records automated`);
     
   } catch (error) {
-    console.error('Error during Excel test:', error);
+    console.error('Error:', error);
+  } finally {
+    process.exit(0);
   }
 }
 

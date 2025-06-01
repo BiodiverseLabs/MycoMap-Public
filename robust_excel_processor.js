@@ -1,86 +1,119 @@
-import XLSX from 'xlsx';
-import fs from 'fs';
-import { spawn } from 'child_process';
+import { db } from './server/db.js';
+import { observations } from './shared/schema.js';
+import { eq, and, isNotNull } from 'drizzle-orm';
 
 async function processLargeExcelRobust() {
   try {
-    console.log('=== ROBUST EXCEL PROCESSING ===');
+    console.log('Starting robust batch classification processing...');
     
-    const filePath = './attached_assets/Validated Observations05.30.25.xlsx';
-    console.log('File exists:', fs.existsSync(filePath));
+    // Get total count first
+    const totalCount = await db
+      .select({ count: observations.id })
+      .from(observations)
+      .where(eq(observations.classificationUpdate, true));
     
-    if (!fs.existsSync(filePath)) {
-      console.error('File not found!');
-      return;
-    }
+    console.log(`Total records needing updates: ${totalCount.length}`);
     
-    // First, let's check the file size and structure
-    const stats = fs.statSync(filePath);
-    console.log(`File size: ${Math.round(stats.size / 1024 / 1024 * 100) / 100} MB`);
+    // Build reference lookup once
+    console.log('Building reference taxonomy lookup...');
+    const completeRecords = await db
+      .select()
+      .from(observations)
+      .where(and(
+        isNotNull(observations.genus),
+        isNotNull(observations.kingdom),
+        isNotNull(observations.phylum),
+        isNotNull(observations.class),
+        isNotNull(observations.order),
+        isNotNull(observations.family)
+      ));
     
-    console.log('Reading Excel file structure...');
-    const workbook = XLSX.readFile(filePath, { sheetRows: 10 }); // Only read first 10 rows to check structure
-    console.log('Sheet names:', workbook.SheetNames);
+    const genusLookup = new Map();
+    completeRecords.forEach(obs => {
+      const genusKey = obs.genus.toLowerCase().trim();
+      if (!genusLookup.has(genusKey)) {
+        genusLookup.set(genusKey, {
+          kingdom: obs.kingdom,
+          phylum: obs.phylum,
+          class: obs.class,
+          order: obs.order,
+          family: obs.family,
+          genus: obs.genus
+        });
+      }
+    });
     
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const sampleData = XLSX.utils.sheet_to_json(worksheet);
+    console.log(`Reference genera available: ${genusLookup.size}`);
     
-    console.log('Sample data structure:');
-    console.log('Row count in sample:', sampleData.length);
-    if (sampleData.length > 0) {
-      console.log('Available columns:', Object.keys(sampleData[0]));
-    }
+    // Process in chunks
+    let totalUpdated = 0;
+    const chunkSize = 200;
+    let offset = 0;
     
-    // Now read the full file to get total row count
-    console.log('Getting total row count...');
-    const fullWorkbook = XLSX.readFile(filePath);
-    const fullWorksheet = fullWorkbook.Sheets[fullWorkbook.SheetNames[0]];
-    const range = XLSX.utils.decode_range(fullWorksheet['!ref']);
-    const totalRows = range.e.r + 1; // +1 because rows are 0-indexed
-    
-    console.log(`Total rows in Excel file: ${totalRows}`);
-    console.log(`Estimated data rows (excluding header): ${totalRows - 1}`);
-    
-    if (totalRows > 50000) {
-      console.log('⚠️  Large dataset detected. This will require batch processing.');
-      console.log('Recommended approach: Process in chunks of 5,000 records each');
+    while (true) {
+      const batch = await db
+        .select()
+        .from(observations)
+        .where(eq(observations.classificationUpdate, true))
+        .limit(chunkSize)
+        .offset(offset);
       
-      // For very large files, we should use a streaming approach
-      console.log('Due to the large size, please consider:');
-      console.log('1. Using smaller test files first');
-      console.log('2. Processing in multiple smaller uploads');
-      console.log('3. Using direct database import tools');
+      if (batch.length === 0) break;
       
-      return;
+      console.log(`Processing chunk: ${batch.length} records (offset ${offset})`);
+      
+      let chunkUpdated = 0;
+      
+      for (const record of batch) {
+        let genusCandidate = null;
+        
+        if (record.species) {
+          genusCandidate = record.species.split(' ')[0].toLowerCase().trim();
+        } else if (record.infraspecies) {
+          genusCandidate = record.infraspecies.split(' ')[0].toLowerCase().trim();
+        }
+        
+        if (genusCandidate && genusLookup.has(genusCandidate)) {
+          const ref = genusLookup.get(genusCandidate);
+          
+          await db
+            .update(observations)
+            .set({
+              kingdom: record.kingdom || ref.kingdom,
+              phylum: record.phylum || ref.phylum,
+              class: record.class || ref.class,
+              order: record.order || ref.order,
+              family: record.family || ref.family,
+              genus: record.genus || ref.genus,
+              classificationUpdate: false
+            })
+            .where(eq(observations.id, record.id));
+          
+          chunkUpdated++;
+        }
+      }
+      
+      totalUpdated += chunkUpdated;
+      console.log(`Chunk complete: ${chunkUpdated}/${batch.length} updated. Total: ${totalUpdated}`);
+      
+      // If no updates in this chunk, move offset to avoid infinite loop
+      if (chunkUpdated === 0) {
+        offset += chunkSize;
+      }
+      
+      // Stop after processing a reasonable amount to avoid timeouts
+      if (totalUpdated >= 2000) {
+        console.log('Stopping at 2000 updates to avoid timeout');
+        break;
+      }
     }
     
-    // For smaller files, proceed with normal processing
-    console.log('Processing manageable file size...');
-    const fullData = XLSX.utils.sheet_to_json(fullWorksheet);
-    console.log(`Actual data rows: ${fullData.length}`);
-    
-    // Quick validation check
-    let nameUpdates = 0;
-    let classificationUpdates = 0;
-    
-    for (let i = 0; i < Math.min(100, fullData.length); i++) {
-      const row = fullData[i];
-      const nameUpdate = !row['Species'] && !row['Variety'];
-      const hasSpeciesOrVariety = row['Species'] || row['Variety'];
-      const missingHigherTaxonomy = hasSpeciesOrVariety && (
-        !row['Kingdom'] || !row['Phylum'] || !row['Class'] || 
-        !row['Order'] || !row['Family'] || !row['Genus']
-      );
-      const classificationUpdate = missingHigherTaxonomy;
-      
-      if (nameUpdate) nameUpdates++;
-      if (classificationUpdate) classificationUpdates++;
-    }
-    
-    console.log(`Validation preview (first 100 rows): ${nameUpdates} name updates, ${classificationUpdates} classification updates`);
+    console.log(`Batch processing complete: ${totalUpdated} records automated`);
     
   } catch (error) {
-    console.error('Processing failed:', error);
+    console.error('Error in processing:', error);
+  } finally {
+    process.exit(0);
   }
 }
 
