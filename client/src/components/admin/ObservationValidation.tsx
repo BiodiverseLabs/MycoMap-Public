@@ -186,7 +186,7 @@ export function ObservationValidation() {
               Showing {observations.length} observation{observations.length !== 1 ? 's' : ''}
             </div>
             
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
               {observations.map((obs: ValidationObservation) => {
                 const inatId = getInatId(obs.observationId);
                 
@@ -252,17 +252,16 @@ export function ObservationValidation() {
                           </Button>
                         )}
                         
-                        {getSourceName(obs.observationId) === 'iNaturalist' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleSync(obs.observationId)}
-                            disabled={syncMutation.isPending}
-                            className="flex items-center gap-1"
-                          >
-                            <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                            Sync
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => handleSync(obs.observationId)}
+                          disabled={syncMutation.isPending || getSourceName(obs.observationId) !== 'iNaturalist'}
+                          className="flex items-center gap-1"
+                          title={getSourceName(obs.observationId) !== 'iNaturalist' ? 'Only iNaturalist observations can be refreshed' : 'Refresh data from iNaturalist'}
+                        >
+                          <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                          Refresh
+                        </Button>
                       </div>
                     </div>
                   </div>
