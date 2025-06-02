@@ -54,14 +54,29 @@ export function ObservationValidation() {
       const datePattern = /\d+[\/\-]\d+[\/\-]\d+/;
       if (datePattern.test(mycoMapValue) && datePattern.test(inatValue)) {
         try {
-          // Parse both dates and compare just the date parts
-          const mycoMapDate = new Date(mycoMapValue);
-          const inatDate = new Date(inatValue);
+          // Normalize date strings to avoid parsing issues with 2-digit years
+          const normalizeDate = (dateStr: string) => {
+            // Handle formats like "4/18/2025", "04/18/25", "2025-04-18", etc.
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+              let year = parseInt(parts[2]);
+              let month = parseInt(parts[0]);
+              let day = parseInt(parts[1]);
+              
+              // Handle 2-digit years (assume 20xx if < 50, 19xx if >= 50)
+              if (year < 100) {
+                year += year < 50 ? 2000 : 1900;
+              }
+              
+              return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+            }
+            return dateStr;
+          };
           
-          // Compare year, month, and day only
-          return mycoMapDate.getFullYear() === inatDate.getFullYear() &&
-                 mycoMapDate.getMonth() === inatDate.getMonth() &&
-                 mycoMapDate.getDate() === inatDate.getDate();
+          const normalizedMycoMap = normalizeDate(mycoMapValue);
+          const normalizedInat = normalizeDate(inatValue);
+          
+          return normalizedMycoMap === normalizedInat;
         } catch (e) {
           // If date parsing fails, fall back to string comparison
         }
