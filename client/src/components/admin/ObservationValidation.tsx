@@ -363,7 +363,10 @@ export function ObservationValidation() {
                                     <h6 className="text-xs font-medium text-green-700 mb-2">iNat Observation Fields</h6>
                                     <div className="space-y-1 text-xs">
                                       <div>
-                                        <span className="font-medium">DNA Barcode ITS:</span><br />
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium">DNA Barcode ITS:</span>
+                                          {obs.dnaBarcode && <CheckCircle className="w-4 h-4 text-green-600" />}
+                                        </div>
                                         <span className="text-gray-700 font-mono">
                                           {obs.dnaBarcode ? 
                                             `${obs.dnaBarcode.substring(0, 10)}${obs.dnaBarcode.length > 10 ? '...' : ''}` 
