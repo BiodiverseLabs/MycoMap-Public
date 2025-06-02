@@ -23,10 +23,10 @@ interface ValidationObservation {
   inatLastSynced: string | null;
   inatSyncError: string | null;
   hasInatData: boolean;
-  substrateField?: string | null;
-  hostSpeciesField?: string | null;
-  ecologyNotesField?: string | null;
-  abundanceField?: string | null;
+  dnaBarcode?: string | null;
+  provisionalSpeciesName?: string | null;
+  mycoMapBlastResults?: string | null;
+  traceFiles?: string | null;
   // iNaturalist comparison data
   inatObserver?: string | null;
   inatObservedOn?: string | null;
@@ -286,33 +286,38 @@ export function ObservationValidation() {
                           </div>
                         )}
 
-                        {/* Display observation field data if available */}
-                        {(obs.substrateField || obs.hostSpeciesField || obs.ecologyNotesField || obs.abundanceField) && (
+                        {/* Display DNA sequencing field data if available */}
+                        {(obs.dnaBarcode || obs.provisionalSpeciesName || obs.mycoMapBlastResults || obs.traceFiles) && (
                           <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <h4 className="text-sm font-medium text-blue-900 mb-2">iNaturalist Observation Fields</h4>
-                            <div className="space-y-1 text-sm">
-                              {obs.substrateField && (
+                            <h4 className="text-sm font-medium text-blue-900 mb-2">DNA Sequencing Data</h4>
+                            <div className="space-y-2 text-sm">
+                              {obs.dnaBarcode && (
                                 <div>
-                                  <span className="font-medium text-blue-800">Substrate:</span> 
-                                  <span className="ml-2 text-blue-700">{obs.substrateField}</span>
+                                  <span className="font-medium text-blue-800">DNA Barcode ITS:</span> 
+                                  <div className="ml-2 text-blue-700 font-mono text-xs bg-white p-2 rounded border max-h-20 overflow-y-auto">
+                                    {obs.dnaBarcode}
+                                  </div>
                                 </div>
                               )}
-                              {obs.hostSpeciesField && (
+                              {obs.provisionalSpeciesName && (
                                 <div>
-                                  <span className="font-medium text-blue-800">Host Species:</span> 
-                                  <span className="ml-2 text-blue-700">{obs.hostSpeciesField}</span>
+                                  <span className="font-medium text-blue-800">Provisional Species Name:</span> 
+                                  <span className="ml-2 text-blue-700">{obs.provisionalSpeciesName}</span>
                                 </div>
                               )}
-                              {obs.ecologyNotesField && (
+                              {obs.mycoMapBlastResults && (
                                 <div>
-                                  <span className="font-medium text-blue-800">Ecology/Notes:</span> 
-                                  <span className="ml-2 text-blue-700">{obs.ecologyNotesField}</span>
+                                  <span className="font-medium text-blue-800">MycoMap BLAST Results:</span> 
+                                  <a href={obs.mycoMapBlastResults} target="_blank" rel="noopener noreferrer" 
+                                     className="ml-2 text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1">
+                                    View Results <ExternalLink className="h-3 w-3" />
+                                  </a>
                                 </div>
                               )}
-                              {obs.abundanceField && (
+                              {obs.traceFiles && (
                                 <div>
-                                  <span className="font-medium text-blue-800">Abundance:</span> 
-                                  <span className="ml-2 text-blue-700">{obs.abundanceField}</span>
+                                  <span className="font-medium text-blue-800">Trace Files:</span> 
+                                  <span className="ml-2 text-blue-700">{obs.traceFiles}</span>
                                 </div>
                               )}
                             </div>
@@ -384,33 +389,33 @@ export function ObservationValidation() {
                                     </div>
                                   </div>
                                   
-                                  {/* iNaturalist Observation Fields */}
+                                  {/* iNaturalist DNA Sequencing Fields */}
                                   <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <h6 className="text-xs font-medium text-green-700 mb-2">Observation Fields</h6>
+                                    <h6 className="text-xs font-medium text-green-700 mb-2">DNA Sequencing Data</h6>
                                     <div className="space-y-1 text-xs">
                                       <div>
                                         <span className="font-medium">DNA Barcode ITS:</span><br />
                                         <span className="text-gray-700 font-mono">
-                                          {obs.substrateField ? 
-                                            `${obs.substrateField.substring(0, 10)}${obs.substrateField.length > 10 ? '...' : ''}` 
+                                          {obs.dnaBarcode ? 
+                                            `${obs.dnaBarcode.substring(0, 10)}${obs.dnaBarcode.length > 10 ? '...' : ''}` 
                                             : 'N/A'
                                           }
                                         </span>
                                       </div>
                                       <div>
                                         <span className="font-medium">Provisional Species Name:</span><br />
-                                        <span className="text-gray-700">{obs.hostSpeciesField || 'N/A'}</span>
+                                        <span className="text-gray-700">{obs.provisionalSpeciesName || 'N/A'}</span>
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">MycoMap BLAST Results:</span>
-                                        {obs.ecologyNotesField && obs.ecologyNotesField.includes('mycomap.com') ? 
+                                        {obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? 
                                           <CheckCircle className="w-4 h-4 text-green-600" /> : 
                                           <XCircle className="w-4 h-4 text-red-600" />
                                         }
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Trace Files (Raw DNA Data):</span>
-                                        {obs.abundanceField && obs.abundanceField.includes('mycomap.com') ? 
+                                        {obs.traceFiles ? 
                                           <CheckCircle className="w-4 h-4 text-green-600" /> : 
                                           <XCircle className="w-4 h-4 text-red-600" />
                                         }
