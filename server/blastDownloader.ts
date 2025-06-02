@@ -31,86 +31,24 @@ export class BlastFileDownloader {
   private async parseBlastPageForFiles(blastUrl: string): Promise<{ ncbiUrl?: string; localUrl?: string }> {
     try {
       console.log(`[BLAST] Fetching page: ${blastUrl}`);
-      const response = await fetch(blastUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        }
-      });
+      const response = await fetch(blastUrl);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const html = await response.text();
-      console.log(`[BLAST] Page content length: ${html.length} characters`);
       
-      // Look for various patterns to find file links
-      console.log(`[BLAST] Searching for NCBI and Local result links...`);
-      
-      // Try multiple regex patterns to catch different HTML structures
-      const patterns = [
-        // Pattern 1: Standard link with "NCBI Results:" text
-        /NCBI Results:\s*<a[^>]*href="([^"]*(?:\.xml|file\.php[^"]*xml[^"]*))"[^>]*>([^<]*(?:\.xml|[^<]*))<\/a>/i,
-        // Pattern 2: Link containing "NCBI" in href
-        /<a[^>]*href="([^"]*(?:NCBI|ncbi)[^"]*(?:\.xml|file\.php[^"]*))"[^>]*>([^<]*(?:\.xml|[^<]*))<\/a>/i,
-        // Pattern 3: Any link with .xml file
-        /<a[^>]*href="([^"]*\.xml)"[^>]*>([^<]*\.xml)<\/a>/i
-      ];
-      
-      const localPatterns = [
-        /Local Results:\s*<a[^>]*href="([^"]*(?:\.xml|file\.php[^"]*xml[^"]*))"[^>]*>([^<]*(?:\.xml|[^<]*))<\/a>/i,
-        /<a[^>]*href="([^"]*(?:local|Local)[^"]*(?:\.xml|file\.php[^"]*))"[^>]*>([^<]*(?:\.xml|[^<]*))<\/a>/i
-      ];
+      // Extract file URLs from the HTML
+      // Look for patterns like "NCBI Results: filename.xml" and "Local Results: filename.xml"
+      const ncbiMatch = html.match(/NCBI Results:\s*<a[^>]*href="([^"]*\.xml)"[^>]*>([^<]*\.xml)<\/a>/i);
+      const localMatch = html.match(/Local Results:\s*<a[^>]*href="([^"]*\.xml)"[^>]*>([^<]*\.xml)<\/a>/i);
 
       let ncbiUrl, localUrl;
       
-      // Try each pattern for NCBI
-      for (const pattern of patterns) {
-        const match = html.match(pattern);
-        if (match) {
-          ncbiUrl = match[1];
-          console.log(`[BLAST] Found NCBI match with pattern: ${pattern.source.substring(0, 50)}...`);
-          console.log(`[BLAST] Raw NCBI URL: ${ncbiUrl}`);
-          break;
-        }
-      }
-      
-      // Try each pattern for Local
-      for (const pattern of localPatterns) {
-        const match = html.match(pattern);
-        if (match) {
-          localUrl = match[1];
-          console.log(`[BLAST] Found Local match with pattern: ${pattern.source.substring(0, 50)}...`);
-          console.log(`[BLAST] Raw Local URL: ${localUrl}`);
-          break;
-        }
-      }
-      
-      // If no matches found, let's see what links are available
-      if (!ncbiUrl && !localUrl) {
-        console.log(`[BLAST] No file links found. Searching for all links...`);
-        const allLinks = html.match(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi);
-        if (allLinks) {
-          console.log(`[BLAST] Found ${allLinks.length} total links:`);
-          allLinks.slice(0, 10).forEach((link, i) => {
-            console.log(`[BLAST] Link ${i + 1}: ${link.substring(0, 100)}`);
-          });
-        }
-        
-        // Look for any mention of XML files or file download links
-        const xmlMentions = html.match(/[^<>]*(?:\.xml|file\.php)[^<>]*/gi);
-        if (xmlMentions) {
-          console.log(`[BLAST] Found ${xmlMentions.length} XML mentions:`);
-          xmlMentions.slice(0, 5).forEach((mention, i) => {
-            console.log(`[BLAST] XML mention ${i + 1}: ${mention.substring(0, 200)}`);
-          });
-        }
-      }
-      
-      // Clean up URLs and handle HTML entities
-      if (ncbiUrl) {
-        ncbiUrl = ncbiUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+      if (ncbiMatch) {
+        ncbiUrl = ncbiMatch[1];
+        // Handle relative URLs
         if (ncbiUrl.startsWith('/')) {
           ncbiUrl = `https://mycomap.com${ncbiUrl}`;
         } else if (!ncbiUrl.startsWith('http')) {
@@ -119,8 +57,9 @@ export class BlastFileDownloader {
         }
       }
 
-      if (localUrl) {
-        localUrl = localUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+      if (localMatch) {
+        localUrl = localMatch[1];
+        // Handle relative URLs
         if (localUrl.startsWith('/')) {
           localUrl = `https://mycomap.com${localUrl}`;
         } else if (!localUrl.startsWith('http')) {
@@ -211,60 +150,36 @@ export class BlastFileDownloader {
         return { success: false, error: 'Invalid observation ID format' };
       }
 
-      console.log(`[BLAST] Starting download process for observation ${observationId} (iNat${inatId})`);
-
       // Parse the BLAST page to get file URLs
       const { ncbiUrl, localUrl } = await this.parseBlastPageForFiles(blastUrl);
 
       if (!ncbiUrl && !localUrl) {
-        return { success: false, error: 'No BLAST result files found on the page. The MycoMap page may not contain downloadable XML files or they may require authentication.' };
+        return { success: false, error: 'No BLAST result files found on the page' };
       }
 
       // Generate local file paths
       const ncbiPath = ncbiUrl ? path.join(this.downloadDir, `iNat${inatId}-NCBI-BLAST.xml`) : undefined;
       const localPath = localUrl ? path.join(this.downloadDir, `iNat${inatId}-Local-BLAST.xml`) : undefined;
 
-      console.log(`[BLAST] Attempting to download:${ncbiUrl ? `\n  NCBI: ${ncbiUrl} -> ${ncbiPath}` : ''}${localUrl ? `\n  Local: ${localUrl} -> ${localPath}` : ''}`);
-
       // Download files
       let ncbiSuccess = true;
       let localSuccess = true;
-      let downloadErrors: string[] = [];
 
       if (ncbiUrl && ncbiPath) {
-        console.log(`[BLAST] Downloading NCBI file...`);
         ncbiSuccess = await this.downloadFile(ncbiUrl, ncbiPath);
-        if (!ncbiSuccess) {
-          downloadErrors.push('NCBI file download failed');
-        }
       }
 
       if (localUrl && localPath) {
-        console.log(`[BLAST] Downloading Local file...`);
         localSuccess = await this.downloadFile(localUrl, localPath);
-        if (!localSuccess) {
-          downloadErrors.push('Local file download failed');
-        }
       }
 
       const success = ncbiSuccess && localSuccess;
-      
-      let errorMessage = undefined;
-      if (!success) {
-        if (downloadErrors.length > 0) {
-          errorMessage = `${downloadErrors.join(', ')}. This may be due to MycoMap's authentication system or session-based file access. The links found were: ${[ncbiUrl, localUrl].filter(Boolean).join(', ')}`;
-        } else {
-          errorMessage = 'Failed to download some BLAST files';
-        }
-      }
-      
-      console.log(`[BLAST] Download summary - NCBI: ${ncbiSuccess ? 'SUCCESS' : 'FAILED'}, Local: ${localSuccess ? 'SUCCESS' : 'FAILED'}`);
       
       return {
         success,
         ncbiPath: ncbiSuccess ? ncbiPath : undefined,
         localPath: localSuccess ? localPath : undefined,
-        error: errorMessage
+        error: success ? undefined : 'Failed to download some BLAST files'
       };
 
     } catch (error) {
