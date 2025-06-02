@@ -66,6 +66,14 @@ export const observations = pgTable("observations", {
   sourceUrl: text("source_url"),
   nameUpdate: boolean("name_update").default(false),
   classificationUpdate: boolean("classification_update").default(false),
+  
+  // BLAST results tracking
+  mycoMapBlastUrl: text("mycomap_blast_url"),
+  ncbiBlastFile: text("ncbi_blast_file"), // Local path to downloaded NCBI XML
+  localBlastFile: text("local_blast_file"), // Local path to downloaded Local XML
+  blastFilesDownloaded: boolean("blast_files_downloaded").default(false),
+  blastDownloadDate: timestamp("blast_download_date"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({

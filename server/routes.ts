@@ -10,6 +10,7 @@ import fs from "fs";
 import csv from "csv-parser";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { blastDownloader } from "./blastDownloader";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -1541,6 +1542,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching validation data:", error);
       res.status(500).json({ error: "Failed to fetch validation data" });
+    }
+  });
+
+  // BLAST file download endpoints
+  app.post("/api/observations/:id/download-blast", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      const { blastUrl } = req.body;
+
+      if (!blastUrl) {
+        return res.status(400).json({ error: "BLAST URL is required" });
+      }
+
+      console.log(`[BLAST] Starting download for observation ${observationId}`);
+      
+      // Download BLAST files
+      const result = await blastDownloader.downloadBlastFiles(observationId, blastUrl);
+      
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      // Update observation record with BLAST file information
+      await storage.updateObservationTaxonomy(parseInt(observationId), {
+        mycoMapBlastUrl: blastUrl,
+        ncbiBlastFile: result.ncbiPath ? path.basename(result.ncbiPath) : null,
+        localBlastFile: result.localPath ? path.basename(result.localPath) : null,
+        blastFilesDownloaded: true,
+        blastDownloadDate: new Date()
+      });
+
+      res.json({
+        success: true,
+        ncbiFile: result.ncbiPath ? path.basename(result.ncbiPath) : null,
+        localFile: result.localPath ? path.basename(result.localPath) : null
+      });
+
+    } catch (error) {
+      console.error(`[BLAST] Error downloading files:`, error);
+      res.status(500).json({ error: "Failed to download BLAST files" });
+    }
+  });
+
+  // Check BLAST file status
+  app.get("/api/observations/:id/blast-status", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      const { ncbiExists, localExists } = await blastDownloader.checkExistingFiles(observationId);
+      
+      res.json({
+        ncbiExists,
+        localExists,
+        bothExist: ncbiExists && localExists
+      });
+    } catch (error) {
+      console.error(`[BLAST] Error checking file status:`, error);
+      res.status(500).json({ error: "Failed to check BLAST file status" });
+    }
+  });
+
+  // Serve downloaded BLAST files
+  app.get("/api/blast-files/:filename", (req, res) => {
+    try {
+      const filename = req.params.filename;
+      const filePath = path.join(__dirname, '../downloads/blast', filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      res.setHeader('Content-Type', 'application/xml');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.sendFile(path.resolve(filePath));
+    } catch (error) {
+      console.error(`[BLAST] Error serving file:`, error);
+      res.status(500).json({ error: "Failed to serve file" });
     }
   });
 
