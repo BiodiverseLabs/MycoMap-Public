@@ -26,7 +26,7 @@ import FamilyDetail from "@/pages/FamilyDetail";
 import ClassDetail from "@/pages/ClassDetail";
 import OrderDetail from "@/pages/OrderDetail";
 import GenusDetail from "@/pages/GenusDetail";
-import AdminModal from "@/components/admin/AdminModal";
+import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -53,6 +53,7 @@ function Router() {
       <Route path="/records/most-observations" component={MostObservations} />
       <Route path="/records/most-species" component={MostSpecies} />
       <Route path="/updates" component={Updates} />
+      <Route path="/admin" component={Admin} />
       <Route path="/species/:name" component={SpeciesDetail} />
       <Route path="/species" component={Species} />
       <Route component={NotFound} />
@@ -61,20 +62,14 @@ function Router() {
 }
 
 function App() {
-  const [adminModalOpen, setAdminModalOpen] = useState(false);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="flex flex-col lg:flex-row h-screen bg-slate-50">
-          <Sidebar onOpenAdmin={() => setAdminModalOpen(true)} />
+          <Sidebar />
           <main className="flex-1 overflow-hidden">
             <Router />
           </main>
-          <AdminModal 
-            open={adminModalOpen} 
-            onOpenChange={setAdminModalOpen} 
-          />
         </div>
         <Toaster />
       </TooltipProvider>

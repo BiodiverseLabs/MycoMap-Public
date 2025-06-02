@@ -18,11 +18,7 @@ import {
 import { Button } from "./button";
 import { useState, useEffect } from "react";
 
-interface SidebarProps {
-  onOpenAdmin: () => void;
-}
-
-export function Sidebar({ onOpenAdmin }: SidebarProps) {
+export function Sidebar() {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -36,6 +32,7 @@ export function Sidebar({ onOpenAdmin }: SidebarProps) {
     { href: "/conservation", label: "Conservation", icon: Shield },
     { href: "/contributors", label: "Contributors", icon: Users },
     { href: "/records", label: "Records", icon: Trophy },
+    { href: "/admin", label: "Admin", icon: Settings },
   ];
 
   // Close mobile menu when location changes
