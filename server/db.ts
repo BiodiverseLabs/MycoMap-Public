@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray } from 'drizzle-orm';
 import type { IStorage } from "./storage";
+import { blastDownloader } from "./blastDownloader";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -1226,17 +1227,62 @@ export class DatabaseStorage implements IStorage {
         .from(inaturalistData)
         .where(eq(inaturalistData.observationId, observationId));
 
+      let result;
       if (existing) {
         // Update existing record
         await this.updateInaturalistData(observationId, inaturalistRecord);
         const [updated] = await db.select()
           .from(inaturalistData)
           .where(eq(inaturalistData.observationId, observationId));
-        return updated;
+        result = updated;
       } else {
         // Create new record
-        return await this.createInaturalistData(inaturalistRecord);
+        result = await this.createInaturalistData(inaturalistRecord);
       }
+
+      // Automatically download BLAST and trace files if MycoMap URLs are detected
+      try {
+        if (mycoMapBlast && mycoMapBlast.includes('mycomap.com')) {
+          console.log(`[iNaturalist] Auto-downloading BLAST files for ${observationId}`);
+          const blastResult = await blastDownloader.downloadBlastFiles(observationId, mycoMapBlast);
+          
+          if (blastResult.success) {
+            // Update observation with BLAST file info
+            await db.update(observations)
+              .set({
+                blastFilesDownloaded: true,
+                ncbiBlastFile: blastResult.ncbiPath ? blastResult.ncbiPath.split('/').pop() : null,
+                localBlastFile: blastResult.localPath ? blastResult.localPath.split('/').pop() : null,
+                blastDownloadDate: new Date()
+              })
+              .where(eq(observations.observationId, observationId));
+            console.log(`[iNaturalist] BLAST files downloaded for ${observationId}`);
+          }
+        }
+
+        if (traceFiles && traceFiles.includes('mycomap.com')) {
+          console.log(`[iNaturalist] Auto-downloading trace files for ${observationId}`);
+          const traceResult = await blastDownloader.downloadTraceFiles(observationId, traceFiles);
+          
+          if (traceResult.success) {
+            // Update observation with trace file info
+            await db.update(observations)
+              .set({
+                traceFilesDownloaded: true,
+                fastqFile: traceResult.fastqPath ? traceResult.fastqPath.split('/').pop() : null,
+                mycoMapTraceUrl: traceFiles,
+                traceDownloadDate: new Date()
+              })
+              .where(eq(observations.observationId, observationId));
+            console.log(`[iNaturalist] Trace files downloaded for ${observationId}`);
+          }
+        }
+      } catch (downloadError) {
+        console.error(`[iNaturalist] Error downloading files for ${observationId}:`, downloadError);
+        // Don't fail the sync if downloads fail
+      }
+
+      return result;
 
     } catch (error) {
       console.error(`[iNaturalist] Error syncing observation ${observationId}:`, error);
