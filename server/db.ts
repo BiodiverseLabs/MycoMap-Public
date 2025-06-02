@@ -9,7 +9,7 @@ import {
   type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment,
   type InaturalistData, type InsertInaturalistData, type InaturalistPlace, type InsertInaturalistPlace
 } from "@shared/schema";
-import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like } from 'drizzle-orm';
+import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray } from 'drizzle-orm';
 import type { IStorage } from "./storage";
 
 neonConfig.webSocketConstructor = ws;
@@ -1247,8 +1247,10 @@ export class DatabaseStorage implements IStorage {
 
   async getPlacesByIds(placeIds: number[]): Promise<InaturalistPlace[]> {
     if (placeIds.length === 0) return [];
+    
+    // Use inArray for better compatibility with Drizzle
     const places = await db.select().from(inaturalistPlaces).where(
-      sql`${inaturalistPlaces.placeId} = ANY(${placeIds})`
+      inArray(inaturalistPlaces.placeId, placeIds)
     );
     return places;
   }

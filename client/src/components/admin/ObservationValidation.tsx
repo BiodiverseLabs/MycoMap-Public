@@ -42,22 +42,30 @@ export function ObservationValidation() {
   const { toast } = useToast();
 
   // Helper function to compare data fields
-  const compareFields = (mycoMapValue: string | null, inatValue: string | null, provisionalName?: string | null) => {
+  const compareFields = (mycoMapValue: string | null | undefined, inatValue: string | null | undefined, isScientificName = false, provisionalName?: string | null | undefined) => {
     // For scientific name comparison, use provisional name if available
-    if (provisionalName) {
+    if (isScientificName && provisionalName) {
       return provisionalName.toLowerCase().trim() === (inatValue || '').toLowerCase().trim();
     }
+    
+    // For date fields, only compare the date part (YYYY-MM-DD)
+    if (mycoMapValue && inatValue && mycoMapValue.includes('-') && inatValue.includes('-')) {
+      const mycoMapDate = mycoMapValue.split('T')[0]; // Extract date part
+      const inatDate = inatValue.split('T')[0]; // Extract date part
+      return mycoMapDate === inatDate;
+    }
+    
     // For other fields, do direct comparison
     const mycoMap = (mycoMapValue || '').toLowerCase().trim();
     const inat = (inatValue || '').toLowerCase().trim();
     return mycoMap === inat && mycoMap !== '';
   };
 
-  // Helper function to render comparison icon
+  // Helper function to render comparison icon (consistent with DNA field icons)
   const renderComparisonIcon = (isMatch: boolean) => {
     return isMatch ? 
-      <Check className="w-4 h-4 text-green-600" /> : 
-      <X className="w-4 h-4 text-red-600" />;
+      <CheckCircle className="w-4 h-4 text-green-600" /> : 
+      <XCircle className="w-4 h-4 text-red-600" />;
   };
 
   // Fetch validation data
@@ -341,7 +349,7 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Scientific Name:</span>
-                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, obs.provisionalSpeciesName))}
+                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, true, obs.provisionalSpeciesName))}
                                       </div>
                                       <span className="text-gray-700">
                                         {obs.provisionalSpeciesName ? 
@@ -379,7 +387,7 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Scientific Name:</span>
-                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, obs.provisionalSpeciesName))}
+                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, true, obs.provisionalSpeciesName))}
                                       </div>
                                       <span className="text-gray-700">{obs.inatScientificName || 'N/A'}</span>
                                     </div>
