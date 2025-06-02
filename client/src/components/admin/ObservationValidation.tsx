@@ -137,6 +137,11 @@ export function ObservationValidation() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
+    // Handle date-only strings to avoid timezone conversion issues
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateString.split('-');
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString();
+    }
     return new Date(dateString).toLocaleDateString();
   };
 
