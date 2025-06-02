@@ -1533,6 +1533,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             traceFilesDownloaded: obs.traceFilesDownloaded || false,
             fastqFile: obs.fastqFile || null,
             mycoMapTraceUrl: obs.mycoMapTraceUrl || null,
+            // GenBank data
+            genbankAccession: obs.genbankAccession || null,
             // Comparison data
             inatScientificName,
             inatObserver,

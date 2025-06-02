@@ -505,6 +505,10 @@ export function ObservationValidation() {
                                       </div>
                                       <span className="text-gray-700">{obs.state || 'N/A'}</span>
                                     </div>
+                                    <div>
+                                      <span className="font-medium">GenBank Accession:</span><br />
+                                      <span className="text-gray-700 font-mono">{obs.genbankAccession || 'N/A'}</span>
+                                    </div>
                                   </div>
                                 </div>
                                 <div>
