@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink } from "lucide-react";
+import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ValidationObservation {
@@ -24,11 +25,17 @@ interface ValidationObservation {
   hostSpeciesField?: string | null;
   ecologyNotesField?: string | null;
   abundanceField?: string | null;
+  // iNaturalist comparison data
+  inatObserver?: string | null;
+  inatObservedOn?: string | null;
+  inatState?: string | null;
+  inatScientificName?: string | null;
 }
 
 export function ObservationValidation() {
   const [sourceFilter, setSourceFilter] = useState('all');
   const [limit, setLimit] = useState(50);
+  const [expandedComparisons, setExpandedComparisons] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
 
   // Fetch validation data
@@ -115,6 +122,16 @@ export function ObservationValidation() {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const toggleComparison = (obsId: number) => {
+    const newExpanded = new Set(expandedComparisons);
+    if (newExpanded.has(obsId)) {
+      newExpanded.delete(obsId);
+    } else {
+      newExpanded.add(obsId);
+    }
+    setExpandedComparisons(newExpanded);
   };
 
   return (
@@ -274,6 +291,76 @@ export function ObservationValidation() {
                             </div>
                           </div>
                         )}
+
+                        {/* Data Comparison Dropdown */}
+                        <Collapsible 
+                          open={expandedComparisons.has(obs.id)} 
+                          onOpenChange={() => toggleComparison(obs.id)}
+                          className="mt-3"
+                        >
+                          <CollapsibleTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full justify-between"
+                            >
+                              <span>Compare MycoMap vs iNaturalist Data</span>
+                              {expandedComparisons.has(obs.id) ? 
+                                <ChevronUp className="h-4 w-4" /> : 
+                                <ChevronDown className="h-4 w-4" />
+                              }
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="space-y-2 mt-2">
+                            <div className="p-3 bg-gray-50 rounded-lg border">
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Data Comparison</h4>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <h5 className="font-medium text-blue-800 mb-1">MycoMap Data</h5>
+                                  <div className="space-y-1">
+                                    <div>
+                                      <span className="font-medium">Scientific Name:</span><br />
+                                      <span className="text-gray-700">{obs.scientificName}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Observer:</span><br />
+                                      <span className="text-gray-700">{obs.observer || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Date:</span><br />
+                                      <span className="text-gray-700">{formatDate(obs.observedOn)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">State:</span><br />
+                                      <span className="text-gray-700">{obs.state || 'N/A'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div>
+                                  <h5 className="font-medium text-green-800 mb-1">iNaturalist Data</h5>
+                                  <div className="space-y-1">
+                                    <div>
+                                      <span className="font-medium">Scientific Name:</span><br />
+                                      <span className="text-gray-700">{obs.inatScientificName || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Observer:</span><br />
+                                      <span className="text-gray-700">{obs.inatObserver || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Date:</span><br />
+                                      <span className="text-gray-700">{formatDate(obs.inatObservedOn)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">State:</span><br />
+                                      <span className="text-gray-700">{obs.inatState || 'N/A'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
                       </div>
                       
                       <div className="flex items-center gap-2 ml-4">
