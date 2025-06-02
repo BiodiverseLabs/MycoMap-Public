@@ -82,13 +82,39 @@ export class BlastFileDownloader {
   private async downloadFile(url: string, localPath: string): Promise<boolean> {
     try {
       console.log(`[BLAST] Downloading ${url} to ${localPath}`);
-      const response = await fetch(url);
+      
+      // Add headers to mimic browser request
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1'
+        }
+      });
+      
+      console.log(`[BLAST] Response status: ${response.status} ${response.statusText}`);
+      console.log(`[BLAST] Response headers:`, Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.log(`[BLAST] Error response body:`, errorText.substring(0, 500));
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const buffer = await response.buffer();
+      console.log(`[BLAST] Downloaded ${buffer.length} bytes`);
+      
+      // Check if it's actually an XML file by looking at content
+      const content = buffer.toString('utf-8', 0, Math.min(200, buffer.length));
+      console.log(`[BLAST] File content preview:`, content.substring(0, 200));
+      
+      if (!content.includes('<?xml') && !content.includes('<BlastOutput')) {
+        console.warn(`[BLAST] Downloaded content doesn't appear to be XML`);
+      }
+      
       await fs.writeFile(localPath, buffer);
       
       console.log(`[BLAST] Successfully downloaded ${localPath}`);
