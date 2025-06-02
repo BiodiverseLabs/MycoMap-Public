@@ -46,9 +46,11 @@ export function ObservationValidation() {
   // Sync individual observation mutation
   const syncMutation = useMutation({
     mutationFn: async (observationId: string) => {
-      return apiRequest(`/api/inaturalist/sync/${observationId}`, {
+      const response = await fetch(`/api/inaturalist/sync/${observationId}`, {
         method: 'POST'
       });
+      if (!response.ok) throw new Error('Failed to sync observation');
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });

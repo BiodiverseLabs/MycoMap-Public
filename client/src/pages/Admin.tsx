@@ -23,6 +23,12 @@ export default function Admin() {
 
   const menuItems = [
     {
+      id: "validation",
+      label: "Validation",
+      icon: Database,
+      description: "Validate and sync observation data"
+    },
+    {
       id: "upload",
       label: "Upload Data",
       icon: Upload,
@@ -31,7 +37,7 @@ export default function Admin() {
     {
       id: "redlist",
       label: "Red List Uploads", 
-      icon: Database,
+      icon: AlertTriangle,
       description: "Manage IUCN Red List data"
     },
     {
@@ -39,12 +45,6 @@ export default function Admin() {
       label: "System Settings",
       icon: Settings,
       description: "Configure application settings"
-    },
-    {
-      id: "logs",
-      label: "System Logs",
-      icon: FileText,
-      description: "View system logs and activity"
     }
   ];
 
@@ -113,6 +113,10 @@ export default function Admin() {
               );
             })}
           </TabsList>
+
+          <TabsContent value="validation" className="space-y-6">
+            <ObservationValidation />
+          </TabsContent>
 
           <TabsContent value="upload" className="space-y-6">
             <Card>
