@@ -48,11 +48,24 @@ export function ObservationValidation() {
       return provisionalName.toLowerCase().trim() === (inatValue || '').toLowerCase().trim();
     }
     
-    // For date fields, only compare the date part (YYYY-MM-DD)
-    if (mycoMapValue && inatValue && mycoMapValue.includes('-') && inatValue.includes('-')) {
-      const mycoMapDate = mycoMapValue.split('T')[0]; // Extract date part
-      const inatDate = inatValue.split('T')[0]; // Extract date part
-      return mycoMapDate === inatDate;
+    // For date fields, normalize both dates to comparable format
+    if (mycoMapValue && inatValue) {
+      // Check if these look like dates (contain numbers and slashes or dashes)
+      const datePattern = /\d+[\/\-]\d+[\/\-]\d+/;
+      if (datePattern.test(mycoMapValue) && datePattern.test(inatValue)) {
+        try {
+          // Parse both dates and compare just the date parts
+          const mycoMapDate = new Date(mycoMapValue);
+          const inatDate = new Date(inatValue);
+          
+          // Compare year, month, and day only
+          return mycoMapDate.getFullYear() === inatDate.getFullYear() &&
+                 mycoMapDate.getMonth() === inatDate.getMonth() &&
+                 mycoMapDate.getDate() === inatDate.getDate();
+        } catch (e) {
+          // If date parsing fails, fall back to string comparison
+        }
+      }
     }
     
     // For other fields, do direct comparison
