@@ -1,0 +1,212 @@
+lement.style {
+}
+<style>
+body {
+    overscroll-behavior-x: none;
+}
+<style>
+body {
+    overflow: hidden;
+}
+<style>
+* {
+    scrollbar-color: var(--background-highest) var(--background-default);
+}
+body {
+    background-color: var(--background-root);
+    color: var(--foreground-default);
+    font-size: var(--font-size-default);
+    font-family: var(--font-family-default);
+    --interactive-background: var(--background-default);
+    --interactive-background--active: var(--background-higher);
+    --interactive-border: var(--outline-dimmer);
+    --interactive-border--hover: var(--outline-default);
+}
+body, html {
+    min-height: 100%;
+}
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+user agent stylesheet
+body {
+    display: block;
+    margin: 8px;
+}
+style attribute {
+    app-region: unset;
+    --background-root: #0E1525;
+    --background-default: #1C2333;
+    --background-higher: #2B3245;
+    --background-highest: #3C445C;
+    --background-overlay: #0e1525A0;
+    --foreground-default: #F5F9FC;
+    --foreground-dimmer: #C2C8CC;
+    --foreground-dimmest: #9DA2A6;
+    --outline-dimmest: #2B3245;
+    --outline-dimmer: #3C445C;
+    --outline-default: #4E5569;
+    --outline-stronger: #5F677A;
+    --outline-strongest: #70788C;
+    --accent-primary-dimmest: #004182;
+    --accent-primary-dimmer: #0053A6;
+    --accent-primary-default: #0079F2;
+    --accent-primary-stronger: #57ABFF;
+    --accent-primary-strongest: #B2D9FF;
+    --accent-positive-dimmest: #044A10;
+    --accent-positive-dimmer: #046113;
+    --accent-positive-default: #009118;
+    --accent-positive-stronger: #6CD97E;
+    --accent-positive-strongest: #BFFFCA;
+    --accent-negative-dimmest: #660000;
+    --accent-negative-dimmer: #A60808;
+    --accent-negative-default: #E52222;
+    --accent-negative-stronger: #FF6666;
+    --accent-negative-strongest: #FFCFCF;
+    --brand-accent-dimmest: #7E2A01;
+    --brand-accent-dimmer: #BB3E02;
+    --brand-accent-default: #EC4E02;
+    --brand-accent-stronger: #FE9C6C;
+    --brand-accent-strongest: #FECCB3;
+    --accent-red-dimmest: #660000;
+    --accent-red-dimmer: #A60808;
+    --accent-red-default: #E52222;
+    --accent-red-stronger: #FF6666;
+    --accent-red-strongest: #FFCFCF;
+    --accent-orange-dimmest: #542A00;
+    --accent-orange-dimmer: #703800;
+    --accent-orange-default: #AD5700;
+    --accent-orange-stronger: #D4781C;
+    --accent-orange-strongest: #FFBD7A;
+    --accent-yellow-dimmest: #4D4000;
+    --accent-yellow-dimmer: #635300;
+    --accent-yellow-default: #967D00;
+    --accent-yellow-stronger: #BFA730;
+    --accent-yellow-strongest: #F2E088;
+    --accent-lime-dimmest: #314A00;
+Show all properties (52 more)
+}
+.replit-ui-theme-root {
+    --background-root: #EBECED;
+    --background-default: #FCFCFC;
+    --background-higher: #F0F1F2;
+    --background-highest: #E4E5E6;
+    --background-overlay: #F0F1F2A0;
+    --foreground-default: #07080A;
+    --foreground-dimmer: #3D4047;
+    --foreground-dimmest: #5C5F66;
+    --outline-dimmest: #D2D4D6;
+    --outline-dimmer: #C0C3C4;
+    --outline-default: #AFB1B3;
+    --outline-stronger: #98999C;
+    --outline-strongest: #74767A;
+    --accent-primary-dimmest: #B2D9FF;
+    --accent-primary-dimmer: #6BB5FF;
+    --accent-primary-default: #0F87FF;
+    --accent-primary-stronger: #005CB8;
+    --accent-primary-strongest: #004182;
+    --accent-positive-dimmest: #7AEB8D;
+    --accent-positive-dimmer: #3CC954;
+    --accent-positive-default: #00A11B;
+    --accent-positive-stronger: #036E15;
+    --accent-positive-strongest: #004D0D;
+    --accent-negative-dimmest: #FFC7C7;
+    --accent-negative-dimmer: #FF9494;
+    --accent-negative-default: #FA4B4B;
+    --accent-negative-stronger: #C20A0A;
+    --accent-negative-strongest: #8A0000;
+    --brand-accent-dimmest: #FECCB3;
+    --brand-accent-dimmer: #FE9C6C;
+    --brand-accent-default: #EC4E02;
+    --brand-accent-stronger: #BB3E02;
+    --brand-accent-strongest: #7E2A01;
+    --accent-red-dimmest: #FFC7C7;
+    --accent-red-dimmer: #FF9494;
+    --accent-red-default: #FA4B4B;
+    --accent-red-stronger: #C20A0A;
+    --accent-red-strongest: #8A0000;
+    --accent-orange-dimmest: #FFCC99;
+    --accent-orange-dimmer: #FF9933;
+    --accent-orange-default: #D96D00;
+    --accent-orange-stronger: #964B00;
+    --accent-orange-strongest: #693400;
+    --accent-yellow-dimmest: #EBD66E;
+    --accent-yellow-dimmer: #CFB015;
+    --accent-yellow-default: #A68A00;
+    --accent-yellow-stronger: #736000;
+    --accent-yellow-strongest: #4F4200;
+    --accent-lime-dimmest: #C0E378;
+    --accent-lime-dimmer: #93C926;
+Show all properties (50 more)
+}
+:root {
+    --border-radius-1: 1px;
+    --border-radius-2: 2px;
+    --border-radius-4: 4px;
+    --border-radius-6: 6px;
+    --border-radius-8: 8px;
+    --border-radius-12: 12px;
+    --border-radius-16: 16px;
+    --border-radius-default: var(--border-radius-4);
+    --border-radius-container: var(--border-radius-6);
+    --border-radius-round: 1028px;
+    --space-1: 1px;
+    --space-2: 2px;
+    --space-4: 4px;
+    --space-6: 6px;
+    --space-8: 8px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-24: 24px;
+    --space-32: 32px;
+    --space-40: 40px;
+    --space-48: 48px;
+    --space-56: 56px;
+    --space-64: 64px;
+    --space-80: 80px;
+    --space-96: 96px;
+    --space-128: 128px;
+    --space-256: 256px;
+    --space-default: var(--space-8);
+    --shadow-1: 0px 4px 8px 0px rgba(2, 2, 3, 0.16);
+    --shadow-2: 0px 8px 16px 0px rgba(2, 2, 3, 0.32);
+    --shadow-3: 0px 16px 32px 0px rgba(2, 2, 3, 0.48);
+    --shadow-default: var(--shadow-1);
+    --font-family-default: "IBM Plex Sans", sans-serif;
+    --font-family-code: "ReplitHack", monospace;
+    --font-size-small: 12px;
+    --font-size-default: 14px;
+    --font-size-subhead-default: 16px;
+    --font-size-subhead-big: 20px;
+    --font-size-header-default: 24px;
+    --font-size-header-big: 32px;
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-bold: 600;
+    --line-height-small: 1.5;
+    --line-height-default: 1.6;
+    --line-height-subhead-default: 1.375;
+    --line-height-subhead-big: 1.4;
+    --line-height-header-default: 1.333;
+    --line-height-header-big: 1.25;
+    --transition-duration-snappy: 120ms;
+Show all properties (29 more)
+}
+:root {
+    --column-number: 12;
+}
+<style>
+::-webkit-scrollbar {
+    background-color: var(--background-default);
+    width: 12px;
+}
+<style>
+::-webkit-scrollbar-thumb {
+    background-color: var(--background-highest);
+}
+<style>
+::-webkit-scrollbar-track {
+    background-color: var(--background-default);
+}

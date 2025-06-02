@@ -56,13 +56,16 @@ export function ObservationValidation() {
         try {
           // Normalize date strings to avoid parsing issues with 2-digit years
           const normalizeDate = (dateStr: string) => {
+            // First, extract just the date part if there's a timestamp
+            let dateOnly = dateStr.split(' ')[0]; // Remove time portion
+            
             // Handle formats like "4/18/2025", "04/18/25", "2025-04-18", etc.
-            const parts = dateStr.split(/[\/\-]/);
+            const parts = dateOnly.split(/[\/\-]/);
             if (parts.length === 3) {
               // Check if it's ISO format (YYYY-MM-DD) vs US format (MM/DD/YYYY)
-              if (dateStr.includes('-') && parts[0].length === 4) {
-                // ISO format: YYYY-MM-DD
-                return dateStr; // Already normalized
+              if (dateOnly.includes('-') && parts[0].length === 4) {
+                // ISO format: YYYY-MM-DD (already normalized)
+                return dateOnly;
               } else {
                 // US format: MM/DD/YYYY or M/D/YYYY
                 let year = parseInt(parts[2]);
@@ -77,7 +80,7 @@ export function ObservationValidation() {
                 return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
               }
             }
-            return dateStr;
+            return dateOnly;
           };
           
           const normalizedMycoMap = normalizeDate(mycoMapValue);
