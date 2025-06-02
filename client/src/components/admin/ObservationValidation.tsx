@@ -102,14 +102,8 @@ export function ObservationValidation() {
     return <Badge variant="outline">Pending</Badge>;
   };
 
-  const getSourceName = (observationId: string) => {
-    if (observationId.startsWith('iNaturalist-')) {
-      return 'iNaturalist';
-    }
-    if (observationId.startsWith('MO-')) {
-      return 'Mushroom Observer';
-    }
-    return 'Other';
+  const getSourceName = (source: string | null) => {
+    return source || 'Other';
   };
 
   const getInatId = (observationId: string) => {
@@ -224,7 +218,7 @@ export function ObservationValidation() {
                           </div>
                           {getSyncStatusBadge(obs.inatSyncStatus, obs.hasInatData)}
                           <Badge variant="outline" className="text-xs">
-                            {getSourceName(obs.observationId)}
+                            {getSourceName(obs.source)}
                           </Badge>
                         </div>
                         
@@ -379,16 +373,16 @@ export function ObservationValidation() {
                         <Button
                           size="sm"
                           onClick={() => {
-                            console.log('Refresh clicked for:', obs.observationId, 'Source:', getSourceName(obs.observationId));
+                            console.log('Refresh clicked for:', obs.observationId, 'Source:', getSourceName(obs.source));
                             handleSync(obs.observationId);
                           }}
-                          disabled={syncMutation.isPending || getSourceName(obs.observationId) !== 'iNaturalist'}
+                          disabled={syncMutation.isPending || obs.source !== 'iNaturalist'}
                           className={`flex items-center gap-1 ${
-                            getSourceName(obs.observationId) === 'iNaturalist' 
+                            obs.source === 'iNaturalist' 
                               ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
-                          title={getSourceName(obs.observationId) !== 'iNaturalist' ? 'Only iNaturalist observations can be refreshed' : 'Refresh data from iNaturalist'}
+                          title={obs.source !== 'iNaturalist' ? 'Only iNaturalist observations can be refreshed' : 'Refresh data from iNaturalist'}
                         >
                           <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
                           Refresh
