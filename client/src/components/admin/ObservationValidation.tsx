@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle } from "lucide-react";
+import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,6 +40,25 @@ export function ObservationValidation() {
   const [expandedComparisons, setExpandedComparisons] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Helper function to compare data fields
+  const compareFields = (mycoMapValue: string | null, inatValue: string | null, provisionalName?: string | null) => {
+    // For scientific name comparison, use provisional name if available
+    if (provisionalName) {
+      return provisionalName.toLowerCase().trim() === (inatValue || '').toLowerCase().trim();
+    }
+    // For other fields, do direct comparison
+    const mycoMap = (mycoMapValue || '').toLowerCase().trim();
+    const inat = (inatValue || '').toLowerCase().trim();
+    return mycoMap === inat && mycoMap !== '';
+  };
+
+  // Helper function to render comparison icon
+  const renderComparisonIcon = (isMatch: boolean) => {
+    return isMatch ? 
+      <Check className="w-4 h-4 text-green-600" /> : 
+      <X className="w-4 h-4 text-red-600" />;
+  };
 
   // Fetch validation data
   const { data: observations = [], isLoading, refetch } = useQuery({
@@ -320,19 +339,36 @@ export function ObservationValidation() {
                                   <h5 className="font-medium text-blue-800 mb-1">MycoMap Data</h5>
                                   <div className="space-y-1">
                                     <div>
-                                      <span className="font-medium">Scientific Name:</span><br />
-                                      <span className="text-gray-700">{obs.scientificName}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Scientific Name:</span>
+                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, obs.provisionalSpeciesName))}
+                                      </div>
+                                      <span className="text-gray-700">
+                                        {obs.provisionalSpeciesName ? 
+                                          `${obs.provisionalSpeciesName} ${obs.scientificName !== obs.provisionalSpeciesName ? `(${obs.scientificName})` : ''}` :
+                                          obs.scientificName
+                                        }
+                                      </span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Collector:</span><br />
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Collector:</span>
+                                        {renderComparisonIcon(compareFields(obs.collector, obs.inatObserver))}
+                                      </div>
                                       <span className="text-gray-700">{obs.collector || 'N/A'}</span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Date:</span><br />
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Date:</span>
+                                        {renderComparisonIcon(compareFields(obs.observedOn, obs.inatObservedOn))}
+                                      </div>
                                       <span className="text-gray-700">{formatDate(obs.observedOn)}</span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">State:</span><br />
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">State:</span>
+                                        {renderComparisonIcon(compareFields(obs.state, obs.inatState))}
+                                      </div>
                                       <span className="text-gray-700">{obs.state || 'N/A'}</span>
                                     </div>
                                   </div>
@@ -341,19 +377,31 @@ export function ObservationValidation() {
                                   <h5 className="font-medium text-green-800 mb-1">iNaturalist Data</h5>
                                   <div className="space-y-1">
                                     <div>
-                                      <span className="font-medium">Scientific Name:</span><br />
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Scientific Name:</span>
+                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, obs.provisionalSpeciesName))}
+                                      </div>
                                       <span className="text-gray-700">{obs.inatScientificName || 'N/A'}</span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Observer:</span><br />
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Observer:</span>
+                                        {renderComparisonIcon(compareFields(obs.collector, obs.inatObserver))}
+                                      </div>
                                       <span className="text-gray-700">{obs.inatObserver || 'N/A'}</span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Date:</span><br />
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Date:</span>
+                                        {renderComparisonIcon(compareFields(obs.observedOn, obs.inatObservedOn))}
+                                      </div>
                                       <span className="text-gray-700">{formatDate(obs.inatObservedOn || null)}</span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">State:</span><br />
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">State:</span>
+                                        {renderComparisonIcon(compareFields(obs.state, obs.inatState))}
+                                      </div>
                                       <span className="text-gray-700">{obs.inatState || 'N/A'}</span>
                                     </div>
                                   </div>

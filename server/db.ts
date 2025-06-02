@@ -1248,7 +1248,7 @@ export class DatabaseStorage implements IStorage {
   async getPlacesByIds(placeIds: number[]): Promise<InaturalistPlace[]> {
     if (placeIds.length === 0) return [];
     const places = await db.select().from(inaturalistPlaces).where(
-      sql`place_id = ANY(${placeIds})`
+      sql`${inaturalistPlaces.placeId} = ANY(${placeIds})`
     );
     return places;
   }
