@@ -54,18 +54,7 @@ export function ObservationValidation() {
     // For scientific name comparison, use provisional name if available, otherwise use primary iNat name
     if (isScientificName) {
       const targetName = provisionalName || inatValue;
-      const normalizeString = (str: string) => {
-        return str.toLowerCase().trim()
-          .replace(/"/g, '"')  // Normalize quotes
-          .replace(/"/g, '"')  // Handle smart quotes
-          .replace(/'/g, "'")  // Handle smart apostrophes
-          .replace(/\s+/g, ' '); // Normalize whitespace
-      };
-      
-      const mycoMapNormalized = normalizeString(mycoMapValue || '');
-      const targetNormalized = normalizeString(targetName || '');
-      
-      return mycoMapNormalized === targetNormalized && mycoMapNormalized !== '';
+      return (mycoMapValue || '').toLowerCase().trim() === (targetName || '').toLowerCase().trim();
     }
     
     // For date fields, normalize both dates to comparable format
