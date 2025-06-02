@@ -387,14 +387,9 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Scientific Name:</span>
-                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, true, obs.provisionalSpeciesName))}
+                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.provisionalSpeciesName || obs.inatScientificName, true, obs.provisionalSpeciesName))}
                                       </div>
-                                      <span className="text-gray-700">
-                                        {obs.provisionalSpeciesName ? 
-                                          `${obs.provisionalSpeciesName} ${obs.scientificName !== obs.provisionalSpeciesName ? `(${obs.scientificName})` : ''}` :
-                                          obs.scientificName
-                                        }
-                                      </span>
+                                      <span className="text-gray-700">{obs.scientificName}</span>
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2">
@@ -425,9 +420,12 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Scientific Name:</span>
-                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.inatScientificName, true, obs.provisionalSpeciesName))}
+                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.provisionalSpeciesName || obs.inatScientificName, true, obs.provisionalSpeciesName))}
                                       </div>
-                                      <span className="text-gray-700">{obs.inatScientificName || 'N/A'}</span>
+                                      <span className="text-gray-700">
+                                        {obs.inatScientificName || 'N/A'}
+                                        {obs.provisionalSpeciesName ? ` (${obs.provisionalSpeciesName})` : ''}
+                                      </span>
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2">
