@@ -385,16 +385,22 @@ export function ObservationValidation() {
                                         </span>
                                       </div>
                                       <div>
-                                        <span className="font-medium">Host Species:</span><br />
+                                        <span className="font-medium">Provisional Species Name:</span><br />
                                         <span className="text-gray-700">{obs.hostSpeciesField || 'N/A'}</span>
                                       </div>
-                                      <div>
-                                        <span className="font-medium">Ecology Notes:</span><br />
-                                        <span className="text-gray-700">{obs.ecologyNotesField || 'N/A'}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">MycoMap BLAST Results:</span>
+                                        {obs.ecologyNotesField && obs.ecologyNotesField.includes('mycomap.com') ? 
+                                          <CheckCircle className="w-4 h-4 text-green-600" /> : 
+                                          <XCircle className="w-4 h-4 text-red-600" />
+                                        }
                                       </div>
-                                      <div>
-                                        <span className="font-medium">Abundance:</span><br />
-                                        <span className="text-gray-700">{obs.abundanceField || 'N/A'}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Trace Files (Raw DNA Data):</span>
+                                        {obs.abundanceField && obs.abundanceField.includes('mycomap.com') ? 
+                                          <CheckCircle className="w-4 h-4 text-green-600" /> : 
+                                          <XCircle className="w-4 h-4 text-red-600" />
+                                        }
                                       </div>
                                     </div>
                                   </div>

@@ -1163,12 +1163,12 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Extract observation fields data
+      // Extract observation fields data with correct field IDs
       const obsFields = inatObservation.ofvs || inatObservation.observation_field_values || [];
-      const substrateField = obsFields.find((f: any) => f.observation_field_id === 2330)?.value || null;
-      const hostSpeciesField = obsFields.find((f: any) => f.observation_field_id === 10675)?.value || null;
-      const ecologyNotesField = obsFields.find((f: any) => f.observation_field_id === 9864)?.value || null;
-      const abundanceField = obsFields.find((f: any) => f.observation_field_id === 10109)?.value || null;
+      const dnaBarcode = obsFields.find((f: any) => f.observation_field_id === 2330)?.value || null; // DNA Barcode ITS
+      const provisionalSpecies = obsFields.find((f: any) => f.observation_field_id === 10675)?.value || null; // Provisional Species Name
+      const mycoMapBlast = obsFields.find((f: any) => f.observation_field_id === 9864)?.value || null; // MycoMap BLAST Results
+      const traceFiles = obsFields.find((f: any) => f.observation_field_id === 10109)?.value || null; // Trace Files (Raw DNA Data)
 
       // Extract relevant data from iNaturalist response
       const inaturalistRecord: InsertInaturalistData = {
@@ -1204,10 +1204,10 @@ export class DatabaseStorage implements IStorage {
         application: inatObservation.application ? JSON.stringify(inatObservation.application) : null,
         // Observation fields data
         observationFields: obsFields.length > 0 ? JSON.stringify(obsFields) : null,
-        substrateField: substrateField,
-        hostSpeciesField: hostSpeciesField,
-        ecologyNotesField: ecologyNotesField,
-        abundanceField: abundanceField,
+        substrateField: dnaBarcode,
+        hostSpeciesField: provisionalSpecies,
+        ecologyNotesField: mycoMapBlast,
+        abundanceField: traceFiles,
         syncStatus: 'success',
         syncError: null
       };
