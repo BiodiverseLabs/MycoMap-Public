@@ -51,9 +51,10 @@ export function ObservationValidation() {
 
   // Helper function to compare data fields
   const compareFields = (mycoMapValue: string | null | undefined, inatValue: string | null | undefined, isScientificName = false, provisionalName?: string | null | undefined) => {
-    // For scientific name comparison, use provisional name if available
-    if (isScientificName && provisionalName) {
-      return provisionalName.toLowerCase().trim() === (inatValue || '').toLowerCase().trim();
+    // For scientific name comparison, use provisional name if available, otherwise use primary iNat name
+    if (isScientificName) {
+      const targetName = provisionalName || inatValue;
+      return (mycoMapValue || '').toLowerCase().trim() === (targetName || '').toLowerCase().trim();
     }
     
     // For date fields, normalize both dates to comparable format
