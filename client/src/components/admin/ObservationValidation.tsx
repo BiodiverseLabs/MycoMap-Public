@@ -31,6 +31,10 @@ interface ValidationObservation {
   blastFilesDownloaded?: boolean;
   ncbiBlastFile?: string | null;
   localBlastFile?: string | null;
+  // Trace file tracking
+  traceFilesDownloaded?: boolean;
+  fastqFile?: string | null;
+  mycoMapTraceUrl?: string | null;
   // iNaturalist comparison data
   inatObserver?: string | null;
   inatObservedOn?: string | null;
@@ -196,12 +200,50 @@ export function ObservationValidation() {
     }
   });
 
+  // Trace file download mutation
+  const downloadTraceMutation = useMutation({
+    mutationFn: async ({ observationId, traceUrl }: { observationId: string, traceUrl: string }) => {
+      const response = await fetch(`/api/observations/${observationId}/download-trace`, {
+        method: 'POST',
+        body: JSON.stringify({ traceUrl }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to download trace files');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Trace Files Downloaded",
+        description: "FASTQ file has been downloaded successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download trace files",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleSync = async (observationId: string) => {
     await syncMutation.mutateAsync(observationId);
   };
 
   const handleBlastDownload = async (observationId: string, blastUrl: string) => {
     await downloadBlastMutation.mutateAsync({ observationId, blastUrl });
+  };
+
+  const handleTraceDownload = async (observationId: string, traceUrl: string) => {
+    await downloadTraceMutation.mutateAsync({ observationId, traceUrl });
   };
 
   const getSyncStatusIcon = (status: string, hasData: boolean) => {
@@ -573,10 +615,49 @@ export function ObservationValidation() {
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Trace Files (Raw DNA Data):</span>
-                                        {obs.traceFiles ? 
-                                          <CheckCircle className="w-4 h-4 text-green-600" /> : 
+                                        {obs.traceFiles && obs.traceFiles.includes('mycomap.com') ? (
+                                          <>
+                                            {obs.traceFilesDownloaded && obs.fastqFile ? (
+                                              <CheckCircle className="w-4 h-4 text-green-600" />
+                                            ) : (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleTraceDownload(obs.observationId, obs.traceFiles!)}
+                                                disabled={downloadTraceMutation.isPending}
+                                              >
+                                                {downloadTraceMutation.isPending ? (
+                                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                  'Download FASTQ'
+                                                )}
+                                              </Button>
+                                            )}
+                                            <a
+                                              href={obs.traceFiles}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800"
+                                            >
+                                              <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                            {obs.traceFilesDownloaded && obs.fastqFile && (
+                                              <div className="flex items-center gap-1 text-sm">
+                                                <span>-</span>
+                                                <a
+                                                  href={`/api/trace-files/${obs.fastqFile}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-blue-600 hover:text-blue-800 underline"
+                                                >
+                                                  FASTQ
+                                                </a>
+                                              </div>
+                                            )}
+                                          </>
+                                        ) : (
                                           <XCircle className="w-4 h-4 text-red-600" />
-                                        }
+                                        )}
                                       </div>
                                     </div>
                                   </div>

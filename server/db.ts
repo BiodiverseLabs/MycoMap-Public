@@ -1016,6 +1016,10 @@ export class DatabaseStorage implements IStorage {
     localBlastFile?: string;
     blastFilesDownloaded?: boolean;
     blastDownloadDate?: Date;
+    mycoMapTraceUrl?: string;
+    fastqFile?: string;
+    traceFilesDownloaded?: boolean;
+    traceDownloadDate?: Date;
   }): Promise<void> {
     await db.update(observations)
       .set(taxonomyData)
