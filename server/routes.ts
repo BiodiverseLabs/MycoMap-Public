@@ -1610,9 +1610,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/blast-files/:filename", (req, res) => {
     try {
       const filename = req.params.filename;
-      const filePath = path.join(__dirname, '../downloads/blast', filename);
+      const filePath = path.join(process.cwd(), 'downloads', 'blast', filename);
+      
+      console.log(`[BLAST] Serving file: ${filePath}`);
       
       if (!fs.existsSync(filePath)) {
+        console.log(`[BLAST] File not found: ${filePath}`);
         return res.status(404).json({ error: "File not found" });
       }
 
@@ -1682,15 +1685,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trace-files/:filename", (req, res) => {
     try {
       const filename = req.params.filename;
-      const filePath = path.join(__dirname, '../downloads/trace', filename);
+      const filePath = path.join(process.cwd(), 'downloads', 'trace', filename);
+      
+      console.log(`[TRACE] Working directory: ${process.cwd()}`);
+      console.log(`[TRACE] Serving file: ${filePath}`);
+      console.log(`[TRACE] File exists: ${fs.existsSync(filePath)}`);
       
       if (!fs.existsSync(filePath)) {
+        console.log(`[TRACE] File not found: ${filePath}`);
         return res.status(404).json({ error: "File not found" });
       }
 
+      const absolutePath = path.resolve(filePath);
+      console.log(`[TRACE] Absolute path: ${absolutePath}`);
+      
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.sendFile(path.resolve(filePath));
+      res.sendFile(absolutePath);
     } catch (error) {
       console.error(`[TRACE] Error serving file:`, error);
       res.status(500).json({ error: "Failed to serve file" });
