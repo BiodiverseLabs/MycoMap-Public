@@ -1444,9 +1444,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter by source if specified
       let filteredObs = observations;
       if (source === 'inaturalist') {
-        filteredObs = observations.filter(obs => obs.source === 'iNaturalist');
+        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'inaturalist');
       } else if (source === 'mo') {
-        filteredObs = observations.filter(obs => obs.source === 'Mushroom Observer');
+        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mushroom observer');
       }
       
       // Get iNaturalist data for each observation

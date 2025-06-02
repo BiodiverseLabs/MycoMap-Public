@@ -376,13 +376,13 @@ export function ObservationValidation() {
                             console.log('Refresh clicked for:', obs.observationId, 'Source:', getSourceName(obs.source));
                             handleSync(obs.observationId);
                           }}
-                          disabled={syncMutation.isPending || obs.source !== 'iNaturalist'}
+                          disabled={syncMutation.isPending || obs.source?.toLowerCase() !== 'inaturalist'}
                           className={`flex items-center gap-1 ${
-                            obs.source === 'iNaturalist' 
+                            obs.source?.toLowerCase() === 'inaturalist' 
                               ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
-                          title={obs.source !== 'iNaturalist' ? 'Only iNaturalist observations can be refreshed' : 'Refresh data from iNaturalist'}
+                          title={obs.source?.toLowerCase() !== 'inaturalist' ? 'Only iNaturalist observations can be refreshed' : 'Refresh data from iNaturalist'}
                         >
                           <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
                           Refresh
