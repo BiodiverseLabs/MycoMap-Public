@@ -190,7 +190,9 @@ export function ObservationValidation() {
         title: "BLAST Files Downloaded",
         description: "NCBI and Local XML files have been downloaded successfully",
       });
+      // Invalidate and refetch the validation data to show updated status
       queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
+      queryClient.refetchQueries({ queryKey: ['/api/observations/validation'] });
     },
     onError: (error: any) => {
       toast({
@@ -224,7 +226,9 @@ export function ObservationValidation() {
         title: "Trace Files Downloaded",
         description: "FASTQ file has been downloaded successfully",
       });
+      // Invalidate and refetch the validation data to show updated status
       queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
+      queryClient.refetchQueries({ queryKey: ['/api/observations/validation'] });
     },
     onError: (error: any) => {
       toast({
