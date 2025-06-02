@@ -26,11 +26,15 @@ export default function Species() {
   const [dateFilter, setDateFilter] = useState<string>("all_time");
   const [extrapolate, setExtrapolate] = useState(false);
 
-  // Fetch all species data
+  // Fetch species data with state filtering
   const { data: allSpecies = [], isLoading: speciesLoading } = useQuery({
-    queryKey: ["/api/species"],
+    queryKey: ["/api/species", selectedState],
     queryFn: async () => {
-      const response = await fetch('/api/species');
+      const params = new URLSearchParams();
+      if (selectedState && selectedState !== 'all') {
+        params.append('state', selectedState);
+      }
+      const response = await fetch(`/api/species?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json();
     }
@@ -38,9 +42,13 @@ export default function Species() {
 
   // Fetch observations for filtering
   const { data: observations = [] } = useQuery({
-    queryKey: ["/api/observations"],
+    queryKey: ["/api/observations", selectedState],
     queryFn: async () => {
-      const response = await fetch('/api/observations');
+      const params = new URLSearchParams();
+      if (selectedState && selectedState !== 'all') {
+        params.append('state', selectedState);
+      }
+      const response = await fetch(`/api/observations?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch observations');
       return response.json();
     }
@@ -50,8 +58,11 @@ export default function Species() {
   const { data: accumulationData = [], isLoading: accumulationLoading } = useQuery({
     queryKey: ["/api/species-accumulation", selectedState],
     queryFn: async () => {
-      const params = selectedState !== "all" ? `?state=${selectedState}` : "";
-      const response = await fetch(`/api/species-accumulation${params}`);
+      const params = new URLSearchParams();
+      if (selectedState && selectedState !== 'all') {
+        params.append('state', selectedState);
+      }
+      const response = await fetch(`/api/species-accumulation?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch accumulation data');
       return response.json();
     }
