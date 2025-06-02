@@ -1323,13 +1323,96 @@ export class DatabaseStorage implements IStorage {
     const cachedPlaces = await this.getPlacesByIds(placeIds);
     const cachedPlaceIds = new Set(cachedPlaces.map(p => p.placeId));
     
-    // Look up any missing places
-    const missingPlaceIds = placeIds.filter(id => !cachedPlaceIds.has(id));
+    // First, check if we can resolve from already cached places
+    // Look for US states by name pattern (more reliable than admin_level)
+    const usStateFromCache = cachedPlaces.find(place => {
+      const name = place.name?.toLowerCase() || '';
+      const displayName = place.displayName?.toLowerCase() || '';
+      
+      // Common US state patterns
+      return (
+        (name === 'california' || displayName.includes('california, us')) ||
+        (name === 'oregon' || displayName.includes('oregon, us')) ||
+        (name === 'washington' || displayName.includes('washington, us')) ||
+        (name === 'nevada' || displayName.includes('nevada, us')) ||
+        (name === 'arizona' || displayName.includes('arizona, us')) ||
+        (name === 'utah' || displayName.includes('utah, us')) ||
+        (name === 'idaho' || displayName.includes('idaho, us')) ||
+        (name === 'montana' || displayName.includes('montana, us')) ||
+        (name === 'wyoming' || displayName.includes('wyoming, us')) ||
+        (name === 'colorado' || displayName.includes('colorado, us')) ||
+        (name === 'new mexico' || displayName.includes('new mexico, us')) ||
+        (name === 'texas' || displayName.includes('texas, us')) ||
+        (name === 'oklahoma' || displayName.includes('oklahoma, us')) ||
+        (name === 'kansas' || displayName.includes('kansas, us')) ||
+        (name === 'nebraska' || displayName.includes('nebraska, us')) ||
+        (name === 'south dakota' || displayName.includes('south dakota, us')) ||
+        (name === 'north dakota' || displayName.includes('north dakota, us')) ||
+        (name === 'minnesota' || displayName.includes('minnesota, us')) ||
+        (name === 'iowa' || displayName.includes('iowa, us')) ||
+        (name === 'missouri' || displayName.includes('missouri, us')) ||
+        (name === 'arkansas' || displayName.includes('arkansas, us')) ||
+        (name === 'louisiana' || displayName.includes('louisiana, us')) ||
+        (name === 'mississippi' || displayName.includes('mississippi, us')) ||
+        (name === 'alabama' || displayName.includes('alabama, us')) ||
+        (name === 'tennessee' || displayName.includes('tennessee, us')) ||
+        (name === 'kentucky' || displayName.includes('kentucky, us')) ||
+        (name === 'illinois' || displayName.includes('illinois, us')) ||
+        (name === 'indiana' || displayName.includes('indiana, us')) ||
+        (name === 'ohio' || displayName.includes('ohio, us')) ||
+        (name === 'michigan' || displayName.includes('michigan, us')) ||
+        (name === 'wisconsin' || displayName.includes('wisconsin, us')) ||
+        (name === 'florida' || displayName.includes('florida, us')) ||
+        (name === 'georgia' || displayName.includes('georgia, us')) ||
+        (name === 'south carolina' || displayName.includes('south carolina, us')) ||
+        (name === 'north carolina' || displayName.includes('north carolina, us')) ||
+        (name === 'virginia' || displayName.includes('virginia, us')) ||
+        (name === 'west virginia' || displayName.includes('west virginia, us')) ||
+        (name === 'maryland' || displayName.includes('maryland, us')) ||
+        (name === 'delaware' || displayName.includes('delaware, us')) ||
+        (name === 'pennsylvania' || displayName.includes('pennsylvania, us')) ||
+        (name === 'new jersey' || displayName.includes('new jersey, us')) ||
+        (name === 'new york' || displayName.includes('new york, us')) ||
+        (name === 'connecticut' || displayName.includes('connecticut, us')) ||
+        (name === 'rhode island' || displayName.includes('rhode island, us')) ||
+        (name === 'massachusetts' || displayName.includes('massachusetts, us')) ||
+        (name === 'vermont' || displayName.includes('vermont, us')) ||
+        (name === 'new hampshire' || displayName.includes('new hampshire, us')) ||
+        (name === 'maine' || displayName.includes('maine, us')) ||
+        (name === 'alaska' || displayName.includes('alaska, us')) ||
+        (name === 'hawaii' || displayName.includes('hawaii, us'))
+      );
+    });
+    
+    if (usStateFromCache) {
+      const stateName = usStateFromCache.name || usStateFromCache.displayName?.split(',')[0] || '';
+      const capitalizedState = stateName.charAt(0).toUpperCase() + stateName.slice(1).toLowerCase();
+      console.log(`[Places] Resolved state from cache: ${capitalizedState}`);
+      return capitalizedState;
+    }
+    
+    // Look up missing places (but limit to avoid rate limits)
+    const missingPlaceIds = placeIds.filter(id => !cachedPlaceIds.has(id)).slice(0, 5); // Limit lookups
     const newPlaces: InaturalistPlace[] = [];
     
     for (const placeId of missingPlaceIds) {
       const place = await this.lookupAndCachePlace(placeId);
-      if (place) newPlaces.push(place);
+      if (place) {
+        newPlaces.push(place);
+        
+        // Check if this new place resolves to a state immediately
+        if (place.adminLevel === 1 && place.placeType === 'state') {
+          console.log(`[Places] Resolved state from new lookup: ${place.name}`);
+          return place.name;
+        }
+        
+        // Check for California in the newly fetched place
+        if (place.name?.toLowerCase().includes('california') || 
+            place.displayName?.toLowerCase().includes('california')) {
+          console.log(`[Places] Resolved California from new place: ${place.displayName}`);
+          return 'California';
+        }
+      }
     }
 
     // Combine all places
@@ -1351,13 +1434,14 @@ export class DatabaseStorage implements IStorage {
     );
     
     if (county && county.ancestry) {
-      // Parse ancestry to find parent state
-      const ancestryIds = county.ancestry.split('/').map(id => parseInt(id));
+      // Parse ancestry to find parent state (but limit lookups to avoid rate limits)
+      const ancestryIds = county.ancestry.split('/').map(id => parseInt(id)).slice(0, 3);
       for (const ancestorId of ancestryIds) {
-        const ancestor = await this.lookupAndCachePlace(ancestorId);
-        if (ancestor && ancestor.adminLevel === 1 && ancestor.placeType === 'state') {
-          console.log(`[Places] Resolved state: ${ancestor.name} from county ancestry`);
-          return ancestor.name;
+        // Check cache first
+        const cachedAncestor = await this.getPlaceById(ancestorId);
+        if (cachedAncestor && cachedAncestor.adminLevel === 1 && cachedAncestor.placeType === 'state') {
+          console.log(`[Places] Resolved state from cached ancestry: ${cachedAncestor.name}`);
+          return cachedAncestor.name;
         }
       }
     }
