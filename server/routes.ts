@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 
 const upload = multer({ 
@@ -1569,13 +1569,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update observation record with BLAST file information
-      await storage.updateObservationTaxonomy(parseInt(observationId), {
-        mycoMapBlastUrl: blastUrl,
-        ncbiBlastFile: result.ncbiPath ? path.basename(result.ncbiPath) : null,
-        localBlastFile: result.localPath ? path.basename(result.localPath) : null,
-        blastFilesDownloaded: true,
-        blastDownloadDate: new Date()
-      });
+      await db.update(observations)
+        .set({
+          mycoMapBlastUrl: blastUrl,
+          ncbiBlastFile: result.ncbiPath ? path.basename(result.ncbiPath) : null,
+          localBlastFile: result.localPath ? path.basename(result.localPath) : null,
+          blastFilesDownloaded: true,
+          blastDownloadDate: new Date()
+        })
+        .where(eq(observations.observationId, observationId));
 
       res.json({
         success: true,
@@ -1648,12 +1650,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update observation record with trace file information
-      await storage.updateObservationTaxonomy(parseInt(observationId), {
-        mycoMapTraceUrl: traceUrl,
-        fastqFile: result.fastqPath ? path.basename(result.fastqPath) : null,
-        traceFilesDownloaded: true,
-        traceDownloadDate: new Date()
-      });
+      await db.update(observations)
+        .set({
+          mycoMapTraceUrl: traceUrl,
+          fastqFile: result.fastqPath ? path.basename(result.fastqPath) : null,
+          traceFilesDownloaded: true,
+          traceDownloadDate: new Date()
+        })
+        .where(eq(observations.observationId, observationId));
 
       res.json({
         success: true,
