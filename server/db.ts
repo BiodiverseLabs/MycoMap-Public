@@ -1165,10 +1165,10 @@ export class DatabaseStorage implements IStorage {
 
       // Extract observation fields data with correct field IDs
       const obsFields = inatObservation.ofvs || inatObservation.observation_field_values || [];
-      const dnaBarcode = obsFields.find((f: any) => f.observation_field_id === 2330)?.value || null; // DNA Barcode ITS
-      const provisionalSpecies = obsFields.find((f: any) => f.observation_field_id === 10675)?.value || null; // Provisional Species Name
-      const mycoMapBlast = obsFields.find((f: any) => f.observation_field_id === 9864)?.value || null; // MycoMap BLAST Results
-      const traceFiles = obsFields.find((f: any) => f.observation_field_id === 10109)?.value || null; // Trace Files (Raw DNA Data)
+      const dnaBarcode = obsFields.find((f: any) => f.field_id === 2330)?.value || null; // DNA Barcode ITS
+      const provisionalSpecies = obsFields.find((f: any) => f.field_id === 10675)?.value || null; // Provisional Species Name
+      const mycoMapBlast = obsFields.find((f: any) => f.field_id === 9864)?.value || null; // MycoMap BLAST Results
+      const traceFiles = obsFields.find((f: any) => f.field_id === 10109)?.value || null; // Trace Files (Raw DNA Data)
 
       // Extract relevant data from iNaturalist response
       const inaturalistRecord: InsertInaturalistData = {

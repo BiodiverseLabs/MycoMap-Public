@@ -1474,8 +1474,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
               inatObservedOn = inatRecord.observedOnString || null;
               // Extract state from place data if available
               if (inatRecord.place_ids && inatRecord.place_ids.length > 0) {
-                // This would need additional place lookup, for now use null
-                inatState = null;
+                try {
+                  // Find US state place (place type 8 or 10 in iNaturalist)
+                  for (const placeId of inatRecord.place_ids) {
+                    const placeResponse = await fetch(`https://api.inaturalist.org/v1/places/${placeId}`);
+                    if (placeResponse.ok) {
+                      const placeData = await placeResponse.json();
+                      const place = placeData.results?.[0];
+                      if (place && place.place_type === 8 && place.admin_level === 1) {
+                        // This is a US state
+                        inatState = place.name;
+                        break;
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error fetching place data:', e);
+                }
               }
             } catch (e) {
               console.error('Error parsing iNaturalist JSON data:', e);
