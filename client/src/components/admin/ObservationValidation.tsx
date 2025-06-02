@@ -15,6 +15,7 @@ interface ValidationObservation {
   scientificName: string;
   commonName: string | null;
   observer: string | null;
+  collector: string | null;
   observedOn: string | null;
   state: string | null;
   source: string;
@@ -348,8 +349,8 @@ export function ObservationValidation() {
                                       <span className="text-gray-700">{obs.scientificName}</span>
                                     </div>
                                     <div>
-                                      <span className="font-medium">Observer:</span><br />
-                                      <span className="text-gray-700">{obs.observer || 'N/A'}</span>
+                                      <span className="font-medium">Collector:</span><br />
+                                      <span className="text-gray-700">{obs.collector || 'N/A'}</span>
                                     </div>
                                     <div>
                                       <span className="font-medium">Date:</span><br />
