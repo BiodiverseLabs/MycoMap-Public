@@ -127,9 +127,10 @@ export function ObservationValidation() {
     return source || 'Other';
   };
 
-  const getInatId = (observationId: string) => {
-    if (observationId.startsWith('iNaturalist-')) {
-      return observationId.replace('iNaturalist-', '');
+  const getInatId = (observationId: string, source: string) => {
+    // For iNaturalist observations, the observationId is the iNaturalist ID
+    if (source?.toLowerCase() === 'inaturalist') {
+      return observationId;
     }
     return null;
   };
@@ -224,7 +225,7 @@ export function ObservationValidation() {
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {observations.map((obs: ValidationObservation) => {
-                const inatId = getInatId(obs.observationId);
+                const inatId = getInatId(obs.observationId, obs.source);
                 
                 return (
                   <div key={obs.id} className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50">
