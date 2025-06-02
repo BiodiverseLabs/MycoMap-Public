@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -240,6 +240,17 @@ export function ObservationValidation() {
                           <Badge variant="outline" className="text-xs">
                             {getSourceName(obs.source)}
                           </Badge>
+                          {inatId && (
+                            <a
+                              href={`https://www.inaturalist.org/observations/${inatId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-green-600 hover:text-green-700 text-xs font-medium"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              iNat #{inatId}
+                            </a>
+                          )}
                         </div>
                         
                         {obs.commonName && (
