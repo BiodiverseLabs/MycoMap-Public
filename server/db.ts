@@ -3,11 +3,11 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 import { 
-  users, observations, uploads, contributors, species, redlistAssessments, inaturalistData,
+  users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment,
-  type InaturalistData, type InsertInaturalistData
+  type InaturalistData, type InsertInaturalistData, type InaturalistPlace, type InsertInaturalistPlace
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like } from 'drizzle-orm';
 import type { IStorage } from "./storage";
@@ -1237,5 +1237,130 @@ export class DatabaseStorage implements IStorage {
       });
       return null;
     }
+  }
+
+  // Place ID lookup methods
+  async getPlaceById(placeId: number): Promise<InaturalistPlace | null> {
+    const [place] = await db.select().from(inaturalistPlaces).where(eq(inaturalistPlaces.placeId, placeId));
+    return place || null;
+  }
+
+  async getPlacesByIds(placeIds: number[]): Promise<InaturalistPlace[]> {
+    if (placeIds.length === 0) return [];
+    const places = await db.select().from(inaturalistPlaces).where(
+      sql`place_id = ANY(${placeIds})`
+    );
+    return places;
+  }
+
+  async lookupAndCachePlace(placeId: number): Promise<InaturalistPlace | null> {
+    // First check if we have it cached
+    const cached = await this.getPlaceById(placeId);
+    if (cached) return cached;
+
+    // Look it up from iNaturalist API
+    try {
+      console.log(`[Places] Looking up place ID ${placeId} from iNaturalist`);
+      const response = await fetch(`https://api.inaturalist.org/v1/places/${placeId}`);
+      
+      if (!response.ok) {
+        console.log(`[Places] Failed to lookup place ${placeId}: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      const place = data.results?.[0];
+      
+      if (!place) {
+        console.log(`[Places] No place data found for ID ${placeId}`);
+        return null;
+      }
+
+      // Cache the place data
+      const placeRecord: InsertInaturalistPlace = {
+        placeId: place.id,
+        name: place.name,
+        displayName: place.display_name,
+        adminLevel: place.admin_level,
+        placeType: place.place_type,
+        ancestry: place.ancestry,
+        boundingBoxSwlat: place.bounding_box_geojson?.coordinates?.[0]?.[0]?.[1]?.toString(),
+        boundingBoxSwlng: place.bounding_box_geojson?.coordinates?.[0]?.[0]?.[0]?.toString(),
+        boundingBoxNelat: place.bounding_box_geojson?.coordinates?.[0]?.[2]?.[1]?.toString(),
+        boundingBoxNelng: place.bounding_box_geojson?.coordinates?.[0]?.[2]?.[0]?.toString(),
+      };
+
+      const [insertedPlace] = await db.insert(inaturalistPlaces)
+        .values(placeRecord)
+        .onConflictDoUpdate({
+          target: inaturalistPlaces.placeId,
+          set: {
+            name: placeRecord.name,
+            displayName: placeRecord.displayName,
+            adminLevel: placeRecord.adminLevel,
+            placeType: placeRecord.placeType,
+            ancestry: placeRecord.ancestry,
+            updatedAt: new Date(),
+          }
+        })
+        .returning();
+
+      console.log(`[Places] Cached place ${placeId}: ${place.display_name} (${place.place_type})`);
+      return insertedPlace;
+
+    } catch (error) {
+      console.error(`[Places] Error looking up place ${placeId}:`, error);
+      return null;
+    }
+  }
+
+  async resolveStateFromPlaceIds(placeIds: number[]): Promise<string | null> {
+    if (!placeIds || placeIds.length === 0) return null;
+
+    // Get all place data for the IDs
+    const cachedPlaces = await this.getPlacesByIds(placeIds);
+    const cachedPlaceIds = new Set(cachedPlaces.map(p => p.placeId));
+    
+    // Look up any missing places
+    const missingPlaceIds = placeIds.filter(id => !cachedPlaceIds.has(id));
+    const newPlaces: InaturalistPlace[] = [];
+    
+    for (const placeId of missingPlaceIds) {
+      const place = await this.lookupAndCachePlace(placeId);
+      if (place) newPlaces.push(place);
+    }
+
+    // Combine all places
+    const allPlaces = [...cachedPlaces, ...newPlaces];
+    
+    // Find US state (admin_level 1 and place_type 'state')
+    const usState = allPlaces.find(place => 
+      place.adminLevel === 1 && place.placeType === 'state'
+    );
+    
+    if (usState) {
+      console.log(`[Places] Resolved state: ${usState.name} from place hierarchy`);
+      return usState.name;
+    }
+
+    // If no direct state found, look for county (admin_level 2) and trace ancestry
+    const county = allPlaces.find(place => 
+      place.adminLevel === 2 && place.placeType === 'county'
+    );
+    
+    if (county && county.ancestry) {
+      // Parse ancestry to find parent state
+      const ancestryIds = county.ancestry.split('/').map(id => parseInt(id));
+      for (const ancestorId of ancestryIds) {
+        const ancestor = await this.lookupAndCachePlace(ancestorId);
+        if (ancestor && ancestor.adminLevel === 1 && ancestor.placeType === 'state') {
+          console.log(`[Places] Resolved state: ${ancestor.name} from county ancestry`);
+          return ancestor.name;
+        }
+      }
+    }
+
+    console.log(`[Places] Could not resolve state from place IDs: ${placeIds.join(', ')}`);
+    return null;
   }
 }

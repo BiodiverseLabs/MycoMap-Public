@@ -345,6 +345,9 @@ export type RedlistAssessment = typeof redlistAssessments.$inferSelect;
 export type InsertInaturalistData = z.infer<typeof insertInaturalistDataSchema>;
 export type InaturalistData = typeof inaturalistData.$inferSelect;
 
+export type InsertInaturalistPlace = z.infer<typeof insertInaturalistPlaceSchema>;
+export type InaturalistPlace = typeof inaturalistPlaces.$inferSelect;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
