@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface ValidationObservation {
   id: number;
@@ -37,6 +38,7 @@ export function ObservationValidation() {
   const [limit, setLimit] = useState(50);
   const [expandedComparisons, setExpandedComparisons] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Fetch validation data
   const { data: observations = [], isLoading, refetch } = useQuery({
@@ -76,14 +78,14 @@ export function ObservationValidation() {
       console.log(`[Frontend] Sync successful for ${observationId}:`, data);
       toast({
         title: "Success",
-        description: "Observation synced with iNaturalist",
+        description: `Observation ${observationId} synced with iNaturalist successfully!`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
     },
     onError: (error, observationId) => {
       console.error(`[Frontend] Sync failed for ${observationId}:`, error);
       toast({
-        title: "Sync Failed",
+        title: "Sync Failed", 
         description: `Failed to sync observation ${observationId}: ${error.message}`,
         variant: "destructive",
       });
