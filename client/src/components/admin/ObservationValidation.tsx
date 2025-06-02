@@ -370,6 +370,34 @@ export function ObservationValidation() {
                                       <span className="text-gray-700">{obs.inatState || 'N/A'}</span>
                                     </div>
                                   </div>
+                                  
+                                  {/* iNaturalist Observation Fields */}
+                                  <div className="mt-3 pt-3 border-t border-gray-200">
+                                    <h6 className="text-xs font-medium text-green-700 mb-2">Observation Fields</h6>
+                                    <div className="space-y-1 text-xs">
+                                      <div>
+                                        <span className="font-medium">DNA Barcode ITS:</span><br />
+                                        <span className="text-gray-700 font-mono">
+                                          {obs.substrateField ? 
+                                            `${obs.substrateField.substring(0, 10)}${obs.substrateField.length > 10 ? '...' : ''}` 
+                                            : 'N/A'
+                                          }
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Host Species:</span><br />
+                                        <span className="text-gray-700">{obs.hostSpeciesField || 'N/A'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Ecology Notes:</span><br />
+                                        <span className="text-gray-700">{obs.ecologyNotesField || 'N/A'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Abundance:</span><br />
+                                        <span className="text-gray-700">{obs.abundanceField || 'N/A'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
