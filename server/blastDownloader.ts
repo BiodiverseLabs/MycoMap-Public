@@ -48,6 +48,9 @@ export class BlastFileDownloader {
       
       if (ncbiMatch) {
         ncbiUrl = ncbiMatch[1];
+        // Decode HTML entities like &amp; -> &
+        ncbiUrl = ncbiUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+        
         // Handle relative URLs
         if (ncbiUrl.startsWith('/')) {
           ncbiUrl = `https://mycomap.com${ncbiUrl}`;
@@ -55,10 +58,14 @@ export class BlastFileDownloader {
           const baseUrl = blastUrl.replace(/\/$/, '');
           ncbiUrl = `${baseUrl}/${ncbiUrl}`;
         }
+        console.log(`[BLAST] Decoded NCBI URL: ${ncbiUrl}`);
       }
 
       if (localMatch) {
         localUrl = localMatch[1];
+        // Decode HTML entities like &amp; -> &
+        localUrl = localUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+        
         // Handle relative URLs
         if (localUrl.startsWith('/')) {
           localUrl = `https://mycomap.com${localUrl}`;
@@ -66,6 +73,7 @@ export class BlastFileDownloader {
           const baseUrl = blastUrl.replace(/\/$/, '');
           localUrl = `${baseUrl}/${localUrl}`;
         }
+        console.log(`[BLAST] Decoded Local URL: ${localUrl}`);
       }
 
       console.log(`[BLAST] Found files - NCBI: ${ncbiUrl}, Local: ${localUrl}`);
