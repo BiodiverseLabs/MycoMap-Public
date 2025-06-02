@@ -1453,16 +1453,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validationData = await Promise.all(
         filteredObs.slice(0, parseInt(limit as string)).map(async (obs) => {
           const inatData = await storage.getInaturalistData(obs.observationId);
+          const inatRecord = inatData[0];
+          
+          // Extract iNaturalist comparison data from taxon and user JSON
+          let inatScientificName = null;
+          let inatObserver = null;
+          let inatObservedOn = null;
+          let inatState = null;
+          
+          if (inatRecord) {
+            try {
+              if (inatRecord.taxon) {
+                const taxonData = JSON.parse(inatRecord.taxon);
+                inatScientificName = taxonData.name || null;
+              }
+              if (inatRecord.user) {
+                const userData = JSON.parse(inatRecord.user);
+                inatObserver = userData.name || userData.login || null;
+              }
+              inatObservedOn = inatRecord.observedOnString || null;
+              // Extract state from place data if available
+              if (inatRecord.place_ids && inatRecord.place_ids.length > 0) {
+                // This would need additional place lookup, for now use null
+                inatState = null;
+              }
+            } catch (e) {
+              console.error('Error parsing iNaturalist JSON data:', e);
+            }
+          }
+          
           return {
             ...obs,
-            inatSyncStatus: inatData[0]?.syncStatus || 'pending',
-            inatLastSynced: inatData[0]?.lastSyncedAt || null,
-            inatSyncError: inatData[0]?.syncError || null,
+            inatSyncStatus: inatRecord?.syncStatus || 'pending',
+            inatLastSynced: inatRecord?.lastSyncedAt || null,
+            inatSyncError: inatRecord?.syncError || null,
             hasInatData: inatData.length > 0,
-            substrateField: inatData[0]?.substrateField || null,
-            hostSpeciesField: inatData[0]?.hostSpeciesField || null,
-            ecologyNotesField: inatData[0]?.ecologyNotesField || null,
-            abundanceField: inatData[0]?.abundanceField || null,
+            substrateField: inatRecord?.substrateField || null,
+            hostSpeciesField: inatRecord?.hostSpeciesField || null,
+            ecologyNotesField: inatRecord?.ecologyNotesField || null,
+            abundanceField: inatRecord?.abundanceField || null,
+            // Comparison data
+            inatScientificName,
+            inatObserver,
+            inatObservedOn,
+            inatState,
           };
         })
       );

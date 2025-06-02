@@ -349,7 +349,7 @@ export function ObservationValidation() {
                                     </div>
                                     <div>
                                       <span className="font-medium">Date:</span><br />
-                                      <span className="text-gray-700">{formatDate(obs.inatObservedOn)}</span>
+                                      <span className="text-gray-700">{formatDate(obs.inatObservedOn || null)}</span>
                                     </div>
                                     <div>
                                       <span className="font-medium">State:</span><br />
