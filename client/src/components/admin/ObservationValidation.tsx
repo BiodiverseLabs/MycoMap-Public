@@ -512,64 +512,63 @@ export function ObservationValidation() {
                                         <span className="font-medium">Provisional Species Name:</span><br />
                                         <span className="text-gray-700">{obs.provisionalSpeciesName || 'N/A'}</span>
                                       </div>
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-medium">MycoMap BLAST Results:</span>
-                                          {obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? (
-                                            <div className="flex items-center gap-2">
-                                              {obs.blastFilesDownloaded && obs.ncbiBlastFile && obs.localBlastFile ? (
-                                                <CheckCircle className="w-4 h-4 text-green-600" />
-                                              ) : (
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  onClick={() => handleBlastDownload(obs.observationId, obs.mycoMapBlastResults!)}
-                                                  disabled={downloadBlastMutation.isPending}
-                                                >
-                                                  {downloadBlastMutation.isPending ? (
-                                                    <RefreshCw className="w-3 h-3 animate-spin" />
-                                                  ) : (
-                                                    'Download Files'
-                                                  )}
-                                                </Button>
-                                              )}
-                                              <a
-                                                href={obs.mycoMapBlastResults}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-600 hover:text-blue-800"
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">MycoMap BLAST Results:</span>
+                                        {obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? (
+                                          <>
+                                            {obs.blastFilesDownloaded && obs.ncbiBlastFile && obs.localBlastFile ? (
+                                              <CheckCircle className="w-4 h-4 text-green-600" />
+                                            ) : (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleBlastDownload(obs.observationId, obs.mycoMapBlastResults!)}
+                                                disabled={downloadBlastMutation.isPending}
                                               >
-                                                <ExternalLink className="w-4 h-4" />
-                                              </a>
-                                            </div>
-                                          ) : (
-                                            <XCircle className="w-4 h-4 text-red-600" />
-                                          )}
-                                        </div>
-                                        {obs.blastFilesDownloaded && (obs.ncbiBlastFile || obs.localBlastFile) && (
-                                          <div className="flex items-center gap-2 text-sm">
-                                            {obs.ncbiBlastFile && (
-                                              <a
-                                                href={`/api/blast-files/${obs.ncbiBlastFile}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-600 hover:text-blue-800 underline"
-                                              >
-                                                NCBI
-                                              </a>
+                                                {downloadBlastMutation.isPending ? (
+                                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                  'Download Files'
+                                                )}
+                                              </Button>
                                             )}
-                                            {obs.ncbiBlastFile && obs.localBlastFile && <span>-</span>}
-                                            {obs.localBlastFile && (
-                                              <a
-                                                href={`/api/blast-files/${obs.localBlastFile}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-600 hover:text-blue-800 underline"
-                                              >
-                                                Local
-                                              </a>
+                                            <a
+                                              href={obs.mycoMapBlastResults}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800"
+                                            >
+                                              <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                            {obs.blastFilesDownloaded && (obs.ncbiBlastFile || obs.localBlastFile) && (
+                                              <div className="flex items-center gap-1 text-sm">
+                                                <span>-</span>
+                                                {obs.ncbiBlastFile && (
+                                                  <a
+                                                    href={`/api/blast-files/${obs.ncbiBlastFile}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 hover:text-blue-800 underline"
+                                                  >
+                                                    NCBI
+                                                  </a>
+                                                )}
+                                                {obs.ncbiBlastFile && obs.localBlastFile && <span>-</span>}
+                                                {obs.localBlastFile && (
+                                                  <a
+                                                    href={`/api/blast-files/${obs.localBlastFile}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 hover:text-blue-800 underline"
+                                                  >
+                                                    Local
+                                                  </a>
+                                                )}
+                                              </div>
                                             )}
-                                          </div>
+                                          </>
+                                        ) : (
+                                          <XCircle className="w-4 h-4 text-red-600" />
                                         )}
                                       </div>
                                       <div className="flex items-center gap-2">
