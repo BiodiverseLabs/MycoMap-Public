@@ -1472,32 +1472,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 inatObserver = userData.name || userData.login || null;
               }
               inatObservedOn = inatRecord.observedOnString || null;
-              // Extract state from place data if available
+              // Extract state from place data using place ID lookup
               if (inatRecord.place_ids && inatRecord.place_ids.length > 0) {
                 try {
-                  // Common US state place IDs mapping
-                  const stateMap: { [key: number]: string } = {
-                    14: 'California', 2: 'Texas', 3: 'Florida', 4: 'New York', 5: 'Pennsylvania',
-                    6: 'Illinois', 7: 'Ohio', 8: 'Georgia', 9: 'North Carolina', 10: 'Michigan',
-                    11: 'New Jersey', 12: 'Virginia', 13: 'Washington', 15: 'Arizona',
-                    16: 'Massachusetts', 17: 'Tennessee', 18: 'Indiana', 19: 'Missouri',
-                    20: 'Maryland', 21: 'Wisconsin', 22: 'Colorado', 23: 'Minnesota',
-                    24: 'South Carolina', 25: 'Alabama', 26: 'Louisiana', 27: 'Kentucky',
-                    28: 'Oregon', 29: 'Oklahoma', 30: 'Connecticut', 31: 'Utah',
-                    32: 'Iowa', 33: 'Nevada', 34: 'Arkansas', 35: 'Mississippi',
-                    36: 'Kansas', 37: 'New Mexico', 38: 'Nebraska', 39: 'West Virginia',
-                    40: 'Idaho', 41: 'Hawaii', 42: 'New Hampshire', 43: 'Maine',
-                    44: 'Montana', 45: 'Rhode Island', 47: 'South Dakota',
-                    48: 'North Dakota', 49: 'Alaska', 50: 'Vermont', 51: 'Wyoming'
-                  };
-
-                  // Check for known state place IDs first
-                  for (const placeId of inatRecord.place_ids) {
-                    if (stateMap[placeId]) {
-                      inatState = stateMap[placeId];
-                      break;
-                    }
-                  }
+                  // Use the new place ID resolution system
+                  inatState = await storage.resolveStateFromPlaceIds(inatRecord.place_ids);
                   
                   // If no state found from place IDs, try to extract from place_guess
                   if (!inatState && inatRecord.place_guess) {

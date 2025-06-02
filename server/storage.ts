@@ -148,6 +148,12 @@ export interface IStorage {
   createInaturalistData(data: InsertInaturalistData): Promise<InaturalistData>;
   updateInaturalistData(observationId: string, data: Partial<InsertInaturalistData>): Promise<void>;
   syncObservationWithInaturalist(observationId: string): Promise<InaturalistData | null>;
+  
+  // Place ID lookup methods
+  getPlaceById(placeId: number): Promise<any>;
+  getPlacesByIds(placeIds: number[]): Promise<any[]>;
+  lookupAndCachePlace(placeId: number): Promise<any>;
+  resolveStateFromPlaceIds(placeIds: number[]): Promise<string | null>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -725,6 +731,23 @@ export class MemoryStorage implements IStorage {
 
   async syncObservationWithInaturalist(observationId: string): Promise<InaturalistData | null> {
     // Memory storage doesn't implement iNaturalist functionality
+    return null;
+  }
+
+  // Place ID lookup methods (stub implementations for memory storage)
+  async getPlaceById(placeId: number): Promise<any> {
+    return null;
+  }
+
+  async getPlacesByIds(placeIds: number[]): Promise<any[]> {
+    return [];
+  }
+
+  async lookupAndCachePlace(placeId: number): Promise<any> {
+    return null;
+  }
+
+  async resolveStateFromPlaceIds(placeIds: number[]): Promise<string | null> {
     return null;
   }
 }
