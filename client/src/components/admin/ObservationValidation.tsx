@@ -57,23 +57,41 @@ export function ObservationValidation() {
   // Sync individual observation mutation
   const syncMutation = useMutation({
     mutationFn: async (observationId: string) => {
+      console.log(`[Frontend] Starting sync for observation: ${observationId}`);
       const response = await fetch(`/api/inaturalist/sync/${observationId}`, {
         method: 'POST'
       });
-      if (!response.ok) throw new Error('Failed to sync observation');
-      return response.json();
+      
+      const responseData = await response.json();
+      console.log(`[Frontend] Sync response for ${observationId}:`, responseData);
+      
+      if (!response.ok) {
+        const errorMsg = responseData?.error || `HTTP ${response.status}`;
+        throw new Error(errorMsg);
+      }
+      
+      return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data, observationId) => {
+      console.log(`[Frontend] Sync successful for ${observationId}:`, data);
+      toast({
+        title: "Success",
+        description: "Observation synced with iNaturalist",
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
+    },
+    onError: (error, observationId) => {
+      console.error(`[Frontend] Sync failed for ${observationId}:`, error);
+      toast({
+        title: "Sync Failed",
+        description: `Failed to sync observation ${observationId}: ${error.message}`,
+        variant: "destructive",
+      });
     }
   });
 
   const handleSync = async (observationId: string) => {
-    try {
-      await syncMutation.mutateAsync(observationId);
-    } catch (error) {
-      console.error('Sync failed:', error);
-    }
+    await syncMutation.mutateAsync(observationId);
   };
 
   const getSyncStatusIcon = (status: string, hasData: boolean) => {

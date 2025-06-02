@@ -1120,11 +1120,17 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Extract iNaturalist ID from observationId (format: "iNaturalist-123456")
-      const inatId = observation.observationId.replace('iNaturalist-', '');
+      // For iNaturalist observations, use the observationId directly as the iNaturalist ID
+      let inatId = observation.observationId;
       
-      if (!inatId || observation.observationId === inatId) {
-        console.log(`[iNaturalist] Invalid iNaturalist ID format for ${observationId}`);
+      // Handle both formats: direct ID (271525489) and prefixed (iNaturalist-271525489)
+      if (observation.observationId.startsWith('iNaturalist-')) {
+        inatId = observation.observationId.replace('iNaturalist-', '');
+      }
+      
+      // Verify we have a valid numeric iNaturalist ID
+      if (!inatId || !/^\d+$/.test(inatId)) {
+        console.log(`[iNaturalist] Invalid iNaturalist ID format for ${observationId}: ${inatId}`);
         await this.updateInaturalistData(observationId, {
           syncStatus: 'error',
           syncError: 'Invalid iNaturalist ID format'
