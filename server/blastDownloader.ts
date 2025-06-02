@@ -9,8 +9,15 @@ export interface BlastDownloadResult {
   error?: string;
 }
 
+export interface TraceDownloadResult {
+  success: boolean;
+  fastqPath?: string;
+  error?: string;
+}
+
 export class BlastFileDownloader {
   private downloadDir = path.join(process.cwd(), 'downloads', 'blast');
+  private traceDir = path.join(process.cwd(), 'downloads', 'trace');
 
   constructor() {
     this.ensureDownloadDir();
@@ -19,8 +26,53 @@ export class BlastFileDownloader {
   private async ensureDownloadDir() {
     try {
       await fs.mkdir(this.downloadDir, { recursive: true });
+      await fs.mkdir(this.traceDir, { recursive: true });
     } catch (error) {
-      console.error('Failed to create download directory:', error);
+      console.error('Failed to create download directories:', error);
+    }
+  }
+
+  /**
+   * Parse MycoMap trace URL to extract FASTQ file URL
+   * Example URL: https://mycomap.com/genetics/sequences/ont_sequences/hfsont33_its4-5_95-dik-s-pl04-mgk04-ns4918-inat265571056-basidio-1-ric499-r358689/
+   */
+  private async parseTracePageForFiles(traceUrl: string): Promise<{ fastqUrl?: string }> {
+    try {
+      console.log(`[TRACE] Parsing page: ${traceUrl}`);
+      
+      const response = await fetch(traceUrl);
+      if (!response.ok) {
+        console.error(`[TRACE] Failed to fetch page: ${response.status} ${response.statusText}`);
+        return {};
+      }
+
+      const html = await response.text();
+      
+      // Look for Assembly Files pattern like "Assembly Files: filename.fastq"
+      const fastqMatch = html.match(/Assembly Files:\s*<a[^>]*href="([^"]*\.fastq)"[^>]*>([^<]*\.fastq)<\/a>/i);
+
+      let fastqUrl;
+      
+      if (fastqMatch) {
+        fastqUrl = fastqMatch[1];
+        // Decode HTML entities like &amp; -> &
+        fastqUrl = fastqUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+        
+        // Handle relative URLs
+        if (fastqUrl.startsWith('/')) {
+          fastqUrl = `https://mycomap.com${fastqUrl}`;
+        } else if (!fastqUrl.startsWith('http')) {
+          const baseUrl = traceUrl.replace(/\/$/, '');
+          fastqUrl = `${baseUrl}/${fastqUrl}`;
+        }
+        console.log(`[TRACE] Decoded FASTQ URL: ${fastqUrl}`);
+      }
+
+      console.log(`[TRACE] Found FASTQ file: ${fastqUrl}`);
+      return { fastqUrl };
+    } catch (error) {
+      console.error(`[TRACE] Failed to parse page ${traceUrl}:`, error);
+      return {};
     }
   }
 
@@ -200,6 +252,47 @@ export class BlastFileDownloader {
   }
 
   /**
+   * Download trace FASTQ files for a given MycoMap URL and observation ID
+   */
+  async downloadTraceFiles(observationId: string, traceUrl: string): Promise<TraceDownloadResult> {
+    try {
+      const inatId = this.extractInatId(observationId);
+      if (!inatId) {
+        return { success: false, error: 'Invalid observation ID format' };
+      }
+
+      // Parse the trace page to get FASTQ file URL
+      const { fastqUrl } = await this.parseTracePageForFiles(traceUrl);
+
+      if (!fastqUrl) {
+        return { success: false, error: 'No FASTQ trace file found on the page' };
+      }
+
+      // Generate local file path
+      const fastqPath = path.join(this.traceDir, `iNat${inatId}.fastq`);
+
+      // Download the FASTQ file
+      const fastqSuccess = await this.downloadFile(fastqUrl, fastqPath);
+
+      if (!fastqSuccess) {
+        return { success: false, error: 'Failed to download FASTQ file' };
+      }
+
+      console.log(`[TRACE] Successfully downloaded all files for observation ${observationId}`);
+      return {
+        success: true,
+        fastqPath
+      };
+    } catch (error) {
+      console.error(`[TRACE] Download failed for ${observationId}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown download error' 
+      };
+    }
+  }
+
+  /**
    * Check if BLAST files already exist for an observation
    */
   async checkExistingFiles(observationId: string): Promise<{ ncbiExists: boolean; localExists: boolean }> {
@@ -220,6 +313,25 @@ export class BlastFileDownloader {
       return { ncbiExists, localExists };
     } catch {
       return { ncbiExists: false, localExists: false };
+    }
+  }
+
+  /**
+   * Check if trace FASTQ file already exists for an observation
+   */
+  async checkExistingTraceFiles(observationId: string): Promise<{ fastqExists: boolean }> {
+    const inatId = this.extractInatId(observationId);
+    if (!inatId) {
+      return { fastqExists: false };
+    }
+
+    const fastqPath = path.join(this.traceDir, `iNat${inatId}.fastq`);
+
+    try {
+      const fastqExists = await fs.access(fastqPath).then(() => true).catch(() => false);
+      return { fastqExists };
+    } catch {
+      return { fastqExists: false };
     }
   }
 }

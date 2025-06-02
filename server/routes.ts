@@ -1621,6 +1621,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trace file download endpoints
+  app.post("/api/observations/:id/download-trace", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      const { traceUrl } = req.body;
+
+      if (!traceUrl) {
+        return res.status(400).json({ error: "Trace URL is required" });
+      }
+
+      console.log(`[TRACE] Starting download for observation ${observationId}`);
+      
+      // Download trace files
+      const result = await blastDownloader.downloadTraceFiles(observationId, traceUrl);
+      
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      // Update observation record with trace file information
+      await storage.updateObservationTaxonomy(parseInt(observationId), {
+        mycoMapTraceUrl: traceUrl,
+        fastqFile: result.fastqPath ? path.basename(result.fastqPath) : null,
+        traceFilesDownloaded: true,
+        traceDownloadDate: new Date()
+      });
+
+      res.json({
+        success: true,
+        fastqFile: result.fastqPath ? path.basename(result.fastqPath) : null
+      });
+
+    } catch (error) {
+      console.error(`[TRACE] Error downloading files:`, error);
+      res.status(500).json({ error: "Failed to download trace files" });
+    }
+  });
+
+  // Check trace file status
+  app.get("/api/observations/:id/trace-status", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      const { fastqExists } = await blastDownloader.checkExistingTraceFiles(observationId);
+      
+      res.json({
+        fastqExists
+      });
+    } catch (error) {
+      console.error(`[TRACE] Error checking file status:`, error);
+      res.status(500).json({ error: "Failed to check trace file status" });
+    }
+  });
+
+  // Serve downloaded trace files
+  app.get("/api/trace-files/:filename", (req, res) => {
+    try {
+      const filename = req.params.filename;
+      const filePath = path.join(__dirname, '../downloads/trace', filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.sendFile(path.resolve(filePath));
+    } catch (error) {
+      console.error(`[TRACE] Error serving file:`, error);
+      res.status(500).json({ error: "Failed to serve file" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

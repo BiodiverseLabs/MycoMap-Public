@@ -74,6 +74,12 @@ export const observations = pgTable("observations", {
   blastFilesDownloaded: boolean("blast_files_downloaded").default(false),
   blastDownloadDate: timestamp("blast_download_date"),
   
+  // Trace files tracking
+  mycoMapTraceUrl: text("mycomap_trace_url"),
+  fastqFile: text("fastq_file"), // Local path to downloaded FASTQ file
+  traceFilesDownloaded: boolean("trace_files_downloaded").default(false),
+  traceDownloadDate: timestamp("trace_download_date"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
