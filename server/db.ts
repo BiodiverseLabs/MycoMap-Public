@@ -1138,9 +1138,9 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Fetch data from iNaturalist API
+      // Fetch data from iNaturalist API with observation field values
       console.log(`[iNaturalist] Fetching data for observation ${inatId}`);
-      const response = await fetch(`https://api.inaturalist.org/v1/observations/${inatId}`);
+      const response = await fetch(`https://api.inaturalist.org/v1/observations/${inatId}?include=ofvs`);
       
       if (!response.ok) {
         console.log(`[iNaturalist] API error for ${inatId}: ${response.status}`);
