@@ -127,14 +127,7 @@ export function Sidebar() {
               <span>Updates Needed</span>
             </a>
           </Link>
-          <Button
-            variant="ghost"
-            className="flex items-center space-x-3 px-3 py-2 w-full justify-start font-medium text-slate-600 hover:bg-slate-100"
-            onClick={onOpenAdmin}
-          >
-            <Settings className="w-5 h-5" />
-            <span>Admin Panel</span>
-          </Button>
+
         </div>
       </aside>
 
@@ -189,14 +182,7 @@ export function Sidebar() {
               <span>Updates Needed</span>
             </a>
           </Link>
-          <Button
-            variant="ghost"
-            className="flex items-center space-x-3 px-3 py-3 w-full justify-start font-medium text-slate-600 hover:bg-slate-100"
-            onClick={onOpenAdmin}
-          >
-            <Settings className="w-5 h-5" />
-            <span>Admin Panel</span>
-          </Button>
+
         </div>
       </aside>
     </>
