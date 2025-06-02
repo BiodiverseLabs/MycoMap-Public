@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -192,6 +192,26 @@ export const redlistAssessments = pgTable("redlist_assessments", {
   assessmentIdx: index("redlist_assessment_idx").on(table.assessmentId),
 }));
 
+export const inaturalistPlaces = pgTable("inaturalist_places", {
+  id: serial("id").primaryKey(),
+  placeId: integer("place_id").notNull().unique(),
+  name: text("name"),
+  displayName: text("display_name"),
+  adminLevel: integer("admin_level"), // 0=country, 1=state/province, 2=county, etc.
+  placeType: text("place_type"), // state, county, country, etc.
+  ancestry: text("ancestry"), // slash-separated parent place IDs
+  boundingBoxSwlat: numeric("bounding_box_swlat"),
+  boundingBoxSwlng: numeric("bounding_box_swlng"),
+  boundingBoxNelat: numeric("bounding_box_nelat"),
+  boundingBoxNelng: numeric("bounding_box_nelng"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  placeIdIdx: index("inat_place_id_idx").on(table.placeId),
+  adminLevelIdx: index("inat_admin_level_idx").on(table.adminLevel),
+  placeTypeIdx: index("inat_place_type_idx").on(table.placeType),
+}));
+
 // iNaturalist data table for validation and detailed records
 export const inaturalistData = pgTable("inaturalist_data", {
   id: serial("id").primaryKey(),
@@ -295,6 +315,12 @@ export const insertRedlistAssessmentSchema = createInsertSchema(redlistAssessmen
 export const insertInaturalistDataSchema = createInsertSchema(inaturalistData).omit({
   id: true,
   lastSyncedAt: true,
+});
+
+export const insertInaturalistPlaceSchema = createInsertSchema(inaturalistPlaces).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Types
