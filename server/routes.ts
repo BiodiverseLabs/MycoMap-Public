@@ -1487,7 +1487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     32: 'Iowa', 33: 'Nevada', 34: 'Arkansas', 35: 'Mississippi',
                     36: 'Kansas', 37: 'New Mexico', 38: 'Nebraska', 39: 'West Virginia',
                     40: 'Idaho', 41: 'Hawaii', 42: 'New Hampshire', 43: 'Maine',
-                    44: 'Montana', 45: 'Rhode Island', 46: 'Delaware', 47: 'South Dakota',
+                    44: 'Montana', 45: 'Rhode Island', 47: 'South Dakota',
                     48: 'North Dakota', 49: 'Alaska', 50: 'Vermont', 51: 'Wyoming'
                   };
 
@@ -1496,6 +1496,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     if (stateMap[placeId]) {
                       inatState = stateMap[placeId];
                       break;
+                    }
+                  }
+                  
+                  // If no state found from place IDs, try to extract from place_guess
+                  if (!inatState && inatRecord.place_guess) {
+                    const placeGuess = inatRecord.place_guess.toLowerCase();
+                    const stateNames = {
+                      'alabama': 'Alabama', 'alaska': 'Alaska', 'arizona': 'Arizona', 'arkansas': 'Arkansas',
+                      'california': 'California', 'colorado': 'Colorado', 'connecticut': 'Connecticut',
+                      'delaware': 'Delaware', 'florida': 'Florida', 'georgia': 'Georgia', 'hawaii': 'Hawaii',
+                      'idaho': 'Idaho', 'illinois': 'Illinois', 'indiana': 'Indiana', 'iowa': 'Iowa',
+                      'kansas': 'Kansas', 'kentucky': 'Kentucky', 'louisiana': 'Louisiana', 'maine': 'Maine',
+                      'maryland': 'Maryland', 'massachusetts': 'Massachusetts', 'michigan': 'Michigan',
+                      'minnesota': 'Minnesota', 'mississippi': 'Mississippi', 'missouri': 'Missouri',
+                      'montana': 'Montana', 'nebraska': 'Nebraska', 'nevada': 'Nevada', 'new hampshire': 'New Hampshire',
+                      'new jersey': 'New Jersey', 'new mexico': 'New Mexico', 'new york': 'New York',
+                      'north carolina': 'North Carolina', 'north dakota': 'North Dakota', 'ohio': 'Ohio',
+                      'oklahoma': 'Oklahoma', 'oregon': 'Oregon', 'pennsylvania': 'Pennsylvania',
+                      'rhode island': 'Rhode Island', 'south carolina': 'South Carolina', 'south dakota': 'South Dakota',
+                      'tennessee': 'Tennessee', 'texas': 'Texas', 'utah': 'Utah', 'vermont': 'Vermont',
+                      'virginia': 'Virginia', 'washington': 'Washington', 'west virginia': 'West Virginia',
+                      'wisconsin': 'Wisconsin', 'wyoming': 'Wyoming',
+                      // Common abbreviations
+                      ' wa': 'Washington', ' ca': 'California', ' tx': 'Texas', ' fl': 'Florida',
+                      ' ny': 'New York', ' pa': 'Pennsylvania', ' or': 'Oregon', ' co': 'Colorado'
+                    };
+                    
+                    for (const [key, value] of Object.entries(stateNames)) {
+                      if (placeGuess.includes(key)) {
+                        inatState = value;
+                        break;
+                      }
                     }
                   }
                 } catch (e) {
