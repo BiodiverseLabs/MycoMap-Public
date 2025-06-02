@@ -227,10 +227,10 @@ export const inaturalistData = pgTable("inaturalist_data", {
   application: text("application"), // JSON string of app details
   // Observation fields data
   observationFields: text("observation_fields"), // JSON string of all observation fields
-  substrateField: text("substrate_field"), // Field 2330: Substrate
-  hostSpeciesField: text("host_species_field"), // Field 10675: Host Species
-  ecologyNotesField: text("ecology_notes_field"), // Field 9864: Ecology/Notes
-  abundanceField: text("abundance_field"), // Field 10109: Abundance
+  dnaBarcode: text("dna_barcode"), // Field 2330: DNA Barcode ITS
+  provisionalSpeciesName: text("provisional_species_name"), // Field 10675: Provisional Species Name
+  mycoMapBlastResults: text("mycomap_blast_results"), // Field 9864: MycoMap BLAST Results
+  traceFiles: text("trace_files"), // Field 10109: Trace Files (Raw DNA Data)
   lastSyncedAt: timestamp("last_synced_at").defaultNow(),
   syncStatus: text("sync_status").default('pending'), // pending, success, error
   syncError: text("sync_error"),

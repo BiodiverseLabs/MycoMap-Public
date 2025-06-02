@@ -1204,10 +1204,10 @@ export class DatabaseStorage implements IStorage {
         application: inatObservation.application ? JSON.stringify(inatObservation.application) : null,
         // Observation fields data
         observationFields: obsFields.length > 0 ? JSON.stringify(obsFields) : null,
-        substrateField: dnaBarcode,
-        hostSpeciesField: provisionalSpecies,
-        ecologyNotesField: mycoMapBlast,
-        abundanceField: traceFiles,
+        dnaBarcode: dnaBarcode,
+        provisionalSpeciesName: provisionalSpecies,
+        mycoMapBlastResults: mycoMapBlast,
+        traceFiles: traceFiles,
         syncStatus: 'success',
         syncError: null
       };
