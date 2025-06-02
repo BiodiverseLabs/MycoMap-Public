@@ -286,43 +286,7 @@ export function ObservationValidation() {
                           </div>
                         )}
 
-                        {/* Display DNA sequencing field data if available */}
-                        {(obs.dnaBarcode || obs.provisionalSpeciesName || obs.mycoMapBlastResults || obs.traceFiles) && (
-                          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <h4 className="text-sm font-medium text-blue-900 mb-2">DNA Sequencing Data</h4>
-                            <div className="space-y-2 text-sm">
-                              {obs.dnaBarcode && (
-                                <div>
-                                  <span className="font-medium text-blue-800">DNA Barcode ITS:</span> 
-                                  <div className="ml-2 text-blue-700 font-mono text-xs bg-white p-2 rounded border max-h-20 overflow-y-auto">
-                                    {obs.dnaBarcode}
-                                  </div>
-                                </div>
-                              )}
-                              {obs.provisionalSpeciesName && (
-                                <div>
-                                  <span className="font-medium text-blue-800">Provisional Species Name:</span> 
-                                  <span className="ml-2 text-blue-700">{obs.provisionalSpeciesName}</span>
-                                </div>
-                              )}
-                              {obs.mycoMapBlastResults && (
-                                <div>
-                                  <span className="font-medium text-blue-800">MycoMap BLAST Results:</span> 
-                                  <a href={obs.mycoMapBlastResults} target="_blank" rel="noopener noreferrer" 
-                                     className="ml-2 text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1">
-                                    View Results <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                </div>
-                              )}
-                              {obs.traceFiles && (
-                                <div>
-                                  <span className="font-medium text-blue-800">Trace Files:</span> 
-                                  <span className="ml-2 text-blue-700">{obs.traceFiles}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+
 
                         {/* Data Comparison Dropdown */}
                         <Collapsible 
@@ -389,9 +353,9 @@ export function ObservationValidation() {
                                     </div>
                                   </div>
                                   
-                                  {/* iNaturalist DNA Sequencing Fields */}
+                                  {/* iNaturalist Observation Fields */}
                                   <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <h6 className="text-xs font-medium text-green-700 mb-2">DNA Sequencing Data</h6>
+                                    <h6 className="text-xs font-medium text-green-700 mb-2">iNat Observation Fields</h6>
                                     <div className="space-y-1 text-xs">
                                       <div>
                                         <span className="font-medium">DNA Barcode ITS:</span><br />
