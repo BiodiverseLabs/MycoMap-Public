@@ -27,6 +27,10 @@ interface ValidationObservation {
   provisionalSpeciesName?: string | null;
   mycoMapBlastResults?: string | null;
   traceFiles?: string | null;
+  // BLAST file tracking
+  blastFilesDownloaded?: boolean;
+  ncbiBlastFile?: string | null;
+  localBlastFile?: string | null;
   // iNaturalist comparison data
   inatObserver?: string | null;
   inatObservedOn?: string | null;
@@ -158,8 +162,46 @@ export function ObservationValidation() {
     }
   });
 
+  // BLAST file download mutation
+  const downloadBlastMutation = useMutation({
+    mutationFn: async ({ observationId, blastUrl }: { observationId: string, blastUrl: string }) => {
+      const response = await fetch(`/api/observations/${observationId}/download-blast`, {
+        method: 'POST',
+        body: JSON.stringify({ blastUrl }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to download BLAST files');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "BLAST Files Downloaded",
+        description: "NCBI and Local XML files have been downloaded successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download BLAST files",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleSync = async (observationId: string) => {
     await syncMutation.mutateAsync(observationId);
+  };
+
+  const handleBlastDownload = async (observationId: string, blastUrl: string) => {
+    await downloadBlastMutation.mutateAsync({ observationId, blastUrl });
   };
 
   const getSyncStatusIcon = (status: string, hasData: boolean) => {
@@ -470,12 +512,65 @@ export function ObservationValidation() {
                                         <span className="font-medium">Provisional Species Name:</span><br />
                                         <span className="text-gray-700">{obs.provisionalSpeciesName || 'N/A'}</span>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">MycoMap BLAST Results:</span>
-                                        {obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? 
-                                          <CheckCircle className="w-4 h-4 text-green-600" /> : 
-                                          <XCircle className="w-4 h-4 text-red-600" />
-                                        }
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium">MycoMap BLAST Results:</span>
+                                          {obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? (
+                                            <div className="flex items-center gap-2">
+                                              {obs.blastFilesDownloaded && obs.ncbiBlastFile && obs.localBlastFile ? (
+                                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                              ) : (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  onClick={() => handleBlastDownload(obs.observationId, obs.mycoMapBlastResults!)}
+                                                  disabled={downloadBlastMutation.isPending}
+                                                >
+                                                  {downloadBlastMutation.isPending ? (
+                                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                                  ) : (
+                                                    'Download Files'
+                                                  )}
+                                                </Button>
+                                              )}
+                                              <a
+                                                href={obs.mycoMapBlastResults}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800"
+                                              >
+                                                <ExternalLink className="w-4 h-4" />
+                                              </a>
+                                            </div>
+                                          ) : (
+                                            <XCircle className="w-4 h-4 text-red-600" />
+                                          )}
+                                        </div>
+                                        {obs.blastFilesDownloaded && (obs.ncbiBlastFile || obs.localBlastFile) && (
+                                          <div className="flex items-center gap-2 text-sm">
+                                            {obs.ncbiBlastFile && (
+                                              <a
+                                                href={`/api/blast-files/${obs.ncbiBlastFile}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 underline"
+                                              >
+                                                NCBI
+                                              </a>
+                                            )}
+                                            {obs.ncbiBlastFile && obs.localBlastFile && <span>-</span>}
+                                            {obs.localBlastFile && (
+                                              <a
+                                                href={`/api/blast-files/${obs.localBlastFile}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 underline"
+                                              >
+                                                Local
+                                              </a>
+                                            )}
+                                          </div>
+                                        )}
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Trace Files (Raw DNA Data):</span>

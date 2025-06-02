@@ -1011,6 +1011,11 @@ export class DatabaseStorage implements IStorage {
     family?: string;
     genus?: string;
     classificationUpdate?: boolean;
+    mycoMapBlastUrl?: string;
+    ncbiBlastFile?: string;
+    localBlastFile?: string;
+    blastFilesDownloaded?: boolean;
+    blastDownloadDate?: Date;
   }): Promise<void> {
     await db.update(observations)
       .set(taxonomyData)
