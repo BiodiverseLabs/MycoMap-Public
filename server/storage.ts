@@ -707,6 +707,26 @@ export class MemoryStorage implements IStorage {
     
     return result;
   }
+
+  // iNaturalist data operations (stub implementations for MemoryStorage)
+  async getInaturalistData(observationId?: string): Promise<InaturalistData[]> {
+    // Memory storage doesn't implement iNaturalist functionality
+    return [];
+  }
+
+  async createInaturalistData(data: InsertInaturalistData): Promise<InaturalistData> {
+    // Memory storage doesn't implement iNaturalist functionality
+    throw new Error('iNaturalist operations not supported in memory storage');
+  }
+
+  async updateInaturalistData(observationId: string, data: Partial<InsertInaturalistData>): Promise<void> {
+    // Memory storage doesn't implement iNaturalist functionality
+  }
+
+  async syncObservationWithInaturalist(observationId: string): Promise<InaturalistData | null> {
+    // Memory storage doesn't implement iNaturalist functionality
+    return null;
+  }
 }
 
 // Use database storage instead of memory storage

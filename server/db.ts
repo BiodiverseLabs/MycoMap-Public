@@ -1079,4 +1079,144 @@ export class DatabaseStorage implements IStorage {
   async clearRedlistAssessments(): Promise<void> {
     await db.delete(redlistAssessments);
   }
+
+  // iNaturalist data operations
+  async getInaturalistData(observationId?: string): Promise<InaturalistData[]> {
+    if (observationId) {
+      const data = await db.select()
+        .from(inaturalistData)
+        .where(eq(inaturalistData.observationId, observationId));
+      return data;
+    } else {
+      const data = await db.select()
+        .from(inaturalistData)
+        .orderBy(desc(inaturalistData.lastSyncedAt));
+      return data;
+    }
+  }
+
+  async createInaturalistData(data: InsertInaturalistData): Promise<InaturalistData> {
+    const [created] = await db.insert(inaturalistData)
+      .values(data)
+      .returning();
+    return created;
+  }
+
+  async updateInaturalistData(observationId: string, data: Partial<InsertInaturalistData>): Promise<void> {
+    await db.update(inaturalistData)
+      .set({ ...data, lastSyncedAt: new Date() })
+      .where(eq(inaturalistData.observationId, observationId));
+  }
+
+  async syncObservationWithInaturalist(observationId: string): Promise<InaturalistData | null> {
+    try {
+      // Get the observation from our database to extract iNaturalist ID
+      const [observation] = await db.select()
+        .from(observations)
+        .where(eq(observations.observationId, observationId));
+
+      if (!observation) {
+        console.log(`[iNaturalist] Observation ${observationId} not found`);
+        return null;
+      }
+
+      // Extract iNaturalist ID from observationId (format: "iNaturalist-123456")
+      const inatId = observation.observationId.replace('iNaturalist-', '');
+      
+      if (!inatId || observation.observationId === inatId) {
+        console.log(`[iNaturalist] Invalid iNaturalist ID format for ${observationId}`);
+        await this.updateInaturalistData(observationId, {
+          syncStatus: 'error',
+          syncError: 'Invalid iNaturalist ID format'
+        });
+        return null;
+      }
+
+      // Fetch data from iNaturalist API
+      console.log(`[iNaturalist] Fetching data for observation ${inatId}`);
+      const response = await fetch(`https://api.inaturalist.org/v1/observations/${inatId}`);
+      
+      if (!response.ok) {
+        console.log(`[iNaturalist] API error for ${inatId}: ${response.status}`);
+        await this.updateInaturalistData(observationId, {
+          syncStatus: 'error',
+          syncError: `API error: ${response.status}`
+        });
+        return null;
+      }
+
+      const apiData = await response.json();
+      const inatObservation = apiData.results?.[0];
+
+      if (!inatObservation) {
+        console.log(`[iNaturalist] No data found for observation ${inatId}`);
+        await this.updateInaturalistData(observationId, {
+          syncStatus: 'error',
+          syncError: 'No data found in iNaturalist'
+        });
+        return null;
+      }
+
+      // Extract relevant data from iNaturalist response
+      const inaturalistRecord: InsertInaturalistData = {
+        observationId: observationId,
+        inatId: inatObservation.id?.toString() || inatId,
+        inatUuid: inatObservation.uuid,
+        quality: inatObservation.quality_grade,
+        captive: inatObservation.captive || false,
+        geoprivacy: inatObservation.geoprivacy,
+        taxonGeoprivacy: inatObservation.taxon_geoprivacy,
+        coordinatesObscured: inatObservation.coordinates_obscured || false,
+        publicPositionalAccuracy: inatObservation.public_positional_accuracy,
+        licenseCode: inatObservation.license_code,
+        observedOnString: inatObservation.observed_on_string,
+        observedOnDetails: inatObservation.observed_on_details,
+        timeObservedAt: inatObservation.time_observed_at ? new Date(inatObservation.time_observed_at) : null,
+        timeZone: inatObservation.time_zone,
+        description: inatObservation.description,
+        tags: inatObservation.tags || [],
+        species_guess: inatObservation.species_guess,
+        identificationCount: inatObservation.identifications_count || 0,
+        numIdentificationAgreements: inatObservation.num_identification_agreements || 0,
+        numIdentificationDisagreements: inatObservation.num_identification_disagreements || 0,
+        commentsCount: inatObservation.comments_count || 0,
+        created_at: inatObservation.created_at ? new Date(inatObservation.created_at) : null,
+        updated_at: inatObservation.updated_at ? new Date(inatObservation.updated_at) : null,
+        photos: inatObservation.photos?.map((photo: any) => photo.url) || [],
+        sounds: inatObservation.sounds?.map((sound: any) => sound.file_url) || [],
+        taxon: inatObservation.taxon ? JSON.stringify(inatObservation.taxon) : null,
+        user: inatObservation.user ? JSON.stringify(inatObservation.user) : null,
+        place_ids: inatObservation.place_ids || [],
+        project_ids: inatObservation.project_ids || [],
+        application: inatObservation.application ? JSON.stringify(inatObservation.application) : null,
+        syncStatus: 'success',
+        syncError: null
+      };
+
+      // Check if record already exists
+      const [existing] = await db.select()
+        .from(inaturalistData)
+        .where(eq(inaturalistData.observationId, observationId));
+
+      if (existing) {
+        // Update existing record
+        await this.updateInaturalistData(observationId, inaturalistRecord);
+        const [updated] = await db.select()
+          .from(inaturalistData)
+          .where(eq(inaturalistData.observationId, observationId));
+        return updated;
+      } else {
+        // Create new record
+        return await this.createInaturalistData(inaturalistRecord);
+      }
+
+    } catch (error) {
+      console.error(`[iNaturalist] Error syncing observation ${observationId}:`, error);
+      await this.updateInaturalistData(observationId, {
+        syncStatus: 'error',
+        syncError: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
+  }
 }

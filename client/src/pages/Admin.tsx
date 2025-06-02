@@ -6,9 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, Database, Settings, FileText, AlertTriangle } from "lucide-react";
 import { FileUpload } from "@/components/admin/FileUpload";
 import { RedListUpload } from "@/components/admin/RedListUpload";
+import { ObservationValidation } from "@/components/admin/ObservationValidation";
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState("upload");
+  const [activeTab, setActiveTab] = useState("validation");
 
   // Get upload history
   const { data: uploads, isLoading: uploadsLoading } = useQuery({

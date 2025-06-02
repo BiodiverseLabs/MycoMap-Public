@@ -1405,6 +1405,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // iNaturalist data endpoints
+  app.get("/api/inaturalist", async (req, res) => {
+    try {
+      const { observationId } = req.query;
+      const data = await storage.getInaturalistData(observationId as string);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching iNaturalist data:", error);
+      res.status(500).json({ error: "Failed to fetch iNaturalist data" });
+    }
+  });
+
+  app.post("/api/inaturalist/sync/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      console.log(`[iNaturalist] Syncing observation ${observationId}`);
+      
+      const result = await storage.syncObservationWithInaturalist(observationId);
+      if (result) {
+        res.json({ success: true, data: result });
+      } else {
+        res.status(404).json({ error: "Failed to sync observation" });
+      }
+    } catch (error) {
+      console.error("Error syncing iNaturalist data:", error);
+      res.status(500).json({ error: "Failed to sync iNaturalist data" });
+    }
+  });
+
+  app.get("/api/observations/validation", async (req, res) => {
+    try {
+      const { limit = 50, source = 'all' } = req.query;
+      
+      // Get observations with their iNaturalist sync status
+      const observations = await storage.getAllObservations();
+      
+      // Filter by source if specified
+      let filteredObs = observations;
+      if (source === 'inaturalist') {
+        filteredObs = observations.filter(obs => obs.observationId.startsWith('iNaturalist-'));
+      } else if (source === 'mo') {
+        filteredObs = observations.filter(obs => obs.observationId.startsWith('MO-'));
+      }
+      
+      // Get iNaturalist data for each observation
+      const validationData = await Promise.all(
+        filteredObs.slice(0, parseInt(limit as string)).map(async (obs) => {
+          const inatData = await storage.getInaturalistData(obs.observationId);
+          return {
+            ...obs,
+            inatSyncStatus: inatData[0]?.syncStatus || 'pending',
+            inatLastSynced: inatData[0]?.lastSyncedAt || null,
+            inatSyncError: inatData[0]?.syncError || null,
+            hasInatData: inatData.length > 0
+          };
+        })
+      );
+
+      res.json(validationData);
+    } catch (error) {
+      console.error("Error fetching validation data:", error);
+      res.status(500).json({ error: "Failed to fetch validation data" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
