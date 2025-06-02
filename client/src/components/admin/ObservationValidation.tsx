@@ -378,9 +378,16 @@ export function ObservationValidation() {
                         
                         <Button
                           size="sm"
-                          onClick={() => handleSync(obs.observationId)}
+                          onClick={() => {
+                            console.log('Refresh clicked for:', obs.observationId, 'Source:', getSourceName(obs.observationId));
+                            handleSync(obs.observationId);
+                          }}
                           disabled={syncMutation.isPending || getSourceName(obs.observationId) !== 'iNaturalist'}
-                          className="flex items-center gap-1"
+                          className={`flex items-center gap-1 ${
+                            getSourceName(obs.observationId) === 'iNaturalist' 
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
                           title={getSourceName(obs.observationId) !== 'iNaturalist' ? 'Only iNaturalist observations can be refreshed' : 'Refresh data from iNaturalist'}
                         >
                           <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
