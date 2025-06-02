@@ -97,8 +97,7 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       } else {
         return b.count - a.count; // Sort by count descending
       }
-    })
-    .slice(0, 20); // Show top 20 states from full dataset
+    }); // Show all states with scrolling
 
   // Initialize map when component mounts and observations are available
   useEffect(() => {
