@@ -59,22 +59,36 @@ export function ObservationValidation() {
             // Handle formats like "4/18/2025", "04/18/25", "2025-04-18", etc.
             const parts = dateStr.split(/[\/\-]/);
             if (parts.length === 3) {
-              let year = parseInt(parts[2]);
-              let month = parseInt(parts[0]);
-              let day = parseInt(parts[1]);
-              
-              // Handle 2-digit years (assume 20xx if < 50, 19xx if >= 50)
-              if (year < 100) {
-                year += year < 50 ? 2000 : 1900;
+              // Check if it's ISO format (YYYY-MM-DD) vs US format (MM/DD/YYYY)
+              if (dateStr.includes('-') && parts[0].length === 4) {
+                // ISO format: YYYY-MM-DD
+                return dateStr; // Already normalized
+              } else {
+                // US format: MM/DD/YYYY or M/D/YYYY
+                let year = parseInt(parts[2]);
+                let month = parseInt(parts[0]);
+                let day = parseInt(parts[1]);
+                
+                // Handle 2-digit years (assume 20xx if < 50, 19xx if >= 50)
+                if (year < 100) {
+                  year += year < 50 ? 2000 : 1900;
+                }
+                
+                return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
               }
-              
-              return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
             }
             return dateStr;
           };
           
           const normalizedMycoMap = normalizeDate(mycoMapValue);
           const normalizedInat = normalizeDate(inatValue);
+          
+          // Debug logging for troubleshooting
+          console.log('Date comparison:', {
+            original: { mycoMap: mycoMapValue, inat: inatValue },
+            normalized: { mycoMap: normalizedMycoMap, inat: normalizedInat },
+            match: normalizedMycoMap === normalizedInat
+          });
           
           return normalizedMycoMap === normalizedInat;
         } catch (e) {
