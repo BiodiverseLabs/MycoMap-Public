@@ -1458,7 +1458,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             inatSyncStatus: inatData[0]?.syncStatus || 'pending',
             inatLastSynced: inatData[0]?.lastSyncedAt || null,
             inatSyncError: inatData[0]?.syncError || null,
-            hasInatData: inatData.length > 0
+            hasInatData: inatData.length > 0,
+            substrateField: inatData[0]?.substrateField || null,
+            hostSpeciesField: inatData[0]?.hostSpeciesField || null,
+            ecologyNotesField: inatData[0]?.ecologyNotesField || null,
+            abundanceField: inatData[0]?.abundanceField || null,
           };
         })
       );

@@ -225,6 +225,12 @@ export const inaturalistData = pgTable("inaturalist_data", {
   place_ids: integer("place_ids").array(),
   project_ids: integer("project_ids").array(),
   application: text("application"), // JSON string of app details
+  // Observation fields data
+  observationFields: text("observation_fields"), // JSON string of all observation fields
+  substrateField: text("substrate_field"), // Field 2330: Substrate
+  hostSpeciesField: text("host_species_field"), // Field 10675: Host Species
+  ecologyNotesField: text("ecology_notes_field"), // Field 9864: Ecology/Notes
+  abundanceField: text("abundance_field"), // Field 10109: Abundance
   lastSyncedAt: timestamp("last_synced_at").defaultNow(),
   syncStatus: text("sync_status").default('pending'), // pending, success, error
   syncError: text("sync_error"),

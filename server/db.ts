@@ -1157,6 +1157,13 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
+      // Extract observation fields data
+      const obsFields = inatObservation.ofvs || inatObservation.observation_field_values || [];
+      const substrateField = obsFields.find((f: any) => f.observation_field_id === 2330)?.value || null;
+      const hostSpeciesField = obsFields.find((f: any) => f.observation_field_id === 10675)?.value || null;
+      const ecologyNotesField = obsFields.find((f: any) => f.observation_field_id === 9864)?.value || null;
+      const abundanceField = obsFields.find((f: any) => f.observation_field_id === 10109)?.value || null;
+
       // Extract relevant data from iNaturalist response
       const inaturalistRecord: InsertInaturalistData = {
         observationId: observationId,
@@ -1189,6 +1196,12 @@ export class DatabaseStorage implements IStorage {
         place_ids: inatObservation.place_ids || [],
         project_ids: inatObservation.project_ids || [],
         application: inatObservation.application ? JSON.stringify(inatObservation.application) : null,
+        // Observation fields data
+        observationFields: obsFields.length > 0 ? JSON.stringify(obsFields) : null,
+        substrateField: substrateField,
+        hostSpeciesField: hostSpeciesField,
+        ecologyNotesField: ecologyNotesField,
+        abundanceField: abundanceField,
         syncStatus: 'success',
         syncError: null
       };

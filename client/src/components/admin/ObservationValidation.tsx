@@ -20,6 +20,10 @@ interface ValidationObservation {
   inatLastSynced: string | null;
   inatSyncError: string | null;
   hasInatData: boolean;
+  substrateField?: string | null;
+  hostSpeciesField?: string | null;
+  ecologyNotesField?: string | null;
+  abundanceField?: string | null;
 }
 
 export function ObservationValidation() {
@@ -235,6 +239,39 @@ export function ObservationValidation() {
                         {obs.inatSyncError && (
                           <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
                             <span className="font-medium">Sync Error:</span> {obs.inatSyncError}
+                          </div>
+                        )}
+
+                        {/* Display observation field data if available */}
+                        {(obs.substrateField || obs.hostSpeciesField || obs.ecologyNotesField || obs.abundanceField) && (
+                          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <h4 className="text-sm font-medium text-blue-900 mb-2">iNaturalist Observation Fields</h4>
+                            <div className="space-y-1 text-sm">
+                              {obs.substrateField && (
+                                <div>
+                                  <span className="font-medium text-blue-800">Substrate:</span> 
+                                  <span className="ml-2 text-blue-700">{obs.substrateField}</span>
+                                </div>
+                              )}
+                              {obs.hostSpeciesField && (
+                                <div>
+                                  <span className="font-medium text-blue-800">Host Species:</span> 
+                                  <span className="ml-2 text-blue-700">{obs.hostSpeciesField}</span>
+                                </div>
+                              )}
+                              {obs.ecologyNotesField && (
+                                <div>
+                                  <span className="font-medium text-blue-800">Ecology/Notes:</span> 
+                                  <span className="ml-2 text-blue-700">{obs.ecologyNotesField}</span>
+                                </div>
+                              )}
+                              {obs.abundanceField && (
+                                <div>
+                                  <span className="font-medium text-blue-800">Abundance:</span> 
+                                  <span className="ml-2 text-blue-700">{obs.abundanceField}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
