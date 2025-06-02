@@ -192,6 +192,53 @@ export const redlistAssessments = pgTable("redlist_assessments", {
   assessmentIdx: index("redlist_assessment_idx").on(table.assessmentId),
 }));
 
+// iNaturalist data table for validation and detailed records
+export const inaturalistData = pgTable("inaturalist_data", {
+  id: serial("id").primaryKey(),
+  observationId: text("observation_id").notNull().unique(), // Links to observations table
+  inatId: text("inat_id").notNull(), // iNaturalist internal ID
+  inatUuid: text("inat_uuid"), // iNaturalist UUID
+  quality: text("quality"), // research, needs_id, casual
+  captive: boolean("captive").default(false),
+  geoprivacy: text("geoprivacy"), // open, obscured, private
+  taxonGeoprivacy: text("taxon_geoprivacy"),
+  coordinatesObscured: boolean("coordinates_obscured").default(false),
+  publicPositionalAccuracy: integer("public_positional_accuracy"),
+  licenseCode: text("license_code"),
+  observedOnString: text("observed_on_string"),
+  observedOnDetails: text("observed_on_details"),
+  timeObservedAt: timestamp("time_observed_at"),
+  timeZone: text("time_zone"),
+  description: text("description"),
+  tags: text("tags").array(),
+  species_guess: text("species_guess"),
+  identificationCount: integer("identification_count").default(0),
+  numIdentificationAgreements: integer("num_identification_agreements").default(0),
+  numIdentificationDisagreements: integer("num_identification_disagreements").default(0),
+  commentsCount: integer("comments_count").default(0),
+  created_at: timestamp("created_at_inat"),
+  updated_at: timestamp("updated_at_inat"),
+  photos: text("photos").array(), // Array of photo URLs
+  sounds: text("sounds").array(), // Array of sound URLs
+  taxon: text("taxon"), // JSON string of taxon details
+  user: text("user"), // JSON string of user details
+  place_ids: integer("place_ids").array(),
+  project_ids: integer("project_ids").array(),
+  application: text("application"), // JSON string of app details
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  syncStatus: text("sync_status").default('pending'), // pending, success, error
+  syncError: text("sync_error"),
+}, (table) => ({
+  // Index for observation lookup
+  observationIdx: index("inat_observation_idx").on(table.observationId),
+  // Index for iNat ID
+  inatIdIdx: index("inat_id_idx").on(table.inatId),
+  // Index for sync status
+  syncStatusIdx: index("inat_sync_status_idx").on(table.syncStatus),
+  // Index for quality grade
+  qualityIdx: index("inat_quality_idx").on(table.quality),
+}));
+
 // Relations
 export const observationsRelations = relations(observations, ({ one }) => ({
   contributor: one(contributors, {
@@ -239,6 +286,11 @@ export const insertRedlistAssessmentSchema = createInsertSchema(redlistAssessmen
   updatedAt: true,
 });
 
+export const insertInaturalistDataSchema = createInsertSchema(inaturalistData).omit({
+  id: true,
+  lastSyncedAt: true,
+});
+
 // Types
 export type InsertObservation = z.infer<typeof insertObservationSchema>;
 export type Observation = typeof observations.$inferSelect;
@@ -257,6 +309,9 @@ export type Species = typeof species.$inferSelect;
 
 export type InsertRedlistAssessment = z.infer<typeof insertRedlistAssessmentSchema>;
 export type RedlistAssessment = typeof redlistAssessments.$inferSelect;
+
+export type InsertInaturalistData = z.infer<typeof insertInaturalistDataSchema>;
+export type InaturalistData = typeof inaturalistData.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

@@ -1,7 +1,7 @@
 import { 
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
-  type Species, type InsertSpecies
+  type Species, type InsertSpecies, type InaturalistData, type InsertInaturalistData
 } from "@shared/schema";
 
 export interface IStorage {
@@ -142,6 +142,12 @@ export interface IStorage {
     genus?: string;
     classificationUpdate?: boolean;
   }): Promise<void>;
+  
+  // iNaturalist data operations
+  getInaturalistData(observationId?: string): Promise<InaturalistData[]>;
+  createInaturalistData(data: InsertInaturalistData): Promise<InaturalistData>;
+  updateInaturalistData(observationId: string, data: Partial<InsertInaturalistData>): Promise<void>;
+  syncObservationWithInaturalist(observationId: string): Promise<InaturalistData | null>;
 }
 
 export class MemoryStorage implements IStorage {
