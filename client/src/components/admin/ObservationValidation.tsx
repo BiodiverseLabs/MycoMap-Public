@@ -134,9 +134,13 @@ export function ObservationValidation() {
       // Data completeness checks
       obs.hasInatData, // Has iNaturalist data synced
       
-      // DNA/BLAST data checks (if available)
-      obs.mycoMapBlastResults ? (obs.blastFilesDownloaded && (obs.ncbiBlastFile || obs.localBlastFile)) : true,
-      obs.traceFiles ? (obs.traceFilesDownloaded && obs.fastqFile) : true,
+      // DNA/BLAST data checks - must be present and downloaded if MycoMap URL exists
+      obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? 
+        (obs.blastFilesDownloaded && (obs.ncbiBlastFile || obs.localBlastFile)) : true,
+      
+      // Trace file checks - must be present and downloaded if trace URL exists
+      obs.traceFiles && obs.traceFiles.includes('mycomap.com') ? 
+        (obs.traceFilesDownloaded && obs.fastqFile) : true,
     ];
 
     // Count failed validations
