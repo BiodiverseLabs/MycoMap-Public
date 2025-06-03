@@ -6,13 +6,18 @@ import { TrendingUp } from "lucide-react";
 interface GlobalFirstsByYearProps {
   dateRange: string;
   selectedState?: string | null;
+  collectorSearch?: string;
 }
 
-export function GlobalFirstsByYear({ dateRange, selectedState }: GlobalFirstsByYearProps) {
+export function GlobalFirstsByYear({ dateRange, selectedState, collectorSearch }: GlobalFirstsByYearProps) {
   const { data: globalFirstsData = [], isLoading } = useQuery({
-    queryKey: ["/api/global-firsts-by-year"],
+    queryKey: ["/api/global-firsts-by-year", selectedState, collectorSearch],
     queryFn: async () => {
-      const response = await fetch('/api/global-firsts-by-year');
+      const params = new URLSearchParams();
+      if (selectedState) params.set('state', selectedState);
+      if (collectorSearch) params.set('collector', collectorSearch);
+      const url = `/api/global-firsts-by-year${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch global firsts by year');
       return response.json();
     }
