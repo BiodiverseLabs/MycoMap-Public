@@ -11,16 +11,20 @@ interface TemporalData {
 interface TemporalChartProps {
   dateRange?: string;
   selectedState?: string | null;
+  collectorSearch?: string;
 }
 
-export function TemporalChart({ dateRange, selectedState }: TemporalChartProps = {}) {
+export function TemporalChart({ dateRange, selectedState, collectorSearch }: TemporalChartProps = {}) {
   const { data: trends = [], isLoading } = useQuery<TemporalData[]>({
-    queryKey: ["/api/temporal-trends", { groupBy: 'year' }, selectedState],
+    queryKey: ["/api/temporal-trends", { groupBy: 'year' }, selectedState, collectorSearch],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('groupBy', 'year');
       if (selectedState) {
         params.append('state', selectedState);
+      }
+      if (collectorSearch) {
+        params.append('collector', collectorSearch);
       }
       const response = await fetch(`/api/temporal-trends?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch temporal trends');

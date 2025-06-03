@@ -484,11 +484,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cache for collector names to improve performance
+  let collectorCache: string[] | null = null;
+  let collectorCacheTime = 0;
+  const COLLECTOR_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   app.get("/api/collectors", async (req, res) => {
     try {
       const { search } = req.query;
-      const collectors = await storage.getUniqueCollectors(search as string);
-      res.json(collectors);
+      
+      // Check if cache is valid
+      const now = Date.now();
+      if (!collectorCache || (now - collectorCacheTime) > COLLECTOR_CACHE_TTL) {
+        collectorCache = await storage.getUniqueCollectors();
+        collectorCacheTime = now;
+      }
+      
+      // Filter cached results for search
+      let collectors = collectorCache;
+      if (search && typeof search === 'string') {
+        const searchLower = search.toLowerCase();
+        collectors = collectorCache.filter(name => 
+          name.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      res.json(collectors.slice(0, 50)); // Limit to 50 results for performance
     } catch (error) {
       console.error("Error fetching collectors:", error);
       res.status(500).json({ error: "Failed to fetch collectors" });
@@ -639,8 +660,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Global first records by year endpoint
   app.get("/api/global-firsts-by-year", async (req, res) => {
     try {
+      const { state, collector } = req.query;
+      
       // Get all global first records from the record index
-      const globalFirstRecords = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
+      const globalFirstRecords = await storage.getRecordIndex(50000, 0, false, false, state as string, true, undefined, undefined, undefined, collector as string);
       
       // Group by year based on report date
       const globalFirstsByYear = globalFirstRecords.reduce((acc: { [key: number]: number }, record) => {
