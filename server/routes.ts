@@ -1563,7 +1563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/observations/validation", async (req, res) => {
     try {
-      const { limit = 50, source = 'all' } = req.query;
+      const { limit = 50, source = 'all', syncStatus = 'all', validationStatus = 'all' } = req.query;
       
       // Get observations with their iNaturalist sync status
       const observations = await storage.getAllObservations();
@@ -1576,11 +1576,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mushroom observer');
       }
       
-      // Get iNaturalist data for each observation
+      // Get all iNaturalist data upfront to build sync status mapping
+      const allInatData = await storage.getInaturalistData();
+      const inatDataMap = new Map();
+      allInatData.forEach(data => {
+        inatDataMap.set(data.observationId, data);
+      });
+      
+      // Build validation data first to determine sync and validation status
       const validationData = await Promise.all(
-        filteredObs.slice(0, parseInt(limit as string)).map(async (obs) => {
-          const inatData = await storage.getInaturalistData(obs.observationId);
-          const inatRecord = inatData[0];
+        filteredObs.map(async (obs) => {
+          const inatRecord = inatDataMap.get(obs.observationId);
           
           // Extract iNaturalist comparison data from taxon and user JSON
           let inatScientificName = null;
@@ -1650,7 +1656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             inatSyncStatus: inatRecord?.syncStatus || 'pending',
             inatLastSynced: inatRecord?.lastSyncedAt || null,
             inatSyncError: inatRecord?.syncError || null,
-            hasInatData: inatData.length > 0,
+            hasInatData: !!inatRecord,
             dnaBarcode: inatRecord?.dnaBarcode || null,
             provisionalSpeciesName: inatRecord?.provisionalSpeciesName || null,
             mycoMapBlastResults: inatRecord?.mycoMapBlastResults || null,
@@ -1675,7 +1681,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
-      res.json(validationData);
+      // Apply sync status filter
+      let filteredValidationData = validationData;
+      if (syncStatus === 'synced') {
+        filteredValidationData = validationData.filter(obs => {
+          return obs.source?.toLowerCase() === 'inaturalist' ? obs.hasInatData : true;
+        });
+      } else if (syncStatus === 'not_synced') {
+        filteredValidationData = validationData.filter(obs => {
+          return obs.source?.toLowerCase() === 'inaturalist' ? !obs.hasInatData : false;
+        });
+      }
+
+      // Apply validation status filter
+      if (validationStatus === 'fully_validated') {
+        filteredValidationData = filteredValidationData.filter(obs => {
+          // For iNaturalist observations, check all validation criteria
+          if (obs.source?.toLowerCase() !== 'inaturalist') return false;
+          
+          // Check if has iNaturalist data
+          if (!obs.hasInatData) return false;
+          
+          // Check if has API Export file
+          if (!obs.inatApiSaved) return false;
+          
+          // Check if has BLAST files when BLAST URL exists
+          if (obs.mycoMapBlastResults && !obs.blastFilesDownloaded) return false;
+          
+          // Check if has trace files when trace URL exists
+          if (obs.traceFiles && !obs.traceFilesDownloaded) return false;
+          
+          return true;
+        });
+      } else if (validationStatus === 'needs_data') {
+        filteredValidationData = filteredValidationData.filter(obs => {
+          // For iNaturalist observations, check if any validation criteria are missing
+          if (obs.source?.toLowerCase() !== 'inaturalist') return true;
+          
+          // Check if missing iNaturalist data
+          if (!obs.hasInatData) return true;
+          
+          // Check if missing API Export file
+          if (!obs.inatApiSaved) return true;
+          
+          // Check if missing BLAST files when BLAST URL exists
+          if (obs.mycoMapBlastResults && !obs.blastFilesDownloaded) return true;
+          
+          // Check if missing trace files when trace URL exists
+          if (obs.traceFiles && !obs.traceFilesDownloaded) return true;
+          
+          return false;
+        });
+      }
+
+      // Apply limit after filtering
+      const limitedData = filteredValidationData.slice(0, parseInt(limit as string));
+
+      res.json(limitedData);
     } catch (error) {
       console.error("Error fetching validation data:", error);
       res.status(500).json({ error: "Failed to fetch validation data" });

@@ -224,13 +224,19 @@ export function ObservationValidation() {
     });
   };
 
-  // Fetch validation data
-  const { data: rawObservations = [], isLoading, refetch } = useQuery({
-    queryKey: ['/api/observations/validation', sourceFilter, limit],
+  // Fetch validation data with all filters
+  const { data: observations = [], isLoading, refetch } = useQuery({
+    queryKey: ['/api/observations/validation', sourceFilter, syncFilter, validationFilter, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (sourceFilter !== 'all') {
         params.append('source', sourceFilter);
+      }
+      if (syncFilter !== 'all') {
+        params.append('syncStatus', syncFilter);
+      }
+      if (validationFilter !== 'all') {
+        params.append('validationStatus', validationFilter);
       }
       params.append('limit', limit.toString());
       
@@ -239,9 +245,6 @@ export function ObservationValidation() {
       return response.json();
     }
   });
-
-  // Apply frontend filters to the data
-  const observations = getFilteredObservations(rawObservations);
 
   // Fetch sync progress
   const { data: syncProgress, refetch: refetchProgress } = useQuery<SyncProgress>({
@@ -708,7 +711,7 @@ export function ObservationValidation() {
             {/* Filter Results Summary */}
             <div className="p-3 bg-slate-50 rounded-lg border">
               <div className="text-sm text-slate-600">
-                Showing <strong>{observations.length}</strong> of <strong>{rawObservations.length}</strong> observations
+                Showing <strong>{observations.length}</strong> observations
                 {(syncFilter !== 'all' || validationFilter !== 'all') && (
                   <span className="ml-2 text-slate-500">
                     (filtered by {syncFilter !== 'all' ? `sync: ${syncFilter.replace('_', ' ')}` : ''} 
