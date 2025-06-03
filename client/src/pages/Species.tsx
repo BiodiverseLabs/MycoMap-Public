@@ -40,6 +40,16 @@ export default function Species() {
     }
   });
 
+  // Fetch unique states for filter
+  const { data: states = [] } = useQuery<string[]>({
+    queryKey: ["/api/states"],
+    queryFn: async () => {
+      const response = await fetch('/api/states');
+      if (!response.ok) throw new Error('Failed to fetch states');
+      return response.json();
+    }
+  });
+
   // Fetch observations for filtering
   const { data: observations = [] } = useQuery({
     queryKey: ["/api/observations", selectedState],
@@ -70,12 +80,6 @@ export default function Species() {
       return response.json();
     }
   });
-
-  // Get unique states for filter
-  const states = useMemo(() => {
-    const stateSet = new Set(observations.map((obs: any) => obs.state).filter(Boolean));
-    return Array.from(stateSet).sort();
-  }, [observations]);
 
   // Filter species based on search and filters
   const filteredSpecies = useMemo(() => {
