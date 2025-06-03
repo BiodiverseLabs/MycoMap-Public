@@ -340,12 +340,12 @@ export default function SpeciesDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="mb-4 flex gap-4">
+                <div className="mb-4 flex gap-4 relative z-20">
                   <Select value={selectedState} onValueChange={setSelectedState}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Filter by state" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-50">
                       <SelectItem value="all">All States</SelectItem>
                       {states.map((state) => (
                         <SelectItem key={state} value={state}>{state}</SelectItem>
@@ -357,7 +357,7 @@ export default function SpeciesDetail() {
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Filter by date" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-50">
                       <SelectItem value="all_time">All Time</SelectItem>
                       <SelectItem value="last_year">Last Year</SelectItem>
                       <SelectItem value="last_5_years">Last 5 Years</SelectItem>
