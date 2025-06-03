@@ -132,7 +132,20 @@ export function Sidebar() {
               </Link>
             );
           })}
-          
+        </nav>
+        
+        <div className="p-4 border-t border-slate-200 space-y-2">
+          <Link href="/updates">
+            <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left ${
+              location === "/updates" || location.startsWith("/updates")
+                ? "bg-primary/10 text-primary"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}>
+              <AlertTriangle className="w-5 h-5" />
+              <span>Updates Needed</span>
+            </a>
+          </Link>
+
           {/* Admin Section */}
           <div className="space-y-1">
             <button
@@ -178,20 +191,6 @@ export function Sidebar() {
               </div>
             )}
           </div>
-        </nav>
-        
-        <div className="p-4 border-t border-slate-200 space-y-2">
-          <Link href="/updates">
-            <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left ${
-              location === "/updates" || location.startsWith("/updates")
-                ? "bg-primary/10 text-primary"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}>
-              <AlertTriangle className="w-5 h-5" />
-              <span>Updates Needed</span>
-            </a>
-          </Link>
-
         </div>
       </aside>
 
@@ -233,7 +232,20 @@ export function Sidebar() {
               </Link>
             );
           })}
-          
+        </nav>
+        
+        <div className="p-4 border-t border-slate-200 space-y-2">
+          <Link href="/updates">
+            <a className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left ${
+              location === "/updates" || location.startsWith("/updates")
+                ? "bg-primary/10 text-primary"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}>
+              <AlertTriangle className="w-5 h-5" />
+              <span>Updates Needed</span>
+            </a>
+          </Link>
+
           {/* Admin Section - Mobile */}
           <div className="space-y-1">
             <button
@@ -279,20 +291,6 @@ export function Sidebar() {
               </div>
             )}
           </div>
-        </nav>
-        
-        <div className="p-4 border-t border-slate-200 space-y-2">
-          <Link href="/updates">
-            <a className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left ${
-              location === "/updates" || location.startsWith("/updates")
-                ? "bg-primary/10 text-primary"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}>
-              <AlertTriangle className="w-5 h-5" />
-              <span>Updates Needed</span>
-            </a>
-          </Link>
-
         </div>
       </aside>
     </>
