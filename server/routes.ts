@@ -484,6 +484,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/collectors", async (req, res) => {
+    try {
+      const { search } = req.query;
+      const collectors = await storage.getUniqueCollectors(search as string);
+      res.json(collectors);
+    } catch (error) {
+      console.error("Error fetching collectors:", error);
+      res.status(500).json({ error: "Failed to fetch collectors" });
+    }
+  });
+
   // Global first records endpoints
   app.get("/api/states/global-firsts", async (req, res) => {
     try {

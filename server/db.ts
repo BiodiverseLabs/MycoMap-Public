@@ -948,6 +948,24 @@ export class DatabaseStorage implements IStorage {
     return result.rows.map(row => row.state as string);
   }
 
+  async getUniqueCollectors(search?: string): Promise<string[]> {
+    let whereClause = sql`${observations.collector} IS NOT NULL AND ${observations.collector} != ''`;
+    
+    if (search && search.trim()) {
+      whereClause = sql`${whereClause} AND ${observations.collector} ILIKE ${`%${search.trim()}%`}`;
+    }
+    
+    const result = await db.execute(sql`
+      SELECT DISTINCT ${observations.collector} as collector
+      FROM ${observations}
+      WHERE ${whereClause}
+      ORDER BY ${observations.collector}
+      LIMIT 50
+    `);
+
+    return result.rows.map(row => row.collector as string);
+  }
+
   // GPS Index optimization methods for faster map loading
   async buildGpsIndex(): Promise<void> {
     const { gpsIndex } = schema;

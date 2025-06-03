@@ -115,6 +115,9 @@ export interface IStorage {
   // Get unique states
   getUniqueStates(): Promise<string[]>;
   
+  // Get unique collectors
+  getUniqueCollectors(search?: string): Promise<string[]>;
+  
   // Global first records analytics
   getStatesWithMostGlobalFirsts(filterState?: string): Promise<Array<{
     state: string;

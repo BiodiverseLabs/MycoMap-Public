@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { TemporalChart } from "@/components/dashboard/TemporalChart";
 import { GlobalFirstsByYear } from "@/components/dashboard/GlobalFirstsByYear";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { useQuery } from "@tanstack/react-query";
 import { Search, MapPin, Calendar, Filter, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -14,6 +15,7 @@ export default function Temporal() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [collectorSearch, setCollectorSearch] = useState("");
+  const [collectorQuery, setCollectorQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [goingBackYears, setGoingBackYears] = useState("0");
