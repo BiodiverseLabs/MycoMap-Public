@@ -49,9 +49,9 @@ export default function Geospatial() {
           <GeospatialMap onStateSelect={handleStateSelect} selectedState={selectedState} />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-8">
-            <StateRecords state={selectedState || undefined} />
-            <TopContributors state={selectedState || undefined} />
-            <SpeciesFrequency state={selectedState || undefined} />
+            <StateRecords selectedState={selectedState} />
+            <TopContributors selectedState={selectedState} />
+            <SpeciesFrequency selectedState={selectedState} />
             <RegionalAnalysis selectedState={selectedState} />
           </div>
         </div>
