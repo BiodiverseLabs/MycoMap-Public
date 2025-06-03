@@ -1529,6 +1529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             provisionalSpeciesName: inatRecord?.provisionalSpeciesName || null,
             mycoMapBlastResults: inatRecord?.mycoMapBlastResults || null,
             traceFiles: inatRecord?.traceFiles || null,
+            inatGenbankAccession: inatRecord?.inatGenbankAccession || null,
             // Trace file download tracking
             traceFilesDownloaded: obs.traceFilesDownloaded || false,
             fastqFile: obs.fastqFile || null,

@@ -265,6 +265,7 @@ export const inaturalistData = pgTable("inaturalist_data", {
   provisionalSpeciesName: text("provisional_species_name"), // Field 10675: Provisional Species Name
   mycoMapBlastResults: text("mycomap_blast_results"), // Field 9864: MycoMap BLAST Results
   traceFiles: text("trace_files"), // Field 10109: Trace Files (Raw DNA Data)
+  inatGenbankAccession: text("inat_genbank_accession"), // Fields 15353, 15324, 7555: GenBank Accession #
   lastSyncedAt: timestamp("last_synced_at").defaultNow(),
   syncStatus: text("sync_status").default('pending'), // pending, success, error
   syncError: text("sync_error"),

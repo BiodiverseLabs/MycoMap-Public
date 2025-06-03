@@ -1179,6 +1179,12 @@ export class DatabaseStorage implements IStorage {
       const provisionalSpecies = obsFields.find((f: any) => f.field_id === 10675)?.value || null; // Provisional Species Name
       const mycoMapBlast = obsFields.find((f: any) => f.field_id === 9864)?.value || null; // MycoMap BLAST Results
       const traceFiles = obsFields.find((f: any) => f.field_id === 10109)?.value || null; // Trace Files (Raw DNA Data)
+      
+      // Extract GenBank Accession from multiple possible field IDs
+      const genbankField = obsFields.find((f: any) => 
+        f.field_id === 15353 || f.field_id === 15324 || f.field_id === 7555
+      );
+      const inatGenbankAccession = genbankField?.value || null;
 
       // Extract relevant data from iNaturalist response
       const inaturalistRecord: InsertInaturalistData = {
@@ -1218,6 +1224,7 @@ export class DatabaseStorage implements IStorage {
         provisionalSpeciesName: provisionalSpecies,
         mycoMapBlastResults: mycoMapBlast,
         traceFiles: traceFiles,
+        inatGenbankAccession: inatGenbankAccession,
         syncStatus: 'success',
         syncError: null
       };

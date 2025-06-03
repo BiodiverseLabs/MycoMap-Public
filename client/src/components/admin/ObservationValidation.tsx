@@ -564,6 +564,15 @@ export function ObservationValidation() {
                                         </span>
                                       </div>
                                       <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium">GenBank Accession #:</span>
+                                          {obs.inatGenbankAccession && <CheckCircle className="w-4 h-4 text-green-600" />}
+                                        </div>
+                                        <span className="text-gray-700 font-mono">
+                                          {obs.inatGenbankAccession || 'N/A'}
+                                        </span>
+                                      </div>
+                                      <div>
                                         <span className="font-medium">Provisional Species Name:</span><br />
                                         <span className="text-gray-700">{obs.provisionalSpeciesName || 'N/A'}</span>
                                       </div>
