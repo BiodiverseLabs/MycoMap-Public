@@ -1,16 +1,9 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Database, Settings, FileText, AlertTriangle } from "lucide-react";
-import { FileUpload } from "@/components/admin/FileUpload";
-import { RedListUpload } from "@/components/admin/RedListUpload";
-import { ObservationValidation } from "@/components/admin/ObservationValidation";
+import { Upload, Database, Settings, AlertTriangle, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState("validation");
-
   // Get upload history
   const { data: uploads, isLoading: uploadsLoading } = useQuery({
     queryKey: ['/api/uploads'],
@@ -21,30 +14,34 @@ export default function Admin() {
     queryKey: ['/api/metrics'],
   });
 
-  const menuItems = [
+  const adminPages = [
     {
       id: "validation",
-      label: "Validation",
+      label: "Data Validation",
       icon: Database,
-      description: "Validate and sync observation data"
+      description: "Validate and sync observation data with external sources",
+      href: "/admin/validation"
     },
     {
       id: "upload",
-      label: "Upload Data",
+      label: "Data Upload",
       icon: Upload,
-      description: "Upload observation data files"
+      description: "Upload observation data files from various sources",
+      href: "/admin/upload"
     },
     {
       id: "redlist",
-      label: "Red List Uploads", 
+      label: "Red List Management", 
       icon: AlertTriangle,
-      description: "Manage IUCN Red List data"
+      description: "Manage IUCN Red List assessment data",
+      href: "/admin/redlist"
     },
     {
       id: "settings",
       label: "System Settings",
       icon: Settings,
-      description: "Configure application settings"
+      description: "Configure application settings and preferences",
+      href: "/admin/settings"
     }
   ];
 
@@ -100,102 +97,30 @@ export default function Admin() {
           </Card>
         </div>
 
-        {/* Admin Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <TabsTrigger key={item.id} value={item.id} className="flex items-center gap-2">
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{item.label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          <TabsContent value="validation" className="space-y-6">
-            <ObservationValidation />
-          </TabsContent>
-
-          <TabsContent value="upload" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
-                  Upload Observation Data
-                </CardTitle>
-                <CardDescription>
-                  Upload CSV or Excel files containing observation data from iNaturalist, Mushroom Observer, or sequence databases.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FileUpload />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="redlist" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="w-5 h-5" />
-                  IUCN Red List Data
-                </CardTitle>
-                <CardDescription>
-                  Upload and manage IUCN Red List assessment data for conservation analysis.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RedListUpload />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  System Settings
-                </CardTitle>
-                <CardDescription>
-                  Configure application settings and preferences.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-sm text-slate-600">
-                  Settings functionality will be added here.
-                </div>
-                <Button variant="outline" disabled>
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="logs" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  System Logs
-                </CardTitle>
-                <CardDescription>
-                  View system activity and error logs.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-sm text-slate-600">
-                  Log viewing functionality will be added here.
-                </div>
-                <Button variant="outline" disabled>
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* Admin Page Links */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {adminPages.map((page) => {
+            const Icon = page.icon;
+            return (
+              <Link key={page.id} href={page.href}>
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-5 h-5 text-blue-600" />
+                        {page.label}
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    </CardTitle>
+                    <CardDescription>
+                      {page.description}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
