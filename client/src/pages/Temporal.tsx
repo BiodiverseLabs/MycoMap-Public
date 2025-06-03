@@ -68,9 +68,12 @@ export default function Temporal() {
     queryFn: async () => {
       const queryParams = buildQueryParams();
       const url = `/api/seasonal-patterns${queryParams ? `?${queryParams}` : ''}`;
+      console.log('Seasonal patterns query:', { collectorSearch, url, queryParams });
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch seasonal patterns');
-      return response.json();
+      const data = await response.json();
+      console.log('Seasonal patterns response:', data);
+      return data;
     }
   });
 
@@ -84,9 +87,12 @@ export default function Temporal() {
     queryFn: async () => {
       const queryParams = buildQueryParams();
       const url = `/api/monthly-statistics${queryParams ? `?${queryParams}` : ''}`;
+      console.log('Monthly statistics query:', { collectorSearch, url, queryParams });
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch monthly statistics');
-      return response.json();
+      const data = await response.json();
+      console.log('Monthly statistics response:', data);
+      return data;
     }
   });
 
@@ -95,9 +101,12 @@ export default function Temporal() {
     queryFn: async () => {
       const queryParams = buildQueryParams();
       const url = `/api/temporal-trends?groupBy=year${queryParams ? `&${queryParams}` : ''}`;
+      console.log('Temporal trends query:', { collectorSearch, url, queryParams });
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch yearly trends');
-      return response.json();
+      const data = await response.json();
+      console.log('Temporal trends response:', data);
+      return data;
     }
   });
 
