@@ -40,6 +40,13 @@ interface ValidationObservation {
   inatObservedOn?: string | null;
   inatState?: string | null;
   inatScientificName?: string | null;
+  inatGenbankAccession?: string | null;
+  // MycoMap data fields
+  genbankAccession?: string | null;
+  // iNaturalist API file tracking
+  inatApiSaved?: boolean;
+  inatApiFile?: string | null;
+  inatApiSaveDate?: string | null;
 }
 
 export function ObservationValidation() {
@@ -113,6 +120,35 @@ export function ObservationValidation() {
     return isMatch ? 
       <CheckCircle className="w-4 h-4 text-green-600" /> : 
       <XCircle className="w-4 h-4 text-red-600" />;
+  };
+
+  // Comprehensive validation function that checks all comparison fields
+  const getOverallValidationStatus = (obs: ValidationObservation) => {
+    const validationChecks = [
+      // Core data comparisons - only check if iNaturalist data exists
+      obs.hasInatData ? compareFields(obs.scientificName, obs.provisionalSpeciesName || obs.inatScientificName, true, obs.provisionalSpeciesName) : true,
+      obs.hasInatData ? compareFields(obs.collector, obs.inatObserver) : true,
+      obs.hasInatData ? compareFields(obs.observedOn, obs.inatObservedOn) : true,
+      obs.hasInatData ? compareFields(obs.state, obs.inatState) : true,
+      
+      // Data completeness checks
+      obs.hasInatData, // Has iNaturalist data synced
+      
+      // DNA/BLAST data checks (if available)
+      obs.mycoMapBlastResults ? (obs.blastFilesDownloaded && (obs.ncbiBlastFile || obs.localBlastFile)) : true,
+      obs.traceFiles ? (obs.traceFilesDownloaded && obs.fastqFile) : true,
+    ];
+
+    // Count failed validations
+    const failedChecks = validationChecks.filter(check => check === false).length;
+    
+    // If any checks fail, show red X
+    if (failedChecks > 0) {
+      return <XCircle className="w-4 h-4 text-red-600" />;
+    }
+    
+    // If all checks pass, show green checkmark
+    return <CheckCircle className="w-4 h-4 text-green-600" />;
   };
 
   // Fetch validation data
@@ -396,7 +432,7 @@ export function ObservationValidation() {
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
-                            {getSyncStatusIcon(obs.inatSyncStatus, obs.hasInatData)}
+                            {getOverallValidationStatus(obs)}
                             <span className="font-medium text-slate-900 italic">
                               {obs.scientificName}
                             </span>
