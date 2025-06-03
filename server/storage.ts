@@ -411,12 +411,35 @@ export class MemoryStorage implements IStorage {
       .sort((a, b) => b.count - a.count);
   }
 
-  async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {
+  async getSeasonalPatterns(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{ season: string; count: number; percentage: number }>> {
     const seasons = new Map<string, number>();
     let total = 0;
 
+    // Calculate date range if goingBackYears is provided
+    let dateRangeStart: string | undefined;
+    let dateRangeEnd: string | undefined;
+    
+    if (goingBackYears && goingBackYears !== "0") {
+      const yearsBack = parseInt(goingBackYears);
+      const endDateCalc = endDate ? new Date(endDate) : new Date();
+      const startDateCalc = new Date(endDateCalc);
+      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      
+      dateRangeStart = startDateCalc.toISOString().split('T')[0];
+      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
+    } else {
+      dateRangeStart = startDate;
+      dateRangeEnd = endDate;
+    }
+
     this.observations.forEach(obs => {
       if (!obs.observedOn) return;
+      if (state && obs.state !== state) return;
+      
+      // Apply date filtering
+      if (dateRangeStart && obs.observedOn < dateRangeStart) return;
+      if (dateRangeEnd && obs.observedOn > dateRangeEnd) return;
+      
       const date = new Date(obs.observedOn);
       const month = date.getMonth() + 1;
       
@@ -439,13 +462,36 @@ export class MemoryStorage implements IStorage {
       .sort((a, b) => b.count - a.count);
   }
 
-  async getMonthlyStatistics(): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
+  async getMonthlyStatistics(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
     const months = new Map<number, number>();
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                        'July', 'August', 'September', 'October', 'November', 'December'];
 
+    // Calculate date range if goingBackYears is provided
+    let dateRangeStart: string | undefined;
+    let dateRangeEnd: string | undefined;
+    
+    if (goingBackYears && goingBackYears !== "0") {
+      const yearsBack = parseInt(goingBackYears);
+      const endDateCalc = endDate ? new Date(endDate) : new Date();
+      const startDateCalc = new Date(endDateCalc);
+      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      
+      dateRangeStart = startDateCalc.toISOString().split('T')[0];
+      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
+    } else {
+      dateRangeStart = startDate;
+      dateRangeEnd = endDate;
+    }
+
     this.observations.forEach(obs => {
       if (!obs.observedOn) return;
+      if (state && obs.state !== state) return;
+      
+      // Apply date filtering
+      if (dateRangeStart && obs.observedOn < dateRangeStart) return;
+      if (dateRangeEnd && obs.observedOn > dateRangeEnd) return;
+      
       const date = new Date(obs.observedOn);
       const monthNum = date.getMonth() + 1;
       months.set(monthNum, (months.get(monthNum) || 0) + 1);
