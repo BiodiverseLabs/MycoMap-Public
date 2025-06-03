@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TemporalChart } from "@/components/dashboard/TemporalChart";
+import { GlobalFirstsByYear } from "@/components/dashboard/GlobalFirstsByYear";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -161,7 +162,10 @@ export default function Temporal() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <TemporalChart />
-          
+          <GlobalFirstsByYear dateRange={dateRange} selectedState={selectedState} />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card>
             <CardHeader>
               <CardTitle>Monthly Distribution</CardTitle>
