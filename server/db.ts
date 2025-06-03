@@ -124,7 +124,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string): Promise<Array<{
+  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
     period: string;
     count: number;
   }>> {
@@ -140,6 +140,31 @@ export class DatabaseStorage implements IStorage {
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+
+    // Calculate date range if goingBackYears is provided
+    let dateRangeStart: string | undefined;
+    let dateRangeEnd: string | undefined;
+    
+    if (goingBackYears && goingBackYears !== "0") {
+      const yearsBack = parseInt(goingBackYears);
+      const endDateCalc = endDate ? new Date(endDate) : new Date();
+      const startDateCalc = new Date(endDateCalc);
+      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      
+      dateRangeStart = startDateCalc.toISOString().split('T')[0];
+      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
+    } else {
+      dateRangeStart = startDate;
+      dateRangeEnd = endDate;
+    }
+
+    // Apply date filtering
+    if (dateRangeStart) {
+      whereConditions.push(sql`${observations.observedOn} >= ${dateRangeStart}`);
+    }
+    if (dateRangeEnd) {
+      whereConditions.push(sql`${observations.observedOn} <= ${dateRangeEnd}`);
     }
     
     const whereClause = whereConditions.length > 1 
@@ -240,7 +265,42 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ genus: string; count: number }>;
   }
 
-  async getSeasonalPatterns(): Promise<Array<{ season: string; count: number; percentage: number }>> {
+  async getSeasonalPatterns(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{ season: string; count: number; percentage: number }>> {
+    let whereConditions = [sql`${observations.observedOn} IS NOT NULL`];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+
+    // Calculate date range if goingBackYears is provided
+    let dateRangeStart: string | undefined;
+    let dateRangeEnd: string | undefined;
+    
+    if (goingBackYears && goingBackYears !== "0") {
+      const yearsBack = parseInt(goingBackYears);
+      const endDateCalc = endDate ? new Date(endDate) : new Date();
+      const startDateCalc = new Date(endDateCalc);
+      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      
+      dateRangeStart = startDateCalc.toISOString().split('T')[0];
+      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
+    } else {
+      dateRangeStart = startDate;
+      dateRangeEnd = endDate;
+    }
+
+    // Apply date filtering
+    if (dateRangeStart) {
+      whereConditions.push(sql`${observations.observedOn} >= ${dateRangeStart}`);
+    }
+    if (dateRangeEnd) {
+      whereConditions.push(sql`${observations.observedOn} <= ${dateRangeEnd}`);
+    }
+    
+    const whereClause = whereConditions.length > 1 
+      ? sql.join(whereConditions, sql` AND `)
+      : whereConditions[0];
+
     const result = await db.execute(sql`
       WITH seasonal_data AS (
         SELECT 
@@ -252,7 +312,7 @@ export class DatabaseStorage implements IStorage {
           END as season,
           COUNT(*) as count
         FROM ${observations}
-        WHERE ${observations.observedOn} IS NOT NULL
+        WHERE ${whereClause}
         GROUP BY season
       ),
       total_count AS (
@@ -269,14 +329,49 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ season: string; count: number; percentage: number }>;
   }
 
-  async getMonthlyStatistics(): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
+  async getMonthlyStatistics(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
+    let whereConditions = [sql`${observations.observedOn} IS NOT NULL`];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+
+    // Calculate date range if goingBackYears is provided
+    let dateRangeStart: string | undefined;
+    let dateRangeEnd: string | undefined;
+    
+    if (goingBackYears && goingBackYears !== "0") {
+      const yearsBack = parseInt(goingBackYears);
+      const endDateCalc = endDate ? new Date(endDate) : new Date();
+      const startDateCalc = new Date(endDateCalc);
+      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      
+      dateRangeStart = startDateCalc.toISOString().split('T')[0];
+      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
+    } else {
+      dateRangeStart = startDate;
+      dateRangeEnd = endDate;
+    }
+
+    // Apply date filtering
+    if (dateRangeStart) {
+      whereConditions.push(sql`${observations.observedOn} >= ${dateRangeStart}`);
+    }
+    if (dateRangeEnd) {
+      whereConditions.push(sql`${observations.observedOn} <= ${dateRangeEnd}`);
+    }
+    
+    const whereClause = whereConditions.length > 1 
+      ? sql.join(whereConditions, sql` AND `)
+      : whereConditions[0];
+
     const result = await db.execute(sql`
       SELECT 
         TO_CHAR(${observations.observedOn}::date, 'Month') as month,
         EXTRACT(MONTH FROM ${observations.observedOn}::date)::int as "monthNumber",
         COUNT(*)::int as count
       FROM ${observations}
-      WHERE ${observations.observedOn} IS NOT NULL
+      WHERE ${whereClause}
       GROUP BY EXTRACT(MONTH FROM ${observations.observedOn}::date), TO_CHAR(${observations.observedOn}::date, 'Month')
       ORDER BY count DESC
       LIMIT 10
