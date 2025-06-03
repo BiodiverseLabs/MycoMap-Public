@@ -572,7 +572,7 @@ export function ObservationValidation() {
                                             rel="noopener noreferrer"
                                             className="text-blue-600 hover:text-blue-800 underline"
                                           >
-                                            Link {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : ''}
+                                            {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : 'Download'}
                                           </a>
                                         ) : (
                                           <span className="text-gray-500">No API file saved</span>
@@ -712,18 +712,22 @@ export function ObservationValidation() {
                                             {obs.traceFilesDownloaded && obs.fastqFile ? (
                                               <CheckCircle className="w-4 h-4 text-green-600" />
                                             ) : (
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleTraceDownload(obs.observationId, obs.traceFiles!)}
-                                                disabled={downloadTraceMutation.isPending}
-                                              >
-                                                {downloadTraceMutation.isPending ? (
-                                                  <RefreshCw className="w-3 h-3 animate-spin" />
-                                                ) : (
-                                                  'Download FASTQ'
-                                                )}
-                                              </Button>
+                                              <>
+                                                <XCircle className="w-4 h-4 text-red-600" />
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  onClick={() => handleTraceDownload(obs.observationId, obs.traceFiles!)}
+                                                  disabled={downloadTraceMutation.isPending}
+                                                  className="ml-2"
+                                                >
+                                                  {downloadTraceMutation.isPending ? (
+                                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                                  ) : (
+                                                    'Download FASTQ'
+                                                  )}
+                                                </Button>
+                                              </>
                                             )}
                                             <a
                                               href={obs.traceFiles}
