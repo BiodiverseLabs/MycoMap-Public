@@ -74,6 +74,11 @@ export default function Temporal() {
     }
   });
 
+  // Calculate total observations from current data
+  const totalObservations = useMemo(() => {
+    return seasonalData.reduce((sum: number, item: any) => sum + item.count, 0);
+  }, [seasonalData]);
+
   const { data: monthlyData = [], isLoading: monthlyLoading } = useQuery({
     queryKey: ["/api/monthly-statistics", selectedState, startDate, endDate, goingBackYears, collectorSearch],
     queryFn: async () => {
