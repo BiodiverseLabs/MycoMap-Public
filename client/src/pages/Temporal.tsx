@@ -13,6 +13,7 @@ import { Search, MapPin, Calendar, Filter, ChevronDown, ChevronUp } from "lucide
 export default function Temporal() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [collectorSearch, setCollectorSearch] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [goingBackYears, setGoingBackYears] = useState("0");
@@ -31,7 +32,7 @@ export default function Temporal() {
     }
   });
 
-  const hasActiveFilters = searchTerm || selectedState || startDate || endDate || goingBackYears !== "0";
+  const hasActiveFilters = searchTerm || collectorSearch || selectedState || startDate || endDate || goingBackYears !== "0";
 
   // Build query parameters for filtering
   const buildQueryParams = () => {
@@ -157,10 +158,10 @@ export default function Temporal() {
                       <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
                       <Select value={selectedState || "all"} onValueChange={(value) => setSelectedState(value === "all" ? null : value)}>
                         <SelectTrigger className="pl-10">
-                          <SelectValue placeholder="All States" />
+                          <SelectValue placeholder="All Regions" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All States</SelectItem>
+                          <SelectItem value="all">All Regions</SelectItem>
                           {states.map((state) => (
                             <SelectItem key={state} value={state}>
                               {state}
@@ -168,6 +169,16 @@ export default function Temporal() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Search by collector..."
+                        value={collectorSearch}
+                        onChange={(e) => setCollectorSearch(e.target.value)}
+                        className="pl-10"
+                      />
                     </div>
                   </div>
 
