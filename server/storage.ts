@@ -25,7 +25,7 @@ export interface IStorage {
     statesCovered: number;
   }>;
   
-  getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string): Promise<Array<{
+  getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
     period: string;
     count: number;
   }>>;
@@ -55,13 +55,13 @@ export interface IStorage {
     count: number;
   }>>;
   
-  getSeasonalPatterns(): Promise<Array<{
+  getSeasonalPatterns(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
     season: string;
     count: number;
     percentage: number;
   }>>;
   
-  getMonthlyStatistics(): Promise<Array<{
+  getMonthlyStatistics(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
     month: string;
     count: number;
     monthNumber: number;
@@ -273,15 +273,36 @@ export class MemoryStorage implements IStorage {
     };
   }
 
-  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string): Promise<Array<{
+  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
     period: string;
     count: number;
   }>> {
     const trends = new Map<string, number>();
     
+    // Calculate date range if goingBackYears is provided
+    let dateRangeStart: string | undefined;
+    let dateRangeEnd: string | undefined;
+    
+    if (goingBackYears && goingBackYears !== "0") {
+      const yearsBack = parseInt(goingBackYears);
+      const endDateCalc = endDate ? new Date(endDate) : new Date();
+      const startDateCalc = new Date(endDateCalc);
+      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      
+      dateRangeStart = startDateCalc.toISOString().split('T')[0];
+      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
+    } else {
+      dateRangeStart = startDate;
+      dateRangeEnd = endDate;
+    }
+    
     this.observations.forEach(obs => {
       if (!obs.observedOn) return;
       if (state && obs.state !== state) return;
+      
+      // Apply date filtering
+      if (dateRangeStart && obs.observedOn < dateRangeStart) return;
+      if (dateRangeEnd && obs.observedOn > dateRangeEnd) return;
       
       const date = new Date(obs.observedOn);
       let period: string;

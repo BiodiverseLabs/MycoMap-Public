@@ -33,28 +33,44 @@ export default function Temporal() {
 
   const hasActiveFilters = searchTerm || selectedState || startDate || endDate || goingBackYears !== "0";
 
+  // Build query parameters for filtering
+  const buildQueryParams = () => {
+    const params = new URLSearchParams();
+    if (selectedState) params.set('state', selectedState);
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    if (goingBackYears !== "0") params.set('goingBackYears', goingBackYears);
+    return params.toString();
+  };
+
   const { data: seasonalData = [], isLoading: seasonalLoading } = useQuery({
-    queryKey: ["/api/seasonal-patterns"],
+    queryKey: ["/api/seasonal-patterns", selectedState, startDate, endDate, goingBackYears],
     queryFn: async () => {
-      const response = await fetch('/api/seasonal-patterns');
+      const queryParams = buildQueryParams();
+      const url = `/api/seasonal-patterns${queryParams ? `?${queryParams}` : ''}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch seasonal patterns');
       return response.json();
     }
   });
 
   const { data: monthlyData = [], isLoading: monthlyLoading } = useQuery({
-    queryKey: ["/api/monthly-statistics"],
+    queryKey: ["/api/monthly-statistics", selectedState, startDate, endDate, goingBackYears],
     queryFn: async () => {
-      const response = await fetch('/api/monthly-statistics');
+      const queryParams = buildQueryParams();
+      const url = `/api/monthly-statistics${queryParams ? `?${queryParams}` : ''}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch monthly statistics');
       return response.json();
     }
   });
 
   const { data: yearlyData = [], isLoading: yearlyLoading } = useQuery({
-    queryKey: ["/api/temporal-trends", { groupBy: 'year' }],
+    queryKey: ["/api/temporal-trends", { groupBy: 'year' }, selectedState, startDate, endDate, goingBackYears],
     queryFn: async () => {
-      const response = await fetch('/api/temporal-trends?groupBy=year');
+      const queryParams = buildQueryParams();
+      const url = `/api/temporal-trends?groupBy=year${queryParams ? `&${queryParams}` : ''}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch yearly trends');
       return response.json();
     }
