@@ -124,7 +124,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
+  async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     period: string;
     count: number;
   }>> {
@@ -140,6 +140,10 @@ export class DatabaseStorage implements IStorage {
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
     }
 
     // Apply date filtering with "going back X years" logic
@@ -284,11 +288,15 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ genus: string; count: number }>;
   }
 
-  async getSeasonalPatterns(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{ season: string; count: number; percentage: number }>> {
+  async getSeasonalPatterns(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{ season: string; count: number; percentage: number }>> {
     let whereConditions = [sql`${observations.observedOn} IS NOT NULL`];
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
     }
 
     // Apply date filtering with "going back X years" logic
@@ -367,11 +375,15 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ season: string; count: number; percentage: number }>;
   }
 
-  async getMonthlyStatistics(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
+  async getMonthlyStatistics(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{ month: string; count: number; monthNumber: number }>> {
     let whereConditions = [sql`${observations.observedOn} IS NOT NULL`];
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
     }
 
     // Apply date filtering with "going back X years" logic
