@@ -509,6 +509,29 @@ export function ObservationValidation() {
                                       <span className="font-medium">GenBank Accession:</span><br />
                                       <span className="text-gray-700 font-mono">{obs.genbankAccession || 'N/A'}</span>
                                     </div>
+                                    
+                                    {/* iNaturalist API Export Section */}
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <h6 className="text-xs font-medium text-purple-700 mb-2">iNat API Export</h6>
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="font-medium">iNat API Export:</span>
+                                        {obs.inatApiSaved && obs.inatApiFile ? (
+                                          <>
+                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                            <a
+                                              href={`/api/download/inat-api/${obs.inatApiFile}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800 underline"
+                                            >
+                                              Link {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : ''}
+                                            </a>
+                                          </>
+                                        ) : (
+                                          <span className="text-gray-500">No API file saved</span>
+                                        )}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                                 <div>
@@ -679,29 +702,6 @@ export function ObservationValidation() {
                                           </>
                                         ) : (
                                           <XCircle className="w-4 h-4 text-red-600" />
-                                        )}
-                                      </div>
-                                    </div>
-                                    
-                                    {/* iNaturalist API Export Section */}
-                                    <div className="mt-3 pt-3 border-t border-gray-200">
-                                      <h6 className="text-xs font-medium text-purple-700 mb-2">iNat API Export</h6>
-                                      <div className="flex items-center gap-2 text-xs">
-                                        <span className="font-medium">iNat API Export:</span>
-                                        {obs.inatApiSaved && obs.inatApiFile ? (
-                                          <>
-                                            <CheckCircle className="w-4 h-4 text-green-600" />
-                                            <a
-                                              href={`/api/download/inat-api/${obs.inatApiFile}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-blue-600 hover:text-blue-800 underline"
-                                            >
-                                              Link {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : ''}
-                                            </a>
-                                          </>
-                                        ) : (
-                                          <span className="text-gray-500">No API file saved</span>
                                         )}
                                       </div>
                                     </div>
