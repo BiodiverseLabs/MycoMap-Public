@@ -47,15 +47,18 @@ export function GlobalFirstsByYear({ dateRange, selectedState }: GlobalFirstsByY
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={globalFirstsData}>
+            <BarChart 
+              data={globalFirstsData}
+              margin={{ top: 20, right: 30, left: 80, bottom: 30 }}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="year" 
-                type="number"
-                scale="linear"
-                domain={['dataMin', 'dataMax']}
+                type="category"
               />
-              <YAxis />
+              <YAxis 
+                label={{ value: 'Records', angle: -90, position: 'insideLeft' }}
+              />
               <Tooltip 
                 formatter={(value) => [value, 'Global First Records']}
                 labelFormatter={(label) => `Year: ${label}`}
