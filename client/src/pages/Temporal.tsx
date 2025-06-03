@@ -151,7 +151,7 @@ export default function Temporal() {
                     <span>Filters</span>
                     {hasActiveFilters && (
                       <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                        Active
+                        {totalObservations > 0 ? `${totalObservations.toLocaleString()} observations` : 'No results'}
                       </span>
                     )}
                   </div>
