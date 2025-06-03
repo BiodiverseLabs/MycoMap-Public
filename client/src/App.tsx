@@ -27,6 +27,10 @@ import ClassDetail from "@/pages/ClassDetail";
 import OrderDetail from "@/pages/OrderDetail";
 import GenusDetail from "@/pages/GenusDetail";
 import Admin from "@/pages/Admin";
+import AdminValidation from "@/pages/admin/AdminValidation";
+import AdminUpload from "@/pages/admin/AdminUpload";
+import AdminRedList from "@/pages/admin/AdminRedList";
+import AdminSettings from "@/pages/admin/AdminSettings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -54,6 +58,10 @@ function Router() {
       <Route path="/records/most-species" component={MostSpecies} />
       <Route path="/updates" component={Updates} />
       <Route path="/admin" component={Admin} />
+      <Route path="/admin/validation" component={AdminValidation} />
+      <Route path="/admin/upload" component={AdminUpload} />
+      <Route path="/admin/redlist" component={AdminRedList} />
+      <Route path="/admin/settings" component={AdminSettings} />
       <Route path="/species/:name" component={SpeciesDetail} />
       <Route path="/species" component={Species} />
       <Route component={NotFound} />
