@@ -11,15 +11,12 @@ import { Search, MapPin, Calendar } from "lucide-react";
 export default function Temporal() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateMode, setDateMode] = useState<"preset" | "custom" | "annual">("annual");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [goingBackYears, setGoingBackYears] = useState("0");
   
   // Convert to legacy dateRange for existing components
-  const dateRange = dateMode === "preset" ? "all_time" : 
-                   dateMode === "custom" && startDate && endDate ? `${startDate}_to_${endDate}` :
-                   "all_time";
+  const dateRange = startDate && endDate ? `${startDate}_to_${endDate}` : "all_time";
 
   // Fetch unique states for filter
   const { data: states = [] } = useQuery<string[]>({
@@ -31,7 +28,7 @@ export default function Temporal() {
     }
   });
 
-  const hasActiveFilters = searchTerm || selectedState || dateMode !== "annual" || startDate || endDate || goingBackYears !== "0";
+  const hasActiveFilters = searchTerm || selectedState || startDate || endDate || goingBackYears !== "0";
 
   const { data: seasonalData = [], isLoading: seasonalLoading } = useQuery({
     queryKey: ["/api/seasonal-patterns"],
@@ -144,7 +141,7 @@ export default function Temporal() {
                 </div>
               </div>
 
-              {/* Right Column - Advanced Date Controls */}
+              {/* Right Column - Date Controls */}
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
@@ -152,49 +149,6 @@ export default function Temporal() {
                     <Label className="text-sm font-medium">Dates</Label>
                   </div>
                   
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="preset"
-                        name="dateMode"
-                        value="preset"
-                        checked={dateMode === "preset"}
-                        onChange={(e) => setDateMode(e.target.value as any)}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <Label htmlFor="preset" className="text-sm">Preset</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="custom"
-                        name="dateMode"
-                        value="custom"
-                        checked={dateMode === "custom"}
-                        onChange={(e) => setDateMode(e.target.value as any)}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <Label htmlFor="custom" className="text-sm">Custom</Label>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="annual"
-                        name="dateMode"
-                        value="annual"
-                        checked={dateMode === "annual"}
-                        onChange={(e) => setDateMode(e.target.value as any)}
-                        className="w-4 h-4 text-blue-600"
-                      />
-                      <Label htmlFor="annual" className="text-sm">Annual</Label>
-                    </div>
-                  </div>
-                </div>
-
-                {dateMode === "custom" && (
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Date Range</Label>
                     <div className="flex items-center gap-2 text-sm">
@@ -214,7 +168,7 @@ export default function Temporal() {
                       />
                     </div>
                   </div>
-                )}
+                </div>
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Going Back</Label>
@@ -234,10 +188,9 @@ export default function Temporal() {
             
             {hasActiveFilters && (
               <div className="mt-3 text-sm text-slate-600">
-                Showing {searchTerm && `"${searchTerm}" species`}{searchTerm && (selectedState || dateMode !== "annual") && ", "}
-                {selectedState && `from ${selectedState}`}{selectedState && dateMode !== "annual" && ", "}
-                {dateMode === "custom" && startDate && endDate && `from ${startDate} to ${endDate}`}
-                {dateMode === "preset" && "preset dates"}
+                Showing {searchTerm && `"${searchTerm}" species`}{searchTerm && (selectedState || startDate || endDate || goingBackYears !== "0") && ", "}
+                {selectedState && `from ${selectedState}`}{selectedState && (startDate || endDate || goingBackYears !== "0") && ", "}
+                {startDate && endDate && `from ${startDate} to ${endDate}`}
                 {goingBackYears !== "0" && `, going back ${goingBackYears} years`}
               </div>
             )}
