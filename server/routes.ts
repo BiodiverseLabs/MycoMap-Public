@@ -604,6 +604,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Global first records by year endpoint
+  app.get("/api/global-firsts-by-year", async (req, res) => {
+    try {
+      const observations = await storage.getAllObservations();
+      
+      // Filter for global first records and group by year
+      const globalFirstsByYear = observations
+        .filter(obs => obs.firstGenbankRecord && obs.observedOn)
+        .reduce((acc: { [key: number]: number }, obs) => {
+          const year = new Date(obs.observedOn).getFullYear();
+          acc[year] = (acc[year] || 0) + 1;
+          return acc;
+        }, {});
+
+      // Convert to array format for chart
+      const yearData = Object.entries(globalFirstsByYear)
+        .map(([year, count]) => ({ 
+          year: parseInt(year), 
+          count: count as number 
+        }))
+        .sort((a, b) => a.year - b.year);
+
+      res.json(yearData);
+    } catch (error) {
+      console.error("Error fetching global firsts by year:", error);
+      res.status(500).json({ error: "Failed to fetch global firsts by year" });
+    }
+  });
+
   // Species seasonal distribution endpoint
   app.get("/api/species/:name/seasonal", async (req, res) => {
     try {

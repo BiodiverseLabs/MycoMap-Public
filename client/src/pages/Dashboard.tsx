@@ -6,6 +6,7 @@ import { TopContributors } from "@/components/dashboard/TopContributors";
 import { SpeciesFrequency } from "@/components/dashboard/SpeciesFrequency";
 import { StateRecords } from "@/components/dashboard/StateRecords";
 import { ObservationSources } from "@/components/dashboard/ObservationSources";
+import { GlobalFirstsByYear } from "@/components/dashboard/GlobalFirstsByYear";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, X } from "lucide-react";
@@ -107,9 +108,14 @@ export default function Dashboard() {
           <SpeciesFrequency dateRange={dateRange} selectedState={selectedState} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 mb-6 lg:mb-8">
           <StateRecords dateRange={dateRange} selectedState={selectedState} />
           <ObservationSources dateRange={dateRange} selectedState={selectedState} />
+        </div>
+
+        {/* Global First Records by Year Chart */}
+        <div className="mb-6 lg:mb-8">
+          <GlobalFirstsByYear dateRange={dateRange} selectedState={selectedState} />
         </div>
       </div>
     </div>
