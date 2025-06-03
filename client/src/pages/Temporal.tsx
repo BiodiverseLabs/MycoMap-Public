@@ -34,6 +34,22 @@ export default function Temporal() {
     }
   });
 
+  // Fetch unique collectors for autocomplete
+  const { data: collectors = [], isLoading: collectorsLoading } = useQuery<string[]>({
+    queryKey: ["/api/collectors", collectorQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/collectors?search=${encodeURIComponent(collectorQuery)}`);
+      if (!response.ok) throw new Error('Failed to fetch collectors');
+      return response.json();
+    },
+    enabled: collectorQuery.length >= 2 // Only search when user types at least 2 characters
+  });
+
+  // Debounced search handler for collector autocomplete
+  const handleCollectorSearch = useCallback((query: string) => {
+    setCollectorQuery(query);
+  }, []);
+
   const hasActiveFilters = searchTerm || collectorSearch || selectedState || startDate || endDate || goingBackYears !== "0";
 
   // Build query parameters for filtering
@@ -174,13 +190,16 @@ export default function Temporal() {
                       </Select>
                     </div>
                     
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        placeholder="Search by collector..."
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Search by Collector</Label>
+                      <AutocompleteInput
                         value={collectorSearch}
-                        onChange={(e) => setCollectorSearch(e.target.value)}
-                        className="pl-10"
+                        onChange={setCollectorSearch}
+                        placeholder="Type collector name..."
+                        suggestions={collectors}
+                        onSearch={handleCollectorSearch}
+                        loading={collectorsLoading}
+                        className="w-full"
                       />
                     </div>
                   </div>
