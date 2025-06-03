@@ -340,33 +340,37 @@ export default function SpeciesDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="mb-4 flex gap-4 relative z-20">
-                  <Select value={selectedState} onValueChange={setSelectedState}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Filter by state" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      <SelectItem value="all">All States</SelectItem>
-                      {states.map((state) => (
-                        <SelectItem key={state} value={state}>{state}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="mb-4 flex gap-4 relative z-50">
+                  <div className="relative z-50">
+                    <Select value={selectedState} onValueChange={setSelectedState}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by state" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[9999]" style={{ zIndex: 9999 }}>
+                        <SelectItem value="all">All States</SelectItem>
+                        {states.map((state) => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                  <Select value={dateFilter} onValueChange={setDateFilter}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Filter by date" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50">
-                      <SelectItem value="all_time">All Time</SelectItem>
-                      <SelectItem value="last_year">Last Year</SelectItem>
-                      <SelectItem value="last_5_years">Last 5 Years</SelectItem>
-                      <SelectItem value="recent">Since 2020</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="relative z-50">
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by date" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[9999]" style={{ zIndex: 9999 }}>
+                        <SelectItem value="all_time">All Time</SelectItem>
+                        <SelectItem value="last_year">Last Year</SelectItem>
+                        <SelectItem value="last_5_years">Last 5 Years</SelectItem>
+                        <SelectItem value="recent">Since 2020</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
-                <div ref={mapRef} className="h-96 rounded-lg border border-slate-200"></div>
+                <div ref={mapRef} className="h-96 rounded-lg border border-slate-200 relative z-10"></div>
                 
                 <div className="mt-2 text-sm text-slate-600">
                   Showing {filteredObservations.length} of {observations.length} observations
