@@ -546,7 +546,7 @@ export default function Species() {
                           return value.toString();
                         }}
                         label={{ 
-                          value: 'Cumulative Species Count', 
+                          value: showGenera ? 'Cumulative Genera Count' : 'Cumulative Species Count', 
                           angle: -90, 
                           position: 'insideLeft',
                           style: { textAnchor: 'middle' }
@@ -564,7 +564,7 @@ export default function Species() {
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
-                        name="Observed Species"
+                        name={showGenera ? "Observed Genera" : "Observed Species"}
                       />
                       {/* Fitted line showing model over actual data */}
                       {extrapolate && (
@@ -589,7 +589,7 @@ export default function Species() {
                           dot={false}
                           strokeDasharray="5 5"
                           connectNulls={false}
-                          name="Projected Species"
+                          name={showGenera ? "Projected Genera" : "Projected Species"}
                         />
                       )}
                       {/* Reference line for estimated total */}
@@ -611,14 +611,16 @@ export default function Species() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-base">Estimated Total Species (Smax)</CardTitle>
+                          <CardTitle className="text-base">
+                            {showGenera ? "Estimated Total Genera (Gmax)" : "Estimated Total Species (Smax)"}
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold text-primary">
                             {extrapolationData.estimatedTotal?.toLocaleString()}
                           </div>
                           <p className="text-sm text-slate-600 mt-1">
-                            Asymptotic species richness estimate
+                            {showGenera ? "Asymptotic genera richness estimate" : "Asymptotic species richness estimate"}
                           </p>
                         </CardContent>
                       </Card>
@@ -633,7 +635,7 @@ export default function Species() {
                               Math.round((accumulationData[accumulationData.length - 1]?.uniqueSpeciesCount / extrapolationData.estimatedTotal) * 100) : 0}%
                           </div>
                           <p className="text-sm text-slate-600 mt-1">
-                            Current species discovery rate
+                            {showGenera ? "Current genera discovery rate" : "Current species discovery rate"}
                           </p>
                         </CardContent>
                       </Card>
