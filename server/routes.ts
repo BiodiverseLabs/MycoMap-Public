@@ -610,12 +610,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all global first records from the record index
       const globalFirstRecords = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
       
-      // Group by year based on report date
-      const globalFirstsByYear = globalFirstRecords.reduce((acc: { [key: number]: number }, record) => {
+      // Filter for 2010+ and group by year based on report date
+      const recentGlobalFirsts = globalFirstRecords.filter(record => {
         if (record.reportDate) {
           const year = new Date(record.reportDate).getFullYear();
-          acc[year] = (acc[year] || 0) + 1;
+          return year >= 2010;
         }
+        return false;
+      });
+
+      const globalFirstsByYear = recentGlobalFirsts.reduce((acc: { [key: number]: number }, record) => {
+        const year = new Date(record.reportDate!).getFullYear();
+        acc[year] = (acc[year] || 0) + 1;
         return acc;
       }, {});
 
