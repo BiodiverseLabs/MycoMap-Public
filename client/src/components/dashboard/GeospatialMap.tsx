@@ -127,6 +127,12 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     const initializeMap = async () => {
       await loadHeatPlugin();
 
+      // Clean up existing map instance if it exists
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+
       // Create map instance centered on continental US
       const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
       

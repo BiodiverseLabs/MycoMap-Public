@@ -24,6 +24,18 @@
   .mobile-card-spacing {
     @apply p-3 lg:p-4;
   }
+  
+  /* Ensure dropdowns appear above maps */
+  [data-radix-select-content],
+  [data-radix-dropdown-menu-content],
+  [data-radix-popover-content] {
+    z-index: 10000 !important;
+  }
+  
+  /* Leaflet map containers should have lower z-index */
+  .leaflet-container {
+    z-index: 1 !important;
+  }
 }
 
 :root {
