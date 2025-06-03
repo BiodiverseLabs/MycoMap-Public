@@ -63,6 +63,8 @@ interface SyncProgress {
 
 export function ObservationValidation() {
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [syncFilter, setSyncFilter] = useState('all');
+  const [validationFilter, setValidationFilter] = useState('all');
   const [limit, setLimit] = useState(50);
   const [expandedComparisons, setExpandedComparisons] = useState<Set<number>>(new Set());
   const [showProgress, setShowProgress] = useState(false);
@@ -171,8 +173,51 @@ export function ObservationValidation() {
     return <CheckCircle className="w-4 h-4 text-green-600" />;
   };
 
+  // Helper function to determine if observation is synced
+  const isObservationSynced = (obs: ValidationObservation) => {
+    return obs.inatSyncStatus === 'success';
+  };
+
+  // Helper function to determine if observation is fully validated
+  const isObservationFullyValidated = (obs: ValidationObservation) => {
+    if (obs.source?.toLowerCase() !== 'inaturalist') return true; // Non-iNat observations are considered validated
+    
+    // Check if has iNaturalist data
+    if (!obs.hasInatData) return false;
+    
+    // Check if has API Export file
+    if (!obs.inatApiSaved) return false;
+    
+    // Check if has BLAST files when BLAST URL exists
+    if (obs.mycoMapBlastResults && !obs.blastFilesDownloaded) return false;
+    
+    // Check if has trace files when trace URL exists
+    if (obs.traceFiles && !obs.traceFilesDownloaded) return false;
+    
+    return true;
+  };
+
+  // Filter observations based on current filters
+  const getFilteredObservations = (rawObservations: ValidationObservation[]) => {
+    return rawObservations.filter(obs => {
+      // Source filter
+      if (sourceFilter === 'inaturalist' && obs.source?.toLowerCase() !== 'inaturalist') return false;
+      if (sourceFilter === 'mo' && obs.source?.toLowerCase() !== 'mushroom observer') return false;
+      
+      // Sync filter
+      if (syncFilter === 'synced' && !isObservationSynced(obs)) return false;
+      if (syncFilter === 'not_synced' && isObservationSynced(obs)) return false;
+      
+      // Validation filter
+      if (validationFilter === 'fully_validated' && !isObservationFullyValidated(obs)) return false;
+      if (validationFilter === 'needs_data' && isObservationFullyValidated(obs)) return false;
+      
+      return true;
+    });
+  };
+
   // Fetch validation data
-  const { data: observations = [], isLoading, refetch } = useQuery({
+  const { data: rawObservations = [], isLoading, refetch } = useQuery({
     queryKey: ['/api/observations/validation', sourceFilter, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -186,6 +231,9 @@ export function ObservationValidation() {
       return response.json();
     }
   });
+
+  // Apply frontend filters to the data
+  const observations = getFilteredObservations(rawObservations);
 
   // Fetch sync progress
   const { data: syncProgress, refetch: refetchProgress } = useQuery<SyncProgress>({
@@ -561,8 +609,8 @@ export function ObservationValidation() {
         )}
 
         {/* Filters */}
-        <div className="flex gap-4 mb-6">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Source Database
             </label>
@@ -577,8 +625,40 @@ export function ObservationValidation() {
               </SelectContent>
             </Select>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Sync Status
+            </label>
+            <Select value={syncFilter} onValueChange={setSyncFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="synced">Synced</SelectItem>
+                <SelectItem value="not_synced">Not Synced</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Validation Status
+            </label>
+            <Select value={validationFilter} onValueChange={setValidationFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Validation</SelectItem>
+                <SelectItem value="fully_validated">Fully Validated</SelectItem>
+                <SelectItem value="needs_data">Needs Data</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           
-          <div className="flex-1">
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Records to Show
             </label>
@@ -617,8 +697,18 @@ export function ObservationValidation() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="text-sm text-slate-600 mb-4">
-              Showing {observations.length} observation{observations.length !== 1 ? 's' : ''}
+            {/* Filter Results Summary */}
+            <div className="p-3 bg-slate-50 rounded-lg border">
+              <div className="text-sm text-slate-600">
+                Showing <strong>{observations.length}</strong> of <strong>{rawObservations.length}</strong> observations
+                {(syncFilter !== 'all' || validationFilter !== 'all') && (
+                  <span className="ml-2 text-slate-500">
+                    (filtered by {syncFilter !== 'all' ? `sync: ${syncFilter.replace('_', ' ')}` : ''} 
+                    {syncFilter !== 'all' && validationFilter !== 'all' ? ', ' : ''}
+                    {validationFilter !== 'all' ? `validation: ${validationFilter.replace('_', ' ')}` : ''})
+                  </span>
+                )}
+              </div>
             </div>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
