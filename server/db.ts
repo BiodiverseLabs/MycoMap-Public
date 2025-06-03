@@ -142,29 +142,48 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(sql`${observations.state} = ${state}`);
     }
 
-    // Calculate date range if goingBackYears is provided
-    let dateRangeStart: string | undefined;
-    let dateRangeEnd: string | undefined;
-    
-    if (goingBackYears && goingBackYears !== "0") {
+    // Apply date filtering with "going back X years" logic
+    if (goingBackYears && goingBackYears !== "0" && startDate && endDate) {
+      // For "going back X years", match the same date range across multiple years
       const yearsBack = parseInt(goingBackYears);
-      const endDateCalc = endDate ? new Date(endDate) : new Date();
-      const startDateCalc = new Date(endDateCalc);
-      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
       
-      dateRangeStart = startDateCalc.toISOString().split('T')[0];
-      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
-    } else {
-      dateRangeStart = startDate;
-      dateRangeEnd = endDate;
-    }
-
-    // Apply date filtering
-    if (dateRangeStart) {
-      whereConditions.push(sql`${observations.observedOn} >= ${dateRangeStart}`);
-    }
-    if (dateRangeEnd) {
-      whereConditions.push(sql`${observations.observedOn} <= ${dateRangeEnd}`);
+      const startMonth = startDateObj.getMonth() + 1;
+      const startDay = startDateObj.getDate();
+      const endMonth = endDateObj.getMonth() + 1;
+      const endDay = endDateObj.getDate();
+      const currentYear = endDateObj.getFullYear();
+      const earliestYear = currentYear - yearsBack;
+      
+      // Match same date range across years
+      if (startMonth === endMonth) {
+        // Same month range
+        whereConditions.push(sql`
+          EXTRACT(YEAR FROM ${observations.observedOn}::date) >= ${earliestYear}
+          AND EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${startMonth}
+          AND EXTRACT(DAY FROM ${observations.observedOn}::date) >= ${startDay}
+          AND EXTRACT(DAY FROM ${observations.observedOn}::date) <= ${endDay}
+        `);
+      } else {
+        // Cross-month range
+        whereConditions.push(sql`
+          EXTRACT(YEAR FROM ${observations.observedOn}::date) >= ${earliestYear}
+          AND (
+            (EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${startMonth} AND EXTRACT(DAY FROM ${observations.observedOn}::date) >= ${startDay})
+            OR (EXTRACT(MONTH FROM ${observations.observedOn}::date) > ${startMonth} AND EXTRACT(MONTH FROM ${observations.observedOn}::date) < ${endMonth})
+            OR (EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${endMonth} AND EXTRACT(DAY FROM ${observations.observedOn}::date) <= ${endDay})
+          )
+        `);
+      }
+    } else if (startDate || endDate) {
+      // Regular date range filtering
+      if (startDate) {
+        whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      }
+      if (endDate) {
+        whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+      }
     }
     
     const whereClause = whereConditions.length > 1 
@@ -272,29 +291,48 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(sql`${observations.state} = ${state}`);
     }
 
-    // Calculate date range if goingBackYears is provided
-    let dateRangeStart: string | undefined;
-    let dateRangeEnd: string | undefined;
-    
-    if (goingBackYears && goingBackYears !== "0") {
+    // Apply date filtering with "going back X years" logic
+    if (goingBackYears && goingBackYears !== "0" && startDate && endDate) {
+      // For "going back X years", match the same date range across multiple years
       const yearsBack = parseInt(goingBackYears);
-      const endDateCalc = endDate ? new Date(endDate) : new Date();
-      const startDateCalc = new Date(endDateCalc);
-      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
       
-      dateRangeStart = startDateCalc.toISOString().split('T')[0];
-      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
-    } else {
-      dateRangeStart = startDate;
-      dateRangeEnd = endDate;
-    }
-
-    // Apply date filtering
-    if (dateRangeStart) {
-      whereConditions.push(sql`${observations.observedOn} >= ${dateRangeStart}`);
-    }
-    if (dateRangeEnd) {
-      whereConditions.push(sql`${observations.observedOn} <= ${dateRangeEnd}`);
+      const startMonth = startDateObj.getMonth() + 1;
+      const startDay = startDateObj.getDate();
+      const endMonth = endDateObj.getMonth() + 1;
+      const endDay = endDateObj.getDate();
+      const currentYear = endDateObj.getFullYear();
+      const earliestYear = currentYear - yearsBack;
+      
+      // Match same date range across years
+      if (startMonth === endMonth) {
+        // Same month range
+        whereConditions.push(sql`
+          EXTRACT(YEAR FROM ${observations.observedOn}::date) >= ${earliestYear}
+          AND EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${startMonth}
+          AND EXTRACT(DAY FROM ${observations.observedOn}::date) >= ${startDay}
+          AND EXTRACT(DAY FROM ${observations.observedOn}::date) <= ${endDay}
+        `);
+      } else {
+        // Cross-month range
+        whereConditions.push(sql`
+          EXTRACT(YEAR FROM ${observations.observedOn}::date) >= ${earliestYear}
+          AND (
+            (EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${startMonth} AND EXTRACT(DAY FROM ${observations.observedOn}::date) >= ${startDay})
+            OR (EXTRACT(MONTH FROM ${observations.observedOn}::date) > ${startMonth} AND EXTRACT(MONTH FROM ${observations.observedOn}::date) < ${endMonth})
+            OR (EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${endMonth} AND EXTRACT(DAY FROM ${observations.observedOn}::date) <= ${endDay})
+          )
+        `);
+      }
+    } else if (startDate || endDate) {
+      // Regular date range filtering
+      if (startDate) {
+        whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      }
+      if (endDate) {
+        whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+      }
     }
     
     const whereClause = whereConditions.length > 1 
@@ -336,29 +374,48 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(sql`${observations.state} = ${state}`);
     }
 
-    // Calculate date range if goingBackYears is provided
-    let dateRangeStart: string | undefined;
-    let dateRangeEnd: string | undefined;
-    
-    if (goingBackYears && goingBackYears !== "0") {
+    // Apply date filtering with "going back X years" logic
+    if (goingBackYears && goingBackYears !== "0" && startDate && endDate) {
+      // For "going back X years", match the same date range across multiple years
       const yearsBack = parseInt(goingBackYears);
-      const endDateCalc = endDate ? new Date(endDate) : new Date();
-      const startDateCalc = new Date(endDateCalc);
-      startDateCalc.setFullYear(startDateCalc.getFullYear() - yearsBack);
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
       
-      dateRangeStart = startDateCalc.toISOString().split('T')[0];
-      dateRangeEnd = endDateCalc.toISOString().split('T')[0];
-    } else {
-      dateRangeStart = startDate;
-      dateRangeEnd = endDate;
-    }
-
-    // Apply date filtering
-    if (dateRangeStart) {
-      whereConditions.push(sql`${observations.observedOn} >= ${dateRangeStart}`);
-    }
-    if (dateRangeEnd) {
-      whereConditions.push(sql`${observations.observedOn} <= ${dateRangeEnd}`);
+      const startMonth = startDateObj.getMonth() + 1;
+      const startDay = startDateObj.getDate();
+      const endMonth = endDateObj.getMonth() + 1;
+      const endDay = endDateObj.getDate();
+      const currentYear = endDateObj.getFullYear();
+      const earliestYear = currentYear - yearsBack;
+      
+      // Match same date range across years
+      if (startMonth === endMonth) {
+        // Same month range
+        whereConditions.push(sql`
+          EXTRACT(YEAR FROM ${observations.observedOn}::date) >= ${earliestYear}
+          AND EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${startMonth}
+          AND EXTRACT(DAY FROM ${observations.observedOn}::date) >= ${startDay}
+          AND EXTRACT(DAY FROM ${observations.observedOn}::date) <= ${endDay}
+        `);
+      } else {
+        // Cross-month range
+        whereConditions.push(sql`
+          EXTRACT(YEAR FROM ${observations.observedOn}::date) >= ${earliestYear}
+          AND (
+            (EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${startMonth} AND EXTRACT(DAY FROM ${observations.observedOn}::date) >= ${startDay})
+            OR (EXTRACT(MONTH FROM ${observations.observedOn}::date) > ${startMonth} AND EXTRACT(MONTH FROM ${observations.observedOn}::date) < ${endMonth})
+            OR (EXTRACT(MONTH FROM ${observations.observedOn}::date) = ${endMonth} AND EXTRACT(DAY FROM ${observations.observedOn}::date) <= ${endDay})
+          )
+        `);
+      }
+    } else if (startDate || endDate) {
+      // Regular date range filtering
+      if (startDate) {
+        whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      }
+      if (endDate) {
+        whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+      }
     }
     
     const whereClause = whereConditions.length > 1 
