@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X } from "lucide-react";
+import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X, Play, Square } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 
 interface ValidationObservation {
   id: number;
@@ -49,10 +50,22 @@ interface ValidationObservation {
   inatApiSaveDate?: string | null;
 }
 
+interface SyncProgress {
+  isRunning: boolean;
+  total: number;
+  processed: number;
+  successful: number;
+  failed: number;
+  errors: Array<{observationId: string, error: string}>;
+  startTime: string | null;
+  endTime: string | null;
+}
+
 export function ObservationValidation() {
   const [sourceFilter, setSourceFilter] = useState('all');
   const [limit, setLimit] = useState(50);
   const [expandedComparisons, setExpandedComparisons] = useState<Set<number>>(new Set());
+  const [showProgress, setShowProgress] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -171,6 +184,65 @@ export function ObservationValidation() {
       const response = await fetch(`/api/observations/validation?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch validation data');
       return response.json();
+    }
+  });
+
+  // Fetch sync progress
+  const { data: syncProgress, refetch: refetchProgress } = useQuery<SyncProgress>({
+    queryKey: ['/api/inaturalist/sync-progress'],
+    queryFn: async () => {
+      const response = await fetch('/api/inaturalist/sync-progress');
+      if (!response.ok) throw new Error('Failed to fetch sync progress');
+      return response.json();
+    },
+    refetchInterval: showProgress ? 2000 : false, // Poll every 2 seconds when progress is shown
+    enabled: showProgress
+  });
+
+  // Start bulk sync mutation
+  const bulkSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/inaturalist/sync-bulk', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to start bulk sync');
+      }
+      return data;
+    },
+    onSuccess: (data) => {
+      setShowProgress(true);
+      toast({
+        title: "Bulk Sync Started",
+        description: data.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Start Sync",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Reset sync progress mutation
+  const resetProgressMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/inaturalist/sync-reset', {
+        method: 'POST'
+      });
+      if (!response.ok) throw new Error('Failed to reset progress');
+      return response.json();
+    },
+    onSuccess: () => {
+      setShowProgress(false);
+      refetchProgress();
+      toast({
+        title: "Progress Reset",
+        description: "Sync progress has been reset",
+      });
     }
   });
 
@@ -368,6 +440,119 @@ export function ObservationValidation() {
         </p>
       </CardHeader>
       <CardContent>
+        {/* Sync Controls */}
+        <div className="flex gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+          <Button
+            onClick={() => bulkSyncMutation.mutate()}
+            disabled={bulkSyncMutation.isPending || syncProgress?.isRunning}
+            variant="default"
+            className="flex items-center gap-2"
+          >
+            {bulkSyncMutation.isPending ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : syncProgress?.isRunning ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+            {syncProgress?.isRunning ? 'Sync Running...' : 'Sync All Observations'}
+          </Button>
+          
+          <Button
+            onClick={() => {
+              refetch();
+              refetchProgress();
+            }}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh Page
+          </Button>
+
+          {(showProgress || syncProgress?.isRunning) && (
+            <Button
+              onClick={() => resetProgressMutation.mutate()}
+              disabled={resetProgressMutation.isPending}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Square className="w-4 h-4" />
+              Reset Progress
+            </Button>
+          )}
+        </div>
+
+        {/* Sync Progress Display */}
+        {(showProgress || syncProgress?.isRunning) && syncProgress && (
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="text-lg font-semibold text-blue-900 mb-3">Sync Progress</h3>
+            
+            <div className="space-y-4">
+              {/* Progress Bar */}
+              <div>
+                <div className="flex justify-between text-sm text-blue-700 mb-2">
+                  <span>Progress: {syncProgress.processed} / {syncProgress.total}</span>
+                  <span>{syncProgress.total > 0 ? Math.round((syncProgress.processed / syncProgress.total) * 100) : 0}%</span>
+                </div>
+                <Progress 
+                  value={syncProgress.total > 0 ? (syncProgress.processed / syncProgress.total) * 100 : 0} 
+                  className="w-full h-3"
+                />
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="bg-green-100 p-3 rounded text-center">
+                  <div className="text-2xl font-bold text-green-800">{syncProgress.successful}</div>
+                  <div className="text-green-600">Successful</div>
+                </div>
+                <div className="bg-red-100 p-3 rounded text-center">
+                  <div className="text-2xl font-bold text-red-800">{syncProgress.failed}</div>
+                  <div className="text-red-600">Failed</div>
+                </div>
+                <div className="bg-blue-100 p-3 rounded text-center">
+                  <div className="text-2xl font-bold text-blue-800">
+                    {syncProgress.total - syncProgress.processed}
+                  </div>
+                  <div className="text-blue-600">Remaining</div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="text-sm text-blue-700">
+                <strong>Status:</strong> {syncProgress.isRunning ? 'Running...' : 'Completed'}
+                {syncProgress.startTime && (
+                  <span className="ml-4">
+                    <strong>Started:</strong> {new Date(syncProgress.startTime).toLocaleString()}
+                  </span>
+                )}
+                {syncProgress.endTime && (
+                  <span className="ml-4">
+                    <strong>Ended:</strong> {new Date(syncProgress.endTime).toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              {/* Errors */}
+              {syncProgress.errors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded p-3">
+                  <h4 className="font-semibold text-red-800 mb-2">
+                    Failed Observations ({syncProgress.errors.length})
+                  </h4>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {syncProgress.errors.map((error, index) => (
+                      <div key={index} className="text-sm text-red-700">
+                        <strong>{error.observationId}:</strong> {error.error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex gap-4 mb-6">
           <div className="flex-1">

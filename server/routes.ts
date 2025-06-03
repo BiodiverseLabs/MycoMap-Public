@@ -1418,11 +1418,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Global sync state tracking
+  let syncProgress = {
+    isRunning: false,
+    total: 0,
+    processed: 0,
+    successful: 0,
+    failed: 0,
+    errors: [] as Array<{observationId: string, error: string}>,
+    startTime: null as Date | null,
+    endTime: null as Date | null
+  };
+
+  // Rate limiter for iNaturalist API (60 requests per minute for unauthenticated)
+  let lastRequestTime = 0;
+  const RATE_LIMIT_DELAY = 1100; // 1.1 seconds between requests (safe margin)
+
+  async function rateLimitedDelay() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
+      const delayNeeded = RATE_LIMIT_DELAY - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, delayNeeded));
+    }
+    lastRequestTime = Date.now();
+  }
+
   app.post("/api/inaturalist/sync/:observationId", async (req, res) => {
     try {
       const { observationId } = req.params;
       console.log(`[iNaturalist] Syncing observation ${observationId}`);
       
+      await rateLimitedDelay();
       const result = await storage.syncObservationWithInaturalist(observationId);
       if (result) {
         res.json({ success: true, data: result });
@@ -1433,6 +1460,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error syncing iNaturalist data:", error);
       res.status(500).json({ error: "Failed to sync iNaturalist data" });
     }
+  });
+
+  // Bulk sync endpoint
+  app.post("/api/inaturalist/sync-bulk", async (req, res) => {
+    if (syncProgress.isRunning) {
+      return res.status(409).json({ error: "Sync already in progress" });
+    }
+
+    try {
+      // Get all observations that need syncing
+      const allObservations = await storage.getAllObservations();
+      const unsynced = allObservations.filter(obs => 
+        obs.source?.toLowerCase() === 'inaturalist' && obs.inatSyncStatus !== 'success'
+      );
+
+      syncProgress = {
+        isRunning: true,
+        total: unsynced.length,
+        processed: 0,
+        successful: 0,
+        failed: 0,
+        errors: [],
+        startTime: new Date(),
+        endTime: null
+      };
+
+      res.json({ success: true, message: `Starting sync of ${unsynced.length} observations` });
+
+      // Process observations in background
+      (async () => {
+        for (const obs of unsynced) {
+          try {
+            await rateLimitedDelay();
+            console.log(`[Bulk Sync] Processing ${obs.observationId} (${syncProgress.processed + 1}/${syncProgress.total})`);
+            
+            const result = await storage.syncObservationWithInaturalist(obs.observationId);
+            if (result) {
+              syncProgress.successful++;
+            } else {
+              syncProgress.failed++;
+              syncProgress.errors.push({
+                observationId: obs.observationId,
+                error: "Sync returned null result"
+              });
+            }
+          } catch (error) {
+            syncProgress.failed++;
+            syncProgress.errors.push({
+              observationId: obs.observationId,
+              error: error instanceof Error ? error.message : String(error)
+            });
+            console.error(`[Bulk Sync] Failed to sync ${obs.observationId}:`, error);
+          }
+          syncProgress.processed++;
+        }
+        
+        syncProgress.isRunning = false;
+        syncProgress.endTime = new Date();
+        console.log(`[Bulk Sync] Completed: ${syncProgress.successful} successful, ${syncProgress.failed} failed`);
+      })();
+
+    } catch (error) {
+      syncProgress.isRunning = false;
+      console.error("Error starting bulk sync:", error);
+      res.status(500).json({ error: "Failed to start bulk sync" });
+    }
+  });
+
+  // Sync progress endpoint
+  app.get("/api/inaturalist/sync-progress", (req, res) => {
+    res.json(syncProgress);
+  });
+
+  // Reset sync progress
+  app.post("/api/inaturalist/sync-reset", (req, res) => {
+    syncProgress = {
+      isRunning: false,
+      total: 0,
+      processed: 0,
+      successful: 0,
+      failed: 0,
+      errors: [],
+      startTime: null,
+      endTime: null
+    };
+    res.json({ success: true, message: "Sync progress reset" });
   });
 
   app.get("/api/observations/validation", async (req, res) => {
