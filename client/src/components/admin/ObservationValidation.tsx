@@ -138,9 +138,9 @@ export function ObservationValidation() {
       obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? 
         (obs.blastFilesDownloaded && (obs.ncbiBlastFile || obs.localBlastFile)) : true,
       
-      // Trace file checks - must be present and downloaded if trace URL exists
+      // Trace file checks - must be present and downloaded 
       obs.traceFiles && obs.traceFiles.includes('mycomap.com') ? 
-        (obs.traceFilesDownloaded && obs.fastqFile) : true,
+        (obs.traceFilesDownloaded && obs.fastqFile) : false,
       
       // iNaturalist API Export check - must have file saved if observation has iNat data
       obs.hasInatData ? (obs.inatApiSaved && obs.inatApiFile) : true,
