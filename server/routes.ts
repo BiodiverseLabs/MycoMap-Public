@@ -198,13 +198,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/temporal-trends", async (req, res) => {
     try {
-      const { groupBy = 'month', state, startDate, endDate, goingBackYears } = req.query;
+      const { groupBy = 'month', state, startDate, endDate, goingBackYears, collector } = req.query;
       const trends = await storage.getTemporalTrends(
         groupBy as 'month' | 'quarter' | 'year', 
         state as string,
         startDate as string,
         endDate as string,
-        goingBackYears as string
+        goingBackYears as string,
+        collector as string
       );
       res.json(trends);
     } catch (error) {
@@ -215,12 +216,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/seasonal-patterns", async (req, res) => {
     try {
-      const { state, startDate, endDate, goingBackYears } = req.query;
+      const { state, startDate, endDate, goingBackYears, collector } = req.query;
       const patterns = await storage.getSeasonalPatterns(
         state as string,
         startDate as string,
         endDate as string,
-        goingBackYears as string
+        goingBackYears as string,
+        collector as string
       );
       res.json(patterns);
     } catch (error) {
@@ -231,12 +233,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/monthly-statistics", async (req, res) => {
     try {
-      const { state, startDate, endDate, goingBackYears } = req.query;
+      const { state, startDate, endDate, goingBackYears, collector } = req.query;
       const stats = await storage.getMonthlyStatistics(
         state as string,
         startDate as string,
         endDate as string,
-        goingBackYears as string
+        goingBackYears as string,
+        collector as string
       );
       res.json(stats);
     } catch (error) {

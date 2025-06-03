@@ -41,11 +41,12 @@ export default function Temporal() {
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
     if (goingBackYears !== "0") params.set('goingBackYears', goingBackYears);
+    if (collectorSearch) params.set('collector', collectorSearch);
     return params.toString();
   };
 
   const { data: seasonalData = [], isLoading: seasonalLoading } = useQuery({
-    queryKey: ["/api/seasonal-patterns", selectedState, startDate, endDate, goingBackYears],
+    queryKey: ["/api/seasonal-patterns", selectedState, startDate, endDate, goingBackYears, collectorSearch],
     queryFn: async () => {
       const queryParams = buildQueryParams();
       const url = `/api/seasonal-patterns${queryParams ? `?${queryParams}` : ''}`;
@@ -56,7 +57,7 @@ export default function Temporal() {
   });
 
   const { data: monthlyData = [], isLoading: monthlyLoading } = useQuery({
-    queryKey: ["/api/monthly-statistics", selectedState, startDate, endDate, goingBackYears],
+    queryKey: ["/api/monthly-statistics", selectedState, startDate, endDate, goingBackYears, collectorSearch],
     queryFn: async () => {
       const queryParams = buildQueryParams();
       const url = `/api/monthly-statistics${queryParams ? `?${queryParams}` : ''}`;
@@ -67,7 +68,7 @@ export default function Temporal() {
   });
 
   const { data: yearlyData = [], isLoading: yearlyLoading } = useQuery({
-    queryKey: ["/api/temporal-trends", { groupBy: 'year' }, selectedState, startDate, endDate, goingBackYears],
+    queryKey: ["/api/temporal-trends", { groupBy: 'year' }, selectedState, startDate, endDate, goingBackYears, collectorSearch],
     queryFn: async () => {
       const queryParams = buildQueryParams();
       const url = `/api/temporal-trends?groupBy=year${queryParams ? `&${queryParams}` : ''}`;
