@@ -607,16 +607,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Global first records by year endpoint
   app.get("/api/global-firsts-by-year", async (req, res) => {
     try {
-      const observations = await storage.getAllObservations();
+      // Get all global first records from the record index
+      const globalFirstRecords = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
       
-      // Filter for global first records and group by year
-      const globalFirstsByYear = observations
-        .filter(obs => obs.firstGenbankRecord && obs.observedOn)
-        .reduce((acc: { [key: number]: number }, obs) => {
-          const year = new Date(obs.observedOn).getFullYear();
+      // Group by year based on report date
+      const globalFirstsByYear = globalFirstRecords.reduce((acc: { [key: number]: number }, record) => {
+        if (record.reportDate) {
+          const year = new Date(record.reportDate).getFullYear();
           acc[year] = (acc[year] || 0) + 1;
-          return acc;
-        }, {});
+        }
+        return acc;
+      }, {});
 
       // Convert to array format for chart
       const yearData = Object.entries(globalFirstsByYear)
