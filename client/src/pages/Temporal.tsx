@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
-import { Search, MapPin, Calendar } from "lucide-react";
+import { Search, MapPin, Calendar, Filter, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function Temporal() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -14,6 +16,7 @@ export default function Temporal() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [goingBackYears, setGoingBackYears] = useState("0");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   
   // Convert to legacy dateRange for existing components
   const dateRange = startDate && endDate ? `${startDate}_to_${endDate}` : "all_time";
@@ -103,97 +106,110 @@ export default function Temporal() {
 
       <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
         <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
-              <Search className="h-5 w-5 text-slate-500" />
-              <CardTitle className="text-lg">Species Search & Filters</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column - Search and Location */}
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search by species name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
-                  <Select value={selectedState || "all"} onValueChange={(value) => setSelectedState(value === "all" ? null : value)}>
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="All States" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All States</SelectItem>
-                      {states.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Right Column - Date Controls */}
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calendar className="h-4 w-4 text-slate-500" />
-                    <Label className="text-sm font-medium">Dates</Label>
+          <CardContent className="p-4">
+            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <span>Filters</span>
+                    {hasActiveFilters && (
+                      <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        Active
+                      </span>
+                    )}
                   </div>
-                  
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium">Date Range</Label>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span>Between</span>
+                  {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Search and Location */}
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="flex-1"
+                        placeholder="Search by species name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
                       />
-                      <span>and</span>
-                      <Input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="flex-1"
-                      />
+                    </div>
+                    
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
+                      <Select value={selectedState || "all"} onValueChange={(value) => setSelectedState(value === "all" ? null : value)}>
+                        <SelectTrigger className="pl-10">
+                          <SelectValue placeholder="All States" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All States</SelectItem>
+                          {states.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Date Controls */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar className="h-4 w-4 text-slate-500" />
+                        <Label className="text-sm font-medium">Dates</Label>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Date Range</Label>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>Between</span>
+                          <Input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="flex-1"
+                          />
+                          <span>and</span>
+                          <Input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Going Back</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={goingBackYears}
+                          onChange={(e) => setGoingBackYears(e.target.value)}
+                          className="w-20"
+                        />
+                        <span className="text-sm text-slate-600">years</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Going Back</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={goingBackYears}
-                      onChange={(e) => setGoingBackYears(e.target.value)}
-                      className="w-20"
-                    />
-                    <span className="text-sm text-slate-600">years</span>
+                
+                {hasActiveFilters && (
+                  <div className="mt-4 pt-4 border-t text-sm text-slate-600">
+                    Showing {searchTerm && `"${searchTerm}" species`}{searchTerm && (selectedState || startDate || endDate || goingBackYears !== "0") && ", "}
+                    {selectedState && `from ${selectedState}`}{selectedState && (startDate || endDate || goingBackYears !== "0") && ", "}
+                    {startDate && endDate && `from ${startDate} to ${endDate}`}
+                    {goingBackYears !== "0" && `, going back ${goingBackYears} years`}
                   </div>
-                </div>
-              </div>
-            </div>
-            
-            {hasActiveFilters && (
-              <div className="mt-3 text-sm text-slate-600">
-                Showing {searchTerm && `"${searchTerm}" species`}{searchTerm && (selectedState || startDate || endDate || goingBackYears !== "0") && ", "}
-                {selectedState && `from ${selectedState}`}{selectedState && (startDate || endDate || goingBackYears !== "0") && ", "}
-                {startDate && endDate && `from ${startDate} to ${endDate}`}
-                {goingBackYears !== "0" && `, going back ${goingBackYears} years`}
-              </div>
-            )}
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
       </div>
