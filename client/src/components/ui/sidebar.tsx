@@ -263,8 +263,8 @@ export function Sidebar() {
                   
                   return (
                     <Link key={item.href} href={item.href}>
-                      <a
-                        className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left text-sm ${
+                      <div
+                        className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
                           isActive
                             ? "bg-primary/10 text-primary"
                             : "text-slate-600 hover:bg-slate-100"
@@ -272,7 +272,7 @@ export function Sidebar() {
                       >
                         <Icon className="w-4 h-4" />
                         <span>{item.label}</span>
-                      </a>
+                      </div>
                     </Link>
                   );
                 })}
