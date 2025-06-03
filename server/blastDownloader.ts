@@ -15,9 +15,16 @@ export interface TraceDownloadResult {
   error?: string;
 }
 
+export interface InatApiSaveResult {
+  success: boolean;
+  apiFilePath?: string;
+  error?: string;
+}
+
 export class BlastFileDownloader {
   private downloadDir = path.join(process.cwd(), 'downloads', 'blast');
   private traceDir = path.join(process.cwd(), 'downloads', 'trace');
+  private inatApiDir = path.join(process.cwd(), 'downloads', 'inat_api');
 
   constructor() {
     this.ensureDownloadDir();
@@ -27,6 +34,7 @@ export class BlastFileDownloader {
     try {
       await fs.mkdir(this.downloadDir, { recursive: true });
       await fs.mkdir(this.traceDir, { recursive: true });
+      await fs.mkdir(this.inatApiDir, { recursive: true });
     } catch (error) {
       console.error('Failed to create download directories:', error);
     }
@@ -332,6 +340,65 @@ export class BlastFileDownloader {
       return { fastqExists };
     } catch {
       return { fastqExists: false };
+    }
+  }
+
+  /**
+   * Save iNaturalist API response as text file
+   */
+  async saveInatApiResponse(observationId: string, apiResponse: any): Promise<InatApiSaveResult> {
+    try {
+      const inatId = this.extractInatId(observationId);
+      if (!inatId) {
+        return { success: false, error: 'Invalid observation ID format' };
+      }
+
+      // Create filename with current date
+      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `iNat${inatId}.${currentDate}.txt`;
+      const filePath = path.join(this.inatApiDir, filename);
+
+      // Convert API response to formatted JSON string
+      const apiText = JSON.stringify(apiResponse, null, 2);
+
+      // Save to file
+      await fs.writeFile(filePath, apiText, 'utf8');
+
+      console.log(`[iNat API] Saved API response for observation ${observationId} to ${filename}`);
+      return {
+        success: true,
+        apiFilePath: filename
+      };
+    } catch (error) {
+      console.error(`[iNat API] Failed to save API response for ${observationId}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown save error' 
+      };
+    }
+  }
+
+  /**
+   * Check if iNaturalist API file already exists for an observation
+   */
+  async checkExistingInatApiFiles(observationId: string): Promise<{ apiFileExists: boolean; apiFileName?: string }> {
+    const inatId = this.extractInatId(observationId);
+    if (!inatId) {
+      return { apiFileExists: false };
+    }
+
+    try {
+      // Check if any API file exists for this observation (could be different dates)
+      const files = await fs.readdir(this.inatApiDir);
+      const apiFile = files.find(file => file.startsWith(`iNat${inatId}.`) && file.endsWith('.txt'));
+      
+      if (apiFile) {
+        return { apiFileExists: true, apiFileName: apiFile };
+      }
+      
+      return { apiFileExists: false };
+    } catch {
+      return { apiFileExists: false };
     }
   }
 }

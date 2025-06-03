@@ -1021,6 +1021,9 @@ export class DatabaseStorage implements IStorage {
     fastqFile?: string;
     traceFilesDownloaded?: boolean;
     traceDownloadDate?: Date;
+    inatApiFile?: string;
+    inatApiSaved?: boolean;
+    inatApiSaveDate?: Date;
   }): Promise<void> {
     await db.update(observations)
       .set(taxonomyData)

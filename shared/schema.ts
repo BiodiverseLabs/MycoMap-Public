@@ -80,6 +80,11 @@ export const observations = pgTable("observations", {
   traceFilesDownloaded: boolean("trace_files_downloaded").default(false),
   traceDownloadDate: timestamp("trace_download_date"),
   
+  // iNaturalist API response tracking
+  inatApiFile: text("inat_api_file"), // Local path to saved API response text file
+  inatApiSaved: boolean("inat_api_saved").default(false),
+  inatApiSaveDate: timestamp("inat_api_save_date"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
