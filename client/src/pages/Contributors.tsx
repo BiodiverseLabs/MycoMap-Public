@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { MapPin, User, Calendar, Award, X, Search } from "lucide-react";
+import { MapPin, User, Calendar, Award, X, Search, BarChart3 } from "lucide-react";
 import { ContributorMap } from "@/components/dashboard/ContributorMap";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Contributor {
   id: string;
@@ -97,13 +98,27 @@ export default function Contributors() {
       .map((obs: any) => new Date(obs.observedOn).getFullYear())
     );
 
+    // Temporal histogram data - collections per year
+    const yearCounts = observations
+      .filter((obs: any) => obs.observedOn)
+      .reduce((acc: { [key: number]: number }, obs: any) => {
+        const year = new Date(obs.observedOn).getFullYear();
+        acc[year] = (acc[year] || 0) + 1;
+        return acc;
+      }, {});
+
+    const temporalData = Object.entries(yearCounts)
+      .map(([year, count]) => ({ year: parseInt(year), count: count as number }))
+      .sort((a, b) => a.year - b.year);
+
     return {
       topSpecies,
       topStates,
       recentObservations,
       yearsActive: years.size,
       totalStates: Object.keys(stateCounts).length,
-      validObservations: observations.filter((obs: any) => obs.latitude && obs.longitude).length
+      validObservations: observations.filter((obs: any) => obs.latitude && obs.longitude).length,
+      temporalData
     };
   })() : null;
 
@@ -415,6 +430,41 @@ export default function Contributors() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Temporal Histogram Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5" />
+                      Collections per Year
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={contributorStats.temporalData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            dataKey="year" 
+                            type="number"
+                            scale="linear"
+                            domain={['dataMin', 'dataMax']}
+                          />
+                          <YAxis />
+                          <Tooltip 
+                            formatter={(value) => [value, 'Collections']}
+                            labelFormatter={(label) => `Year: ${label}`}
+                          />
+                          <Bar 
+                            dataKey="count" 
+                            fill="#3b82f6" 
+                            radius={[2, 2, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Map and Details */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
