@@ -179,8 +179,15 @@ export function ObservationValidation() {
   };
 
   // Helper function to determine if observation is fully validated
+  // This should match exactly what getOverallValidationStatus returns
   const isObservationFullyValidated = (obs: ValidationObservation) => {
-    if (obs.source?.toLowerCase() !== 'inaturalist') return true; // Non-iNat observations are considered validated
+    // Non-iNaturalist observations are considered validated
+    if (obs.source?.toLowerCase() !== 'inaturalist') {
+      return true;
+    }
+
+    // For iNaturalist observations, check all validation criteria
+    // (This matches the logic in getOverallValidationStatus)
     
     // Check if has iNaturalist data
     if (!obs.hasInatData) return false;
@@ -194,6 +201,7 @@ export function ObservationValidation() {
     // Check if has trace files when trace URL exists
     if (obs.traceFiles && !obs.traceFilesDownloaded) return false;
     
+    // If all checks pass, it's fully validated (shows green checkmark)
     return true;
   };
 
