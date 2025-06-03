@@ -107,10 +107,13 @@ export interface IStorage {
   }>>;
   
   // Species accumulation curve
-  getSpeciesAccumulation(state?: string): Promise<Array<{
+  getSpeciesAccumulation(state?: string, search?: string): Promise<Array<{
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>>;
+  
+  // Get unique states
+  getUniqueStates(): Promise<string[]>;
   
   // Global first records analytics
   getStatesWithMostGlobalFirsts(filterState?: string): Promise<Array<{

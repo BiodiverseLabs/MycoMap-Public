@@ -650,7 +650,7 @@ export class DatabaseStorage implements IStorage {
     }>;
   }
 
-  async getSpeciesAccumulation(state?: string): Promise<Array<{
+  async getSpeciesAccumulation(state?: string, search?: string): Promise<Array<{
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
@@ -658,6 +658,15 @@ export class DatabaseStorage implements IStorage {
     
     if (state && state !== 'all') {
       whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.state} = ${state}`;
+    }
+    
+    if (search && search.trim() !== '') {
+      const searchTerm = `%${search.toLowerCase()}%`;
+      if (state && state !== 'all') {
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+      } else {
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+      }
     }
 
     const result = await db.execute(sql`
@@ -700,6 +709,18 @@ export class DatabaseStorage implements IStorage {
       observationNumber: parseInt(row.observationNumber as string),
       uniqueSpeciesCount: parseInt(row.uniqueSpeciesCount as string)
     }));
+  }
+
+  async getUniqueStates(): Promise<string[]> {
+    const result = await db.execute(sql`
+      SELECT DISTINCT ${observations.state} as state
+      FROM ${observations}
+      WHERE ${observations.state} IS NOT NULL 
+      AND ${observations.state} != ''
+      ORDER BY ${observations.state}
+    `);
+
+    return result.rows.map(row => row.state as string);
   }
 
   // GPS Index optimization methods for faster map loading

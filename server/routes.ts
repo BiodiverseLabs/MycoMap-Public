@@ -431,12 +431,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get species accumulation curve data
   app.get("/api/species-accumulation", async (req, res) => {
     try {
-      const { state } = req.query;
-      const data = await storage.getSpeciesAccumulation(state as string);
+      const { state, search } = req.query;
+      const data = await storage.getSpeciesAccumulation(state as string, search as string);
       res.json(data);
     } catch (error) {
       console.error("Error fetching species accumulation data:", error);
       res.status(500).json({ error: "Failed to fetch species accumulation data" });
+    }
+  });
+
+  // Get unique states for filtering
+  app.get("/api/states", async (req, res) => {
+    try {
+      const states = await storage.getUniqueStates();
+      res.json(states);
+    } catch (error) {
+      console.error("Error fetching states:", error);
+      res.status(500).json({ error: "Failed to fetch states" });
     }
   });
 

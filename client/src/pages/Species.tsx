@@ -54,13 +54,16 @@ export default function Species() {
     }
   });
 
-  // Fetch species accumulation curve data
+  // Fetch species accumulation curve data with search term filter
   const { data: accumulationData = [], isLoading: accumulationLoading } = useQuery({
-    queryKey: ["/api/species-accumulation", selectedState],
+    queryKey: ["/api/species-accumulation", selectedState, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedState && selectedState !== 'all') {
         params.append('state', selectedState);
+      }
+      if (searchTerm) {
+        params.append('search', searchTerm);
       }
       const response = await fetch(`/api/species-accumulation?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch accumulation data');
