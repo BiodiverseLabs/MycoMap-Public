@@ -550,8 +550,8 @@
         "description_autocomplete": "Habitat where species was observed",
         "datatype": "text",
         "allowed_values": "Forest|Grassland|Shrubland|Desert|Open Water|Wetland|Urban Forest|Other Urban/disturbed/developed|Other",
-        "values_count": 45789,
-        "users_count": 45789
+        "values_count": 45795,
+        "users_count": 45795
       }
     },
     {
@@ -1053,8 +1053,8 @@
         "description_autocomplete": "You can also add one of the many \"interaction: \" fields to describe exactly how your species were associated.",
         "datatype": "taxon",
         "allowed_values": "",
-        "values_count": 136605,
-        "users_count": 136605
+        "values_count": 136631,
+        "users_count": 136631
       }
     },
     {
@@ -1483,13 +1483,13 @@
         "name_autocomplete": "Dean Lyons",
         "orcid": null,
         "icon": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-thumb.jpg?1736617449",
-        "observations_count": 26507,
+        "observations_count": 26508,
         "identifications_count": 9297,
         "journal_posts_count": 0,
-        "activity_count": 35804,
+        "activity_count": 35805,
         "species_count": 6744,
         "annotated_observations_count": 75,
-        "universal_search_rank": 26507,
+        "universal_search_rank": 26508,
         "roles": [],
         "site_id": 1,
         "icon_url": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-medium.jpg?1736617449"
@@ -4237,13 +4237,13 @@
         "name_autocomplete": "Dean Lyons",
         "orcid": null,
         "icon": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-thumb.jpg?1736617449",
-        "observations_count": 26507,
+        "observations_count": 26508,
         "identifications_count": 9297,
         "journal_posts_count": 0,
-        "activity_count": 35804,
+        "activity_count": 35805,
         "species_count": 6744,
         "annotated_observations_count": 75,
-        "universal_search_rank": 26507,
+        "universal_search_rank": 26508,
         "roles": [],
         "site_id": 1,
         "icon_url": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-medium.jpg?1736617449"
@@ -4939,8 +4939,8 @@
               "description_autocomplete": "Habitat where species was observed",
               "datatype": "text",
               "allowed_values": "Forest|Grassland|Shrubland|Desert|Open Water|Wetland|Urban Forest|Other Urban/disturbed/developed|Other",
-              "values_count": 45789,
-              "users_count": 45789
+              "values_count": 45795,
+              "users_count": 45795
             },
             "position": 6
           },
@@ -5051,8 +5051,8 @@
               "description_autocomplete": "You can also add one of the many \"interaction: \" fields to describe exactly how your species were associated.",
               "datatype": "taxon",
               "allowed_values": "",
-              "values_count": 136605,
-              "users_count": 136605
+              "values_count": 136631,
+              "users_count": 136631
             },
             "position": 13
           },
@@ -7291,8 +7291,8 @@
               "description_autocomplete": "",
               "datatype": "text",
               "allowed_values": "",
-              "values_count": 123496,
-              "users_count": 123496
+              "values_count": 123499,
+              "users_count": 123499
             },
             "position": 1
           },
@@ -7644,12 +7644,6 @@
       "hidden": false
     }
   ],
-  "application": {
-    "id": 3,
-    "name": "iNaturalist iPhone App",
-    "url": "https://itunes.apple.com/us/app/inaturalist/id421397028?mt=8",
-    "icon": "https://static.inaturalist.org/oauth_applications/3-thumb.png"
-  },
   "community_taxon": {
     "id": 1595675,
     "rank": "species",
@@ -7700,6 +7694,12 @@
     "wikipedia_url": null,
     "iconic_taxon_name": "Fungi"
   },
+  "application": {
+    "id": 3,
+    "name": "iNaturalist iPhone App",
+    "url": "https://itunes.apple.com/us/app/inaturalist/id421397028?mt=8",
+    "icon": "https://static.inaturalist.org/oauth_applications/3-thumb.png"
+  },
   "faves": [],
   "non_owner_ids": [
     {
@@ -7717,13 +7717,13 @@
         "name_autocomplete": "Dean Lyons",
         "orcid": null,
         "icon": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-thumb.jpg?1736617449",
-        "observations_count": 26507,
+        "observations_count": 26508,
         "identifications_count": 9297,
         "journal_posts_count": 0,
-        "activity_count": 35804,
+        "activity_count": 35805,
         "species_count": 6744,
         "annotated_observations_count": 75,
-        "universal_search_rank": 26507,
+        "universal_search_rank": 26508,
         "roles": [],
         "site_id": 1,
         "icon_url": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-medium.jpg?1736617449"
@@ -9435,13 +9435,13 @@
         "name_autocomplete": "Dean Lyons",
         "orcid": null,
         "icon": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-thumb.jpg?1736617449",
-        "observations_count": 26507,
+        "observations_count": 26508,
         "identifications_count": 9297,
         "journal_posts_count": 0,
-        "activity_count": 35804,
+        "activity_count": 35805,
         "species_count": 6744,
         "annotated_observations_count": 75,
-        "universal_search_rank": 26507,
+        "universal_search_rank": 26508,
         "roles": [],
         "site_id": 1,
         "icon_url": "https://static.inaturalist.org/attachments/users/icons/3244377/5d20cef49ad640905173307ca9625635-medium.jpg?1736617449"

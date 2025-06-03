@@ -492,8 +492,8 @@ export function ObservationValidation() {
 
         {/* Sync Progress Display */}
         {(showProgress || syncProgress?.isRunning) && syncProgress && (
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="text-lg font-semibold text-blue-900 mb-3">Sync Progress</h3>
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200 max-h-96 overflow-y-auto">
+            <h3 className="text-lg font-semibold text-blue-900 mb-3 sticky top-0 bg-blue-50 pb-2">Sync Progress</h3>
             
             <div className="space-y-4">
               {/* Progress Bar */}
@@ -547,7 +547,7 @@ export function ObservationValidation() {
                   <h4 className="font-semibold text-red-800 mb-2">
                     Failed Observations ({syncProgress.errors.length})
                   </h4>
-                  <div className="max-h-32 overflow-y-auto space-y-1">
+                  <div className="max-h-24 overflow-y-auto space-y-1">
                     {syncProgress.errors.map((error, index) => (
                       <div key={index} className="text-sm text-red-700">
                         <strong>{error.observationId}:</strong> {error.error}
