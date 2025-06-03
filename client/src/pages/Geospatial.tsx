@@ -48,11 +48,14 @@ export default function Geospatial() {
         <div className="space-y-8">
           <GeospatialMap onStateSelect={handleStateSelect} selectedState={selectedState} />
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-8">
-            <StateRecords selectedState={selectedState} />
-            <TopContributors selectedState={selectedState} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <SpeciesFrequency selectedState={selectedState} />
             <RegionalAnalysis selectedState={selectedState} />
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <StateRecords selectedState={selectedState} />
+            <TopContributors selectedState={selectedState} />
           </div>
         </div>
       </div>
