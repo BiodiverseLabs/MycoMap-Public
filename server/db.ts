@@ -1250,8 +1250,24 @@ export class DatabaseStorage implements IStorage {
         result = await this.createInaturalistData(inaturalistRecord);
       }
 
-      // Automatically download BLAST and trace files if MycoMap URLs are detected
+      // Automatically save API response and download BLAST and trace files if MycoMap URLs are detected
       try {
+        // Save the full iNaturalist API response as a text file
+        console.log(`[iNaturalist] Saving API response for ${observationId}`);
+        const apiSaveResult = await blastDownloader.saveInatApiResponse(observationId, inatObservation);
+        
+        if (apiSaveResult.success) {
+          // Update observation with API file info
+          await db.update(observations)
+            .set({
+              inatApiSaved: true,
+              inatApiFile: apiSaveResult.apiFilePath,
+              inatApiSaveDate: new Date()
+            })
+            .where(eq(observations.observationId, observationId));
+          console.log(`[iNaturalist] API response saved for ${observationId}`);
+        }
+
         if (mycoMapBlast && mycoMapBlast.includes('mycomap.com')) {
           console.log(`[iNaturalist] Auto-downloading BLAST files for ${observationId}`);
           const blastResult = await blastDownloader.downloadBlastFiles(observationId, mycoMapBlast);

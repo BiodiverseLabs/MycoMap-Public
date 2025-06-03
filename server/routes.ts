@@ -1534,6 +1534,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             traceFilesDownloaded: obs.traceFilesDownloaded || false,
             fastqFile: obs.fastqFile || null,
             mycoMapTraceUrl: obs.mycoMapTraceUrl || null,
+            // iNaturalist API file tracking
+            inatApiSaved: obs.inatApiSaved || false,
+            inatApiFile: obs.inatApiFile || null,
+            inatApiSaveDate: obs.inatApiSaveDate || null,
             // GenBank data
             genbankAccession: obs.genbankAccession || null,
             // Comparison data
@@ -1711,6 +1715,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.sendFile(absolutePath);
     } catch (error) {
       console.error(`[TRACE] Error serving file:`, error);
+      res.status(500).json({ error: "Failed to serve file" });
+    }
+  });
+
+  // Download iNaturalist API file endpoint
+  app.get('/api/download/inat-api/:filename', (req: Request, res: Response) => {
+    try {
+      const filename = req.params.filename;
+      const filePath = path.join(process.cwd(), 'downloads', 'inat_api', filename);
+      
+      console.log(`[iNat API] Working directory: ${process.cwd()}`);
+      console.log(`[iNat API] Serving file: ${filePath}`);
+      console.log(`[iNat API] File exists: ${fs.existsSync(filePath)}`);
+      
+      if (!fs.existsSync(filePath)) {
+        console.log(`[iNat API] File not found: ${filePath}`);
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      const absolutePath = path.resolve(filePath);
+      console.log(`[iNat API] Absolute path: ${absolutePath}`);
+      
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.sendFile(absolutePath);
+    } catch (error) {
+      console.error(`[iNat API] Error serving file:`, error);
       res.status(500).json({ error: "Failed to serve file" });
     }
   });
