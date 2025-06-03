@@ -440,6 +440,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get genera accumulation curve data
+  app.get("/api/genera-accumulation", async (req, res) => {
+    try {
+      const { state, search } = req.query;
+      const data = await storage.getGeneraAccumulation(state as string, search as string);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching genera accumulation data:", error);
+      res.status(500).json({ error: "Failed to fetch genera accumulation data" });
+    }
+  });
+
   // Get unique states for filtering
   app.get("/api/states", async (req, res) => {
     try {

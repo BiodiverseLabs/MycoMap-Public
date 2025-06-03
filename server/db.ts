@@ -711,6 +711,67 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getGeneraAccumulation(state?: string, search?: string): Promise<Array<{
+    observationNumber: number;
+    uniqueSpeciesCount: number;
+  }>> {
+    let whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != ''`;
+    
+    if (state && state !== 'all') {
+      whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.state} = ${state}`;
+    }
+    
+    if (search && search.trim() !== '') {
+      const searchTerm = `%${search.toLowerCase()}%`;
+      if (state && state !== 'all') {
+        whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.state} = ${state} AND LOWER(${observations.genus}) LIKE ${searchTerm}`;
+      } else {
+        whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND LOWER(${observations.genus}) LIKE ${searchTerm}`;
+      }
+    }
+
+    const result = await db.execute(sql`
+      WITH ordered_observations AS (
+        SELECT 
+          ${observations.genus} as genus_name,
+          ${observations.observedOn},
+          ${observations.id},
+          ROW_NUMBER() OVER (ORDER BY ${observations.observedOn}, ${observations.id}) as observation_number
+        FROM ${observations}
+        ${whereClause}
+      ),
+      genera_first_appearance AS (
+        SELECT 
+          genus_name,
+          MIN(observation_number) as first_observation
+        FROM ordered_observations
+        GROUP BY genus_name
+      ),
+      accumulation_points AS (
+        SELECT 
+          o.observation_number,
+          COUNT(g.genus_name) as new_genera_count
+        FROM ordered_observations o
+        LEFT JOIN genera_first_appearance g ON o.observation_number = g.first_observation
+        GROUP BY o.observation_number
+        ORDER BY o.observation_number
+      )
+      SELECT 
+        observation_number as "observationNumber",
+        SUM(new_genera_count) OVER (
+          ORDER BY observation_number 
+          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) as "uniqueSpeciesCount"
+      FROM accumulation_points
+      ORDER BY observation_number
+    `);
+
+    return result.rows.map(row => ({
+      observationNumber: parseInt(row.observationNumber as string),
+      uniqueSpeciesCount: parseInt(row.uniqueSpeciesCount as string)
+    }));
+  }
+
   async getUniqueStates(): Promise<string[]> {
     const result = await db.execute(sql`
       SELECT DISTINCT ${observations.state} as state

@@ -25,6 +25,7 @@ export default function Species() {
   const [selectedState, setSelectedState] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all_time");
   const [extrapolate, setExtrapolate] = useState(false);
+  const [showGenera, setShowGenera] = useState(false);
 
   // Fetch species data with state filtering
   const { data: allSpecies = [], isLoading: speciesLoading } = useQuery({
@@ -64,9 +65,9 @@ export default function Species() {
     }
   });
 
-  // Fetch species accumulation curve data with search term filter
+  // Fetch species/genera accumulation curve data with search term filter
   const { data: accumulationData = [], isLoading: accumulationLoading } = useQuery({
-    queryKey: ["/api/species-accumulation", selectedState, searchTerm],
+    queryKey: [showGenera ? "/api/genera-accumulation" : "/api/species-accumulation", selectedState, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedState && selectedState !== 'all') {
@@ -75,7 +76,8 @@ export default function Species() {
       if (searchTerm) {
         params.append('search', searchTerm);
       }
-      const response = await fetch(`/api/species-accumulation?${params.toString()}`);
+      const endpoint = showGenera ? '/api/genera-accumulation' : '/api/species-accumulation';
+      const response = await fetch(`${endpoint}?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch accumulation data');
       return response.json();
     }
@@ -483,20 +485,32 @@ export default function Species() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
-                Species Accumulation Curve
+                {showGenera ? "Genera Accumulation Curve" : "Species Accumulation Curve"}
                 {selectedState !== "all" && (
                   <Badge variant="secondary">State: {selectedState}</Badge>
                 )}
               </CardTitle>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="extrapolate"
-                  checked={extrapolate}
-                  onCheckedChange={(checked) => setExtrapolate(checked === true)}
-                />
-                <label htmlFor="extrapolate" className="text-sm font-medium">
-                  Extrapolate
-                </label>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="showGenera"
+                    checked={showGenera}
+                    onCheckedChange={(checked) => setShowGenera(checked === true)}
+                  />
+                  <label htmlFor="showGenera" className="text-sm font-medium">
+                    Show Genera
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="extrapolate"
+                    checked={extrapolate}
+                    onCheckedChange={(checked) => setExtrapolate(checked === true)}
+                  />
+                  <label htmlFor="extrapolate" className="text-sm font-medium">
+                    Extrapolate
+                  </label>
+                </div>
               </div>
             </div>
           </CardHeader>
