@@ -203,7 +203,14 @@ export function ObservationValidation() {
   const bulkSyncMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch('/api/inaturalist/sync-bulk', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit: limit,
+          source: sourceFilter
+        })
       });
       const data = await response.json();
       if (!response.ok) {
@@ -455,7 +462,7 @@ export function ObservationValidation() {
             ) : (
               <Play className="w-4 h-4" />
             )}
-            {syncProgress?.isRunning ? 'Sync Running...' : 'Sync All Observations'}
+            {syncProgress?.isRunning ? 'Sync Running...' : `Sync This Page (${limit} records)`}
           </Button>
           
           <Button

@@ -1469,9 +1469,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      // Get all observations that need syncing
-      const allObservations = await storage.getAllObservations();
-      const unsynced = allObservations.filter(obs => 
+      const { limit = 50, source = 'all' } = req.body;
+      
+      // Get observations with same filtering as validation page
+      const observations = await storage.getAllObservations();
+      
+      // Filter by source if specified
+      let filteredObs = observations;
+      if (source === 'inaturalist') {
+        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'inaturalist');
+      } else if (source === 'mo') {
+        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mushroom observer');
+      }
+      
+      // Apply limit and filter to only unsynced iNaturalist observations
+      const limitedObs = filteredObs.slice(0, parseInt(limit));
+      const unsynced = limitedObs.filter(obs => 
         obs.source?.toLowerCase() === 'inaturalist' && obs.inatSyncStatus !== 'success'
       );
 
