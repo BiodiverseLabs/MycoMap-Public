@@ -41,7 +41,7 @@ export function GlobalFirstsByYear({ dateRange, selectedState }: GlobalFirstsByY
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5" />
-          Global First Records by Year (2010+)
+          Global First Records by Year
         </CardTitle>
       </CardHeader>
       <CardContent>
