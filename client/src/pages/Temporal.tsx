@@ -4,13 +4,22 @@ import { GlobalFirstsByYear } from "@/components/dashboard/GlobalFirstsByYear";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { Search, MapPin, Calendar } from "lucide-react";
 
 export default function Temporal() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateRange, setDateRange] = useState("all_time");
+  const [dateMode, setDateMode] = useState<"preset" | "custom" | "annual">("annual");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [goingBackYears, setGoingBackYears] = useState("0");
+  
+  // Convert to legacy dateRange for existing components
+  const dateRange = dateMode === "preset" ? "all_time" : 
+                   dateMode === "custom" && startDate && endDate ? `${startDate}_to_${endDate}` :
+                   "all_time";
 
   // Fetch unique states for filter
   const { data: states = [] } = useQuery<string[]>({
@@ -22,7 +31,7 @@ export default function Temporal() {
     }
   });
 
-  const hasActiveFilters = searchTerm || selectedState || dateRange !== "all_time";
+  const hasActiveFilters = searchTerm || selectedState || dateMode !== "annual" || startDate || endDate || goingBackYears !== "0";
 
   const { data: seasonalData = [], isLoading: seasonalLoading } = useQuery({
     queryKey: ["/api/seasonal-patterns"],
@@ -104,55 +113,132 @@ export default function Temporal() {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search by species name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Search and Location */}
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by species name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
+                  <Select value={selectedState || "all"} onValueChange={(value) => setSelectedState(value === "all" ? null : value)}>
+                    <SelectTrigger className="pl-10">
+                      <SelectValue placeholder="All States" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All States</SelectItem>
+                      {states.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
-                <Select value={selectedState || "all"} onValueChange={(value) => setSelectedState(value === "all" ? null : value)}>
-                  <SelectTrigger className="pl-10">
-                    <SelectValue placeholder="All States" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All States</SelectItem>
-                    {states.map((state) => (
-                      <SelectItem key={state} value={state}>
-                        {state}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
-                <Select value={dateRange} onValueChange={setDateRange}>
-                  <SelectTrigger className="pl-10">
-                    <SelectValue placeholder="All Time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all_time">All Time</SelectItem>
-                    <SelectItem value="last_year">Last Year</SelectItem>
-                    <SelectItem value="last_3_years">Last 3 Years</SelectItem>
-                    <SelectItem value="last_5_years">Last 5 Years</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Right Column - Advanced Date Controls */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="h-4 w-4 text-slate-500" />
+                    <Label className="text-sm font-medium">Dates</Label>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="preset"
+                        name="dateMode"
+                        value="preset"
+                        checked={dateMode === "preset"}
+                        onChange={(e) => setDateMode(e.target.value as any)}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <Label htmlFor="preset" className="text-sm">Preset</Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="custom"
+                        name="dateMode"
+                        value="custom"
+                        checked={dateMode === "custom"}
+                        onChange={(e) => setDateMode(e.target.value as any)}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <Label htmlFor="custom" className="text-sm">Custom</Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="annual"
+                        name="dateMode"
+                        value="annual"
+                        checked={dateMode === "annual"}
+                        onChange={(e) => setDateMode(e.target.value as any)}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <Label htmlFor="annual" className="text-sm">Annual</Label>
+                    </div>
+                  </div>
+                </div>
+
+                {dateMode === "custom" && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Date Range</Label>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span>Between</span>
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="flex-1"
+                      />
+                      <span>and</span>
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Going Back</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={goingBackYears}
+                      onChange={(e) => setGoingBackYears(e.target.value)}
+                      className="w-20"
+                    />
+                    <span className="text-sm text-slate-600">years</span>
+                  </div>
+                </div>
               </div>
             </div>
             
             {hasActiveFilters && (
               <div className="mt-3 text-sm text-slate-600">
-                Showing {searchTerm && `"${searchTerm}" species`}{searchTerm && (selectedState || dateRange !== "all_time") && ", "}
-                {selectedState && `from ${selectedState}`}{selectedState && dateRange !== "all_time" && ", "}
-                {dateRange !== "all_time" && `${dateRange.replace("_", " ")}`}
+                Showing {searchTerm && `"${searchTerm}" species`}{searchTerm && (selectedState || dateMode !== "annual") && ", "}
+                {selectedState && `from ${selectedState}`}{selectedState && dateMode !== "annual" && ", "}
+                {dateMode === "custom" && startDate && endDate && `from ${startDate} to ${endDate}`}
+                {dateMode === "preset" && "preset dates"}
+                {goingBackYears !== "0" && `, going back ${goingBackYears} years`}
               </div>
             )}
           </CardContent>
