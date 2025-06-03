@@ -141,6 +141,9 @@ export function ObservationValidation() {
       // Trace file checks - must be present and downloaded if trace URL exists
       obs.traceFiles && obs.traceFiles.includes('mycomap.com') ? 
         (obs.traceFilesDownloaded && obs.fastqFile) : true,
+      
+      // iNaturalist API Export check - must have file saved if observation has iNat data
+      obs.hasInatData ? (obs.inatApiSaved && obs.inatApiFile) : true,
     ];
 
     // Count failed validations
@@ -554,19 +557,23 @@ export function ObservationValidation() {
                                     <div className="mt-3 pt-3 border-t border-gray-200">
                                       <h6 className="text-xs font-medium text-purple-700 mb-2">iNat API Export</h6>
                                       <div className="flex items-center gap-2 text-xs">
-                                        <span className="font-medium">iNat API Export:</span>
-                                        {obs.inatApiSaved && obs.inatApiFile ? (
-                                          <>
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium">iNat API Export:</span>
+                                          {obs.inatApiSaved && obs.inatApiFile ? (
                                             <CheckCircle className="w-4 h-4 text-green-600" />
-                                            <a
-                                              href={`/api/download/inat-api/${obs.inatApiFile}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-blue-600 hover:text-blue-800 underline"
-                                            >
-                                              Link {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : ''}
-                                            </a>
-                                          </>
+                                          ) : (
+                                            <XCircle className="w-4 h-4 text-red-600" />
+                                          )}
+                                        </div>
+                                        {obs.inatApiSaved && obs.inatApiFile ? (
+                                          <a
+                                            href={`/api/download/inat-api/${obs.inatApiFile}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:text-blue-800 underline"
+                                          >
+                                            Link {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : ''}
+                                          </a>
                                         ) : (
                                           <span className="text-gray-500">No API file saved</span>
                                         )}
