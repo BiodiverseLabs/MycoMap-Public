@@ -7,6 +7,7 @@ interface Metrics {
   uniqueSpecies: number;
   activeContributors: number;
   statesCovered: number;
+  fullyValidated: number;
 }
 
 interface MetricsCardsProps {

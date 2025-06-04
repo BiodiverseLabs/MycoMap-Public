@@ -297,7 +297,7 @@ export class MemoryStorage implements IStorage {
       obs.scientificName &&
       obs.scientificName.trim().split(' ').length >= 2 &&
       obs.inatApiSaved === true &&
-      (!obs.mycomapBlastUrl || obs.blastFilesDownloaded === true)
+      (!obs.mycoMapBlastUrl || obs.blastFilesDownloaded === true)
     ).length;
 
     return {
