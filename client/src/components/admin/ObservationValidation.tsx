@@ -552,6 +552,7 @@ export function ObservationValidation() {
   const getSourceName = (source: string | null) => {
     if (source?.toLowerCase() === 'inaturalist') return 'iNaturalist';
     if (source?.toLowerCase() === 'mo') return 'Mushroom Observer';
+    if (source?.toLowerCase() === 'mycoportal') return 'MyCoPortal';
     return source || 'Other';
   };
 
@@ -1262,6 +1263,18 @@ export function ObservationValidation() {
                           >
                             <ExternalLink className="w-3 h-3" />
                             View on iNat
+                          </Button>
+                        )}
+                        
+                        {obs.mycoportalCatalogNumber && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(`https://mycoportal.org/portal/collections/individual/index.php?occid=${obs.mycoportalCatalogNumber}`, '_blank')}
+                            className="flex items-center gap-1 text-xs"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View on MyCoPortal
                           </Button>
                         )}
                         
