@@ -2191,8 +2191,8 @@ export class DatabaseStorage implements IStorage {
       
       console.log(`[MushroomObserver] Fetching data for observation ${observationId}, MO ID: ${moId}`);
       
-      // Fetch from Mushroom Observer API
-      const moApiUrl = `https://mushroomobserver.org/api2/observations/${moId}`;
+      // Fetch from Mushroom Observer API with detail=high to get full observation data
+      const moApiUrl = `https://mushroomobserver.org/api2/observations/${moId}?detail=high`;
       console.log(`[MushroomObserver] Attempting to fetch from: ${moApiUrl}`);
       
       const headers: Record<string, string> = {
