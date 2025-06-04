@@ -26,15 +26,14 @@ export function MetricsCards({ dateRange, selectedState }: MetricsCardsProps) {
         params.append('state', selectedState);
       }
       const url = `/api/metrics?${params.toString()}`;
-      console.log(`[MetricsCards] Fetching metrics with dateRange: ${dateRange}, state: ${selectedState}, URL: ${url}`);
       
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Failed to fetch metrics: ${response.status}`);
       
-      const data = await response.json();
-      console.log(`[MetricsCards] Received data for dateRange ${dateRange}, state ${selectedState}:`, data);
-      return data;
-    }
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - data considered fresh
+    gcTime: 10 * 60 * 1000, // 10 minutes - cache retention
   });
 
   // Add debug logging for props and state changes

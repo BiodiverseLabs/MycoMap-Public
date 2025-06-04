@@ -48,7 +48,9 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       const response = await fetch(`/api/map-data?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch map data');
       return response.json();
-    }
+    },
+    staleTime: 3 * 60 * 1000, // 3 minutes - data considered fresh
+    gcTime: 15 * 60 * 1000, // 15 minutes - cache retention
   });
 
   // Fetch state counts from full dataset for filters
