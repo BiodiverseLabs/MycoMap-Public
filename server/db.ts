@@ -1492,7 +1492,11 @@ export class DatabaseStorage implements IStorage {
         o.source,
         o.collector,
         o.genbank_accession as "genbankAccession",
-        LEFT(i.dna_barcode, 10) as "dnaBarcode",
+        CASE 
+          WHEN i.dna_barcode IS NOT NULL AND LENGTH(i.dna_barcode) > 10 THEN 
+            CONCAT(LEFT(i.dna_barcode, 10), '...')
+          ELSE i.dna_barcode
+        END as "dnaBarcode",
         o.mycomap_blast_url as "mycoMapBlastResults",
         o.mycomap_blast_url as "mycoMapBlastUrl",
         o.ncbi_blast_file as "ncbiBlastFile", 

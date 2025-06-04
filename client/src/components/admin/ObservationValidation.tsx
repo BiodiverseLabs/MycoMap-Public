@@ -992,10 +992,7 @@ export function ObservationValidation() {
                                           {obs.dnaBarcode && <CheckCircle className="w-4 h-4 text-green-600" />}
                                         </div>
                                         <span className="text-gray-700 font-mono">
-                                          {obs.dnaBarcode ? 
-                                            `${obs.dnaBarcode.substring(0, 10)}${obs.dnaBarcode.length > 10 ? '...' : ''}` 
-                                            : 'N/A'
-                                          }
+                                          {obs.dnaBarcode || 'N/A'}
                                         </span>
                                       </div>
                                       <div>
