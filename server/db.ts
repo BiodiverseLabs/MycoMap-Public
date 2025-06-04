@@ -1785,13 +1785,19 @@ export class DatabaseStorage implements IStorage {
         .from(inaturalistData)
         .where(eq(inaturalistData.observationId, observationId));
 
+      // Check if main observations table has BLAST URL
+      const [obsRecord] = await db.select()
+        .from(observations)
+        .where(eq(observations.observationId, observationId));
+
       const hasPhotos = existing?.photos && existing.photos.length > 0;
+      const hasBlastUrl = obsRecord?.mycoMapBlastUrl && obsRecord.mycoMapBlastUrl.length > 0;
       
-      // If we have existing data with photos and it's recent, skip unless forced
-      if (existing && hasPhotos && existing.lastSyncedAt) {
+      // If we have existing data with photos and BLAST URL and it's recent, skip unless forced
+      if (existing && hasPhotos && hasBlastUrl && existing.lastSyncedAt) {
         const daysSinceSync = (Date.now() - existing.lastSyncedAt.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSinceSync < 7) { // Skip if synced within last week and has photos
-          console.log(`[iNaturalist] Skipping ${observationId} - recent sync with photos`);
+        if (daysSinceSync < 7) { // Skip if synced within last week and has photos and BLAST URL
+          console.log(`[iNaturalist] Skipping ${observationId} - recent sync with photos and BLAST URL`);
           return existing;
         }
       }
