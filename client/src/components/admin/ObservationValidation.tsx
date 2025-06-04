@@ -856,26 +856,14 @@ export function ObservationValidation() {
                             {getSourceName(obs.source)}
                           </Badge>
                           {inatId && (
-                            <a
-                              href={`https://www.inaturalist.org/observations/${inatId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-green-600 hover:text-green-700 text-xs font-medium"
-                            >
-                              <ExternalLink className="w-3 h-3" />
+                            <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
                               iNat #{inatId}
-                            </a>
+                            </span>
                           )}
                           {obs.moId && (
-                            <a
-                              href={`https://mushroomobserver.org/observations/${obs.moId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-orange-600 hover:text-orange-700 text-xs font-medium"
-                            >
-                              <ExternalLink className="w-3 h-3" />
+                            <span className="flex items-center gap-1 text-orange-600 text-xs font-medium">
                               MO #{obs.moId}
-                            </a>
+                            </span>
                           )}
                           {obs.mycoportalCatalogNumber && (
                             <span className="flex items-center gap-1 text-blue-600 text-xs font-medium">
@@ -1050,15 +1038,19 @@ export function ObservationValidation() {
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Scientific Name:</span>
                                         {renderComparisonIcon(compareFields(obs.scientificName, 
-                                          obs.source === 'MO Observations' ? 
-                                            (obs.moScientificName || obs.provisionalSpeciesName) :
-                                            (obs.provisionalSpeciesName || obs.inatScientificName), 
+                                          obs.source === 'MycoPortal' ? 
+                                            (obs.mycoportalScientificName || obs.provisionalSpeciesName) :
+                                            obs.source === 'MO Observations' ? 
+                                              (obs.moScientificName || obs.provisionalSpeciesName) :
+                                              (obs.provisionalSpeciesName || obs.inatScientificName), 
                                           true, obs.provisionalSpeciesName))}
                                       </div>
                                       <span className="text-gray-700">
-                                        {obs.source === 'MO Observations' ? 
-                                          (obs.moScientificName || 'N/A') :
-                                          (obs.inatScientificName || 'N/A')
+                                        {obs.source === 'MycoPortal' ? 
+                                          (obs.mycoportalScientificName || 'N/A') :
+                                          obs.source === 'MO Observations' ? 
+                                            (obs.moScientificName || 'N/A') :
+                                            (obs.inatScientificName || 'N/A')
                                         }
                                         {obs.provisionalSpeciesName ? ` (${obs.provisionalSpeciesName})` : ''}
                                       </span>
@@ -1067,12 +1059,15 @@ export function ObservationValidation() {
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Observer:</span>
                                         {renderComparisonIcon(compareFields(obs.collector, 
+                                          obs.source === 'MycoPortal' ? obs.mycoportalRecordedBy :
                                           obs.source === 'MO Observations' ? obs.moObserver : obs.inatObserver))}
                                       </div>
                                       <span className="text-gray-700">
-                                        {obs.source === 'MO Observations' ? 
-                                          (obs.moObserver || 'N/A') :
-                                          (obs.inatObserver || 'N/A')
+                                        {obs.source === 'MycoPortal' ? 
+                                          (obs.mycoportalRecordedBy || 'N/A') :
+                                          obs.source === 'MO Observations' ? 
+                                            (obs.moObserver || 'N/A') :
+                                            (obs.inatObserver || 'N/A')
                                         }
                                       </span>
                                     </div>
@@ -1080,12 +1075,15 @@ export function ObservationValidation() {
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Date:</span>
                                         {renderComparisonIcon(compareFields(obs.observedOn, 
+                                          obs.source === 'MycoPortal' ? obs.mycoportalEventDate :
                                           obs.source === 'MO Observations' ? obs.moObservedOn : obs.inatObservedOn))}
                                       </div>
                                       <span className="text-gray-700">
-                                        {obs.source === 'MO Observations' ? 
-                                          formatDate(obs.moObservedOn || null) :
-                                          formatDate(obs.inatObservedOn || null)
+                                        {obs.source === 'MycoPortal' ? 
+                                          formatDate(obs.mycoportalEventDate || null) :
+                                          obs.source === 'MO Observations' ? 
+                                            formatDate(obs.moObservedOn || null) :
+                                            formatDate(obs.inatObservedOn || null)
                                         }
                                       </span>
                                     </div>
@@ -1093,12 +1091,15 @@ export function ObservationValidation() {
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">State:</span>
                                         {renderComparisonIcon(compareFields(obs.state, 
+                                          obs.source === 'MycoPortal' ? obs.mycoportalState :
                                           obs.source === 'MO Observations' ? obs.moState : obs.inatState))}
                                       </div>
                                       <span className="text-gray-700">
-                                        {obs.source === 'MO Observations' ? 
-                                          (obs.moState || 'N/A') :
-                                          (obs.inatState || 'N/A')
+                                        {obs.source === 'MycoPortal' ? 
+                                          (obs.mycoportalState || 'N/A') :
+                                          obs.source === 'MO Observations' ? 
+                                            (obs.moState || 'N/A') :
+                                            (obs.inatState || 'N/A')
                                         }
                                       </span>
                                     </div>
