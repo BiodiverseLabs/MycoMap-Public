@@ -332,9 +332,12 @@ export function ObservationValidation() {
     },
     onSuccess: (data, observationId) => {
       console.log(`[Frontend] Sync successful for ${observationId}:`, data);
+      const source = data?.source || 'external source';
+      const sourceName = source.toLowerCase() === 'mo' ? 'Mushroom Observer' : 
+                        source.toLowerCase() === 'inaturalist' ? 'iNaturalist' : source;
       toast({
         title: "Success",
-        description: `Observation ${observationId} synced with iNaturalist successfully!`,
+        description: `Observation ${observationId} synced with ${sourceName} successfully!`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
     },
@@ -1078,13 +1081,17 @@ export function ObservationValidation() {
                             console.log('Refresh clicked for:', obs.observationId, 'Source:', getSourceName(obs.source));
                             handleSync(obs.observationId);
                           }}
-                          disabled={syncMutation.isPending || obs.source?.toLowerCase() !== 'inaturalist'}
+                          disabled={syncMutation.isPending || (obs.source?.toLowerCase() !== 'inaturalist' && obs.source?.toLowerCase() !== 'mo')}
                           className={`flex items-center gap-1 ${
-                            obs.source?.toLowerCase() === 'inaturalist' 
+                            (obs.source?.toLowerCase() === 'inaturalist' || obs.source?.toLowerCase() === 'mo')
                               ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
-                          title={obs.source?.toLowerCase() !== 'inaturalist' ? 'Only iNaturalist observations can be refreshed' : 'Refresh data from iNaturalist'}
+                          title={
+                            obs.source?.toLowerCase() === 'inaturalist' ? 'Refresh data from iNaturalist' :
+                            obs.source?.toLowerCase() === 'mo' ? 'Refresh data from Mushroom Observer' :
+                            'Only iNaturalist and Mushroom Observer observations can be refreshed'
+                          }
                         >
                           <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
                           Refresh
