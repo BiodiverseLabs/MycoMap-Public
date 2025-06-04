@@ -180,6 +180,13 @@ export function ObservationValidation() {
       <XCircle className="w-4 h-4 text-red-600" />;
   };
 
+  // Helper function to check if scientific name is at species level (has at least genus + species)
+  const isSpeciesLevel = (scientificName: string | null | undefined) => {
+    if (!scientificName) return false;
+    const parts = scientificName.trim().split(/\s+/);
+    return parts.length >= 2 && parts[0] && parts[1];
+  };
+
   // Comprehensive validation function that checks all comparison fields
   const getOverallValidationStatus = (obs: ValidationObservation) => {
     const validationChecks = [
@@ -188,6 +195,9 @@ export function ObservationValidation() {
       obs.hasInatData ? compareFields(obs.collector, obs.inatObserver) : true,
       obs.hasInatData ? compareFields(obs.observedOn, obs.inatObservedOn) : true,
       obs.hasInatData ? compareFields(obs.state, obs.inatState) : true,
+      
+      // Species-level identification requirement - MycoMap scientific name must be at species level
+      isSpeciesLevel(obs.scientificName),
       
       // Data completeness checks
       obs.hasInatData, // Has iNaturalist data synced
@@ -234,6 +244,9 @@ export function ObservationValidation() {
     
     // Check if has iNaturalist data
     if (!obs.hasInatData) return false;
+    
+    // Check if scientific name is at species level
+    if (!isSpeciesLevel(obs.scientificName)) return false;
     
     // Check if has API Export file
     if (!obs.inatApiSaved) return false;
