@@ -1703,6 +1703,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: "Sync progress reset" });
   });
 
+  // Individual observation sync endpoint
+  app.post("/api/inaturalist/sync/:id", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      console.log(`[Individual Sync] Starting sync for observation ${observationId}`);
+      
+      // Get the observation to determine its source
+      const allObservations = await storage.getAllObservations();
+      const observation = allObservations.find(obs => obs.observationId === observationId);
+      
+      if (!observation) {
+        return res.status(404).json({ error: "Observation not found" });
+      }
+
+      let result;
+      let source = 'external';
+      
+      if (observation.source?.toLowerCase() === 'mo observations') {
+        console.log(`[Individual Sync] Syncing with Mushroom Observer for ${observationId}`);
+        result = await storage.syncObservationWithMushroomObserver(observationId);
+        source = 'mo';
+      } else if (observation.source?.toLowerCase() === 'inaturalist') {
+        console.log(`[Individual Sync] Syncing with iNaturalist for ${observationId}`);
+        result = await storage.syncObservationWithInaturalist(observationId);
+        source = 'inaturalist';
+      } else {
+        return res.status(400).json({ error: "Only iNaturalist and Mushroom Observer observations can be synced" });
+      }
+      
+      if (!result) {
+        return res.status(404).json({ error: "Failed to sync observation" });
+      }
+
+      res.json({
+        success: true,
+        data: result,
+        source: source
+      });
+    } catch (error) {
+      console.error(`[Individual Sync] Error syncing observation:`, error);
+      res.status(500).json({ error: "Failed to sync observation" });
+    }
+  });
+
   // Get observations with missing photos
   app.get("/api/inaturalist/missing-photos", async (req, res) => {
     try {
@@ -1815,12 +1859,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validationData = await Promise.all(
         filteredObs.map(async (obs) => {
           const inatRecord = inatDataMap.get(obs.observationId);
+          const moRecord = moDataMap.get(obs.observationId);
           
           // Extract iNaturalist comparison data from taxon and user JSON
           let inatScientificName = null;
           let inatObserver = null;
           let inatObservedOn = null;
           let inatState = null;
+          
+          // Extract Mushroom Observer comparison data
+          let moScientificName = null;
+          let moObserver = null;
+          let moObservedOn = null;
+          let moState = null;
           
           if (inatRecord) {
             try {
@@ -1877,6 +1928,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (e) {
               console.error('Error parsing iNaturalist JSON data:', e);
             }
+          }
+
+          // Process Mushroom Observer data
+          if (moRecord) {
+            moScientificName = moRecord.scientificName;
+            moObserver = moRecord.observer;
+            moObservedOn = moRecord.observedOn;
+            moState = moRecord.state;
           }
           
           return {

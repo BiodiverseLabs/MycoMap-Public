@@ -2024,12 +2024,94 @@ export class DatabaseStorage implements IStorage {
       // Check if we already have data for this observation
       const existing = await this.getMushroomObserverData(observationId);
       
-      // For now, create a placeholder record - this will be enhanced with actual API integration
+      console.log(`[MushroomObserver] Fetching data for observation ${observationId}, MO ID: ${moId}`);
+      
+      // Fetch from Mushroom Observer API
+      const moApiUrl = `https://mushroomobserver.org/api2/observations/${moId}`;
+      const response = await fetch(moApiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'MycoMap-DataValidator/1.0'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorMsg = `Mushroom Observer API returned status ${response.status}`;
+        console.log(`[MushroomObserver] ${errorMsg} for observation ${observationId}`);
+        
+        const moRecord: InsertMushroomObserverData = {
+          observationId,
+          moId,
+          syncStatus: 'error',
+          syncError: errorMsg
+        };
+
+        if (existing.length > 0) {
+          await this.updateMushroomObserverData(observationId, moRecord);
+          const [updated] = await db.select()
+            .from(mushroomObserverData)
+            .where(eq(mushroomObserverData.observationId, observationId));
+          return updated;
+        } else {
+          return await this.createMushroomObserverData(moRecord);
+        }
+      }
+
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) {
+        const errorMsg = 'No observation data found in Mushroom Observer API response';
+        console.log(`[MushroomObserver] ${errorMsg} for observation ${observationId}`);
+        
+        const moRecord: InsertMushroomObserverData = {
+          observationId,
+          moId,
+          syncStatus: 'error',
+          syncError: errorMsg
+        };
+
+        if (existing.length > 0) {
+          await this.updateMushroomObserverData(observationId, moRecord);
+          const [updated] = await db.select()
+            .from(mushroomObserverData)
+            .where(eq(mushroomObserverData.observationId, observationId));
+          return updated;
+        } else {
+          return await this.createMushroomObserverData(moRecord);
+        }
+      }
+
+      const observation = data.results[0];
+      console.log(`[MushroomObserver] Successfully fetched data for observation ${observationId}`);
+      
+      // Extract photo URLs from images array
+      const photos = observation.images ? observation.images.map((image: any) => 
+        image.original_url || image.huge_url || image.large_url || image.medium_url || image.small_url
+      ).filter(Boolean) : [];
+
       const moRecord: InsertMushroomObserverData = {
         observationId,
         moId,
-        syncStatus: 'pending',
-        syncError: 'Mushroom Observer API integration pending'
+        moUuid: observation.uuid,
+        scientificName: observation.consensus?.name || observation.name?.text_name,
+        commonName: observation.consensus?.name || null,
+        observer: observation.user?.login || observation.user?.name,
+        observedOn: observation.when,
+        location: observation.location?.name,
+        state: observation.location?.state,
+        country: observation.location?.country,
+        latitude: observation.lat ? observation.lat.toString() : null,
+        longitude: observation.lng ? observation.lng.toString() : null,
+        photos: photos,
+        confidence: observation.vote?.value?.toString(),
+        vote: observation.vote?.favorite ? 'favorite' : null,
+        quality: observation.quality,
+        isCollection: observation.is_collection || false,
+        specimenAvailable: observation.specimen || false,
+        notes: observation.notes?.localized || observation.notes?.default,
+        syncStatus: 'success',
+        syncError: null,
+        lastSyncedAt: new Date()
       };
 
       if (existing.length > 0) {
@@ -2044,11 +2126,24 @@ export class DatabaseStorage implements IStorage {
 
     } catch (error) {
       console.error(`[MushroomObserver] Error syncing observation ${observationId}:`, error);
-      await this.updateMushroomObserverData(observationId, {
+      
+      const errorRecord: InsertMushroomObserverData = {
+        observationId,
+        moId: observationId.replace(/^MO_/, ''),
         syncStatus: 'error',
         syncError: error instanceof Error ? error.message : 'Unknown error'
-      });
-      return null;
+      };
+
+      const existing = await this.getMushroomObserverData(observationId);
+      if (existing.length > 0) {
+        await this.updateMushroomObserverData(observationId, errorRecord);
+        const [updated] = await db.select()
+          .from(mushroomObserverData)
+          .where(eq(mushroomObserverData.observationId, observationId));
+        return updated;
+      } else {
+        return await this.createMushroomObserverData(errorRecord);
+      }
     }
   }
 }
