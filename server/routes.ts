@@ -8,7 +8,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { sql, eq } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 
@@ -552,41 +552,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { state, limit } = req.query;
       const limitNum = limit ? parseInt(limit as string) : 10;
       
-      // Create optimized query for state first records
-      const { observations, contributors } = schema;
+      // Use raw SQL to avoid Drizzle schema mapping issues
+      let sqlQuery = `
+        SELECT 
+          c.id,
+          c.name,
+          c.affiliation,
+          COUNT(*) as state_first_count
+        FROM observations o
+        INNER JOIN contributors c ON o.contributor_id = c.id
+        WHERE o.is_first_state_record = true
+      `;
       
-      let query = db
-        .select({
-          id: contributors.id,
-          name: contributors.name,
-          affiliation: contributors.affiliation,
-          stateFirstCount: sql<number>`COUNT(*)`.as('stateFirstCount')
-        })
-        .from(observations)
-        .innerJoin(contributors, eq(observations.contributorId, contributors.id))
-        .where(eq(observations.isFirstStateRecord, true))
-        .groupBy(contributors.id, contributors.name, contributors.affiliation)
-        .orderBy(sql`COUNT(*) DESC`)
-        .limit(limitNum);
-
+      const params: any[] = [];
       if (state) {
-        query = query.where(and(
-          eq(observations.isFirstStateRecord, true),
-          eq(observations.state, state)
-        ));
+        sqlQuery += ` AND o.state = $${params.length + 1}`;
+        params.push(state);
       }
+      
+      sqlQuery += `
+        GROUP BY c.id, c.name, c.affiliation
+        ORDER BY COUNT(*) DESC
+        LIMIT $${params.length + 1}
+      `;
+      params.push(limitNum);
 
-      const results = await query;
+      const results = await pool.query(sqlQuery, params);
+      const rows = results.rows;
       
       // Calculate total state firsts for percentage calculation
-      const totalStateFirsts = results.reduce((sum, item) => sum + item.stateFirstCount, 0);
+      const totalStateFirsts = rows.reduce((sum: number, item: any) => sum + parseInt(item.state_first_count), 0);
       
-      const data = results.map(item => ({
+      const data = rows.map((item: any) => ({
         id: item.id.toString(),
         name: item.name,
         affiliation: item.affiliation || undefined,
-        stateFirstCount: item.stateFirstCount,
-        percentage: totalStateFirsts > 0 ? (item.stateFirstCount / totalStateFirsts) * 100 : 0
+        stateFirstCount: parseInt(item.state_first_count),
+        percentage: totalStateFirsts > 0 ? (parseInt(item.state_first_count) / totalStateFirsts) * 100 : 0
       }));
       
       res.json(data);
