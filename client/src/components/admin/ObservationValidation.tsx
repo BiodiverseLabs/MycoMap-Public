@@ -986,7 +986,13 @@ export function ObservationValidation() {
                                       <div className="flex items-center gap-2 text-xs">
                                         <div className="flex items-center gap-2">
                                           <span className="font-medium">{getSourceName(obs.source)} API Export:</span>
-                                          {obs.source === 'MO Observations' ? (
+                                          {obs.source === 'MycoPortal' ? (
+                                            obs.mycoportalApiSaved && obs.mycoportalApiFile ? (
+                                              <CheckCircle className="w-4 h-4 text-green-600" />
+                                            ) : (
+                                              <XCircle className="w-4 h-4 text-red-600" />
+                                            )
+                                          ) : obs.source === 'MO Observations' ? (
                                             obs.moApiSaved && obs.moApiFile ? (
                                               <CheckCircle className="w-4 h-4 text-green-600" />
                                             ) : (
@@ -1000,7 +1006,20 @@ export function ObservationValidation() {
                                             )
                                           )}
                                         </div>
-                                        {obs.source === 'MO Observations' ? (
+                                        {obs.source === 'MycoPortal' ? (
+                                          obs.mycoportalApiSaved && obs.mycoportalApiFile ? (
+                                            <a
+                                              href={`/api/download/mycoportal-api/${obs.mycoportalApiFile}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800 underline"
+                                            >
+                                              {obs.mycoportalApiSaveDate ? new Date(obs.mycoportalApiSaveDate).toLocaleDateString() : 'Download'}
+                                            </a>
+                                          ) : (
+                                            <span className="text-gray-500">No API file saved</span>
+                                          )
+                                        ) : obs.source === 'MO Observations' ? (
                                           obs.moApiSaved && obs.moApiFile ? (
                                             <a
                                               href={`/api/download/mo-api/${obs.moApiFile}`}
