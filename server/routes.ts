@@ -1794,7 +1794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (source === 'inaturalist') {
         filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'inaturalist');
       } else if (source === 'mo') {
-        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mushroom observer');
+        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mo observations');
       }
       
       // Get all iNaturalist data upfront to build sync status mapping
