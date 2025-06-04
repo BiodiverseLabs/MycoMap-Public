@@ -26,6 +26,7 @@ export class BlastFileDownloader {
   private traceDir = path.join(process.cwd(), 'downloads', 'trace');
   private inatApiDir = path.join(process.cwd(), 'downloads', 'inat_api');
   private moApiDir = path.join(process.cwd(), 'downloads', 'mo_api');
+  private mycoportalApiDir = path.join(process.cwd(), 'downloads', 'mycoportal_api');
 
   constructor() {
     this.ensureDownloadDir();
@@ -37,6 +38,7 @@ export class BlastFileDownloader {
       await fs.mkdir(this.traceDir, { recursive: true });
       await fs.mkdir(this.inatApiDir, { recursive: true });
       await fs.mkdir(this.moApiDir, { recursive: true });
+      await fs.mkdir(this.mycoportalApiDir, { recursive: true });
     } catch (error) {
       console.error('Failed to create download directories:', error);
     }
@@ -444,6 +446,61 @@ export class BlastFileDownloader {
       
       if (apiFile) {
         return { apiFileExists: true, apiFileName: apiFile };
+      }
+      
+      return { apiFileExists: false };
+    } catch {
+      return { apiFileExists: false };
+    }
+  }
+
+  /**
+   * Save MyCoPortal API response as text file
+   */
+  async saveMycoportalApiResponse(observationId: string, apiResponse: any): Promise<InatApiSaveResult> {
+    try {
+      // Extract catalog number from observation_id (assuming format like "MC123456")
+      const catalogNumber = observationId.replace(/^MC/, '');
+      
+      // Create filename with current date
+      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `MC${catalogNumber}.${currentDate}.txt`;
+      const filePath = path.join(this.mycoportalApiDir, filename);
+
+      // Convert API response to formatted JSON string
+      const apiText = JSON.stringify(apiResponse, null, 2);
+
+      // Save to file
+      await fs.writeFile(filePath, apiText, 'utf8');
+
+      console.log(`[MyCoPortal API] Saved API response for observation ${observationId} to ${filename}`);
+      return {
+        success: true,
+        apiFilePath: filename
+      };
+    } catch (error) {
+      console.error(`[MyCoPortal API] Failed to save API response for ${observationId}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown save error' 
+      };
+    }
+  }
+
+  /**
+   * Check if MyCoPortal API file already exists for an observation
+   */
+  async checkExistingMycoportalApiFiles(observationId: string): Promise<{ apiFileExists: boolean; apiFileName?: string }> {
+    try {
+      const catalogNumber = observationId.replace(/^MC/, '');
+      const files = await fs.readdir(this.mycoportalApiDir);
+      const apiFile = files.find(file => file.startsWith(`MC${catalogNumber}.`));
+      
+      if (apiFile) {
+        return { 
+          apiFileExists: true,
+          apiFileName: apiFile 
+        };
       }
       
       return { apiFileExists: false };
