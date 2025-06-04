@@ -88,32 +88,34 @@ export function ObservationValidation() {
       const datePattern = /\d+[\/\-]\d+[\/\-]\d+/;
       if (datePattern.test(mycoMapValue) && datePattern.test(inatValue)) {
         try {
-          // Normalize date strings to avoid parsing issues with 2-digit years
+          // Normalize date strings to avoid parsing issues with different formats
           const normalizeDate = (dateStr: string) => {
             // First, extract just the date part if there's a timestamp
             let dateOnly = dateStr.split(' ')[0]; // Remove time portion
             
-            // Handle formats like "4/18/2025", "04/18/25", "2025-04-18", etc.
-            const parts = dateOnly.split(/[\/\-]/);
-            if (parts.length === 3) {
-              // Check if it's ISO format (YYYY-MM-DD) vs US format (MM/DD/YYYY)
-              if (dateOnly.includes('-') && parts[0].length === 4) {
-                // ISO format: YYYY-MM-DD (already normalized)
-                return dateOnly;
-              } else {
-                // US format: MM/DD/YYYY or M/D/YYYY
-                let year = parseInt(parts[2]);
-                let month = parseInt(parts[0]);
-                let day = parseInt(parts[1]);
-                
-                // Handle 2-digit years (assume 20xx if < 50, 19xx if >= 50)
-                if (year < 100) {
-                  year += year < 50 ? 2000 : 1900;
-                }
-                
-                return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-              }
+            // Handle iNaturalist format: "2024/10/16" -> normalize to "2024-10-16"
+            if (dateOnly.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) {
+              const parts = dateOnly.split('/');
+              const year = parts[0];
+              const month = parts[1].padStart(2, '0');
+              const day = parts[2].padStart(2, '0');
+              return `${year}-${month}-${day}`;
             }
+            
+            // Handle US format: "10/16/2024" -> normalize to "2024-10-16"
+            if (dateOnly.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+              const parts = dateOnly.split('/');
+              const month = parts[0].padStart(2, '0');
+              const day = parts[1].padStart(2, '0');
+              const year = parts[2];
+              return `${year}-${month}-${day}`;
+            }
+            
+            // Handle ISO format: "2024-10-16" (already normalized)
+            if (dateOnly.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              return dateOnly;
+            }
+            
             return dateOnly;
           };
           
