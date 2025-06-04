@@ -1,15 +1,96 @@
+import { useState, useCallback, useMemo } from "react";
 import { TaxonomicChart } from "@/components/dashboard/TaxonomicChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Search, MapPin, Calendar, Filter, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function Taxonomic() {
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [collectorSearch, setCollectorSearch] = useState("");
+  const [collectorQuery, setCollectorQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [goingBackYears, setGoingBackYears] = useState("0");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  
+  // Convert to legacy dateRange for existing components
+  const dateRange = startDate && endDate ? `${startDate}_to_${endDate}` : "all_time";
+
+  // Fetch unique states for dropdown
+  const { data: states = [] } = useQuery<string[]>({
+    queryKey: ["/api/states"],
+    queryFn: async () => {
+      const response = await fetch('/api/states');
+      if (!response.ok) throw new Error('Failed to fetch states');
+      return response.json();
+    }
+  });
+
+  // Fetch contributors for autocomplete
+  const { data: contributors = [] } = useQuery({
+    queryKey: ["/api/contributors", { limit: 10000 }],
+    queryFn: async () => {
+      const response = await fetch('/api/contributors?limit=10000');
+      if (!response.ok) throw new Error('Failed to fetch contributors');
+      return response.json();
+    }
+  });
+
+  // Filtered contributors for autocomplete
+  const filteredContributors = useMemo(() => {
+    return contributors.filter((contributor: any) => 
+      contributor.name.toLowerCase().includes(collectorSearch.toLowerCase())
+    ).slice(0, 20);
+  }, [contributors, collectorSearch]);
+
+  const handleContributorSelect = (value: string) => {
+    setCollectorQuery(value);
+    setCollectorSearch(value);
+  };
+
+  const handleStateSelect = (state: string) => {
+    setSelectedState(state === "all" ? null : state);
+  };
+
+  const clearDateFilters = () => {
+    setStartDate("");
+    setEndDate("");
+    setGoingBackYears("0");
+  };
+
+  const clearAllFilters = () => {
+    setSelectedState(null);
+    setStartDate("");
+    setEndDate("");
+    setGoingBackYears("0");
+    setCollectorQuery("");
+    setCollectorSearch("");
+  };
+
+  // Create query parameters for API calls
+  const queryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (selectedState) params.append('state', selectedState);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (goingBackYears && goingBackYears !== '0') params.append('goingBackYears', goingBackYears);
+    if (collectorQuery) params.append('collector', collectorQuery);
+    return params;
+  }, [selectedState, startDate, endDate, goingBackYears, collectorQuery]);
+
   // Fetch family distribution data
   const { data: familyData = [], isLoading: familyLoading } = useQuery({
-    queryKey: ["/api/family-distribution"],
+    queryKey: ["/api/family-distribution", selectedState, startDate, endDate, goingBackYears, collectorQuery],
     queryFn: async () => {
-      const response = await fetch('/api/family-distribution');
+      const response = await fetch(`/api/family-distribution?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch family distribution');
       return response.json();
     }
@@ -17,9 +98,9 @@ export default function Taxonomic() {
 
   // Fetch phylum distribution data
   const { data: phylumData = [], isLoading: phylumLoading } = useQuery({
-    queryKey: ["/api/taxonomic-distribution"],
+    queryKey: ["/api/taxonomic-distribution", selectedState, startDate, endDate, goingBackYears, collectorQuery],
     queryFn: async () => {
-      const response = await fetch('/api/taxonomic-distribution');
+      const response = await fetch(`/api/taxonomic-distribution?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch phylum distribution');
       return response.json();
     }
@@ -27,9 +108,9 @@ export default function Taxonomic() {
 
   // Fetch class distribution data
   const { data: classData = [], isLoading: classLoading } = useQuery({
-    queryKey: ["/api/class-distribution"],
+    queryKey: ["/api/class-distribution", selectedState, startDate, endDate, goingBackYears, collectorQuery],
     queryFn: async () => {
-      const response = await fetch('/api/class-distribution');
+      const response = await fetch(`/api/class-distribution?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch class distribution');
       return response.json();
     }
@@ -37,9 +118,9 @@ export default function Taxonomic() {
 
   // Fetch order distribution data
   const { data: orderData = [], isLoading: orderLoading } = useQuery({
-    queryKey: ["/api/order-distribution"],
+    queryKey: ["/api/order-distribution", selectedState, startDate, endDate, goingBackYears, collectorQuery],
     queryFn: async () => {
-      const response = await fetch('/api/order-distribution');
+      const response = await fetch(`/api/order-distribution?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch order distribution');
       return response.json();
     }
@@ -47,9 +128,9 @@ export default function Taxonomic() {
 
   // Fetch genus distribution data
   const { data: genusData = [], isLoading: genusLoading } = useQuery({
-    queryKey: ["/api/genus-distribution"],
+    queryKey: ["/api/genus-distribution", selectedState, startDate, endDate, goingBackYears, collectorQuery],
     queryFn: async () => {
-      const response = await fetch('/api/genus-distribution');
+      const response = await fetch(`/api/genus-distribution?${queryParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch genus distribution');
       return response.json();
     }
@@ -70,11 +151,125 @@ export default function Taxonomic() {
             Distribution across taxonomic hierarchies
           </p>
         </div>
+        
+        {/* Filters Section */}
+        <div className="mt-6 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-slate-400" />
+              <Label htmlFor="state-select" className="text-sm font-medium text-slate-700">State:</Label>
+              <Select value={selectedState || "all"} onValueChange={handleStateSelect}>
+                <SelectTrigger id="state-select" className="w-48">
+                  <SelectValue placeholder="All States" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All States</SelectItem>
+                  {states.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-slate-400" />
+              <Label htmlFor="collector-search" className="text-sm font-medium text-slate-700">Collector:</Label>
+              <AutocompleteInput
+                value={collectorSearch}
+                onChange={setCollectorSearch}
+                onSearch={setCollectorSearch}
+                suggestions={filteredContributors.map((contributor: any) => contributor.name)}
+                placeholder="Search contributors..."
+                className="w-64"
+              />
+            </div>
+
+            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="w-4 h-4" />
+                  More Filters
+                  {filtersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="absolute z-10 mt-2 p-4 bg-white border border-slate-200 rounded-lg shadow-lg min-w-96">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <Label className="text-sm font-medium text-slate-700">Date Range:</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="start-date" className="text-xs text-slate-600 w-12">From:</Label>
+                        <Input
+                          id="start-date"
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="end-date" className="text-xs text-slate-600 w-12">To:</Label>
+                        <Input
+                          id="end-date"
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">Quick Filters:</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="years-back" className="text-xs text-slate-600">Years back:</Label>
+                        <Select value={goingBackYears} onValueChange={setGoingBackYears}>
+                          <SelectTrigger id="years-back" className="text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">All time</SelectItem>
+                            <SelectItem value="1">Last year</SelectItem>
+                            <SelectItem value="3">Last 3 years</SelectItem>
+                            <SelectItem value="5">Last 5 years</SelectItem>
+                            <SelectItem value="10">Last 10 years</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 mt-4 pt-4 border-t border-slate-200">
+                  <Button variant="outline" size="sm" onClick={clearDateFilters}>
+                    Clear Dates
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                    Clear All
+                  </Button>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <TaxonomicChart />
+          <TaxonomicChart 
+            selectedState={selectedState}
+            startDate={startDate}
+            endDate={endDate}
+            goingBackYears={goingBackYears}
+            collectorQuery={collectorQuery}
+          />
           
           <Card>
             <CardHeader>

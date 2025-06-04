@@ -12,19 +12,33 @@ interface TaxonomicData {
 interface TaxonomicChartProps {
   dateRange?: string;
   selectedState?: string | null;
+  startDate?: string;
+  endDate?: string;
+  goingBackYears?: string;
+  collectorQuery?: string;
 }
 
-export function TaxonomicChart({ dateRange, selectedState }: TaxonomicChartProps = {}) {
+export function TaxonomicChart({ 
+  dateRange, 
+  selectedState, 
+  startDate, 
+  endDate, 
+  goingBackYears, 
+  collectorQuery 
+}: TaxonomicChartProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
 
   const { data: distribution = [], isLoading } = useQuery<TaxonomicData[]>({
-    queryKey: ["/api/taxonomic-distribution", selectedState],
+    queryKey: ["/api/taxonomic-distribution", selectedState, startDate, endDate, goingBackYears, collectorQuery],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedState) {
-        params.append('state', selectedState);
-      }
+      if (selectedState) params.append('state', selectedState);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (goingBackYears && goingBackYears !== '0') params.append('goingBackYears', goingBackYears);
+      if (collectorQuery) params.append('collector', collectorQuery);
+      
       const response = await fetch(`/api/taxonomic-distribution?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch taxonomic distribution');
       return response.json();

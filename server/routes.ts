@@ -280,8 +280,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/taxonomic-distribution", async (req, res) => {
     try {
-      const { state } = req.query;
-      const distribution = await storage.getTaxonomicDistribution(state as string);
+      const { state, startDate, endDate, goingBackYears, collector } = req.query;
+      const distribution = await storage.getTaxonomicDistribution(
+        state as string,
+        startDate as string,
+        endDate as string,
+        goingBackYears as string,
+        collector as string
+      );
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching taxonomic distribution:", error);
@@ -291,7 +297,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/family-distribution", async (req, res) => {
     try {
-      const distribution = await storage.getFamilyDistribution();
+      const { state, startDate, endDate, goingBackYears, collector } = req.query;
+      const distribution = await storage.getFamilyDistribution(
+        state as string,
+        startDate as string,
+        endDate as string,
+        goingBackYears as string,
+        collector as string
+      );
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching family distribution:", error);
@@ -301,7 +314,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/class-distribution", async (req, res) => {
     try {
-      const distribution = await storage.getClassDistribution();
+      const { state, startDate, endDate, goingBackYears, collector } = req.query;
+      const distribution = await storage.getClassDistribution(
+        state as string,
+        startDate as string,
+        endDate as string,
+        goingBackYears as string,
+        collector as string
+      );
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching class distribution:", error);
@@ -311,7 +331,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/order-distribution", async (req, res) => {
     try {
-      const distribution = await storage.getOrderDistribution();
+      const { state, startDate, endDate, goingBackYears, collector } = req.query;
+      const distribution = await storage.getOrderDistribution(
+        state as string,
+        startDate as string,
+        endDate as string,
+        goingBackYears as string,
+        collector as string
+      );
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching order distribution:", error);
@@ -321,7 +348,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/genus-distribution", async (req, res) => {
     try {
-      const distribution = await storage.getGenusDistribution();
+      const { state, startDate, endDate, goingBackYears, collector } = req.query;
+      const distribution = await storage.getGenusDistribution(
+        state as string,
+        startDate as string,
+        endDate as string,
+        goingBackYears as string,
+        collector as string
+      );
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching genus distribution:", error);

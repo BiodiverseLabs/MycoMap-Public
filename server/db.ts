@@ -371,13 +371,37 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ order: string; count: number }>;
   }
 
-  async getGenusDistribution(): Promise<Array<{ genus: string; count: number }>> {
+  async getGenusDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{ genus: string; count: number }>> {
+    let whereConditions = [
+      sql`${observations.genus} IS NOT NULL AND ${observations.genus} != ''`
+    ];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
+    }
+    
+    if (startDate && endDate) {
+      whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+    } else if (goingBackYears && goingBackYears !== '0') {
+      const yearsBack = parseInt(goingBackYears);
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - yearsBack);
+      whereConditions.push(sql`${observations.observedOn} >= ${cutoffDate.toISOString().split('T')[0]}`);
+    }
+    
+    const whereClause = sql`WHERE ${sql.join(whereConditions, sql` AND `)}`;
+    
     const result = await db.execute(sql`
       SELECT 
         COALESCE(${observations.genus}, 'Unknown') as genus,
         COUNT(*)::int as count
       FROM ${observations}
-      WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != ''
+      ${whereClause}
       GROUP BY ${observations.genus}
       ORDER BY count DESC
     `);
