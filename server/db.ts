@@ -1534,6 +1534,7 @@ export class DatabaseStorage implements IStorage {
           ELSE NULL
         END as "inatState",
         CASE WHEN m.observation_id IS NOT NULL THEN true ELSE false END as "hasMoData",
+        m.mo_id as "moId",
         m.sync_status as "moSyncStatus",
         m.last_synced_at as "moLastSynced",
         m.sync_error as "moSyncError"

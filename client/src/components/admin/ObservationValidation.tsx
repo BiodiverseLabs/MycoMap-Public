@@ -49,6 +49,12 @@ interface ValidationObservation {
   inatApiSaved?: boolean;
   inatApiFile?: string | null;
   inatApiSaveDate?: string | null;
+  // Mushroom Observer data
+  hasMoData?: boolean;
+  moId?: string | null;
+  moSyncStatus?: 'pending' | 'success' | 'error' | null;
+  moLastSynced?: string | null;
+  moSyncError?: string | null;
 }
 
 interface SyncProgress {
