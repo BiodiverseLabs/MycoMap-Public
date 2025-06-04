@@ -519,12 +519,20 @@ export function ObservationValidation() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
+    
+    // Handle ISO date strings that end with Z (UTC) - extract date part only
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-');
+      return `${month}/${day}/${year}`;
+    }
+    
     // Handle date-only strings to avoid timezone conversion issues
     if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [year, month, day] = dateString.split('-');
-      // Use UTC to avoid timezone conversion
-      return new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day))).toLocaleDateString();
+      return `${month}/${day}/${year}`;
     }
+    
     return new Date(dateString).toLocaleDateString();
   };
 
