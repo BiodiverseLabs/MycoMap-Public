@@ -1930,9 +1930,10 @@ export class DatabaseStorage implements IStorage {
           const blastResult = await blastDownloader.downloadBlastFiles(observationId, mycoMapBlast);
           
           if (blastResult.success) {
-            // Update observation with BLAST file info
+            // Update observation with BLAST file info and URL
             await db.update(observations)
               .set({
+                mycoMapBlastUrl: mycoMapBlast,
                 blastFilesDownloaded: true,
                 ncbiBlastFile: blastResult.ncbiPath ? blastResult.ncbiPath.split('/').pop() : null,
                 localBlastFile: blastResult.localPath ? blastResult.localPath.split('/').pop() : null,
@@ -1940,6 +1941,14 @@ export class DatabaseStorage implements IStorage {
               })
               .where(eq(observations.observationId, observationId));
             console.log(`[iNaturalist] BLAST files downloaded for ${observationId}`);
+          } else {
+            // Even if download fails, store the URL for manual access
+            await db.update(observations)
+              .set({
+                mycoMapBlastUrl: mycoMapBlast
+              })
+              .where(eq(observations.observationId, observationId));
+            console.log(`[iNaturalist] BLAST URL stored for ${observationId}`);
           }
         }
 
