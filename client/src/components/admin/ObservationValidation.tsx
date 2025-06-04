@@ -878,15 +878,9 @@ export function ObservationValidation() {
                             </a>
                           )}
                           {obs.mycoportalCatalogNumber && (
-                            <a
-                              href={`https://mycoportal.org/portal/collections/individual/index.php?occid=${obs.mycoportalCatalogNumber}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-xs font-medium"
-                            >
-                              <ExternalLink className="w-3 h-3" />
+                            <span className="flex items-center gap-1 text-blue-600 text-xs font-medium">
                               MyCoPortal #{obs.mycoportalCatalogNumber}
-                            </a>
+                            </span>
                           )}
                         </div>
                         
