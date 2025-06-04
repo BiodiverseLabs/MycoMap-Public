@@ -119,7 +119,7 @@ export function ObservationValidation() {
     if (mycoMapValue && externalValue) {
       // Check if these look like dates (contain numbers and slashes or dashes)
       const datePattern = /\d+[\/\-]\d+[\/\-]\d+/;
-      if (datePattern.test(mycoMapValue) && datePattern.test(inatValue)) {
+      if (datePattern.test(mycoMapValue) && datePattern.test(externalValue)) {
         try {
           // Normalize date strings to avoid parsing issues with different formats
           const normalizeDate = (dateStr: string) => {
@@ -158,11 +158,9 @@ export function ObservationValidation() {
           };
           
           const normalizedMycoMap = normalizeDate(mycoMapValue);
-          const normalizedInat = normalizeDate(inatValue);
+          const normalizedExternal = normalizeDate(externalValue);
           
-
-          
-          return normalizedMycoMap === normalizedInat;
+          return normalizedMycoMap === normalizedExternal;
         } catch (e) {
           // If date parsing fails, fall back to string comparison
         }
@@ -171,8 +169,8 @@ export function ObservationValidation() {
     
     // For other fields, do direct comparison
     const mycoMap = (mycoMapValue || '').toLowerCase().trim();
-    const inat = (inatValue || '').toLowerCase().trim();
-    return mycoMap === inat && mycoMap !== '';
+    const external = (externalValue || '').toLowerCase().trim();
+    return mycoMap === external && mycoMap !== '';
   };
 
   // Helper function to render comparison icon (consistent with DNA field icons)
