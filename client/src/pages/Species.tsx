@@ -38,7 +38,9 @@ export default function Species() {
       const response = await fetch(`/api/species?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json();
-    }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - species data is relatively stable
+    gcTime: 15 * 60 * 1000, // 15 minutes cache retention
   });
 
   // Fetch state counts for efficient filtering using optimized endpoint
@@ -48,7 +50,9 @@ export default function Species() {
       const response = await fetch('/api/observations/summary?aggregate=states&dateRange=all_time');
       if (!response.ok) throw new Error('Failed to fetch state summary');
       return response.json();
-    }
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes - state data very stable
+    gcTime: 30 * 60 * 1000, // 30 minutes cache retention
   });
 
   // Extract states from state counts for dropdown
@@ -71,7 +75,10 @@ export default function Species() {
       const response = await fetch(`${endpoint}?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch accumulation data');
       return response.json();
-    }
+    },
+    staleTime: 3 * 60 * 1000, // 3 minutes for dynamic chart data
+    gcTime: 10 * 60 * 1000, // 10 minutes cache retention
+    enabled: !!selectedState, // Only fetch when state is selected
   });
 
   // Filter species based on search and filters

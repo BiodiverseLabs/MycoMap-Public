@@ -367,6 +367,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/species", async (req, res) => {
     try {
+      // Add cache headers for performance optimization
+      res.set({
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600', // 5 min cache, 10 min stale
+        'ETag': `"species-${Date.now() - (Date.now() % 300000)}"` // ETag updates every 5 minutes
+      });
+      
       const { limit, type = 'top', state, name } = req.query;
       
       // If searching for a specific species by name
@@ -456,6 +462,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get species accumulation curve data
   app.get("/api/species-accumulation", async (req, res) => {
     try {
+      // Add cache headers for chart data
+      res.set({
+        'Cache-Control': 'public, max-age=180, stale-while-revalidate=360', // 3 min cache, 6 min stale
+        'ETag': `"species-acc-${Date.now() - (Date.now() % 180000)}"` // ETag updates every 3 minutes
+      });
+      
       const { state, search } = req.query;
       const data = await storage.getSpeciesAccumulation(state as string, search as string);
       res.json(data);
@@ -468,6 +480,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get genera accumulation curve data
   app.get("/api/genera-accumulation", async (req, res) => {
     try {
+      // Add cache headers for chart data
+      res.set({
+        'Cache-Control': 'public, max-age=180, stale-while-revalidate=360', // 3 min cache, 6 min stale
+        'ETag': `"genera-acc-${Date.now() - (Date.now() % 180000)}"` // ETag updates every 3 minutes
+      });
+      
       const { state, search } = req.query;
       const data = await storage.getGeneraAccumulation(state as string, search as string);
       res.json(data);
