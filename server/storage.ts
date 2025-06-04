@@ -101,6 +101,12 @@ export interface IStorage {
   // Data management
   clearAllData(): Promise<void>;
   
+  // State analytics
+  getStateSummary(dateRange?: string): Promise<Array<{
+    state: string;
+    count: number;
+  }>>;
+  
   // Source analytics
   getObservationSources(dateRange?: string): Promise<Array<{
     source: string;

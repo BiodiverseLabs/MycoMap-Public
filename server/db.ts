@@ -878,6 +878,48 @@ export class DatabaseStorage implements IStorage {
     await db.execute(sql`DELETE FROM ${species}`);
   }
 
+  async getStateSummary(dateRange?: string): Promise<Array<{
+    state: string;
+    count: number;
+  }>> {
+    let whereClause = sql`WHERE ${observations.state} IS NOT NULL AND ${observations.state} != ''`;
+    
+    if (dateRange && dateRange !== 'all_time') {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (dateRange) {
+        case 'last_30_days':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+          break;
+        case 'last_6_months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+          break;
+        case 'last_year':
+          startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+          break;
+        default:
+          startDate = new Date(0); // All time
+      }
+      
+      if (dateRange !== 'all_time') {
+        whereClause = sql`${whereClause} AND ${observations.observedOn} >= ${startDate.toISOString().split('T')[0]}`;
+      }
+    }
+
+    const result = await db.execute(sql`
+      SELECT 
+        ${observations.state} as state,
+        COUNT(*)::int as count
+      FROM ${observations}
+      ${whereClause}
+      GROUP BY ${observations.state}
+      ORDER BY count DESC
+    `);
+
+    return result.rows as Array<{ state: string; count: number; }>;
+  }
+
   async getObservationSources(dateRange?: string): Promise<Array<{
     source: string;
     count: number;
