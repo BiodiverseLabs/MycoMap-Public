@@ -1089,16 +1089,13 @@ export function ObservationValidation() {
                                         <span className="text-gray-700 font-mono">
                                           {obs.source === 'MO Observations' ? 
                                             (obs.moDnaBarcode ? 
-                                              `${obs.moDnaBarcode.substring(0, 50)}${obs.moDnaBarcode.length > 50 ? '...' : ''}` : 
+                                              `${obs.moDnaBarcode.substring(0, 10)}${obs.moDnaBarcode.length > 10 ? '...' : ''}` : 
                                               'N/A') :
-                                            (obs.dnaBarcode || 'N/A')
+                                            (obs.dnaBarcode ? 
+                                              `${obs.dnaBarcode.substring(0, 10)}${obs.dnaBarcode.length > 10 ? '...' : ''}` :
+                                              'N/A')
                                           }
                                         </span>
-                                        {obs.source === 'MO Observations' && obs.moSequenceNotes && (
-                                          <div className="mt-1 text-xs text-gray-600 italic">
-                                            {obs.moSequenceNotes}
-                                          </div>
-                                        )}
                                       </div>
                                       <div>
                                         <div className="flex items-center gap-2">
@@ -1109,10 +1106,12 @@ export function ObservationValidation() {
                                           {obs.inatGenbankAccession || 'N/A'}
                                         </span>
                                       </div>
-                                      <div>
-                                        <span className="font-medium">Provisional Species Name:</span><br />
-                                        <span className="text-gray-700">{obs.provisionalSpeciesName || 'N/A'}</span>
-                                      </div>
+                                      {obs.source !== 'MO Observations' && (
+                                        <div>
+                                          <span className="font-medium">Provisional Species Name:</span><br />
+                                          <span className="text-gray-700">{obs.provisionalSpeciesName || 'N/A'}</span>
+                                        </div>
+                                      )}
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">MycoMap BLAST Results:</span>
                                         {obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? (
