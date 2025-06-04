@@ -1475,47 +1475,68 @@ export class DatabaseStorage implements IStorage {
     source: string;
     syncStatus: string;
     validationStatus: string;
+    search?: string;
   }): Promise<Array<any>> {
-    const { limit, source, syncStatus, validationStatus } = params;
+    const { limit, source, syncStatus, validationStatus, search } = params;
     
-    // Build base query with JOINs for efficient data retrieval
-    let query = db
-      .select({
-        id: observations.id,
-        observationId: observations.observationId,
-        scientificName: observations.scientificName,
-        commonName: observations.commonName,
-        observer: observations.observer,
-        observedOn: observations.observedOn,
-        state: observations.state,
-        source: observations.source,
-        // iNaturalist sync data
-        hasInatData: sql<boolean>`CASE WHEN ${inaturalistData.observationId} IS NOT NULL THEN true ELSE false END`,
-        inatSyncStatus: inaturalistData.syncStatus,
-        inatLastSynced: inaturalistData.lastSyncedAt,
-        inatSyncError: inaturalistData.syncError,
-        // MO sync data
-        hasMoData: sql<boolean>`CASE WHEN ${mushroomObserverData.observationId} IS NOT NULL THEN true ELSE false END`,
-        moSyncStatus: mushroomObserverData.syncStatus,
-        moLastSynced: mushroomObserverData.lastSyncedAt,
-        moSyncError: mushroomObserverData.syncError,
-      })
-      .from(observations)
-      .leftJoin(inaturalistData, eq(observations.observationId, inaturalistData.observationId))
-      .leftJoin(mushroomObserverData, eq(observations.observationId, mushroomObserverData.observationId));
+    // Use raw SQL for more complex queries with search
+    let sqlQuery = `
+      SELECT 
+        o.id,
+        o.observation_id as "observationId",
+        o.scientific_name as "scientificName",
+        o.common_name as "commonName",
+        o.observer,
+        o.observed_on as "observedOn",
+        o.state,
+        o.source,
+        CASE WHEN i.observation_id IS NOT NULL THEN true ELSE false END as "hasInatData",
+        i.sync_status as "inatSyncStatus",
+        i.last_synced_at as "inatLastSynced",
+        i.sync_error as "inatSyncError",
+        CASE WHEN m.observation_id IS NOT NULL THEN true ELSE false END as "hasMoData",
+        m.sync_status as "moSyncStatus",
+        m.last_synced_at as "moLastSynced",
+        m.sync_error as "moSyncError"
+      FROM observations o
+      LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
+      LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id
+    `;
+
+    const queryParams: any[] = [];
+    const whereConditions: string[] = [];
+
+    // Apply search filter for ID-based searches
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      whereConditions.push(`(
+        o.observation_id ILIKE $${queryParams.length + 1} OR
+        i.inat_id = $${queryParams.length + 2} OR
+        m.mo_id = $${queryParams.length + 3}
+      )`);
+      queryParams.push(`%${searchTerm}%`, searchTerm, searchTerm);
+    }
 
     // Apply source filter
     if (source === 'inaturalist') {
-      query = query.where(eq(observations.source, 'iNaturalist'));
+      whereConditions.push(`o.source = $${queryParams.length + 1}`);
+      queryParams.push('iNaturalist');
     } else if (source === 'mo') {
-      query = query.where(eq(observations.source, 'MO Observations'));
+      whereConditions.push(`o.source = $${queryParams.length + 1}`);
+      queryParams.push('MO Observations');
     }
 
-    // Apply limit
-    query = query.limit(limit);
+    // Add WHERE clause if we have conditions
+    if (whereConditions.length > 0) {
+      sqlQuery += ` WHERE ${whereConditions.join(' AND ')}`;
+    }
 
-    const results = await query;
-    return results;
+    // Add ordering and limit
+    sqlQuery += ` ORDER BY o.id DESC LIMIT $${queryParams.length + 1}`;
+    queryParams.push(limit);
+
+    const result = await pool.query(sqlQuery, queryParams);
+    return result.rows;
   }
 
   // Method to find observations with missing photos
