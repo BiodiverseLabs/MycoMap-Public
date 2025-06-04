@@ -816,7 +816,7 @@ export function ObservationValidation() {
                             </span>
                           </div>
                           {getSyncStatusBadge(obs.inatSyncStatus, obs.hasInatData)}
-                          {obs.source === 'MO Observations' && getSyncStatusBadge(obs.moSyncStatus, obs.hasMoData)}
+                          {obs.source === 'MO Observations' && getSyncStatusBadge(obs.moSyncStatus || null, obs.hasMoData || false)}
                           <Badge variant="outline" className="text-xs">
                             {getSourceName(obs.source)}
                           </Badge>
@@ -874,7 +874,13 @@ export function ObservationValidation() {
                         
                         {obs.inatSyncError && (
                           <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
-                            <span className="font-medium">Sync Error:</span> {obs.inatSyncError}
+                            <span className="font-medium">iNaturalist Sync Error:</span> {obs.inatSyncError}
+                          </div>
+                        )}
+                        
+                        {obs.moSyncError && (
+                          <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">
+                            <span className="font-medium">Mushroom Observer Sync Error:</span> {obs.moSyncError}
                           </div>
                         )}
 
