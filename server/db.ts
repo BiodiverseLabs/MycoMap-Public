@@ -1491,7 +1491,6 @@ export class DatabaseStorage implements IStorage {
         o.state,
         o.source,
         o.collector,
-        o.provisional_species_name as "provisionalSpeciesName",
         o.genbank_accession as "genbankAccession",
         CASE WHEN i.observation_id IS NOT NULL THEN true ELSE false END as "hasInatData",
         i.sync_status as "inatSyncStatus",
