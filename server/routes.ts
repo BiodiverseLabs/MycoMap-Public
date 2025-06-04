@@ -159,6 +159,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/temporal-trends", async (req, res) => {
     try {
+      // Set cache headers for performance
+      res.set('Cache-Control', 'public, max-age=300'); // 5 minute cache
+      
       const { groupBy = 'month', state, startDate, endDate, goingBackYears, collector } = req.query;
       const trends = await storage.getTemporalTrends(
         groupBy as 'month' | 'quarter' | 'year', 
@@ -212,6 +215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Optimized map data endpoint using GPS index
   app.get("/api/map-data", async (req, res) => {
     try {
+      // Set cache headers for performance
+      res.set('Cache-Control', 'public, max-age=180'); // 3 minute cache for map data
+      
       const { limit = "75000", state } = req.query;
       console.log(`[API] GET /api/map-data - limit: "${limit}", state: "${state}"`);
 
@@ -241,6 +247,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/taxonomic-distribution", async (req, res) => {
     try {
+      // Set cache headers for performance
+      res.set('Cache-Control', 'public, max-age=300'); // 5 minute cache
+      
       const { state, startDate, endDate, goingBackYears, collector } = req.query;
       const distribution = await storage.getTaxonomicDistribution(
         state as string,
