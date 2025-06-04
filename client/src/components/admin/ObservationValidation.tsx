@@ -64,6 +64,9 @@ interface ValidationObservation {
   moApiSaved?: boolean;
   moApiFile?: string | null;
   moApiSaveDate?: string | null;
+  // Mushroom Observer DNA sequence data
+  moDnaBarcode?: string | null;
+  moSequenceNotes?: string | null;
 }
 
 interface SyncProgress {
@@ -1073,18 +1076,29 @@ export function ObservationValidation() {
                                     </div>
                                   </div>
                                   
-                                  {/* iNaturalist Observation Fields */}
+                                  {/* Observation Fields */}
                                   <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <h6 className="text-xs font-medium text-green-700 mb-2">iNat Observation Fields</h6>
+                                    <h6 className="text-xs font-medium text-green-700 mb-2">{getSourceName(obs.source)} Observation Fields</h6>
                                     <div className="space-y-1 text-xs">
                                       <div>
                                         <div className="flex items-center gap-2">
                                           <span className="font-medium">DNA Barcode ITS:</span>
-                                          {obs.dnaBarcode && <CheckCircle className="w-4 h-4 text-green-600" />}
+                                          {(obs.source === 'MO Observations' ? obs.moDnaBarcode : obs.dnaBarcode) && 
+                                            <CheckCircle className="w-4 h-4 text-green-600" />}
                                         </div>
                                         <span className="text-gray-700 font-mono">
-                                          {obs.dnaBarcode || 'N/A'}
+                                          {obs.source === 'MO Observations' ? 
+                                            (obs.moDnaBarcode ? 
+                                              `${obs.moDnaBarcode.substring(0, 50)}${obs.moDnaBarcode.length > 50 ? '...' : ''}` : 
+                                              'N/A') :
+                                            (obs.dnaBarcode || 'N/A')
+                                          }
                                         </span>
+                                        {obs.source === 'MO Observations' && obs.moSequenceNotes && (
+                                          <div className="mt-1 text-xs text-gray-600 italic">
+                                            {obs.moSequenceNotes}
+                                          </div>
+                                        )}
                                       </div>
                                       <div>
                                         <div className="flex items-center gap-2">

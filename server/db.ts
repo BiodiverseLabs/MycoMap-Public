@@ -1542,6 +1542,8 @@ export class DatabaseStorage implements IStorage {
         m.observer as "moObserver",
         m.observed_on as "moObservedOn",
         m.state as "moState",
+        m.dna_barcode as "moDnaBarcode",
+        m.sequence_notes as "moSequenceNotes",
         CASE WHEN m.api_file IS NOT NULL THEN true ELSE false END as "moApiSaved",
         m.api_file as "moApiFile",
         m.api_save_date as "moApiSaveDate"
@@ -2301,6 +2303,9 @@ export class DatabaseStorage implements IStorage {
         isCollection: observation.is_collection || false,
         specimenAvailable: observation.specimen || false,
         notes: observation.notes?.localized || observation.notes?.default,
+        // Extract DNA sequences, specifically ITS
+        dnaBarcode: observation.sequences?.find(seq => seq.locus === 'ITS')?.bases || null,
+        sequenceNotes: observation.sequences?.find(seq => seq.locus === 'ITS')?.notes || null,
         syncStatus: 'success',
         syncError: null,
         lastSyncedAt: new Date()

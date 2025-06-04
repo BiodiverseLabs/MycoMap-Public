@@ -313,6 +313,9 @@ export const mushroomObserverData = pgTable("mushroom_observer_data", {
   isCollection: boolean("is_collection"),
   specimenAvailable: boolean("specimen_available"),
   notes: text("notes"),
+  // DNA sequence data
+  dnaBarcode: text("dna_barcode"),
+  sequenceNotes: text("sequence_notes"),
   syncStatus: text("sync_status").default('pending'),
   syncError: text("sync_error"),
   lastSyncedAt: timestamp("last_synced_at").defaultNow(),
