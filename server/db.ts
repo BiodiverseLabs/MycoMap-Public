@@ -1492,6 +1492,7 @@ export class DatabaseStorage implements IStorage {
         o.source,
         o.collector,
         o.genbank_accession as "genbankAccession",
+        LEFT(i.dna_barcode, 10) as "dnaBarcode",
         o.mycomap_blast_url as "mycoMapBlastResults",
         o.mycomap_blast_url as "mycoMapBlastUrl",
         o.ncbi_blast_file as "ncbiBlastFile", 
