@@ -2186,6 +2186,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // MyCoPortal API sync endpoint
+  app.post('/api/sync/mycoportal/:observationId', async (req: Request, res: Response) => {
+    try {
+      const observationId = (req as any).params.observationId;
+      console.log(`[MyCoPortal API] Syncing observation: ${observationId}`);
+
+      const result = await storage.syncObservationWithMycoportal(observationId);
+      
+      if (result) {
+        res.json({
+          success: true,
+          data: result,
+          message: 'MyCoPortal sync completed successfully'
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: 'Failed to sync with MyCoPortal API'
+        });
+      }
+    } catch (error) {
+      console.error(`[MyCoPortal API] Sync error:`, error);
+      res.status(500).json({
+        success: false,
+        error: 'MyCoPortal sync failed'
+      });
+    }
+  });
+
+  // Download MyCoPortal API file endpoint
+  app.get('/api/download/mycoportal-api/:filename', (req: Request, res: Response) => {
+    try {
+      const filename = (req as any).params.filename;
+      const filePath = path.join(process.cwd(), 'downloads', 'mycoportal_api', filename);
+      
+      console.log(`[MyCoPortal API] Working directory: ${process.cwd()}`);
+      console.log(`[MyCoPortal API] Serving file: ${filePath}`);
+      console.log(`[MyCoPortal API] File exists: ${fs.existsSync(filePath)}`);
+      
+      if (!fs.existsSync(filePath)) {
+        console.log(`[MyCoPortal API] File not found: ${filePath}`);
+        return (res as any).status(404).json({ error: "File not found" });
+      }
+
+      const absolutePath = path.resolve(filePath);
+      console.log(`[MyCoPortal API] Resolved path: ${absolutePath}`);
+
+      (res as any).setHeader('Content-Type', 'text/plain');
+      (res as any).setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      (res as any).sendFile(absolutePath);
+    } catch (error) {
+      console.error(`[MyCoPortal API] Download error:`, error);
+      return (res as any).status(500).json({ error: "Failed to download file" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

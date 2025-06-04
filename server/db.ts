@@ -2418,48 +2418,48 @@ export class DatabaseStorage implements IStorage {
       const data = await response.json();
       console.log(`[MyCoPortal] Successfully fetched data for catalog ${catalogNumber}`);
 
-      // Parse MyCoPortal response data
+      // Parse MyCoPortal response data (using snake_case to match database columns)
       const mycoportalRecord = {
-        observationId,
-        catalogNumber: data.catalogNumber || catalogNumber,
-        collectionCode: data.collectionCode,
-        institutionCode: data.institutionCode,
-        scientificName: data.scientificName,
-        commonName: data.vernacularName,
+        observation_id: observationId,
+        catalog_number: data.catalogNumber || catalogNumber,
+        collection_code: data.collectionCode,
+        institution_code: data.institutionCode,
+        scientific_name: data.scientificName,
+        common_name: data.vernacularName,
         family: data.family,
         genus: data.genus,
-        specificEpithet: data.specificEpithet,
-        infraspecificEpithet: data.infraspecificEpithet,
-        taxonRank: data.taxonRank,
-        identifiedBy: data.identifiedBy,
-        dateIdentified: data.dateIdentified,
-        recordedBy: data.recordedBy,
-        recordNumber: data.recordNumber,
-        eventDate: data.eventDate,
+        specific_epithet: data.specificEpithet,
+        infraspecific_epithet: data.infraspecificEpithet,
+        taxon_rank: data.taxonRank,
+        identified_by: data.identifiedBy,
+        date_identified: data.dateIdentified,
+        recorded_by: data.recordedBy,
+        record_number: data.recordNumber,
+        event_date: data.eventDate,
         year: data.year ? parseInt(data.year) : null,
         month: data.month ? parseInt(data.month) : null,
         day: data.day ? parseInt(data.day) : null,
         country: data.country,
-        stateProvince: data.stateProvince,
+        state_province: data.stateProvince,
         county: data.county,
         locality: data.locality,
         habitat: data.habitat,
         substrate: data.substrate,
-        decimalLatitude: data.decimalLatitude ? parseFloat(data.decimalLatitude) : null,
-        decimalLongitude: data.decimalLongitude ? parseFloat(data.decimalLongitude) : null,
-        coordinateUncertaintyInMeters: data.coordinateUncertaintyInMeters ? parseInt(data.coordinateUncertaintyInMeters) : null,
+        decimal_latitude: data.decimalLatitude ? parseFloat(data.decimalLatitude) : null,
+        decimal_longitude: data.decimalLongitude ? parseFloat(data.decimalLongitude) : null,
+        coordinate_uncertainty_in_meters: data.coordinateUncertaintyInMeters ? parseInt(data.coordinateUncertaintyInMeters) : null,
         elevation: data.elevationInMeters ? parseInt(data.elevationInMeters) : null,
-        minimumElevationInMeters: data.minimumElevationInMeters ? parseInt(data.minimumElevationInMeters) : null,
-        maximumElevationInMeters: data.maximumElevationInMeters ? parseInt(data.maximumElevationInMeters) : null,
-        occurrenceRemarks: data.occurrenceRemarks,
-        associatedTaxa: data.associatedTaxa,
-        dynamicProperties: data.dynamicProperties,
-        geneticAccessionNumber: data.geneticAccessionNumber,
-        associatedSequences: data.associatedSequences,
-        associatedMedia: data.associatedMedia,
-        syncStatus: 'success',
-        syncError: null,
-        lastSyncedAt: new Date()
+        minimum_elevation_in_meters: data.minimumElevationInMeters ? parseInt(data.minimumElevationInMeters) : null,
+        maximum_elevation_in_meters: data.maximumElevationInMeters ? parseInt(data.maximumElevationInMeters) : null,
+        occurrence_remarks: data.occurrenceRemarks,
+        associated_taxa: data.associatedTaxa,
+        dynamic_properties: data.dynamicProperties,
+        genetic_accession_number: data.geneticAccessionNumber,
+        associated_sequences: data.associatedSequences,
+        associated_media: data.associatedMedia,
+        sync_status: 'success',
+        sync_error: null,
+        last_synced_at: new Date()
       };
 
       // Save the full MyCoPortal API response as a text file
@@ -2468,8 +2468,8 @@ export class DatabaseStorage implements IStorage {
         const apiSaveResult = await blastDownloader.saveMycoportalApiResponse(observationId, data);
         
         if (apiSaveResult.success) {
-          mycoportalRecord.apiFile = apiSaveResult.apiFilePath;
-          mycoportalRecord.apiSaveDate = new Date();
+          mycoportalRecord.api_file = apiSaveResult.apiFilePath;
+          mycoportalRecord.api_save_date = new Date();
           console.log(`[MyCoPortal] API response saved: ${apiSaveResult.apiFilePath}`);
         }
       } catch (apiError) {
@@ -2490,11 +2490,11 @@ export class DatabaseStorage implements IStorage {
       console.error(`[MyCoPortal] Error syncing observation ${observationId}:`, error);
       
       const errorRecord = {
-        observationId,
-        catalogNumber: observationId.replace(/^MC/, ''),
-        syncStatus: 'error',
-        syncError: error.message,
-        lastSyncedAt: new Date()
+        observation_id: observationId,
+        catalog_number: observationId.replace(/^MC/, ''),
+        sync_status: 'error',
+        sync_error: (error as Error).message,
+        last_synced_at: new Date()
       };
 
       const existing = await this.getMycoportalData(observationId);
