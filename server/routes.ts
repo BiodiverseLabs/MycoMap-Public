@@ -2049,6 +2049,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fetch missing iNaturalist observation photos
+  app.post('/api/observations/:id/fetch-photos', async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      
+      // Check if we already have photo data for this observation
+      const existingData = await storage.getInaturalistData(observationId);
+      if (existingData.length > 0 && existingData[0].photos && existingData[0].photos.length > 0) {
+        return res.json({ 
+          success: true, 
+          message: 'Photos already exist',
+          photoCount: existingData[0].photos.length 
+        });
+      }
+
+      // Fetch from iNaturalist API
+      const inatApiUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
+      const response = await fetch(inatApiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`iNaturalist API responded with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) {
+        return res.status(404).json({ error: 'Observation not found on iNaturalist' });
+      }
+
+      const observation = data.results[0];
+      const photos = observation.photos || [];
+      const photoUrls = photos.map((photo: any) => photo.url || photo.url_original || photo.url_medium);
+
+      // Update or create iNaturalist data record
+      if (existingData.length > 0) {
+        await storage.updateInaturalistData(observationId, {
+          photos: photoUrls,
+          lastSyncedAt: new Date(),
+          syncStatus: 'success'
+        });
+      } else {
+        await storage.createInaturalistData({
+          observationId: observationId,
+          inatId: observation.id.toString(),
+          photos: photoUrls,
+          quality: observation.quality_grade,
+          captive: observation.captive,
+          geoprivacy: observation.geoprivacy,
+          licenseCode: observation.license_code,
+          lastSyncedAt: new Date(),
+          syncStatus: 'success'
+        });
+      }
+
+      res.json({
+        success: true,
+        photoCount: photoUrls.length,
+        photos: photoUrls
+      });
+
+    } catch (error) {
+      console.error(`Error fetching photos for observation ${req.params.id}:`, error);
+      res.status(500).json({ error: 'Failed to fetch observation photos' });
+    }
+  });
+
+  // Batch fetch missing photos for multiple observations
+  app.post('/api/observations/batch-fetch-photos', async (req, res) => {
+    try {
+      const { observationIds, limit = 10 } = req.body;
+      
+      if (!observationIds || !Array.isArray(observationIds)) {
+        return res.status(400).json({ error: 'observationIds array is required' });
+      }
+
+      const results = [];
+      const limitedIds = observationIds.slice(0, Math.min(limit, 50)); // Limit to prevent API abuse
+
+      for (const observationId of limitedIds) {
+        try {
+          // Check if we already have photo data
+          const existingData = await storage.getInaturalistData(observationId);
+          if (existingData.length > 0 && existingData[0].photos && existingData[0].photos.length > 0) {
+            results.push({ observationId, status: 'already_exists', photoCount: existingData[0].photos.length });
+            continue;
+          }
+
+          // Fetch from iNaturalist API with rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay between requests
+          
+          const inatApiUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
+          const response = await fetch(inatApiUrl);
+          
+          if (!response.ok) {
+            results.push({ observationId, status: 'error', error: `API status: ${response.status}` });
+            continue;
+          }
+
+          const data = await response.json();
+          
+          if (!data.results || data.results.length === 0) {
+            results.push({ observationId, status: 'not_found' });
+            continue;
+          }
+
+          const observation = data.results[0];
+          const photos = observation.photos || [];
+          const photoUrls = photos.map((photo: any) => photo.url || photo.url_original || photo.url_medium);
+
+          // Update or create iNaturalist data record
+          if (existingData.length > 0) {
+            await storage.updateInaturalistData(observationId, {
+              photos: photoUrls,
+              lastSyncedAt: new Date(),
+              syncStatus: 'success'
+            });
+          } else {
+            await storage.createInaturalistData({
+              observationId: observationId,
+              inatId: observation.id.toString(),
+              photos: photoUrls,
+              quality: observation.quality_grade,
+              captive: observation.captive,
+              geoprivacy: observation.geoprivacy,
+              licenseCode: observation.license_code,
+              lastSyncedAt: new Date(),
+              syncStatus: 'success'
+            });
+          }
+
+          results.push({ observationId, status: 'success', photoCount: photoUrls.length });
+
+        } catch (error) {
+          results.push({ observationId, status: 'error', error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        processed: results.length,
+        results: results
+      });
+
+    } catch (error) {
+      console.error(`Error in batch photo fetch:`, error);
+      res.status(500).json({ error: 'Failed to batch fetch photos' });
+    }
+  });
+
   // Download iNaturalist API file endpoint
   app.get('/api/download/inat-api/:filename', (req: Request, res: Response) => {
     try {
