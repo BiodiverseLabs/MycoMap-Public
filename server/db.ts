@@ -1163,43 +1163,47 @@ export class DatabaseStorage implements IStorage {
     species?: string;
     collector?: string;
   }>> {
-    const { observations } = schema;
     const startTime = Date.now();
     
     try {
-      // Use direct observations query with optimized filtering
-      const whereConditions = [
-        isNotNull(observations.latitude),
-        isNotNull(observations.longitude),
-        ne(observations.latitude, 0),
-        ne(observations.longitude, 0),
-      ];
-
+      // Use raw SQL with proper indexing for maximum performance
+      let sqlQuery = `
+        SELECT 
+          CAST(latitude AS FLOAT) as latitude,
+          CAST(longitude AS FLOAT) as longitude,
+          scientific_name as species,
+          collector
+        FROM observations 
+        WHERE latitude IS NOT NULL 
+          AND longitude IS NOT NULL 
+          AND latitude != '0' 
+          AND longitude != '0'
+          AND CAST(latitude AS DECIMAL) BETWEEN -90 AND 90
+          AND CAST(longitude AS DECIMAL) BETWEEN -180 AND 180
+      `;
+      
       if (state) {
-        whereConditions.push(eq(observations.state, state));
+        sqlQuery += ` AND state = $1`;
       }
-
-      const result = await db.select({
-        latitude: observations.latitude,
-        longitude: observations.longitude,
-        species: observations.scientificName,
-        collector: observations.collector,
-      })
-      .from(observations)
-      .where(and(...whereConditions))
-      .limit(limit);
+      
+      // Add ordering for consistent results and limit
+      sqlQuery += ` ORDER BY id LIMIT ${limit}`;
+      
+      const result = state 
+        ? await db.execute(sql.raw(sqlQuery, [state]))
+        : await db.execute(sql.raw(sqlQuery));
 
       const endTime = Date.now();
-      console.log(`[Map Data] Retrieved ${result.length} coordinates in ${endTime - startTime}ms (state: ${state || 'all'})`);
+      console.log(`[Map Data] Retrieved ${result.rows.length} coordinates in ${endTime - startTime}ms (state: ${state || 'all'})`);
 
-      return result.map(row => ({
-        latitude: parseFloat(row.latitude!.toString()),
-        longitude: parseFloat(row.longitude!.toString()),
+      return result.rows.map((row: any) => ({
+        latitude: parseFloat(row.latitude),
+        longitude: parseFloat(row.longitude),
         species: row.species || undefined,
         collector: row.collector || undefined,
       }));
     } catch (error) {
-      console.log('[Map Data] Error, using fallback with reduced limit');
+      console.log('[Map Data] Error with optimized query, using fallback:', error);
       return this.getMapDataFallback(Math.min(limit, 20000), state);
     }
   }
