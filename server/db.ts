@@ -1591,6 +1591,21 @@ export class DatabaseStorage implements IStorage {
       queryParams.push('MycoPortal');
     }
 
+    // Apply sync status filter
+    if (syncStatus === 'synced') {
+      whereConditions.push(`(
+        (o.source = 'iNaturalist' AND i.sync_status = 'success') OR
+        (o.source = 'MO Observations' AND m.sync_status = 'success') OR
+        (o.source = 'MycoPortal' AND mc.sync_status = 'success')
+      )`);
+    } else if (syncStatus === 'not_synced') {
+      whereConditions.push(`(
+        (o.source = 'iNaturalist' AND (i.sync_status IS NULL OR i.sync_status != 'success')) OR
+        (o.source = 'MO Observations' AND (m.sync_status IS NULL OR m.sync_status != 'success')) OR
+        (o.source = 'MycoPortal' AND (mc.sync_status IS NULL OR mc.sync_status != 'success'))
+      )`);
+    }
+
     // Add WHERE clause if we have conditions
     if (whereConditions.length > 0) {
       sqlQuery += ` WHERE ${whereConditions.join(' AND ')}`;
