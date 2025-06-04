@@ -1523,7 +1523,8 @@ export class DatabaseStorage implements IStorage {
           WHEN i.place_ids IS NOT NULL AND array_length(i.place_ids, 1) > 0 THEN
             (SELECT p.name FROM inaturalist_places p 
              WHERE p.place_id = ANY(i.place_ids) 
-             AND p.admin_level = 1 AND p.place_type = 'state' 
+             AND p.admin_level = 10 AND p.place_type::integer = 8
+             AND p.display_name LIKE '%, US'
              LIMIT 1)
           ELSE NULL
         END as "inatState",
