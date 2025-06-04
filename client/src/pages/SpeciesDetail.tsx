@@ -536,12 +536,10 @@ export default function SpeciesDetail() {
           onClose={() => setIsFullscreen(false)}
           title={`${speciesData?.scientificName || speciesName} - Distribution Map`}
         >
-          <div className="w-full h-full p-4">
-            <div 
-              ref={fullscreenMapRef} 
-              className="w-full h-full rounded-lg border border-slate-200"
-            />
-          </div>
+          <div 
+            ref={fullscreenMapRef} 
+            className="w-full h-full"
+          />
         </FullscreenModal>
       </div>
     </div>

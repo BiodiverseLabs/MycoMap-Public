@@ -185,12 +185,10 @@ export function ContributorMap({ observations }: ContributorMapProps) {
         onClose={() => setIsFullscreen(false)}
         title="Contributor Heatmap - Fullscreen"
       >
-        <div className="w-full h-full p-4">
-          <div 
-            ref={fullscreenMapRef} 
-            className="w-full h-full rounded-lg border border-slate-200"
-          />
-        </div>
+        <div 
+          ref={fullscreenMapRef} 
+          className="w-full h-full"
+        />
       </FullscreenModal>
     </>
   );
