@@ -207,15 +207,40 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ period: string; count: number }>;
   }
 
-  async getTaxonomicDistribution(): Promise<Array<{
+  async getTaxonomicDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     phylum: string;
     count: number;
   }>> {
+    let whereConditions = [];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
+    }
+    
+    if (startDate && endDate) {
+      whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+    } else if (goingBackYears && goingBackYears !== '0') {
+      const yearsBack = parseInt(goingBackYears);
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - yearsBack);
+      whereConditions.push(sql`${observations.observedOn} >= ${cutoffDate.toISOString().split('T')[0]}`);
+    }
+    
+    const whereClause = whereConditions.length > 0 
+      ? sql`WHERE ${sql.join(whereConditions, sql` AND `)}`
+      : sql``;
+    
     const result = await db.execute(sql`
       SELECT 
         COALESCE(${observations.phylum}, 'Unknown') as phylum,
         COUNT(*)::int as count
       FROM ${observations}
+      ${whereClause}
       GROUP BY ${observations.phylum}
       ORDER BY count DESC
     `);
@@ -223,16 +248,40 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ phylum: string; count: number }>;
   }
 
-  async getFamilyDistribution(): Promise<Array<{
+  async getFamilyDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     family: string;
     count: number;
   }>> {
+    let whereConditions = [
+      sql`${observations.family} IS NOT NULL AND ${observations.family} != ''`
+    ];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
+    }
+    
+    if (startDate && endDate) {
+      whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+    } else if (goingBackYears && goingBackYears !== '0') {
+      const yearsBack = parseInt(goingBackYears);
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - yearsBack);
+      whereConditions.push(sql`${observations.observedOn} >= ${cutoffDate.toISOString().split('T')[0]}`);
+    }
+    
+    const whereClause = sql`WHERE ${sql.join(whereConditions, sql` AND `)}`;
+    
     const result = await db.execute(sql`
       SELECT 
         COALESCE(${observations.family}, 'Unknown') as family,
         COUNT(*)::int as count
       FROM ${observations}
-      WHERE ${observations.family} IS NOT NULL AND ${observations.family} != ''
+      ${whereClause}
       GROUP BY ${observations.family}
       ORDER BY count DESC
     `);
@@ -240,16 +289,40 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ family: string; count: number }>;
   }
 
-  async getClassDistribution(): Promise<Array<{
+  async getClassDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     class: string;
     count: number;
   }>> {
+    let whereConditions = [
+      sql`${observations.class} IS NOT NULL AND ${observations.class} != ''`
+    ];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
+    }
+    
+    if (startDate && endDate) {
+      whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+    } else if (goingBackYears && goingBackYears !== '0') {
+      const yearsBack = parseInt(goingBackYears);
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - yearsBack);
+      whereConditions.push(sql`${observations.observedOn} >= ${cutoffDate.toISOString().split('T')[0]}`);
+    }
+    
+    const whereClause = sql`WHERE ${sql.join(whereConditions, sql` AND `)}`;
+    
     const result = await db.execute(sql`
       SELECT 
         COALESCE(${observations.class}, 'Unknown') as class,
         COUNT(*)::int as count
       FROM ${observations}
-      WHERE ${observations.class} IS NOT NULL AND ${observations.class} != ''
+      ${whereClause}
       GROUP BY ${observations.class}
       ORDER BY count DESC
     `);
@@ -257,16 +330,40 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ class: string; count: number }>;
   }
 
-  async getOrderDistribution(): Promise<Array<{
+  async getOrderDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     order: string;
     count: number;
   }>> {
+    let whereConditions = [
+      sql`${observations.order} IS NOT NULL AND ${observations.order} != ''`
+    ];
+    
+    if (state) {
+      whereConditions.push(sql`${observations.state} = ${state}`);
+    }
+    
+    if (collector) {
+      whereConditions.push(sql`${observations.collector} ILIKE ${`%${collector}%`}`);
+    }
+    
+    if (startDate && endDate) {
+      whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+    } else if (goingBackYears && goingBackYears !== '0') {
+      const yearsBack = parseInt(goingBackYears);
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - yearsBack);
+      whereConditions.push(sql`${observations.observedOn} >= ${cutoffDate.toISOString().split('T')[0]}`);
+    }
+    
+    const whereClause = sql`WHERE ${sql.join(whereConditions, sql` AND `)}`;
+    
     const result = await db.execute(sql`
       SELECT 
         COALESCE(${observations.order}, 'Unknown') as "order",
         COUNT(*)::int as count
       FROM ${observations}
-      WHERE ${observations.order} IS NOT NULL AND ${observations.order} != ''
+      ${whereClause}
       GROUP BY ${observations.order}
       ORDER BY count DESC
     `);

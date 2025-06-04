@@ -30,38 +30,38 @@ export interface IStorage {
     count: number;
   }>>;
   
-  getTaxonomicDistribution(state?: string): Promise<Array<{
+  getTaxonomicDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     phylum: string;
     count: number;
   }>>;
   
-  getFamilyDistribution(): Promise<Array<{
+  getFamilyDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     family: string;
     count: number;
   }>>;
   
-  getClassDistribution(): Promise<Array<{
+  getClassDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     class: string;
     count: number;
   }>>;
   
-  getOrderDistribution(): Promise<Array<{
+  getOrderDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     order: string;
     count: number;
   }>>;
   
-  getGenusDistribution(): Promise<Array<{
+  getGenusDistribution(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     genus: string;
     count: number;
   }>>;
   
-  getSeasonalPatterns(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
+  getSeasonalPatterns(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     season: string;
     count: number;
     percentage: number;
   }>>;
   
-  getMonthlyStatistics(state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
+  getMonthlyStatistics(state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
     month: string;
     count: number;
     monthNumber: number;
