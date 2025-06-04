@@ -1,0 +1,93 @@
+Replit version 07af3574, pid2 version 0.0.1362
+_app-10da034c5c0319eb.js:38 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-10da034c5c0319eb.js:38 [LaunchDarkly] LaunchDarkly client initialized
+/t/the-research-store:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was receivedUnderstand this error
+MacrofungiTracker:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+36Error handling response: TypeError: Cannot read properties of undefined (reading 'isCheckout')
+    at <URL>Understand this error
+36Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was receivedUnderstand this error
+22Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'battery'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+framework-374f1ea5f5222862.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-374f1ea5f5222862.js:1Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+workspace_iframe.html:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html:32 Allow attribute will take precedence over 'allowpaymentrequest'.Understand this warning
+Console.js:61 Warning: validateDOMNesting(...): <a> cannot appear as a descendant of <a>.
+    at a
+    at a
+    at https://e20af904-8583-409a-8a9e-51ad07e0801f-00-bod08psk07oj.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b03a9679:337:18
+    at nav
+    at aside
+    at Sidebar (https://e20af904-8583-409a-8a9e-51ad07e0801f-00-bod08psk07oj.riker.replit.dev/src/components/ui/sidebar.tsx:43:22)
+    at div
+    at Provider (https://e20af904-8583-409a-8a9e-51ad07e0801f-00-bod08psk07oj.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-PLT6GTVM.js?v=b03a9679:38:15)
+    at TooltipProvider (https://e20af904-8583-409a-8a9e-51ad07e0801f-00-bod08psk07oj.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b03a9679:63:5)
+    at QueryClientProvider (https://e20af904-8583-409a-8a9e-51ad07e0801f-00-bod08psk07oj.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b03a9679:2805:3)
+    at App
+Mt.forEach.n.<computed> @ Console.js:61Understand this error
+Console.js:61 Date comparison: Object
+Console.js:61 Date comparison: Object
+Console.js:61 Date comparison: Object
+Console.js:61 Date comparison: Object
+Console.js:61 Date comparison: Object
+Console.js:61 Date comparison: Object
+
+                
+          
+          
+          
+         Chrome is moving towards a new experience that allows users to choose to browse without third-party cookies.Understand this warning

@@ -90,6 +90,11 @@ export function ObservationValidation() {
         try {
           // Normalize date strings to avoid parsing issues with different formats
           const normalizeDate = (dateStr: string) => {
+            // Handle ISO timestamp format: "2024-10-16T00:00:00.000Z" -> extract date part
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)) {
+              return dateStr.split('T')[0]; // Extract just the date part
+            }
+            
             // First, extract just the date part if there's a timestamp
             let dateOnly = dateStr.split(' ')[0]; // Remove time portion
             
