@@ -1703,7 +1703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: "Sync progress reset" });
   });
 
-  // Individual observation sync endpoint
+  // Individual observation sync endpoint - unified for both iNaturalist and MO
   app.post("/api/inaturalist/sync/:id", async (req, res) => {
     try {
       const observationId = req.params.id;
@@ -1743,6 +1743,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error(`[Individual Sync] Error syncing observation:`, error);
+      res.status(500).json({ error: "Failed to sync observation" });
+    }
+  });
+
+  // Mushroom Observer sync endpoint - alias to the unified sync endpoint
+  app.post("/api/mushroom-observer/sync/:id", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      console.log(`[MO Sync] Starting sync for observation ${observationId}`);
+      
+      // Get the observation to verify it's from MO
+      const allObservations = await storage.getAllObservations();
+      const observation = allObservations.find(obs => obs.observationId === observationId);
+      
+      if (!observation) {
+        return res.status(404).json({ error: "Observation not found" });
+      }
+
+      if (observation.source?.toLowerCase() !== 'mo observations') {
+        return res.status(400).json({ error: "Only Mushroom Observer observations can be synced via this endpoint" });
+      }
+      
+      console.log(`[MO Sync] Syncing with Mushroom Observer for ${observationId}`);
+      const result = await storage.syncObservationWithMushroomObserver(observationId);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Failed to sync observation" });
+      }
+
+      res.json({
+        success: true,
+        data: result,
+        source: 'mo'
+      });
+    } catch (error) {
+      console.error(`[MO Sync] Error syncing observation:`, error);
       res.status(500).json({ error: "Failed to sync observation" });
     }
   });

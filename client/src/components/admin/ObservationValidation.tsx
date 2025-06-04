@@ -316,7 +316,24 @@ export function ObservationValidation() {
   const syncMutation = useMutation({
     mutationFn: async (observationId: string) => {
       console.log(`[Frontend] Starting sync for observation: ${observationId}`);
-      const response = await fetch(`/api/inaturalist/sync/${observationId}`, {
+      
+      // Find the observation to determine its source
+      const observation = observations.find(obs => obs.observationId === observationId);
+      if (!observation) {
+        throw new Error('Observation not found');
+      }
+      
+      // Route to the correct sync endpoint based on source
+      let syncEndpoint;
+      if (observation.source?.toLowerCase() === 'mo observations') {
+        syncEndpoint = `/api/mushroom-observer/sync/${observationId}`;
+      } else if (observation.source?.toLowerCase() === 'inaturalist') {
+        syncEndpoint = `/api/inaturalist/sync/${observationId}`;
+      } else {
+        throw new Error('Only iNaturalist and Mushroom Observer observations can be synced');
+      }
+      
+      const response = await fetch(syncEndpoint, {
         method: 'POST'
       });
       
