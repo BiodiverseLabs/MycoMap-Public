@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { FullscreenModal, FullscreenButton } from '@/components/ui/fullscreen-modal';
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
