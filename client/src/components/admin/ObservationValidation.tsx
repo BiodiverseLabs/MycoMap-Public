@@ -241,6 +241,7 @@ export function ObservationValidation() {
       // Source filter
       if (sourceFilter === 'inaturalist' && obs.source?.toLowerCase() !== 'inaturalist') return false;
       if (sourceFilter === 'mo' && obs.source?.toLowerCase() !== 'mushroom observer') return false;
+      if (sourceFilter === 'mycoportal' && obs.source?.toLowerCase() !== 'mycoportal') return false;
       
       // Sync filter
       if (syncFilter === 'synced' && !isObservationSynced(obs)) return false;
@@ -723,6 +724,7 @@ export function ObservationValidation() {
                 <SelectItem value="all">All Sources</SelectItem>
                 <SelectItem value="inaturalist">iNaturalist Only</SelectItem>
                 <SelectItem value="mo">Mushroom Observer Only</SelectItem>
+                <SelectItem value="mycoportal">MyCoPortal Only</SelectItem>
               </SelectContent>
             </Select>
           </div>

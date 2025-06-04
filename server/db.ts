@@ -1573,6 +1573,9 @@ export class DatabaseStorage implements IStorage {
     } else if (source === 'mo') {
       whereConditions.push(`o.source = $${queryParams.length + 1}`);
       queryParams.push('MO Observations');
+    } else if (source === 'mycoportal') {
+      whereConditions.push(`o.source = $${queryParams.length + 1}`);
+      queryParams.push('MyCoPortal');
     }
 
     // Add WHERE clause if we have conditions
