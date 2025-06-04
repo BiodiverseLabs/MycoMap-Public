@@ -250,19 +250,13 @@ export default function Species() {
               {selectedState !== "all" && (
                 <Badge variant="secondary">State: {selectedState}</Badge>
               )}
-              {dateFilter !== "all_time" && (
-                <Badge variant="secondary">
-                  Time: {dateFilter.replace("_", " ").toUpperCase()}
-                </Badge>
-              )}
-              {(searchTerm || selectedState !== "all" || dateFilter !== "all_time") && (
+              {(searchTerm || selectedState !== "all") && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
                     setSearchTerm("");
                     setSelectedState("all");
-                    setDateFilter("all_time");
                   }}
                 >
                   Clear Filters
