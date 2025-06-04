@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { MapPin, SortAsc, BarChart3 } from "lucide-react";
 import { FullscreenModal, FullscreenButton } from "@/components/ui/fullscreen-modal";
 import L from "leaflet";
@@ -81,16 +81,18 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
   });
 
   // GPS index returns pre-validated coordinates, minimal filtering needed
-  const validObservations = observations.filter(obs => {
-    const lat = obs.latitude;
-    const lng = obs.longitude;
-    
-    return lat && lng && 
-      !isNaN(lat) && !isNaN(lng) &&
-      lat !== 0 && lng !== 0 &&
-      lat >= -90 && lat <= 90 &&
-      lng >= -180 && lng <= 180;
-  });
+  const validObservations = useMemo(() => {
+    return observations.filter(obs => {
+      const lat = obs.latitude;
+      const lng = obs.longitude;
+      
+      return lat && lng && 
+        !isNaN(lat) && !isNaN(lng) &&
+        lat !== 0 && lng !== 0 &&
+        lat >= -90 && lat <= 90 &&
+        lng >= -180 && lng <= 180;
+    });
+  }, [observations]);
 
   // Use full dataset state counts for filter sidebar with sorting
   const sortedStates = stateCounts
@@ -247,9 +249,32 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
     mapInstance.current = map;
   };
 
-  // Initialize main map when component mounts and observations are available
+  // Function to update heatmap data without recreating the map
+  const updateHeatmapData = useCallback((map: L.Map, observations: Array<{ latitude: number; longitude: number; }>) => {
+    // Remove existing heatmap layer
+    map.eachLayer((layer) => {
+      if ((layer as any)._heat) {
+        map.removeLayer(layer);
+      }
+    });
+
+    // Add new heatmap layer with updated data
+    if ((window as any).L?.heatLayer && observations.length > 0) {
+      const heatmapData = observations.map(obs => [obs.latitude, obs.longitude, 0.8]);
+      const heatLayer = (window as any).L.heatLayer(heatmapData, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 17,
+      });
+      heatLayer.addTo(map);
+      
+      console.log('[GeospatialMap] Updated heatmap with', observations.length, 'data points');
+    }
+  }, []);
+
+  // Initialize main map when component mounts
   useEffect(() => {
-    if (!mapRef.current || isLoading) return;
+    if (!mapRef.current || isLoading || mapInstanceRef.current) return;
 
     createMapInstance(mapRef.current, mapInstanceRef);
 
@@ -259,11 +284,19 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         mapInstanceRef.current = null;
       }
     };
+  }, [isLoading]);
+
+  // Update heatmap data when observations change
+  useEffect(() => {
+    if (!mapInstanceRef.current || isLoading || validObservations.length === 0) return;
+    
+    // Update existing map with new data instead of recreating
+    updateHeatmapData(mapInstanceRef.current, validObservations);
   }, [validObservations, isLoading]);
 
   // Initialize fullscreen map when fullscreen is opened
   useEffect(() => {
-    if (!fullscreenMapRef.current || !isFullscreen || isLoading) return;
+    if (!fullscreenMapRef.current || !isFullscreen || isLoading || fullscreenMapInstanceRef.current) return;
 
     createMapInstance(fullscreenMapRef.current, fullscreenMapInstanceRef);
 
@@ -273,6 +306,14 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
         fullscreenMapInstanceRef.current = null;
       }
     };
+  }, [isFullscreen, isLoading]);
+
+  // Update fullscreen heatmap data when observations change
+  useEffect(() => {
+    if (!fullscreenMapInstanceRef.current || !isFullscreen || isLoading || validObservations.length === 0) return;
+    
+    // Update existing fullscreen map with new data instead of recreating
+    updateHeatmapData(fullscreenMapInstanceRef.current, validObservations);
   }, [isFullscreen, validObservations, isLoading]);
 
   console.log('[GeospatialMap] Render', {
