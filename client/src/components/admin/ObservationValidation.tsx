@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X, Play, Square } from "lucide-react";
+import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X, Play, Square, Search } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -69,6 +70,7 @@ export function ObservationValidation() {
   const [expandedComparisons, setExpandedComparisons] = useState<Set<number>>(new Set());
   const [showProgress, setShowProgress] = useState(false);
   const [syncingObservations, setSyncingObservations] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -225,9 +227,9 @@ export function ObservationValidation() {
     });
   };
 
-  // Fetch validation data with all filters
+  // Fetch validation data with all filters including search
   const { data: observations = [], isLoading, refetch } = useQuery({
-    queryKey: ['/api/observations/validation', sourceFilter, syncFilter, validationFilter, limit],
+    queryKey: ['/api/observations/validation', sourceFilter, syncFilter, validationFilter, limit, searchQuery],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (sourceFilter !== 'all') {
@@ -238,6 +240,9 @@ export function ObservationValidation() {
       }
       if (validationFilter !== 'all') {
         params.append('validationStatus', validationFilter);
+      }
+      if (searchQuery.trim()) {
+        params.append('search', searchQuery.trim());
       }
       params.append('limit', limit.toString());
       
@@ -573,6 +578,17 @@ export function ObservationValidation() {
             <RefreshCw className="w-4 h-4" />
             Refresh Page
           </Button>
+          
+          {/* Search by ID */}
+          <div className="flex items-center gap-2 ml-auto">
+            <Search className="w-4 h-4 text-slate-500" />
+            <input
+              placeholder="Search by iNat/MO/MP ID..."
+              value={searchQuery}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+              className="w-64 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
 
           {(showProgress || syncProgress?.isRunning) && (
             <Button

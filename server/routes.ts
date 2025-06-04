@@ -1796,9 +1796,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/observations/validation", async (req, res) => {
     try {
-      const { limit = 50, source = 'all', syncStatus = 'all', validationStatus = 'all' } = req.query;
+      const { limit = 50, source = 'all', syncStatus = 'all', validationStatus = 'all', search } = req.query;
       
-      console.log(`[API] Validation query - source: ${source}, syncStatus: ${syncStatus}, validationStatus: ${validationStatus}, limit: ${limit}`);
+      console.log(`[API] Validation query - source: ${source}, syncStatus: ${syncStatus}, validationStatus: ${validationStatus}, search: ${search}, limit: ${limit}`);
       const startTime = Date.now();
       
       // Use the optimized validation query that leverages database indexes
@@ -1806,7 +1806,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: parseInt(limit as string),
         source: source as string,
         syncStatus: syncStatus as string,
-        validationStatus: validationStatus as string
+        validationStatus: validationStatus as string,
+        search: search as string
       });
       
       const queryTime = Date.now() - startTime;
