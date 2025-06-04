@@ -1307,33 +1307,37 @@ export class DatabaseStorage implements IStorage {
     globalFirstCount: number;
     percentage: number;
   }>> {
-    const { observations } = schema;
-    
     try {
-      let query = db
-        .select({
-          state: observations.state,
-          globalFirstCount: sql<number>`COUNT(*)`.as('globalFirstCount')
-        })
-        .from(observations)
-        .where(eq(observations.isFirstGlobal, true))
-        .groupBy(observations.state)
-        .orderBy(sql`COUNT(*) DESC`)
-        .limit(20);
-
+      let sqlQuery = `
+        SELECT 
+          state,
+          COUNT(*) as global_first_count
+        FROM observations 
+        WHERE is_first_global = true
+      `;
+      
+      const params: any[] = [];
       if (filterState) {
-        query = query.where(eq(observations.state, filterState));
+        sqlQuery += ` AND state = $${params.length + 1}`;
+        params.push(filterState);
       }
+      
+      sqlQuery += `
+        GROUP BY state
+        ORDER BY COUNT(*) DESC
+        LIMIT 20
+      `;
 
-      const results = await query;
+      const results = await pool.query(sqlQuery, params);
+      const rows = results.rows;
       
       // Calculate total global firsts for percentage calculation
-      const totalGlobalFirsts = results.reduce((sum, item) => sum + item.globalFirstCount, 0);
+      const totalGlobalFirsts = rows.reduce((sum: number, item: any) => sum + parseInt(item.global_first_count), 0);
       
-      return results.map(item => ({
+      return rows.map((item: any) => ({
         state: item.state,
-        globalFirstCount: item.globalFirstCount,
-        percentage: totalGlobalFirsts > 0 ? (item.globalFirstCount / totalGlobalFirsts) * 100 : 0
+        globalFirstCount: parseInt(item.global_first_count),
+        percentage: totalGlobalFirsts > 0 ? (parseInt(item.global_first_count) / totalGlobalFirsts) * 100 : 0
       }));
     } catch (error) {
       console.error('Error fetching states with most global firsts:', error);
@@ -1348,38 +1352,43 @@ export class DatabaseStorage implements IStorage {
     globalFirstCount: number;
     percentage: number;
   }>> {
-    const { observations, contributors } = schema;
-    
     try {
-      let query = db
-        .select({
-          id: contributors.id,
-          name: contributors.name,
-          affiliation: contributors.affiliation,
-          globalFirstCount: sql<number>`COUNT(*)`.as('globalFirstCount')
-        })
-        .from(observations)
-        .innerJoin(contributors, eq(observations.contributorId, contributors.id))
-        .where(eq(observations.isFirstGlobal, true))
-        .groupBy(contributors.id, contributors.name, contributors.affiliation)
-        .orderBy(sql`COUNT(*) DESC`)
-        .limit(limit);
-
+      let sqlQuery = `
+        SELECT 
+          c.id,
+          c.name,
+          c.affiliation,
+          COUNT(*) as global_first_count
+        FROM observations o
+        INNER JOIN contributors c ON o.contributor_id = c.id
+        WHERE o.is_first_global = true
+      `;
+      
+      const params: any[] = [];
       if (filterState) {
-        query = query.where(eq(observations.state, filterState));
+        sqlQuery += ` AND o.state = $${params.length + 1}`;
+        params.push(filterState);
       }
+      
+      sqlQuery += `
+        GROUP BY c.id, c.name, c.affiliation
+        ORDER BY COUNT(*) DESC
+        LIMIT $${params.length + 1}
+      `;
+      params.push(limit);
 
-      const results = await query;
+      const results = await pool.query(sqlQuery, params);
+      const rows = results.rows;
       
       // Calculate total global firsts for percentage calculation
-      const totalGlobalFirsts = results.reduce((sum, item) => sum + item.globalFirstCount, 0);
+      const totalGlobalFirsts = rows.reduce((sum: number, item: any) => sum + parseInt(item.global_first_count), 0);
       
-      return results.map(item => ({
-        id: item.id,
+      return rows.map((item: any) => ({
+        id: item.id.toString(),
         name: item.name,
         affiliation: item.affiliation || undefined,
-        globalFirstCount: item.globalFirstCount,
-        percentage: totalGlobalFirsts > 0 ? (item.globalFirstCount / totalGlobalFirsts) * 100 : 0
+        globalFirstCount: parseInt(item.global_first_count),
+        percentage: totalGlobalFirsts > 0 ? (parseInt(item.global_first_count) / totalGlobalFirsts) * 100 : 0
       }));
     } catch (error) {
       console.error('Error fetching contributors with most global firsts:', error);
