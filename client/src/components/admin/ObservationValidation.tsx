@@ -722,7 +722,7 @@ export function ObservationValidation() {
               </div>
             </div>
             
-            <div className="space-y-3 max-h-[36rem] overflow-y-auto border border-slate-200 rounded-lg p-4 bg-white">
+            <div className="space-y-3 max-h-[calc(100vh-24rem)] overflow-y-auto border border-slate-200 rounded-lg p-4 bg-white">
               {observations.map((obs: ValidationObservation) => {
                 const inatId = getInatId(obs.observationId, obs.source);
                 
