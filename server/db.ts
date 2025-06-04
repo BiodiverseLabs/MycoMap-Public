@@ -2082,10 +2082,9 @@ export class DatabaseStorage implements IStorage {
       const response = await fetch(moApiUrl, {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'MycoMap-DataValidator/1.0',
-          'Authorization': `Bearer ${process.env.MUSHROOM_OBSERVER_API_KEY}`
+          'User-Agent': 'MycoMap-DataValidator/1.0'
         },
-        timeout: 30000 // Increase timeout to 30 seconds
+        signal: AbortSignal.timeout(15000) // 15 second timeout
       });
       
       if (!response.ok) {
@@ -2184,7 +2183,10 @@ export class DatabaseStorage implements IStorage {
         observationId,
         moId: observationId.replace(/^MO_/, ''),
         syncStatus: 'error',
-        syncError: error instanceof Error ? error.message : 'Unknown error'
+        syncError: error instanceof Error ? 
+          (error.message.includes('fetch failed') || error.name === 'AbortError' ? 
+            'Network access blocked - IP whitelist required' : error.message) : 
+          'Unknown error'
       };
 
       const existing = await this.getMushroomObserverData(observationId);
