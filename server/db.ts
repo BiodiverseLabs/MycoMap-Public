@@ -2431,13 +2431,23 @@ export class DatabaseStorage implements IStorage {
       const data = await response.json();
       console.log(`[MyCoPortal] Successfully fetched data for catalog ${catalogNumber}`);
 
+      // Extract scientific name from occurrence remarks if not in main field
+      let extractedScientificName = data.scientificName;
+      if (!extractedScientificName && data.occurrenceRemarks) {
+        // Look for pattern like "Morchella - Morchella angusticeps" in occurrence remarks
+        const scientificNameMatch = data.occurrenceRemarks.match(/- ([A-Z][a-z]+ [a-z]+) -/);
+        if (scientificNameMatch) {
+          extractedScientificName = scientificNameMatch[1];
+        }
+      }
+
       // Parse MyCoPortal response data (using camelCase to match database schema)
       const mycoportalRecord = {
         observationId: observationId,
         catalogNumber: data.catalogNumber || catalogNumber,
         collectionCode: data.collectionCode,
         institutionCode: data.institutionCode,
-        scientificName: data.scientificName,
+        scientificName: extractedScientificName,
         commonName: data.vernacularName,
         family: data.family,
         genus: data.genus,

@@ -107,16 +107,16 @@ export function ObservationValidation() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Helper function to compare data fields
-  const compareFields = (mycoMapValue: string | null | undefined, inatValue: string | null | undefined, isScientificName = false, provisionalName?: string | null | undefined) => {
-    // For scientific name comparison, use provisional name if available, otherwise use primary iNat name
+  // Helper function to compare data fields across all three sources
+  const compareFields = (mycoMapValue: string | null | undefined, externalValue: string | null | undefined, isScientificName = false, provisionalName?: string | null | undefined) => {
+    // For scientific name comparison, use provisional name if available, otherwise use primary external name
     if (isScientificName) {
-      const targetName = provisionalName || inatValue;
+      const targetName = provisionalName || externalValue;
       return (mycoMapValue || '').toLowerCase().trim() === (targetName || '').toLowerCase().trim();
     }
     
     // For date fields, normalize both dates to comparable format
-    if (mycoMapValue && inatValue) {
+    if (mycoMapValue && externalValue) {
       // Check if these look like dates (contain numbers and slashes or dashes)
       const datePattern = /\d+[\/\-]\d+[\/\-]\d+/;
       if (datePattern.test(mycoMapValue) && datePattern.test(inatValue)) {
