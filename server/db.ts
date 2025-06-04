@@ -1496,8 +1496,9 @@ export class DatabaseStorage implements IStorage {
     syncStatus: string;
     validationStatus: string;
     search?: string;
+    fullyValidated?: boolean;
   }): Promise<Array<any>> {
-    const { limit, source, syncStatus, validationStatus, search } = params;
+    const { limit, source, syncStatus, validationStatus, search, fullyValidated } = params;
     
     // Use raw SQL for more complex queries with search
     let sqlQuery = `
@@ -1623,6 +1624,27 @@ export class DatabaseStorage implements IStorage {
         (o.source = 'iNaturalist' AND (i.sync_status IS NULL OR i.sync_status != 'success')) OR
         (o.source = 'MO Observations' AND (m.sync_status IS NULL OR m.sync_status != 'success')) OR
         (o.source = 'MycoPortal' AND (mc.sync_status IS NULL OR mc.sync_status != 'success'))
+      )`);
+    }
+
+    // Apply fully validated filter (must have species-level identification, sync success, API files, and BLAST files when applicable)
+    if (fullyValidated) {
+      whereConditions.push(`(
+        -- Species-level identification (at least 2 words in scientific name)
+        array_length(string_to_array(trim(o.scientific_name), ' '), 1) >= 2
+        AND
+        -- Has iNaturalist data with successful sync
+        i.observation_id IS NOT NULL 
+        AND i.sync_status = 'success'
+        AND
+        -- Has iNaturalist API file saved
+        o.inat_api_saved = true
+        AND
+        -- Has BLAST files downloaded when BLAST URL exists (or no BLAST URL required)
+        (o.mycomap_blast_url IS NULL OR o.blast_files_downloaded = true)
+        AND
+        -- Has trace files downloaded when trace URL exists (or no trace URL required)
+        (o.mycomap_trace_url IS NULL OR o.trace_files_downloaded = true)
       )`);
     }
 
