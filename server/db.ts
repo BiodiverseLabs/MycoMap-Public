@@ -2264,6 +2264,10 @@ export class DatabaseStorage implements IStorage {
       const observation = data.results[0];
       console.log(`[MushroomObserver] Successfully fetched data for observation ${observationId}`);
       
+      // Save MO API response as file
+      const { blastDownloader } = await import('./blastDownloader.js');
+      await blastDownloader.saveMoApiResponse(observationId, data);
+      
       // Extract photo URLs from images array
       const photos = observation.images ? observation.images.map((image: any) => 
         image.original_url || image.huge_url || image.large_url || image.medium_url || image.small_url
@@ -2275,7 +2279,7 @@ export class DatabaseStorage implements IStorage {
         moUuid: observation.uuid,
         scientificName: observation.consensus?.name || observation.name?.text_name,
         commonName: observation.consensus?.name || null,
-        observer: observation.owner?.login_name || observation.owner?.legal_name || observation.user?.login || observation.user?.name,
+        observer: observation.owner?.legal_name || observation.owner?.login_name || observation.user?.login || observation.user?.name,
         observedOn: observation.date || observation.when,
         location: observation.location?.name,
         state: observation.location?.name ? 

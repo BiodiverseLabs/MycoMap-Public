@@ -25,6 +25,7 @@ export class BlastFileDownloader {
   private downloadDir = path.join(process.cwd(), 'downloads', 'blast');
   private traceDir = path.join(process.cwd(), 'downloads', 'trace');
   private inatApiDir = path.join(process.cwd(), 'downloads', 'inat_api');
+  private moApiDir = path.join(process.cwd(), 'downloads', 'mo_api');
 
   constructor() {
     this.ensureDownloadDir();
@@ -35,6 +36,7 @@ export class BlastFileDownloader {
       await fs.mkdir(this.downloadDir, { recursive: true });
       await fs.mkdir(this.traceDir, { recursive: true });
       await fs.mkdir(this.inatApiDir, { recursive: true });
+      await fs.mkdir(this.moApiDir, { recursive: true });
     } catch (error) {
       console.error('Failed to create download directories:', error);
     }
@@ -375,6 +377,54 @@ export class BlastFileDownloader {
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown save error' 
       };
+    }
+  }
+
+  /**
+   * Save Mushroom Observer API response as text file
+   */
+  async saveMoApiResponse(observationId: string, apiResponse: any): Promise<InatApiSaveResult> {
+    try {
+      // Create filename with current date
+      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `MO${observationId}.${currentDate}.txt`;
+      const filePath = path.join(this.moApiDir, filename);
+
+      // Convert API response to formatted JSON string
+      const apiText = JSON.stringify(apiResponse, null, 2);
+
+      // Save to file
+      await fs.writeFile(filePath, apiText, 'utf8');
+
+      console.log(`[MO API] Saved API response for observation ${observationId} to ${filename}`);
+      return {
+        success: true,
+        apiFilePath: filename
+      };
+    } catch (error) {
+      console.error(`[MO API] Failed to save API response for ${observationId}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown save error' 
+      };
+    }
+  }
+
+  /**
+   * Check if Mushroom Observer API file already exists for an observation
+   */
+  async checkExistingMoApiFiles(observationId: string): Promise<{ apiFileExists: boolean; apiFileName?: string }> {
+    try {
+      const files = await fs.readdir(this.moApiDir);
+      const prefix = `MO${observationId}.`;
+      const apiFile = files.find(file => file.startsWith(prefix));
+      
+      return {
+        apiFileExists: !!apiFile,
+        apiFileName: apiFile
+      };
+    } catch (error) {
+      return { apiFileExists: false };
     }
   }
 
