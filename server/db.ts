@@ -1546,10 +1546,23 @@ export class DatabaseStorage implements IStorage {
         m.sequence_notes as "moSequenceNotes",
         CASE WHEN m.api_file IS NOT NULL THEN true ELSE false END as "moApiSaved",
         m.api_file as "moApiFile",
-        m.api_save_date as "moApiSaveDate"
+        m.api_save_date as "moApiSaveDate",
+        CASE WHEN mc.observation_id IS NOT NULL THEN true ELSE false END as "hasMycoportalData",
+        mc.catalog_number as "mycoportalCatalogNumber",
+        mc.sync_status as "mycoportalSyncStatus",
+        mc.last_synced_at as "mycoportalLastSynced",
+        mc.sync_error as "mycoportalSyncError",
+        mc.scientific_name as "mycoportalScientificName",
+        mc.recorded_by as "mycoportalRecordedBy",
+        mc.event_date as "mycoportalEventDate",
+        mc.state_province as "mycoportalState",
+        CASE WHEN mc.api_file IS NOT NULL THEN true ELSE false END as "mycoportalApiSaved",
+        mc.api_file as "mycoportalApiFile",
+        mc.api_save_date as "mycoportalApiSaveDate"
       FROM observations o
       LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
       LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id
+      LEFT JOIN mycoportal_data mc ON o.observation_id = mc.observation_id
     `;
 
     const queryParams: any[] = [];
