@@ -1797,11 +1797,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mo observations');
       }
       
-      // Get all iNaturalist data upfront to build sync status mapping
+      // Get all iNaturalist and MO data upfront to build sync status mapping
       const allInatData = await storage.getInaturalistData();
+      const allMoData = await storage.getMushroomObserverData();
       const inatDataMap = new Map();
+      const moDataMap = new Map();
+      
       allInatData.forEach(data => {
         inatDataMap.set(data.observationId, data);
+      });
+      
+      allMoData.forEach(data => {
+        moDataMap.set(data.observationId, data);
       });
       
       // Build validation data first to determine sync and validation status

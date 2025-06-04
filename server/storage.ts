@@ -1,7 +1,8 @@
 import { 
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
-  type Species, type InsertSpecies, type InaturalistData, type InsertInaturalistData
+  type Species, type InsertSpecies, type InaturalistData, type InsertInaturalistData,
+  type MushroomObserverData, type InsertMushroomObserverData
 } from "@shared/schema";
 
 export interface IStorage {
@@ -168,6 +169,12 @@ export interface IStorage {
   getPlacesByIds(placeIds: number[]): Promise<any[]>;
   lookupAndCachePlace(placeId: number): Promise<any>;
   resolveStateFromPlaceIds(placeIds: number[]): Promise<string | null>;
+  
+  // Mushroom Observer API operations
+  getMushroomObserverData(observationId?: string): Promise<MushroomObserverData[]>;
+  createMushroomObserverData(data: InsertMushroomObserverData): Promise<MushroomObserverData>;
+  updateMushroomObserverData(observationId: string, data: Partial<InsertMushroomObserverData>): Promise<void>;
+  syncObservationWithMushroomObserver(observationId: string): Promise<MushroomObserverData | null>;
 }
 
 export class MemoryStorage implements IStorage {

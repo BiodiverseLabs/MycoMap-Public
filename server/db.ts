@@ -1991,4 +1991,63 @@ export class DatabaseStorage implements IStorage {
     console.log(`[Places] Could not resolve state from place IDs: ${placeIds.join(', ')}`);
     return null;
   }
+
+  // Mushroom Observer API methods
+  async getMushroomObserverData(observationId?: string): Promise<MushroomObserverData[]> {
+    if (observationId) {
+      const results = await db.select()
+        .from(mushroomObserverData)
+        .where(eq(mushroomObserverData.observationId, observationId));
+      return results;
+    }
+    
+    return await db.select().from(mushroomObserverData);
+  }
+
+  async createMushroomObserverData(data: InsertMushroomObserverData): Promise<MushroomObserverData> {
+    const [result] = await db.insert(mushroomObserverData).values(data).returning();
+    return result;
+  }
+
+  async updateMushroomObserverData(observationId: string, data: Partial<InsertMushroomObserverData>): Promise<void> {
+    await db.update(mushroomObserverData)
+      .set(data)
+      .where(eq(mushroomObserverData.observationId, observationId));
+  }
+
+  async syncObservationWithMushroomObserver(observationId: string): Promise<MushroomObserverData | null> {
+    try {
+      // Extract MO ID from observation ID
+      const moId = observationId.replace(/^MO_/, '');
+      
+      // Check if we already have data for this observation
+      const existing = await this.getMushroomObserverData(observationId);
+      
+      // For now, create a placeholder record - this will be enhanced with actual API integration
+      const moRecord: InsertMushroomObserverData = {
+        observationId,
+        moId,
+        syncStatus: 'pending',
+        syncError: 'Mushroom Observer API integration pending'
+      };
+
+      if (existing.length > 0) {
+        await this.updateMushroomObserverData(observationId, moRecord);
+        const [updated] = await db.select()
+          .from(mushroomObserverData)
+          .where(eq(mushroomObserverData.observationId, observationId));
+        return updated;
+      } else {
+        return await this.createMushroomObserverData(moRecord);
+      }
+
+    } catch (error) {
+      console.error(`[MushroomObserver] Error syncing observation ${observationId}:`, error);
+      await this.updateMushroomObserverData(observationId, {
+        syncStatus: 'error',
+        syncError: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
+  }
 }
