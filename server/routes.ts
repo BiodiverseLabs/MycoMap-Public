@@ -2159,6 +2159,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download Mushroom Observer API file endpoint
+  app.get('/api/download/mo-api/:filename', (req: Request, res: Response) => {
+    try {
+      const filename = req.params.filename;
+      const filePath = path.join(process.cwd(), 'downloads', 'mo_api', filename);
+      
+      console.log(`[MO API] Working directory: ${process.cwd()}`);
+      console.log(`[MO API] Serving file: ${filePath}`);
+      console.log(`[MO API] File exists: ${fs.existsSync(filePath)}`);
+      
+      if (!fs.existsSync(filePath)) {
+        console.log(`[MO API] File not found: ${filePath}`);
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      const absolutePath = path.resolve(filePath);
+      console.log(`[MO API] Absolute path: ${absolutePath}`);
+      
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.sendFile(absolutePath);
+    } catch (error) {
+      console.error(`[MO API] Error serving file:`, error);
+      res.status(500).json({ error: "Failed to serve file" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

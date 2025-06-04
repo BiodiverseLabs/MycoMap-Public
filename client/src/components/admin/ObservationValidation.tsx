@@ -984,7 +984,11 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Scientific Name:</span>
-                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.provisionalSpeciesName || obs.inatScientificName, true, obs.provisionalSpeciesName))}
+                                        {renderComparisonIcon(compareFields(obs.scientificName, 
+                                          obs.source === 'MO Observations' ? 
+                                            (obs.moScientificName || obs.provisionalSpeciesName) :
+                                            (obs.provisionalSpeciesName || obs.inatScientificName), 
+                                          true, obs.provisionalSpeciesName))}
                                       </div>
                                       <span className="text-gray-700">
                                         {obs.source === 'MO Observations' ? 
@@ -997,7 +1001,8 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Observer:</span>
-                                        {renderComparisonIcon(compareFields(obs.collector, obs.inatObserver))}
+                                        {renderComparisonIcon(compareFields(obs.collector, 
+                                          obs.source === 'MO Observations' ? obs.moObserver : obs.inatObserver))}
                                       </div>
                                       <span className="text-gray-700">
                                         {obs.source === 'MO Observations' ? 
@@ -1009,7 +1014,8 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Date:</span>
-                                        {renderComparisonIcon(compareFields(obs.observedOn, obs.inatObservedOn))}
+                                        {renderComparisonIcon(compareFields(obs.observedOn, 
+                                          obs.source === 'MO Observations' ? obs.moObservedOn : obs.inatObservedOn))}
                                       </div>
                                       <span className="text-gray-700">
                                         {obs.source === 'MO Observations' ? 
@@ -1021,7 +1027,8 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">State:</span>
-                                        {renderComparisonIcon(compareFields(obs.state, obs.inatState))}
+                                        {renderComparisonIcon(compareFields(obs.state, 
+                                          obs.source === 'MO Observations' ? obs.moState : obs.inatState))}
                                       </div>
                                       <span className="text-gray-700">
                                         {obs.source === 'MO Observations' ? 
