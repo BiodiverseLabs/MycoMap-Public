@@ -505,7 +505,7 @@ export function ObservationValidation() {
     }
   };
 
-  const getSyncStatusBadge = (status: string, hasData: boolean) => {
+  const getSyncStatusBadge = (status: string | null | undefined, hasData: boolean | undefined) => {
     if (status === 'success') {
       return <Badge variant="default" className="bg-green-100 text-green-800">Synced</Badge>;
     }
@@ -816,6 +816,7 @@ export function ObservationValidation() {
                             </span>
                           </div>
                           {getSyncStatusBadge(obs.inatSyncStatus, obs.hasInatData)}
+                          {obs.source === 'MO Observations' && getSyncStatusBadge(obs.moSyncStatus, obs.hasMoData)}
                           <Badge variant="outline" className="text-xs">
                             {getSourceName(obs.source)}
                           </Badge>
@@ -828,6 +829,17 @@ export function ObservationValidation() {
                             >
                               <ExternalLink className="w-3 h-3" />
                               iNat #{inatId}
+                            </a>
+                          )}
+                          {obs.moId && (
+                            <a
+                              href={`https://mushroomobserver.org/observations/${obs.moId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-orange-600 hover:text-orange-700 text-xs font-medium"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              MO #{obs.moId}
                             </a>
                           )}
                         </div>
@@ -853,7 +865,10 @@ export function ObservationValidation() {
                           </div>
                           <div>
                             <span className="font-medium">Last Synced:</span><br />
-                            {obs.inatLastSynced ? formatDate(obs.inatLastSynced) : 'Never'}
+                            {obs.source === 'iNaturalist' ? 
+                              (obs.inatLastSynced ? formatDate(obs.inatLastSynced) : 'Never') :
+                              (obs.moLastSynced ? formatDate(obs.moLastSynced) : 'Never')
+                            }
                           </div>
                         </div>
                         
