@@ -1703,6 +1703,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: "Sync progress reset" });
   });
 
+  // Get observations with missing photos
+  app.get("/api/inaturalist/missing-photos", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const missingPhotos = await storage.getObservationsWithMissingPhotos(limit);
+      res.json(missingPhotos);
+    } catch (error) {
+      console.error("Error fetching observations with missing photos:", error);
+      res.status(500).json({ error: "Failed to fetch observations with missing photos" });
+    }
+  });
+
+  // Bulk sync missing photos
+  app.post("/api/inaturalist/sync-missing-photos", async (req, res) => {
+    try {
+      if (syncProgress.isRunning) {
+        return res.status(409).json({ error: "Sync already in progress" });
+      }
+
+      const { limit = 50 } = req.body;
+      
+      // Get observations with missing photos
+      const missingPhotos = await storage.getObservationsWithMissingPhotos(limit);
+      
+      if (missingPhotos.length === 0) {
+        return res.json({ message: "No observations with missing photos found" });
+      }
+
+      // Start sync process
+      syncProgress = {
+        isRunning: true,
+        total: missingPhotos.length,
+        processed: 0,
+        successful: 0,
+        failed: 0,
+        errors: [],
+        startTime: new Date(),
+        endTime: null
+      };
+
+      // Process in background
+      (async () => {
+        for (const obs of missingPhotos) {
+          try {
+            await rateLimitedDelay();
+            const result = await storage.syncObservationWithInaturalist(obs.observationId);
+            if (result) {
+              syncProgress.successful++;
+            } else {
+              syncProgress.failed++;
+              syncProgress.errors.push({
+                observationId: obs.observationId,
+                error: "Sync returned null"
+              });
+            }
+          } catch (error) {
+            syncProgress.failed++;
+            syncProgress.errors.push({
+              observationId: obs.observationId,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+          syncProgress.processed++;
+        }
+        syncProgress.isRunning = false;
+        syncProgress.endTime = new Date();
+      })();
+
+      res.json({ 
+        message: `Started syncing photos for ${missingPhotos.length} observations`,
+        total: missingPhotos.length
+      });
+
+    } catch (error) {
+      console.error("Error starting photo sync:", error);
+      res.status(500).json({ error: "Failed to start photo sync" });
+    }
+  });
+
   app.get("/api/observations/validation", async (req, res) => {
     try {
       const { limit = 50, source = 'all', syncStatus = 'all', validationStatus = 'all' } = req.query;

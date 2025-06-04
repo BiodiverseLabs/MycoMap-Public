@@ -1413,6 +1413,56 @@ export class DatabaseStorage implements IStorage {
       .where(eq(observations.id, id));
   }
 
+  // Method to find observations with missing photos
+  async getObservationsWithMissingPhotos(limit: number = 100): Promise<Array<{
+    observationId: string;
+    scientificName: string;
+    hasInatData: boolean;
+    photoCount: number;
+    lastSyncedAt: Date | null;
+  }>> {
+    // Get observations from iNaturalist source that either:
+    // 1. Have no iNaturalist data record at all, or
+    // 2. Have iNaturalist data but no photos, or
+    // 3. Haven't been synced recently
+    
+    const query = `
+      SELECT 
+        o.observation_id,
+        o.scientific_name,
+        CASE WHEN inat.observation_id IS NOT NULL THEN true ELSE false END as has_inat_data,
+        CASE 
+          WHEN inat.photos IS NULL THEN 0
+          ELSE json_array_length(inat.photos)
+        END as photo_count,
+        inat.last_synced_at
+      FROM observations o
+      LEFT JOIN inaturalist_data inat ON o.observation_id = inat.observation_id
+      WHERE o.source = 'iNaturalist'
+        AND (
+          inat.observation_id IS NULL OR 
+          inat.photos IS NULL OR 
+          json_array_length(inat.photos) = 0 OR
+          inat.last_synced_at IS NULL OR
+          inat.last_synced_at < NOW() - INTERVAL '30 days'
+        )
+      ORDER BY 
+        CASE WHEN inat.observation_id IS NULL THEN 1 ELSE 2 END,
+        CASE WHEN inat.photos IS NULL OR json_array_length(inat.photos) = 0 THEN 1 ELSE 2 END,
+        o.observation_id
+      LIMIT ${limit}
+    `;
+
+    const result = await pool.query(query);
+    return result.rows.map(row => ({
+      observationId: row.observation_id,
+      scientificName: row.scientific_name,
+      hasInatData: row.has_inat_data,
+      photoCount: parseInt(row.photo_count) || 0,
+      lastSyncedAt: row.last_synced_at ? new Date(row.last_synced_at) : null
+    }));
+  }
+
   // Red List assessments methods
   async createRedlistAssessments(assessments: InsertRedlistAssessment[]): Promise<RedlistAssessment[]> {
     const results: RedlistAssessment[] = [];
@@ -1534,8 +1584,24 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
+      // Check if we already have this record and whether it needs photo update
+      const [existing] = await db.select()
+        .from(inaturalistData)
+        .where(eq(inaturalistData.observationId, observationId));
+
+      const hasPhotos = existing?.photos && existing.photos.length > 0;
+      
+      // If we have existing data with photos and it's recent, skip unless forced
+      if (existing && hasPhotos && existing.lastSyncedAt) {
+        const daysSinceSync = (Date.now() - existing.lastSyncedAt.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceSync < 7) { // Skip if synced within last week and has photos
+          console.log(`[iNaturalist] Skipping ${observationId} - recent sync with photos`);
+          return existing;
+        }
+      }
+
       // Fetch data from iNaturalist API with observation field values
-      console.log(`[iNaturalist] Fetching data for observation ${inatId}`);
+      console.log(`[iNaturalist] Fetching data for observation ${inatId} ${!hasPhotos ? '(missing photos)' : ''}`);
       const response = await fetch(`https://api.inaturalist.org/v1/observations/${inatId}?include=ofvs`);
       
       if (!response.ok) {
@@ -1572,6 +1638,21 @@ export class DatabaseStorage implements IStorage {
       );
       const inatGenbankAccession = genbankField?.value || null;
 
+      // Extract photos with better fallback handling
+      let photos: string[] = [];
+      if (inatObservation.photos && Array.isArray(inatObservation.photos)) {
+        photos = inatObservation.photos.map((photo: any) => {
+          // Try different URL fields in order of preference
+          return photo.url_original || photo.url_large || photo.url_medium || photo.url_small || photo.url;
+        }).filter(Boolean); // Remove any undefined/null URLs
+      }
+
+      if (photos.length > 0) {
+        console.log(`[iNaturalist] Found ${photos.length} photos for observation ${inatId}`);
+      } else if (!hasPhotos) {
+        console.log(`[iNaturalist] No photos found for observation ${inatId}`);
+      }
+
       // Extract relevant data from iNaturalist response
       const inaturalistRecord: InsertInaturalistData = {
         observationId: observationId,
@@ -1597,7 +1678,7 @@ export class DatabaseStorage implements IStorage {
         commentsCount: inatObservation.comments_count || 0,
         created_at: inatObservation.created_at ? new Date(inatObservation.created_at) : null,
         updated_at: inatObservation.updated_at ? new Date(inatObservation.updated_at) : null,
-        photos: inatObservation.photos?.map((photo: any) => photo.url) || [],
+        photos: photos,
         sounds: inatObservation.sounds?.map((sound: any) => sound.file_url) || [],
         taxon: inatObservation.taxon ? JSON.stringify(inatObservation.taxon) : null,
         user: inatObservation.user ? JSON.stringify(inatObservation.user) : null,
@@ -1612,14 +1693,11 @@ export class DatabaseStorage implements IStorage {
         traceFiles: traceFiles,
         inatGenbankAccession: inatGenbankAccession,
         syncStatus: 'success',
-        syncError: null
+        syncError: null,
+        lastSyncedAt: new Date()
       };
 
-      // Check if record already exists
-      const [existing] = await db.select()
-        .from(inaturalistData)
-        .where(eq(inaturalistData.observationId, observationId));
-
+      // Check if record already exists (reuse existing variable from above)
       let result;
       if (existing) {
         // Update existing record

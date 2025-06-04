@@ -155,6 +155,13 @@ export interface IStorage {
   createInaturalistData(data: InsertInaturalistData): Promise<InaturalistData>;
   updateInaturalistData(observationId: string, data: Partial<InsertInaturalistData>): Promise<void>;
   syncObservationWithInaturalist(observationId: string): Promise<InaturalistData | null>;
+  getObservationsWithMissingPhotos(limit?: number): Promise<Array<{
+    observationId: string;
+    scientificName: string;
+    hasInatData: boolean;
+    photoCount: number;
+    lastSyncedAt: Date | null;
+  }>>;
   
   // Place ID lookup methods
   getPlaceById(placeId: number): Promise<any>;
