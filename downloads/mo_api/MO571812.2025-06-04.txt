@@ -1,0 +1,131 @@
+{
+  "version": 2,
+  "run_date": "2025-06-04T15:44:23.349Z",
+  "query": "SELECT `observations`.* FROM `observations` WHERE `observations`.`id` = 571812 ORDER BY FIND_IN_SET(`observations`.`id`, '571812'), `observations`.`id` ASC",
+  "number_of_records": 1,
+  "number_of_pages": 1,
+  "page_number": 1,
+  "results": [
+    {
+      "id": 571812,
+      "type": "observation",
+      "date": "2024-09-03",
+      "gps_hidden": false,
+      "specimen_available": true,
+      "is_collection_location": true,
+      "confidence": 2.58471,
+      "created_at": "2025-02-28T19:52:25.000Z",
+      "updated_at": "2025-02-28T21:30:29.000Z",
+      "number_of_views": 30,
+      "last_viewed": "2025-06-04T15:37:10.000Z",
+      "notes": "<p>soil under aspen, fir and pine</p>\n<p>This is the first record of this species from Arizona.</p>",
+      "owner": {
+        "id": 4674,
+        "login_name": "pinonbistro",
+        "legal_name": "Terri Clements/Donna Fulton"
+      },
+      "consensus": {
+        "id": 39253,
+        "name": "Mycopan scabripes",
+        "author": "(Murrill) Redhead, Moncalvo & Vilgalys",
+        "rank": "species",
+        "synonym_id": 4046
+      },
+      "namings": [
+        {
+          "id": 785187,
+          "name": {
+            "id": 39253,
+            "name": "Mycopan scabripes",
+            "author": "(Murrill) Redhead, Moncalvo & Vilgalys",
+            "rank": "species",
+            "synonym_id": 4046
+          },
+          "owner": {
+            "id": 4674,
+            "login_name": "pinonbistro",
+            "legal_name": "Terri Clements/Donna Fulton"
+          },
+          "confidence": 2.58471,
+          "reasons": [
+            {
+              "reason": "Used references",
+              "notes": "see sequencing notes"
+            }
+          ]
+        }
+      ],
+      "votes": [
+        {
+          "id": 1084084,
+          "confidence": 3,
+          "naming_id": 785187,
+          "owner": "anonymous"
+        }
+      ],
+      "location": {
+        "id": 7204,
+        "name": "San Francisco Peaks, Coconino Co., Arizona, USA",
+        "latitude_north": "35.3860015869",
+        "latitude_south": "35.2952003479",
+        "longitude_east": "-111.591003418",
+        "longitude_west": "-111.7129974365",
+        "altitude_maximum": 3851
+      },
+      "primary_image": {
+        "id": 1745788,
+        "date": "2024-09-02",
+        "license": "Creative Commons Wikipedia Compatible v3.0",
+        "quality": 3,
+        "owner": {
+          "id": 4674,
+          "login_name": "pinonbistro",
+          "legal_name": "Terri Clements/Donna Fulton"
+        },
+        "copyright_holder": "Alan Rockefeller",
+        "original_url": "https://mushroomobserver.org/images/orig/1745788.jpg"
+      },
+      "images": [
+        {
+          "id": 1745787,
+          "date": "2024-09-02",
+          "license": "Creative Commons Wikipedia Compatible v3.0",
+          "owner": {
+            "id": 4674,
+            "login_name": "pinonbistro",
+            "legal_name": "Terri Clements/Donna Fulton"
+          },
+          "copyright_holder": "Alan Rockefeller",
+          "original_url": "https://mushroomobserver.org/images/orig/1745787.jpg"
+        }
+      ],
+      "collection_numbers": [
+        {
+          "id": 14157,
+          "collector": "Alan Rockefeller",
+          "number": "AR16"
+        }
+      ],
+      "herbarium_records": [
+        {
+          "id": 48683,
+          "accession_number": "AN 047936",
+          "herbarium": {
+            "id": 407,
+            "code": "ARIZ",
+            "name": "Robert L. Gilbertson Mycological Herbarium - U. of Arizona, Tucson"
+          }
+        }
+      ],
+      "sequences": [
+        {
+          "id": 12322,
+          "locus": "ITS",
+          "bases": "GTCGTAACAAGGTTTCCGTAGGTGAACCTGCGGAAGGATCATTACTGAAGCAGTTAGGGTTGTAGCTGACTCTGTCAAAGGAGTACTGTGCTCGCTCTATTCTTCTACTTTTCCCCCTGTGCACCTTTTGTAGGCTATGATACCTATCGTGTGTGAGCTTTGGTCTCATTACCGGTTTCAAGGGATTGCTGTTATGGCTCCCCTTGCCCTTCATATGCCTATGTCTTTATACACTCTTTTAAACAAGTCTAGAATGTCTTTTGTGGGTCTATTGACCTATAAACTTAATACAACTTTCAACAACGGATCTCTTGGCTCTCGCATCGATGAAGAACGCAGCGAAATGCGATAAGTAATGTGAATTGCAGAATTCAGTGAATCATCGAATCTTTGAACGCACCTTGCGCCCTTTGGTATTCCGAAGGGCATGCCTGTTTGAGTGTCATTAAATTCTCAAACCTTGATCAGTTTTGCGCTGACTTCAAGGCTTTGGATGTGGGAGTCTTTTGCTGGAACTCTTTTGGATCAGCTCTCCTTAAATGCATTAGCGGTTACTTGATCCCCTTTCCTTGGTGTGATAATTATCTACGCCTTTGAAATGATCAGCATTGTATCAGCTTCTAATCGTCCATTGACTTGGACAACTTAATTGACCATTTGACCTCAAATCAGGTAGGACTACCCGCTGAACTT",
+          "notes": "The subject&#8217;s ITS sequence is the same as NR_182709 Mycopan scabripes, Que Canada, epitype"
+        }
+      ]
+    }
+  ],
+  "run_time": 0.083855979
+}

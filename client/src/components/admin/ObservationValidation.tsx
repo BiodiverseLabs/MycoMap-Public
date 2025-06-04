@@ -950,29 +950,52 @@ export function ObservationValidation() {
                                       <span className="text-gray-700 font-mono">{obs.genbankAccession || 'N/A'}</span>
                                     </div>
                                     
-                                    {/* iNaturalist API Export Section */}
+                                    {/* API Export Section */}
                                     <div className="mt-3 pt-3 border-t border-gray-200">
                                       <h6 className="text-xs font-medium text-purple-700 mb-2">{getSourceName(obs.source)} API Export</h6>
                                       <div className="flex items-center gap-2 text-xs">
                                         <div className="flex items-center gap-2">
                                           <span className="font-medium">{getSourceName(obs.source)} API Export:</span>
-                                          {obs.inatApiSaved && obs.inatApiFile ? (
-                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                          {obs.source === 'MO Observations' ? (
+                                            obs.moApiSaved && obs.moApiFile ? (
+                                              <CheckCircle className="w-4 h-4 text-green-600" />
+                                            ) : (
+                                              <XCircle className="w-4 h-4 text-red-600" />
+                                            )
                                           ) : (
-                                            <XCircle className="w-4 h-4 text-red-600" />
+                                            obs.inatApiSaved && obs.inatApiFile ? (
+                                              <CheckCircle className="w-4 h-4 text-green-600" />
+                                            ) : (
+                                              <XCircle className="w-4 h-4 text-red-600" />
+                                            )
                                           )}
                                         </div>
-                                        {obs.inatApiSaved && obs.inatApiFile ? (
-                                          <a
-                                            href={`/api/download/inat-api/${obs.inatApiFile}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:text-blue-800 underline"
-                                          >
-                                            {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : 'Download'}
-                                          </a>
+                                        {obs.source === 'MO Observations' ? (
+                                          obs.moApiSaved && obs.moApiFile ? (
+                                            <a
+                                              href={`/api/download/mo-api/${obs.moApiFile}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800 underline"
+                                            >
+                                              {obs.moApiSaveDate ? new Date(obs.moApiSaveDate).toLocaleDateString() : 'Download'}
+                                            </a>
+                                          ) : (
+                                            <span className="text-gray-500">No API file saved</span>
+                                          )
                                         ) : (
-                                          <span className="text-gray-500">No API file saved</span>
+                                          obs.inatApiSaved && obs.inatApiFile ? (
+                                            <a
+                                              href={`/api/download/inat-api/${obs.inatApiFile}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-800 underline"
+                                            >
+                                              {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : 'Download'}
+                                            </a>
+                                          ) : (
+                                            <span className="text-gray-500">No API file saved</span>
+                                          )
                                         )}
                                       </div>
                                     </div>
