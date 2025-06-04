@@ -23,7 +23,7 @@ interface Species {
 export default function Species() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedState, setSelectedState] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("all_time");
+
   const [extrapolate, setExtrapolate] = useState(false);
   const [showGenera, setShowGenera] = useState(false);
 
@@ -41,15 +41,18 @@ export default function Species() {
     }
   });
 
-  // Fetch unique states for filter
-  const { data: states = [] } = useQuery<string[]>({
-    queryKey: ["/api/states"],
+  // Fetch state counts for efficient filtering using optimized endpoint
+  const { data: stateCounts = [] } = useQuery({
+    queryKey: ["/api/observations/summary", "states"],
     queryFn: async () => {
-      const response = await fetch('/api/states');
-      if (!response.ok) throw new Error('Failed to fetch states');
+      const response = await fetch('/api/observations/summary?aggregate=states&dateRange=all_time');
+      if (!response.ok) throw new Error('Failed to fetch state summary');
       return response.json();
     }
   });
+
+  // Extract states from state counts for dropdown
+  const states = stateCounts.map((item: any) => item.state).filter(Boolean);
 
   // Remove the expensive observations fetch - we don't need all 70k+ records for species filtering
 
@@ -209,7 +212,7 @@ export default function Species() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Species Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -229,23 +232,9 @@ export default function Species() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All States</SelectItem>
-                  {states.map((state) => (
+                  {states.map((state: any) => (
                     <SelectItem key={state} value={state}>{state}</SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-
-              {/* Date Filter */}
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger>
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Select time period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_time">All Time</SelectItem>
-                  <SelectItem value="last_year">Last Year</SelectItem>
-                  <SelectItem value="last_5_years">Last 5 Years</SelectItem>
-                  <SelectItem value="recent">Since 2020</SelectItem>
                 </SelectContent>
               </Select>
             </div>
