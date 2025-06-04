@@ -804,7 +804,7 @@ export function ObservationValidation() {
                               size="sm" 
                               className="w-full justify-between"
                             >
-                              <span>Compare MycoMap vs iNaturalist Data</span>
+                              <span>Compare MycoMap vs {getSourceName(obs.source)} Data</span>
                               {expandedComparisons.has(obs.id) ? 
                                 <ChevronUp className="h-4 w-4" /> : 
                                 <ChevronDown className="h-4 w-4" />
@@ -853,10 +853,10 @@ export function ObservationValidation() {
                                     
                                     {/* iNaturalist API Export Section */}
                                     <div className="mt-3 pt-3 border-t border-gray-200">
-                                      <h6 className="text-xs font-medium text-purple-700 mb-2">iNat API Export</h6>
+                                      <h6 className="text-xs font-medium text-purple-700 mb-2">{getSourceName(obs.source)} API Export</h6>
                                       <div className="flex items-center gap-2 text-xs">
                                         <div className="flex items-center gap-2">
-                                          <span className="font-medium">iNat API Export:</span>
+                                          <span className="font-medium">{getSourceName(obs.source)} API Export:</span>
                                           {obs.inatApiSaved && obs.inatApiFile ? (
                                             <CheckCircle className="w-4 h-4 text-green-600" />
                                           ) : (
@@ -880,7 +880,7 @@ export function ObservationValidation() {
                                   </div>
                                 </div>
                                 <div>
-                                  <h5 className="font-medium text-green-800 mb-1">iNaturalist Data</h5>
+                                  <h5 className="font-medium text-green-800 mb-1">{getSourceName(obs.source)} Data</h5>
                                   <div className="space-y-1">
                                     <div>
                                       <div className="flex items-center gap-2">
