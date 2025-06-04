@@ -51,19 +51,7 @@ export default function Species() {
     }
   });
 
-  // Fetch observations for filtering
-  const { data: observations = [] } = useQuery({
-    queryKey: ["/api/observations", selectedState],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (selectedState && selectedState !== 'all') {
-        params.append('state', selectedState);
-      }
-      const response = await fetch(`/api/observations?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch observations');
-      return response.json();
-    }
-  });
+  // Remove the expensive observations fetch - we don't need all 70k+ records for species filtering
 
   // Fetch species/genera accumulation curve data with search term filter
   const { data: accumulationData = [], isLoading: accumulationLoading } = useQuery({
@@ -96,45 +84,11 @@ export default function Species() {
       );
     }
 
-    // State filter
-    if (selectedState !== "all") {
-      const stateSpeciesIds = new Set(
-        observations
-          .filter((obs: any) => obs.state === selectedState)
-          .map((obs: any) => obs.species || obs.scientificName)
-      );
-      filtered = filtered.filter((species: Species) => stateSpeciesIds.has(species.scientificName));
-    }
-
-    // Date filter
-    if (dateFilter !== "all_time") {
-      const now = new Date();
-      let cutoffDate: Date;
-      
-      switch (dateFilter) {
-        case "last_year":
-          cutoffDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-          break;
-        case "last_5_years":
-          cutoffDate = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
-          break;
-        case "recent":
-          cutoffDate = new Date(2020, 0, 1);
-          break;
-        default:
-          cutoffDate = new Date(0);
-      }
-
-      const recentSpeciesIds = new Set(
-        observations
-          .filter((obs: any) => obs.observedOn && new Date(obs.observedOn) >= cutoffDate)
-          .map((obs: any) => obs.scientificName)
-      );
-      filtered = filtered.filter((species: Species) => recentSpeciesIds.has(species.scientificName));
-    }
+    // Note: State filtering is now handled server-side in the species API endpoint
+    // Note: Date filtering removed as it required full observations dataset
 
     return filtered.sort((a, b) => (b.observationCount || 0) - (a.observationCount || 0));
-  }, [allSpecies, searchTerm, selectedState, dateFilter, observations]);
+  }, [allSpecies, searchTerm]);
 
   // Calculate statistics
   const stats = useMemo(() => {
