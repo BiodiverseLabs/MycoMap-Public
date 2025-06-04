@@ -1830,7 +1830,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { limit = 50, source = 'all', syncStatus = 'all', validationStatus = 'all' } = req.query;
       
-      // Get observations with their iNaturalist sync status
+      console.log(`[API] Validation query - source: ${source}, syncStatus: ${syncStatus}, validationStatus: ${validationStatus}, limit: ${limit}`);
+      const startTime = Date.now();
+      
+      // Get observations with efficient filtering
       const observations = await storage.getAllObservations();
       
       // Filter by source if specified
@@ -1841,199 +1844,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mo observations');
       }
       
-      // Get all iNaturalist and MO data upfront to build sync status mapping
-      const allInatData = await storage.getInaturalistData();
-      const allMoData = await storage.getMushroomObserverData();
+      // Limit results for performance
+      const limitedObs = filteredObs.slice(0, parseInt(limit as string));
+      
+      // Get sync data for these observations only
+      const obsIds = limitedObs.map(obs => obs.observationId);
+      const inatData = await storage.getInaturalistData();
+      const moData = await storage.getMushroomObserverData();
+      
       const inatDataMap = new Map();
       const moDataMap = new Map();
       
-      allInatData.forEach(data => {
-        inatDataMap.set(data.observationId, data);
+      inatData.forEach(data => {
+        if (obsIds.includes(data.observationId)) {
+          inatDataMap.set(data.observationId, data);
+        }
       });
       
-      allMoData.forEach(data => {
-        moDataMap.set(data.observationId, data);
+      moData.forEach(data => {
+        if (obsIds.includes(data.observationId)) {
+          moDataMap.set(data.observationId, data);
+        }
       });
       
-      // Build validation data first to determine sync and validation status
-      const validationData = await Promise.all(
-        filteredObs.map(async (obs) => {
-          const inatRecord = inatDataMap.get(obs.observationId);
-          const moRecord = moDataMap.get(obs.observationId);
-          
-          // Extract iNaturalist comparison data from taxon and user JSON
-          let inatScientificName = null;
-          let inatObserver = null;
-          let inatObservedOn = null;
-          let inatState = null;
-          
-          // Extract Mushroom Observer comparison data
-          let moScientificName = null;
-          let moObserver = null;
-          let moObservedOn = null;
-          let moState = null;
-          
-          if (inatRecord) {
-            try {
-              if (inatRecord.taxon) {
-                const taxonData = JSON.parse(inatRecord.taxon);
-                inatScientificName = taxonData.name || null;
-              }
-              if (inatRecord.user) {
-                const userData = JSON.parse(inatRecord.user);
-                inatObserver = userData.name || userData.login || null;
-              }
-              inatObservedOn = inatRecord.observedOnString || null;
-              // Extract state from place data using place ID lookup
-              if (inatRecord.place_ids && inatRecord.place_ids.length > 0) {
-                try {
-                  // Use the new place ID resolution system
-                  inatState = await storage.resolveStateFromPlaceIds(inatRecord.place_ids);
-                  
-                  // If no state found from place IDs, try to extract from place_guess
-                  if (!inatState && inatRecord.place_guess) {
-                    const placeGuess = inatRecord.place_guess.toLowerCase();
-                    const stateNames = {
-                      'alabama': 'Alabama', 'alaska': 'Alaska', 'arizona': 'Arizona', 'arkansas': 'Arkansas',
-                      'california': 'California', 'colorado': 'Colorado', 'connecticut': 'Connecticut',
-                      'delaware': 'Delaware', 'florida': 'Florida', 'georgia': 'Georgia', 'hawaii': 'Hawaii',
-                      'idaho': 'Idaho', 'illinois': 'Illinois', 'indiana': 'Indiana', 'iowa': 'Iowa',
-                      'kansas': 'Kansas', 'kentucky': 'Kentucky', 'louisiana': 'Louisiana', 'maine': 'Maine',
-                      'maryland': 'Maryland', 'massachusetts': 'Massachusetts', 'michigan': 'Michigan',
-                      'minnesota': 'Minnesota', 'mississippi': 'Mississippi', 'missouri': 'Missouri',
-                      'montana': 'Montana', 'nebraska': 'Nebraska', 'nevada': 'Nevada', 'new hampshire': 'New Hampshire',
-                      'new jersey': 'New Jersey', 'new mexico': 'New Mexico', 'new york': 'New York',
-                      'north carolina': 'North Carolina', 'north dakota': 'North Dakota', 'ohio': 'Ohio',
-                      'oklahoma': 'Oklahoma', 'oregon': 'Oregon', 'pennsylvania': 'Pennsylvania',
-                      'rhode island': 'Rhode Island', 'south carolina': 'South Carolina', 'south dakota': 'South Dakota',
-                      'tennessee': 'Tennessee', 'texas': 'Texas', 'utah': 'Utah', 'vermont': 'Vermont',
-                      'virginia': 'Virginia', 'washington': 'Washington', 'west virginia': 'West Virginia',
-                      'wisconsin': 'Wisconsin', 'wyoming': 'Wyoming',
-                      // Common abbreviations
-                      ' wa': 'Washington', ' ca': 'California', ' tx': 'Texas', ' fl': 'Florida',
-                      ' ny': 'New York', ' pa': 'Pennsylvania', ' or': 'Oregon', ' co': 'Colorado'
-                    };
-                    
-                    for (const [key, value] of Object.entries(stateNames)) {
-                      if (placeGuess.includes(key)) {
-                        inatState = value;
-                        break;
-                      }
-                    }
-                  }
-                } catch (e) {
-                  console.error('Error extracting state from place data:', e);
-                }
-              }
-            } catch (e) {
-              console.error('Error parsing iNaturalist JSON data:', e);
-            }
-          }
-
-          // Process Mushroom Observer data
-          if (moRecord) {
-            moScientificName = moRecord.scientificName;
-            moObserver = moRecord.observer;
-            moObservedOn = moRecord.observedOn;
-            moState = moRecord.state;
-          }
-          
-          return {
-            ...obs,
-            inatSyncStatus: inatRecord?.syncStatus || 'pending',
-            inatLastSynced: inatRecord?.lastSyncedAt || null,
-            inatSyncError: inatRecord?.syncError || null,
-            hasInatData: !!inatRecord,
-            dnaBarcode: inatRecord?.dnaBarcode || null,
-            provisionalSpeciesName: inatRecord?.provisionalSpeciesName || null,
-            mycoMapBlastResults: inatRecord?.mycoMapBlastResults || null,
-            traceFiles: inatRecord?.traceFiles || null,
-            inatGenbankAccession: inatRecord?.inatGenbankAccession || null,
-            // Trace file download tracking
-            traceFilesDownloaded: obs.traceFilesDownloaded || false,
-            fastqFile: obs.fastqFile || null,
-            mycoMapTraceUrl: obs.mycoMapTraceUrl || null,
-            // iNaturalist API file tracking
-            inatApiSaved: obs.inatApiSaved || false,
-            inatApiFile: obs.inatApiFile || null,
-            inatApiSaveDate: obs.inatApiSaveDate || null,
-            // GenBank data
-            genbankAccession: obs.genbankAccession || null,
-            // Comparison data
-            inatScientificName,
-            inatObserver,
-            inatObservedOn,
-            inatState,
-            // Mushroom Observer comparison data
-            moScientificName,
-            moObserver,
-            moObservedOn,
-            moState,
-            hasMoData: !!moRecord,
-            moSyncStatus: moRecord?.syncStatus || 'pending',
-            moLastSynced: moRecord?.lastSyncedAt || null,
-            moSyncError: moRecord?.syncError || null,
-          };
-        })
-      );
-
-      // Apply sync status filter
-      let filteredValidationData = validationData;
-      if (syncStatus === 'synced') {
-        filteredValidationData = validationData.filter(obs => {
-          return obs.source?.toLowerCase() === 'inaturalist' ? obs.hasInatData : true;
-        });
-      } else if (syncStatus === 'not_synced') {
-        filteredValidationData = validationData.filter(obs => {
-          return obs.source?.toLowerCase() === 'inaturalist' ? !obs.hasInatData : false;
-        });
-      }
-
-      // Apply validation status filter
-      if (validationStatus === 'fully_validated') {
-        filteredValidationData = filteredValidationData.filter(obs => {
-          // For iNaturalist observations, check all validation criteria
-          if (obs.source?.toLowerCase() !== 'inaturalist') return false;
-          
-          // Check if has iNaturalist data
-          if (!obs.hasInatData) return false;
-          
-          // Check if has API Export file
-          if (!obs.inatApiSaved) return false;
-          
-          // Check if has BLAST files when BLAST URL exists
-          if (obs.mycoMapBlastResults && !obs.blastFilesDownloaded) return false;
-          
-          // Check if has trace files when trace URL exists
-          if (obs.traceFiles && !obs.traceFilesDownloaded) return false;
-          
-          return true;
-        });
-      } else if (validationStatus === 'needs_data') {
-        filteredValidationData = filteredValidationData.filter(obs => {
-          // For iNaturalist observations, check if any validation criteria are missing
-          if (obs.source?.toLowerCase() !== 'inaturalist') return true;
-          
-          // Check if missing iNaturalist data
-          if (!obs.hasInatData) return true;
-          
-          // Check if missing API Export file
-          if (!obs.inatApiSaved) return true;
-          
-          // Check if missing BLAST files when BLAST URL exists
-          if (obs.mycoMapBlastResults && !obs.blastFilesDownloaded) return true;
-          
-          // Check if missing trace files when trace URL exists
-          if (obs.traceFiles && !obs.traceFilesDownloaded) return true;
-          
-          return false;
-        });
-      }
-
-      // Apply limit after filtering
-      const limitedData = filteredValidationData.slice(0, parseInt(limit as string));
-
-      res.json(limitedData);
+      // Build validation data
+      const validationData = limitedObs.map(obs => {
+        const inatRecord = inatDataMap.get(obs.observationId);
+        const moRecord = moDataMap.get(obs.observationId);
+        
+        return {
+          ...obs,
+          hasInatData: !!inatRecord,
+          hasMoData: !!moRecord,
+          inatSyncStatus: inatRecord?.syncStatus || 'pending',
+          moSyncStatus: moRecord?.syncStatus || 'pending',
+          inatLastSynced: inatRecord?.lastSyncedAt || null,
+          moLastSynced: moRecord?.lastSyncedAt || null,
+          inatSyncError: inatRecord?.syncError || null,
+          moSyncError: moRecord?.syncError || null,
+        };
+      });
+      
+      const queryTime = Date.now() - startTime;
+      console.log(`[API] Validation query completed in ${queryTime}ms, returned ${validationData.length} records`);
+      
+      res.json(validationData);
     } catch (error) {
       console.error("Error fetching validation data:", error);
       res.status(500).json({ error: "Failed to fetch validation data" });

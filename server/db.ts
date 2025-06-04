@@ -1414,6 +1414,55 @@ export class DatabaseStorage implements IStorage {
       .where(eq(observations.id, id));
   }
 
+  // Optimized validation data query
+  async getValidationData(params: {
+    limit: number;
+    source: string;
+    syncStatus: string;
+    validationStatus: string;
+  }): Promise<Array<any>> {
+    const { limit, source, syncStatus, validationStatus } = params;
+    
+    // Build base query with JOINs for efficient data retrieval
+    let query = db
+      .select({
+        id: observations.id,
+        observationId: observations.observationId,
+        scientificName: observations.scientificName,
+        commonName: observations.commonName,
+        observer: observations.observer,
+        observedOn: observations.observedOn,
+        state: observations.state,
+        source: observations.source,
+        // iNaturalist sync data
+        hasInatData: sql<boolean>`CASE WHEN ${inaturalistData.observationId} IS NOT NULL THEN true ELSE false END`,
+        inatSyncStatus: inaturalistData.syncStatus,
+        inatLastSynced: inaturalistData.lastSyncedAt,
+        inatSyncError: inaturalistData.syncError,
+        // MO sync data
+        hasMoData: sql<boolean>`CASE WHEN ${mushroomObserverData.observationId} IS NOT NULL THEN true ELSE false END`,
+        moSyncStatus: mushroomObserverData.syncStatus,
+        moLastSynced: mushroomObserverData.lastSyncedAt,
+        moSyncError: mushroomObserverData.syncError,
+      })
+      .from(observations)
+      .leftJoin(inaturalistData, eq(observations.observationId, inaturalistData.observationId))
+      .leftJoin(mushroomObserverData, eq(observations.observationId, mushroomObserverData.observationId));
+
+    // Apply source filter
+    if (source === 'inaturalist') {
+      query = query.where(eq(observations.source, 'iNaturalist'));
+    } else if (source === 'mo') {
+      query = query.where(eq(observations.source, 'MO Observations'));
+    }
+
+    // Apply limit
+    query = query.limit(limit);
+
+    const results = await query;
+    return results;
+  }
+
   // Method to find observations with missing photos
   async getObservationsWithMissingPhotos(limit: number = 100): Promise<Array<{
     observationId: string;
