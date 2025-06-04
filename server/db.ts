@@ -2079,11 +2079,19 @@ export class DatabaseStorage implements IStorage {
       const moApiUrl = `https://mushroomobserver.org/api2/observations/${moId}`;
       console.log(`[MushroomObserver] Attempting to fetch from: ${moApiUrl}`);
       
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+        'User-Agent': 'MycoMap-DataValidator/1.0'
+      };
+      
+      // Add API key authentication if available
+      if (process.env.MUSHROOM_OBSERVER_API_KEY) {
+        headers['X-API-Key'] = process.env.MUSHROOM_OBSERVER_API_KEY;
+        headers['Authorization'] = `Bearer ${process.env.MUSHROOM_OBSERVER_API_KEY}`;
+      }
+      
       const response = await fetch(moApiUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'MycoMap-DataValidator/1.0'
-        },
+        headers,
         signal: AbortSignal.timeout(15000) // 15 second timeout
       });
       
