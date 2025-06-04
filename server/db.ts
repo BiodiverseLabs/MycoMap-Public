@@ -1517,6 +1517,13 @@ export class DatabaseStorage implements IStorage {
         i.observed_on_string as "inatObservedOn",
         i.provisional_species_name as "provisionalSpeciesName",
         i.inat_genbank_accession as "inatGenbankAccession",
+        CASE 
+          WHEN i.place_ids IS NOT NULL THEN 
+            (SELECT string_agg(display_name, ', ') 
+             FROM inaturalist_places ip 
+             WHERE ip.place_id = ANY(i.place_ids) AND ip.place_type = 'state')
+          ELSE NULL 
+        END as "inatState",
         CASE WHEN m.observation_id IS NOT NULL THEN true ELSE false END as "hasMoData",
         m.sync_status as "moSyncStatus",
         m.last_synced_at as "moLastSynced",
