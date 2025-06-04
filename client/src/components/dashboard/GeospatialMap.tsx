@@ -49,8 +49,8 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       if (!response.ok) throw new Error('Failed to fetch map data');
       return response.json();
     },
-    staleTime: 3 * 60 * 1000, // 3 minutes - data considered fresh
-    gcTime: 15 * 60 * 1000, // 15 minutes - cache retention
+    staleTime: 5 * 60 * 1000, // 5 minutes - map data is relatively stable
+    gcTime: 30 * 60 * 1000, // 30 minutes - longer cache retention for map data
   });
 
   // Fetch state counts from full dataset for filters

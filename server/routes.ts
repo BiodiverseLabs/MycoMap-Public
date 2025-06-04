@@ -215,8 +215,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Optimized map data endpoint using GPS index
   app.get("/api/map-data", async (req, res) => {
     try {
-      // Set cache headers for performance
-      res.set('Cache-Control', 'public, max-age=180'); // 3 minute cache for map data
+      // Enhanced cache headers for aggressive caching
+      res.set({
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=600', // 5 min cache, 10 min stale
+        'ETag': `"map-data-${Date.now() - (Date.now() % 300000)}"`, // ETag updates every 5 minutes
+        'Vary': 'Accept-Encoding'
+      });
       
       const { limit = "75000", state } = req.query;
       console.log(`[API] GET /api/map-data - limit: "${limit}", state: "${state}"`);
