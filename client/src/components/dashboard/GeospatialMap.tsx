@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { MapPin, SortAsc, BarChart3 } from "lucide-react";
+import { FullscreenModal, FullscreenButton } from "@/components/ui/fullscreen-modal";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -23,8 +24,11 @@ interface GeospatialMapProps {
 
 export function GeospatialMap({ dateRange, onStateSelect, selectedState }: GeospatialMapProps = {}) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const fullscreenMapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const fullscreenMapInstanceRef = useRef<L.Map | null>(null);
   const [sortBy, setSortBy] = useState<'count' | 'alphabetical'>('count');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Fetch optimized map data using GPS index for faster loading (up to 15k points)
   const { data: observations = [], isLoading } = useQuery<Array<{
@@ -99,15 +103,8 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       }
     }); // Show all states with scrolling
 
-  // Initialize map when component mounts and observations are available
-  useEffect(() => {
-    if (!mapRef.current || isLoading) return;
-
-    // Clean up existing map
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-    }
-
+  // Function to create and initialize a map
+  const createMapInstance = async (container: HTMLDivElement, mapInstance: React.MutableRefObject<L.Map | null>) => {
     // Load Leaflet.heat plugin dynamically with better error handling
     const loadHeatPlugin = async () => {
       if (!(window as any).L || !(window as any).L.heatLayer) {
@@ -124,134 +121,137 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       }
     };
 
-    const initializeMap = async () => {
-      await loadHeatPlugin();
+    await loadHeatPlugin();
 
-      // Clean up existing map instance if it exists
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+    // Clean up existing map instance if it exists
+    if (mapInstance.current) {
+      mapInstance.current.remove();
+      mapInstance.current = null;
+    }
+
+    // Create map instance centered on continental US
+    const map = L.map(container).setView([39.8283, -98.5795], 4);
+    
+    // Set bounds to continental US if no observations to fit
+    const continentalUSBounds = L.latLngBounds(
+      [20.0, -130.0], // Southwest corner
+      [50.0, -65.0]   // Northeast corner
+    );
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Create heatmap data points
+    const heatmapData: [number, number, number][] = [];
+    const bounds: L.LatLngBounds = L.latLngBounds([]);
+    
+    validObservations.forEach(obs => {
+      const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
+      const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
+      
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        heatmapData.push([lat, lng, 0.8]); // [latitude, longitude, intensity]
+        bounds.extend([lat, lng]);
       }
+    });
 
-      // Create map instance centered on continental US
-      const map = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+    console.log('[GeospatialMap] Heatmap data ready:', {
+      heatmapLength: heatmapData.length,
+      hasLeaflet: !!(window as any).L,
+      hasHeatLayer: !!(window as any).L && !!(window as any).L.heatLayer,
+      sampleData: heatmapData.slice(0, 3),
+      environment: process.env.NODE_ENV || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+
+    // Multiple attempts to add heatmap with fallback markers
+    if (heatmapData.length > 0) {
+      let attemptCount = 0;
+      const maxAttempts = 3;
       
-      // Set bounds to continental US if no observations to fit
-      const continentalUSBounds = L.latLngBounds(
-        [20.0, -130.0], // Southwest corner
-        [50.0, -65.0]   // Northeast corner
-      );
-
-      // Add OpenStreetMap tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-
-      // Create heatmap data points
-      const heatmapData: [number, number, number][] = [];
-      const bounds: L.LatLngBounds = L.latLngBounds([]);
-      
-      validObservations.forEach(obs => {
-        const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
-        const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
+      const attemptHeatmap = () => {
+        attemptCount++;
+        console.log(`[GeospatialMap] Heatmap attempt ${attemptCount}/${maxAttempts}`);
         
-        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-          heatmapData.push([lat, lng, 0.8]); // [latitude, longitude, intensity]
-          bounds.extend([lat, lng]);
-        }
-      });
-
-      console.log('[GeospatialMap] Heatmap data ready:', {
-        heatmapLength: heatmapData.length,
-        hasLeaflet: !!(window as any).L,
-        hasHeatLayer: !!(window as any).L && !!(window as any).L.heatLayer,
-        sampleData: heatmapData.slice(0, 3),
-        environment: process.env.NODE_ENV || 'unknown',
-        timestamp: new Date().toISOString()
-      });
-
-      // Multiple attempts to add heatmap with fallback markers
-      if (heatmapData.length > 0) {
-        let attemptCount = 0;
-        const maxAttempts = 3;
-        
-        const attemptHeatmap = () => {
-          attemptCount++;
-          console.log(`[GeospatialMap] Heatmap attempt ${attemptCount}/${maxAttempts}`);
-          
-          if (mapInstanceRef.current && (window as any).L && (window as any).L.heatLayer) {
-            try {
-              console.log('[GeospatialMap] Creating heatmap with', heatmapData.length, 'data points');
-              const heat = (window as any).L.heatLayer(heatmapData, {
-                radius: 22,
-                blur: 12,
-                maxZoom: 17,
-                max: 0.8,
-                minOpacity: 0.2,
-                gradient: {
-                  0.0: 'rgba(0, 0, 255, 0.3)',
-                  0.2: 'rgba(0, 255, 255, 0.5)',
-                  0.4: 'rgba(0, 255, 0, 0.6)',
-                  0.6: 'rgba(255, 255, 0, 0.7)',
-                  0.8: 'rgba(255, 165, 0, 0.8)',
-                  1.0: 'rgba(255, 0, 0, 0.9)'
-                }
-              }).addTo(mapInstanceRef.current);
-              
-              console.log('[GeospatialMap] Heatmap layer added successfully');
-              return true;
-            } catch (error) {
-              console.error('[GeospatialMap] Heatmap creation failed:', error);
-            }
-          }
-          
-          // If heatmap failed and we have attempts left, try again
-          if (attemptCount < maxAttempts) {
-            setTimeout(attemptHeatmap, 1000 * attemptCount);
-            return false;
-          }
-          
-          // Final fallback - add circle markers to ensure visibility
-          console.log('[GeospatialMap] All heatmap attempts failed, adding circle markers');
-          let markersAdded = 0;
-          validObservations.slice(0, 500).forEach(obs => {
-            const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
-            const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
-            
-            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && mapInstanceRef.current) {
-              try {
-                L.circleMarker([lat, lng], {
-                  radius: 2,
-                  fillColor: '#2563eb',
-                  color: '#ffffff',
-                  weight: 1,
-                  opacity: 1,
-                  fillOpacity: 0.7
-                }).addTo(mapInstanceRef.current);
-                markersAdded++;
-              } catch (error) {
-                console.error('[GeospatialMap] Marker creation failed:', error);
+        if (mapInstance.current && (window as any).L && (window as any).L.heatLayer) {
+          try {
+            console.log('[GeospatialMap] Creating heatmap with', heatmapData.length, 'data points');
+            const heat = (window as any).L.heatLayer(heatmapData, {
+              radius: 22,
+              blur: 12,
+              maxZoom: 17,
+              max: 0.8,
+              minOpacity: 0.2,
+              gradient: {
+                0.0: 'rgba(0, 0, 255, 0.3)',
+                0.2: 'rgba(0, 255, 255, 0.5)',
+                0.4: 'rgba(0, 255, 0, 0.6)',
+                0.6: 'rgba(255, 255, 0, 0.7)',
+                0.8: 'rgba(255, 165, 0, 0.8)',
+                1.0: 'rgba(255, 0, 0, 0.9)'
               }
+            }).addTo(mapInstance.current);
+            
+            console.log('[GeospatialMap] Heatmap layer added successfully');
+            return true;
+          } catch (error) {
+            console.error('[GeospatialMap] Heatmap creation failed:', error);
+          }
+        }
+        
+        // If heatmap failed and we have attempts left, try again
+        if (attemptCount < maxAttempts) {
+          setTimeout(attemptHeatmap, 1000 * attemptCount);
+          return false;
+        }
+        
+        // Final fallback - add circle markers to ensure visibility
+        console.log('[GeospatialMap] All heatmap attempts failed, adding circle markers');
+        let markersAdded = 0;
+        validObservations.slice(0, 500).forEach(obs => {
+          const lat = typeof obs.latitude === 'string' ? parseFloat(obs.latitude) : obs.latitude;
+          const lng = typeof obs.longitude === 'string' ? parseFloat(obs.longitude) : obs.longitude;
+          
+          if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && mapInstance.current) {
+            try {
+              L.circleMarker([lat, lng], {
+                radius: 2,
+                fillColor: '#2563eb',
+                color: '#ffffff',
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.7
+              }).addTo(mapInstance.current);
+              markersAdded++;
+            } catch (error) {
+              console.error('[GeospatialMap] Marker creation failed:', error);
             }
-          });
-          console.log('[GeospatialMap] Added', markersAdded, 'fallback circle markers');
-          return true;
-        };
-        
-        // Start first attempt immediately
-        setTimeout(attemptHeatmap, 500);
-        
-        // Use continental US bounds for consistent view
-        map.fitBounds(continentalUSBounds);
-      } else {
-        console.log('[GeospatialMap] No observation data available');
-        map.fitBounds(continentalUSBounds);
-      }
+          }
+        });
+        console.log('[GeospatialMap] Added', markersAdded, 'fallback circle markers');
+        return true;
+      };
+      
+      // Start first attempt immediately
+      setTimeout(attemptHeatmap, 500);
+      
+      // Use continental US bounds for consistent view
+      map.fitBounds(continentalUSBounds);
+    } else {
+      console.log('[GeospatialMap] No observation data available');
+      map.fitBounds(continentalUSBounds);
+    }
 
-      mapInstanceRef.current = map;
-    };
+    mapInstance.current = map;
+  };
 
-    initializeMap();
+  // Initialize main map when component mounts and observations are available
+  useEffect(() => {
+    if (!mapRef.current || isLoading) return;
+
+    createMapInstance(mapRef.current, mapInstanceRef);
 
     return () => {
       if (mapInstanceRef.current) {
@@ -260,6 +260,20 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
       }
     };
   }, [validObservations, isLoading]);
+
+  // Initialize fullscreen map when fullscreen is opened
+  useEffect(() => {
+    if (!fullscreenMapRef.current || !isFullscreen || isLoading) return;
+
+    createMapInstance(fullscreenMapRef.current, fullscreenMapInstanceRef);
+
+    return () => {
+      if (fullscreenMapInstanceRef.current) {
+        fullscreenMapInstanceRef.current.remove();
+        fullscreenMapInstanceRef.current = null;
+      }
+    };
+  }, [isFullscreen, validObservations, isLoading]);
 
   console.log('[GeospatialMap] Render', {
     isLoading,
