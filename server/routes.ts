@@ -1964,6 +1964,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             inatObserver,
             inatObservedOn,
             inatState,
+            // Mushroom Observer comparison data
+            moScientificName,
+            moObserver,
+            moObservedOn,
+            moState,
+            hasMoData: !!moRecord,
+            moSyncStatus: moRecord?.syncStatus || 'pending',
+            moLastSynced: moRecord?.lastSyncedAt || null,
+            moSyncError: moRecord?.syncError || null,
           };
         })
       );
