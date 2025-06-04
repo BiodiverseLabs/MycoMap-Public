@@ -1833,56 +1833,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[API] Validation query - source: ${source}, syncStatus: ${syncStatus}, validationStatus: ${validationStatus}, limit: ${limit}`);
       const startTime = Date.now();
       
-      // Get observations with efficient filtering
-      const observations = await storage.getAllObservations();
-      
-      // Filter by source if specified
-      let filteredObs = observations;
-      if (source === 'inaturalist') {
-        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'inaturalist');
-      } else if (source === 'mo') {
-        filteredObs = observations.filter(obs => obs.source?.toLowerCase() === 'mo observations');
-      }
-      
-      // Limit results for performance
-      const limitedObs = filteredObs.slice(0, parseInt(limit as string));
-      
-      // Get sync data for these observations only
-      const obsIds = limitedObs.map(obs => obs.observationId);
-      const inatData = await storage.getInaturalistData();
-      const moData = await storage.getMushroomObserverData();
-      
-      const inatDataMap = new Map();
-      const moDataMap = new Map();
-      
-      inatData.forEach(data => {
-        if (obsIds.includes(data.observationId)) {
-          inatDataMap.set(data.observationId, data);
-        }
-      });
-      
-      moData.forEach(data => {
-        if (obsIds.includes(data.observationId)) {
-          moDataMap.set(data.observationId, data);
-        }
-      });
-      
-      // Build validation data
-      const validationData = limitedObs.map(obs => {
-        const inatRecord = inatDataMap.get(obs.observationId);
-        const moRecord = moDataMap.get(obs.observationId);
-        
-        return {
-          ...obs,
-          hasInatData: !!inatRecord,
-          hasMoData: !!moRecord,
-          inatSyncStatus: inatRecord?.syncStatus || 'pending',
-          moSyncStatus: moRecord?.syncStatus || 'pending',
-          inatLastSynced: inatRecord?.lastSyncedAt || null,
-          moLastSynced: moRecord?.lastSyncedAt || null,
-          inatSyncError: inatRecord?.syncError || null,
-          moSyncError: moRecord?.syncError || null,
-        };
+      // Use the optimized validation query that leverages database indexes
+      const validationData = await (storage as any).getValidationData({
+        limit: parseInt(limit as string),
+        source: source as string,
+        syncStatus: syncStatus as string,
+        validationStatus: validationStatus as string
       });
       
       const queryTime = Date.now() - startTime;
