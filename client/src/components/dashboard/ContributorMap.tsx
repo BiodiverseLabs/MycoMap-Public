@@ -176,7 +176,7 @@ export function ContributorMap({ observations }: ContributorMapProps) {
         />
         <FullscreenButton 
           onClick={() => setIsFullscreen(true)}
-          className="absolute top-2 right-2 z-10"
+          className="absolute top-2 right-2 z-[1001]"
         />
       </div>
 

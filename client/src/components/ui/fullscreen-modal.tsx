@@ -47,11 +47,11 @@ export function FullscreenButton({ onClick, className = "" }: FullscreenButtonPr
   return (
     <button
       onClick={onClick}
-      className={`absolute top-2 right-2 z-10 p-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:bg-slate-50 ${className}`}
+      className={`absolute top-2 right-2 z-[1000] p-2 bg-white rounded-lg shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-200 hover:bg-slate-50 hover:scale-105 ${className}`}
       aria-label="Open fullscreen"
       title="Open fullscreen"
     >
-      <Maximize2 className="w-4 h-4 text-slate-600" />
+      <Maximize2 className="w-4 h-4 text-slate-700" />
     </button>
   );
 }

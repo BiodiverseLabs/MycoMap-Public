@@ -335,7 +335,7 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
                 />
                 <FullscreenButton 
                   onClick={() => setIsFullscreen(true)}
-                  className="absolute top-2 right-2 z-10"
+                  className="absolute top-2 right-2 z-[1001]"
                 />
                 {validObservations.length === 0 && !isLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-50 rounded-lg">

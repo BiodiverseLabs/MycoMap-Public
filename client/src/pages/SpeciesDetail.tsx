@@ -397,7 +397,7 @@ export default function SpeciesDetail() {
                   <div ref={mapRef} className="h-96 rounded-lg border border-slate-200 relative z-10"></div>
                   <FullscreenButton 
                     onClick={() => setIsFullscreen(true)}
-                    className="absolute top-2 right-2 z-20"
+                    className="absolute top-2 right-2 z-[1001]"
                   />
                 </div>
                 
