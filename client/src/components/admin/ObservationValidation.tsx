@@ -240,7 +240,7 @@ export function ObservationValidation() {
     return rawObservations.filter(obs => {
       // Source filter
       if (sourceFilter === 'inaturalist' && obs.source?.toLowerCase() !== 'inaturalist') return false;
-      if (sourceFilter === 'mo' && obs.source?.toLowerCase() !== 'mushroom observer') return false;
+      if (sourceFilter === 'mo' && obs.source?.toLowerCase() !== 'mo observations') return false;
       if (sourceFilter === 'mycoportal' && obs.source?.toLowerCase() !== 'mycoportal') return false;
       
       // Sync filter
