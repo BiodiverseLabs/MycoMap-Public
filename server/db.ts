@@ -1537,7 +1537,11 @@ export class DatabaseStorage implements IStorage {
         m.mo_id as "moId",
         m.sync_status as "moSyncStatus",
         m.last_synced_at as "moLastSynced",
-        m.sync_error as "moSyncError"
+        m.sync_error as "moSyncError",
+        m.scientific_name as "moScientificName",
+        m.observer as "moObserver",
+        m.observed_on as "moObservedOn",
+        m.state as "moState"
       FROM observations o
       LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
       LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id
