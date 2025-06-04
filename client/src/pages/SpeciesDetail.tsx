@@ -40,9 +40,12 @@ export default function SpeciesDetail() {
   
   const [selectedState, setSelectedState] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all_time");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const mapRef = useRef<HTMLDivElement>(null);
+  const fullscreenMapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const fullscreenMapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
 
   // Fetch species seasonal distribution
@@ -161,14 +164,14 @@ export default function SpeciesDetail() {
     };
   }, [observations]);
 
-  // Initialize map
-  useEffect(() => {
-    if (!mapRef.current || !window.L) return;
+  // Function to create and initialize a map instance
+  const createMapInstance = (container: HTMLDivElement, mapInstance: React.MutableRefObject<any>) => {
+    if (!window.L) return;
 
     // Clean up existing map
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
+    if (mapInstance.current) {
+      mapInstance.current.remove();
+      mapInstance.current = null;
     }
 
     // Create custom marker icon that works in production
@@ -183,13 +186,19 @@ export default function SpeciesDetail() {
     (window as any).customMarkerIcon = customIcon;
 
     // Create new map instance
-    mapInstanceRef.current = window.L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+    mapInstance.current = window.L.map(container).setView([39.8283, -98.5795], 4);
 
     // Add tile layer
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 18,
-    }).addTo(mapInstanceRef.current);
+    }).addTo(mapInstance.current);
+  };
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapRef.current) return;
+    createMapInstance(mapRef.current, mapInstanceRef);
 
     return () => {
       if (mapInstanceRef.current) {
@@ -198,6 +207,19 @@ export default function SpeciesDetail() {
       }
     };
   }, []);
+
+  // Initialize fullscreen map when opened
+  useEffect(() => {
+    if (!fullscreenMapRef.current || !isFullscreen) return;
+    createMapInstance(fullscreenMapRef.current, fullscreenMapInstanceRef);
+
+    return () => {
+      if (fullscreenMapInstanceRef.current) {
+        fullscreenMapInstanceRef.current.remove();
+        fullscreenMapInstanceRef.current = null;
+      }
+    };
+  }, [isFullscreen]);
 
   // Update map markers
   useEffect(() => {
@@ -371,7 +393,13 @@ export default function SpeciesDetail() {
                   </div>
                 </div>
                 
-                <div ref={mapRef} className="h-96 rounded-lg border border-slate-200 relative z-10"></div>
+                <div className="relative">
+                  <div ref={mapRef} className="h-96 rounded-lg border border-slate-200 relative z-10"></div>
+                  <FullscreenButton 
+                    onClick={() => setIsFullscreen(true)}
+                    className="absolute top-2 right-2 z-20"
+                  />
+                </div>
                 
                 <div className="mt-2 text-sm text-slate-600">
                   Showing {filteredObservations.length} of {observations.length} observations
@@ -501,6 +529,20 @@ export default function SpeciesDetail() {
             )}
           </div>
         </div>
+
+        {/* Fullscreen Modal */}
+        <FullscreenModal
+          isOpen={isFullscreen}
+          onClose={() => setIsFullscreen(false)}
+          title={`${speciesData?.scientificName || speciesName} - Distribution Map`}
+        >
+          <div className="w-full h-full p-4">
+            <div 
+              ref={fullscreenMapRef} 
+              className="w-full h-full rounded-lg border border-slate-200"
+            />
+          </div>
+        </FullscreenModal>
       </div>
     </div>
   );
