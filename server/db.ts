@@ -1544,8 +1544,7 @@ export class DatabaseStorage implements IStorage {
         m.state as "moState",
         CASE WHEN m.api_file IS NOT NULL THEN true ELSE false END as "moApiSaved",
         m.api_file as "moApiFile",
-        m.api_save_date as "moApiSaveDate",
-        m.state as "moState"
+        m.api_save_date as "moApiSaveDate"
       FROM observations o
       LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
       LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id

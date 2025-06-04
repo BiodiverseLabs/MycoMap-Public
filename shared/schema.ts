@@ -316,6 +316,9 @@ export const mushroomObserverData = pgTable("mushroom_observer_data", {
   syncStatus: text("sync_status").default('pending'),
   syncError: text("sync_error"),
   lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  // API file tracking
+  apiFile: text("api_file"),
+  apiSaveDate: timestamp("api_save_date"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
