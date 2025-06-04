@@ -1092,7 +1092,6 @@ export function ObservationValidation() {
                   </div>
                 );
               })}
-              </div>
             </div>
           </div>
         )}
