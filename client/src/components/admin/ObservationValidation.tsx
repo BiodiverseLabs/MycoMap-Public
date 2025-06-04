@@ -60,6 +60,10 @@ interface ValidationObservation {
   moObserver?: string | null;
   moObservedOn?: string | null;
   moState?: string | null;
+  // Mushroom Observer API file tracking
+  moApiSaved?: boolean;
+  moApiFile?: string | null;
+  moApiSaveDate?: string | null;
 }
 
 interface SyncProgress {
@@ -920,28 +924,35 @@ export function ObservationValidation() {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Scientific Name:</span>
-                                        {renderComparisonIcon(compareFields(obs.scientificName, obs.provisionalSpeciesName || obs.inatScientificName, true, obs.provisionalSpeciesName))}
+                                        {renderComparisonIcon(compareFields(obs.scientificName, 
+                                          obs.source === 'MO Observations' ? 
+                                            (obs.moScientificName || obs.provisionalSpeciesName) :
+                                            (obs.provisionalSpeciesName || obs.inatScientificName), 
+                                          true, obs.provisionalSpeciesName))}
                                       </div>
                                       <span className="text-gray-700">{obs.scientificName}</span>
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Collector:</span>
-                                        {renderComparisonIcon(compareFields(obs.collector, obs.inatObserver))}
+                                        {renderComparisonIcon(compareFields(obs.collector, 
+                                          obs.source === 'MO Observations' ? obs.moObserver : obs.inatObserver))}
                                       </div>
                                       <span className="text-gray-700">{obs.collector || 'N/A'}</span>
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">Date:</span>
-                                        {renderComparisonIcon(compareFields(obs.observedOn, obs.inatObservedOn))}
+                                        {renderComparisonIcon(compareFields(obs.observedOn, 
+                                          obs.source === 'MO Observations' ? obs.moObservedOn : obs.inatObservedOn))}
                                       </div>
                                       <span className="text-gray-700">{formatDate(obs.observedOn)}</span>
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-medium">State:</span>
-                                        {renderComparisonIcon(compareFields(obs.state, obs.inatState))}
+                                        {renderComparisonIcon(compareFields(obs.state, 
+                                          obs.source === 'MO Observations' ? obs.moState : obs.inatState))}
                                       </div>
                                       <span className="text-gray-700">{obs.state || 'N/A'}</span>
                                     </div>
