@@ -1114,7 +1114,7 @@ export function ObservationValidation() {
                             console.log('Refresh clicked for:', obs.observationId, 'Source:', getSourceName(obs.source));
                             handleSync(obs.observationId);
                           }}
-                          disabled={syncMutation.isPending || (obs.source?.toLowerCase() !== 'inaturalist' && obs.source?.toLowerCase() !== 'mo observations')}
+                          disabled={syncingObservations.has(obs.observationId) || (obs.source?.toLowerCase() !== 'inaturalist' && obs.source?.toLowerCase() !== 'mo observations')}
                           className={`flex items-center gap-1 ${
                             (obs.source?.toLowerCase() === 'inaturalist' || obs.source?.toLowerCase() === 'mo observations')
                               ? 'bg-blue-600 hover:bg-blue-700 text-white' 
@@ -1126,7 +1126,7 @@ export function ObservationValidation() {
                             'Only iNaturalist and Mushroom Observer observations can be refreshed'
                           }
                         >
-                          <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                          <RefreshCw className={`w-3 h-3 ${syncingObservations.has(obs.observationId) ? 'animate-spin' : ''}`} />
                           Refresh
                         </Button>
                       </div>
