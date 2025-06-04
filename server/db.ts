@@ -2368,4 +2368,142 @@ export class DatabaseStorage implements IStorage {
       }
     }
   }
+
+  // MyCoPortal API integration methods
+  async createMycoportalData(data: any): Promise<any> {
+    const [result] = await db.insert(mycoportalData).values(data).returning();
+    return result;
+  }
+
+  async updateMycoportalData(observationId: string, data: any): Promise<void> {
+    await db.update(mycoportalData)
+      .set(data)
+      .where(eq(mycoportalData.observationId, observationId));
+  }
+
+  async getMycoportalData(observationId: string): Promise<any[]> {
+    return await db.select()
+      .from(mycoportalData)
+      .where(eq(mycoportalData.observationId, observationId));
+  }
+
+  async syncObservationWithMycoportal(observationId: string): Promise<any | null> {
+    try {
+      console.log(`[MyCoPortal] Syncing observation ${observationId}`);
+      
+      // Check if MyCoPortal data already exists
+      const existing = await this.getMycoportalData(observationId);
+      
+      // Extract catalog number from observation_id (assuming format like "MC123456")
+      const catalogNumber = observationId.replace(/^MC/, '');
+      
+      console.log(`[MyCoPortal] Attempting to fetch catalog number: ${catalogNumber}`);
+      
+      // MyCoPortal API endpoint for occurrence records
+      const apiUrl = `https://www.mycoportal.org/portal/api/v2/occurrence/${catalogNumber}`;
+      
+      console.log(`[MyCoPortal] Fetching from: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'MycoMap-Validation-Tool/1.0'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`MyCoPortal API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`[MyCoPortal] Successfully fetched data for catalog ${catalogNumber}`);
+
+      // Parse MyCoPortal response data
+      const mycoportalRecord = {
+        observationId,
+        catalogNumber: data.catalogNumber || catalogNumber,
+        collectionCode: data.collectionCode,
+        institutionCode: data.institutionCode,
+        scientificName: data.scientificName,
+        commonName: data.vernacularName,
+        family: data.family,
+        genus: data.genus,
+        specificEpithet: data.specificEpithet,
+        infraspecificEpithet: data.infraspecificEpithet,
+        taxonRank: data.taxonRank,
+        identifiedBy: data.identifiedBy,
+        dateIdentified: data.dateIdentified,
+        recordedBy: data.recordedBy,
+        recordNumber: data.recordNumber,
+        eventDate: data.eventDate,
+        year: data.year ? parseInt(data.year) : null,
+        month: data.month ? parseInt(data.month) : null,
+        day: data.day ? parseInt(data.day) : null,
+        country: data.country,
+        stateProvince: data.stateProvince,
+        county: data.county,
+        locality: data.locality,
+        habitat: data.habitat,
+        substrate: data.substrate,
+        decimalLatitude: data.decimalLatitude ? parseFloat(data.decimalLatitude) : null,
+        decimalLongitude: data.decimalLongitude ? parseFloat(data.decimalLongitude) : null,
+        coordinateUncertaintyInMeters: data.coordinateUncertaintyInMeters ? parseInt(data.coordinateUncertaintyInMeters) : null,
+        elevation: data.elevationInMeters ? parseInt(data.elevationInMeters) : null,
+        minimumElevationInMeters: data.minimumElevationInMeters ? parseInt(data.minimumElevationInMeters) : null,
+        maximumElevationInMeters: data.maximumElevationInMeters ? parseInt(data.maximumElevationInMeters) : null,
+        occurrenceRemarks: data.occurrenceRemarks,
+        associatedTaxa: data.associatedTaxa,
+        dynamicProperties: data.dynamicProperties,
+        geneticAccessionNumber: data.geneticAccessionNumber,
+        associatedSequences: data.associatedSequences,
+        associatedMedia: data.associatedMedia,
+        syncStatus: 'success',
+        syncError: null,
+        lastSyncedAt: new Date()
+      };
+
+      // Save the full MyCoPortal API response as a text file
+      try {
+        console.log(`[MyCoPortal] Saving API response for ${observationId}`);
+        const apiSaveResult = await blastDownloader.saveMycoportalApiResponse(observationId, data);
+        
+        if (apiSaveResult.success) {
+          mycoportalRecord.apiFile = apiSaveResult.apiFilePath;
+          mycoportalRecord.apiSaveDate = new Date();
+          console.log(`[MyCoPortal] API response saved: ${apiSaveResult.apiFilePath}`);
+        }
+      } catch (apiError) {
+        console.error(`[MyCoPortal] Failed to save API response for ${observationId}:`, apiError);
+      }
+
+      if (existing.length > 0) {
+        await this.updateMycoportalData(observationId, mycoportalRecord);
+        const [updated] = await db.select()
+          .from(mycoportalData)
+          .where(eq(mycoportalData.observationId, observationId));
+        return updated;
+      } else {
+        return await this.createMycoportalData(mycoportalRecord);
+      }
+
+    } catch (error) {
+      console.error(`[MyCoPortal] Error syncing observation ${observationId}:`, error);
+      
+      const errorRecord = {
+        observationId,
+        catalogNumber: observationId.replace(/^MC/, ''),
+        syncStatus: 'error',
+        syncError: error.message,
+        lastSyncedAt: new Date()
+      };
+
+      const existing = await this.getMycoportalData(observationId);
+      if (existing.length > 0) {
+        await this.updateMycoportalData(observationId, errorRecord);
+        return existing[0];
+      } else {
+        return await this.createMycoportalData(errorRecord);
+      }
+    }
+  }
 }

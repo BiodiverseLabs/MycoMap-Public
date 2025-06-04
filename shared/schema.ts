@@ -330,6 +330,63 @@ export const mushroomObserverData = pgTable("mushroom_observer_data", {
   syncStatusIdx: index("mo_sync_status_idx").on(table.syncStatus),
 }));
 
+// MyCoPortal data table for validation and detailed records
+export const mycoportalData = pgTable("mycoportal_data", {
+  id: serial("id").primaryKey(),
+  observationId: text("observation_id").notNull().unique(), // Links to observations table
+  catalogNumber: text("catalog_number"), // MyCoPortal specimen number
+  collectionCode: text("collection_code"), // Institution collection code
+  institutionCode: text("institution_code"), // Institution code
+  scientificName: text("scientific_name"),
+  commonName: text("common_name"),
+  family: text("family"),
+  genus: text("genus"),
+  specificEpithet: text("specific_epithet"),
+  infraspecificEpithet: text("infraspecific_epithet"),
+  taxonRank: text("taxon_rank"),
+  identifiedBy: text("identified_by"),
+  dateIdentified: text("date_identified"),
+  recordedBy: text("recorded_by"), // Collector
+  recordNumber: text("record_number"),
+  eventDate: text("event_date"), // Collection date
+  year: integer("year"),
+  month: integer("month"),
+  day: integer("day"),
+  country: text("country"),
+  stateProvince: text("state_province"),
+  county: text("county"),
+  locality: text("locality"),
+  habitat: text("habitat"),
+  substrate: text("substrate"),
+  decimalLatitude: numeric("decimal_latitude"),
+  decimalLongitude: numeric("decimal_longitude"),
+  coordinateUncertaintyInMeters: integer("coordinate_uncertainty_in_meters"),
+  elevation: integer("elevation"),
+  minimumElevationInMeters: integer("minimum_elevation_in_meters"),
+  maximumElevationInMeters: integer("maximum_elevation_in_meters"),
+  occurrenceRemarks: text("occurrence_remarks"),
+  associatedTaxa: text("associated_taxa"),
+  dynamicProperties: text("dynamic_properties"),
+  // DNA/Molecular data
+  geneticAccessionNumber: text("genetic_accession_number"),
+  associatedSequences: text("associated_sequences"),
+  // Image data
+  associatedMedia: text("associated_media"),
+  // Sync tracking
+  syncStatus: text("sync_status").default('pending'), // pending, success, error
+  syncError: text("sync_error"),
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  // API file tracking
+  apiFile: text("api_file"),
+  apiSaveDate: timestamp("api_save_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  observationIdx: index("myco_observation_idx").on(table.observationId),
+  catalogNumberIdx: index("myco_catalog_number_idx").on(table.catalogNumber),
+  syncStatusIdx: index("myco_sync_status_idx").on(table.syncStatus),
+}));
+
 // Relations
 export const observationsRelations = relations(observations, ({ one }) => ({
   contributor: one(contributors, {
@@ -368,6 +425,12 @@ export const insertSpeciesSchema = createInsertSchema(species).omit({
 
 export const insertGpsIndexSchema = createInsertSchema(gpsIndex).omit({
   id: true,
+  updatedAt: true,
+});
+
+export const insertMycoportalDataSchema = createInsertSchema(mycoportalData).omit({
+  id: true,
+  createdAt: true,
   updatedAt: true,
 });
 
