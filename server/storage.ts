@@ -24,6 +24,7 @@ export interface IStorage {
     uniqueSpecies: number;
     activeContributors: number;
     statesCovered: number;
+    fullyValidated: number;
   }>;
   
   getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string, startDate?: string, endDate?: string, goingBackYears?: string): Promise<Array<{
@@ -269,6 +270,7 @@ export class MemoryStorage implements IStorage {
     uniqueSpecies: number;
     activeContributors: number;
     statesCovered: number;
+    fullyValidated: number;
   }> {
     // Filter observations by date range and state if provided
     let filteredObservations = this.observations;
@@ -288,12 +290,22 @@ export class MemoryStorage implements IStorage {
     const uniqueSpecies = new Set(filteredObservations.map(o => o.scientificName)).size;
     const activeContributors = new Set(filteredObservations.map(o => o.observer).filter(Boolean)).size;
     const statesCovered = state ? 1 : new Set(filteredObservations.map(o => o.state).filter(Boolean)).size;
+    
+    // Count fully validated observations - those with species-level identification and complete sync
+    const fullyValidated = filteredObservations.filter(obs => 
+      obs.source === 'iNaturalist' &&
+      obs.scientificName &&
+      obs.scientificName.trim().split(' ').length >= 2 &&
+      obs.inatApiSaved === true &&
+      (!obs.mycomapBlastUrl || obs.blastFilesDownloaded === true)
+    ).length;
 
     return {
       totalObservations: filteredObservations.length,
       uniqueSpecies,
       activeContributors,
       statesCovered,
+      fullyValidated,
     };
   }
 

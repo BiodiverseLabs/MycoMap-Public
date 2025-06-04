@@ -84,6 +84,7 @@ export class DatabaseStorage implements IStorage {
     uniqueSpecies: number;
     activeContributors: number;
     statesCovered: number;
+    fullyValidated: number;
   }> {
     // Use optimized SQL queries instead of loading all records
     let whereClause = sql`1=1`;
@@ -101,7 +102,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Execute all metric queries in parallel for better performance
-    const [totalCount, speciesCount, contributorCount, stateCount] = await Promise.all([
+    const [totalCount, speciesCount, contributorCount, stateCount, fullyValidatedCount] = await Promise.all([
       // Total observations count
       db.execute(sql`SELECT COUNT(*)::int as count FROM ${observations} WHERE ${whereClause}`),
       
@@ -114,7 +115,25 @@ export class DatabaseStorage implements IStorage {
       // States covered count (always 1 when filtering by state, otherwise count distinct states)
       state ? 
         Promise.resolve({ rows: [{ count: 1 }] }) :
-        db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`)
+        db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`),
+
+      // Fully validated observations count - species-level identification with complete data sync
+      db.execute(sql`
+        SELECT COUNT(*)::int as count 
+        FROM ${observations} o
+        LEFT JOIN ${inaturalistData} i ON o.observation_id = i.observation_id
+        WHERE ${whereClause}
+        AND o.source = 'iNaturalist'
+        AND o.scientific_name IS NOT NULL 
+        AND LENGTH(TRIM(o.scientific_name)) > 0
+        AND ARRAY_LENGTH(STRING_TO_ARRAY(TRIM(o.scientific_name), ' '), 1) >= 2
+        AND i.sync_status = 'success'
+        AND o.inat_api_saved = true
+        AND (
+          o.mycomap_blast_url IS NULL 
+          OR (o.mycomap_blast_url IS NOT NULL AND o.blast_files_downloaded = true)
+        )
+      `)
     ]);
     
     return {
@@ -122,6 +141,7 @@ export class DatabaseStorage implements IStorage {
       uniqueSpecies: (speciesCount.rows[0] as any).count,
       activeContributors: (contributorCount.rows[0] as any).count,
       statesCovered: (stateCount.rows[0] as any).count,
+      fullyValidated: (fullyValidatedCount.rows[0] as any).count,
     };
   }
 
