@@ -163,103 +163,102 @@ export default function Taxonomic() {
             Distribution across taxonomic hierarchies
           </p>
         </div>
-        
-        {/* Filters Section */}
-        <div className="mt-6 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-slate-400" />
-              <Label htmlFor="state-select" className="text-sm font-medium text-slate-700">State:</Label>
-              <Select value={selectedState || "all"} onValueChange={handleStateSelect}>
-                <SelectTrigger id="state-select" className="w-48">
-                  <SelectValue placeholder="All States" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All States</SelectItem>
-                  {states.map((state) => (
-                    <SelectItem key={state} value={state}>
-                      {state}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      </header>
 
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-slate-400" />
-              <Label htmlFor="collector-search" className="text-sm font-medium text-slate-700">Collector:</Label>
-              <AutocompleteInput
-                value={collectorSearch}
-                onChange={handleContributorSearch}
-                onSearch={handleContributorSearch}
-                suggestions={filteredContributors.map((contributor: any) => contributor.name)}
-                placeholder="Search contributors..."
-                className="w-64"
-              />
-            </div>
-
+      <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+        <Card>
+          <CardContent className="p-4">
             <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
               <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Filter className="w-4 h-4" />
-                  More Filters
-                  {filtersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                <Button variant="outline" className="w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <span>Filters</span>
+                  </div>
+                  {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="absolute z-10 mt-2 p-4 bg-white border border-slate-200 rounded-lg shadow-lg min-w-96">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-slate-400" />
-                      <Label className="text-sm font-medium text-slate-700">Date Range:</Label>
+              
+              <CollapsibleContent className="mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Search and Location */}
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
+                      <Select value={selectedState || "all"} onValueChange={handleStateSelect}>
+                        <SelectTrigger className="pl-10">
+                          <SelectValue placeholder="All States" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All States</SelectItem>
+                          {states.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
+                    
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="start-date" className="text-xs text-slate-600 w-12">From:</Label>
-                        <Input
-                          id="start-date"
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className="text-sm"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="end-date" className="text-xs text-slate-600 w-12">To:</Label>
-                        <Input
-                          id="end-date"
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className="text-sm"
-                        />
-                      </div>
+                      <Label className="text-sm font-medium">Search by Collector</Label>
+                      <AutocompleteInput
+                        value={collectorSearch}
+                        onChange={handleContributorSearch}
+                        placeholder="Type collector name..."
+                        suggestions={filteredContributors.map((contributor: any) => contributor.name)}
+                        onSearch={handleContributorSearch}
+                        className="w-full"
+                      />
                     </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">Quick Filters:</Label>
+
+                  {/* Right Column - Date Controls */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar className="h-4 w-4 text-slate-500" />
+                        <Label className="text-sm font-medium">Dates</Label>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Date Range</Label>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>Between</span>
+                          <Input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="flex-1"
+                          />
+                          <span>and</span>
+                          <Input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
+                      <Label className="text-sm font-medium">Going Back</Label>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="years-back" className="text-xs text-slate-600">Years back:</Label>
-                        <Select value={goingBackYears} onValueChange={setGoingBackYears}>
-                          <SelectTrigger id="years-back" className="text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">All time</SelectItem>
-                            <SelectItem value="1">Last year</SelectItem>
-                            <SelectItem value="3">Last 3 years</SelectItem>
-                            <SelectItem value="5">Last 5 years</SelectItem>
-                            <SelectItem value="10">Last 10 years</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={goingBackYears}
+                          onChange={(e) => setGoingBackYears(e.target.value)}
+                          className="w-20"
+                        />
+                        <span className="text-sm text-slate-600">years</span>
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex gap-2 mt-4 pt-4 border-t border-slate-200">
+                <div className="mt-4 pt-4 border-t flex gap-2">
                   <Button variant="outline" size="sm" onClick={clearDateFilters}>
                     Clear Dates
                   </Button>
@@ -269,9 +268,9 @@ export default function Taxonomic() {
                 </div>
               </CollapsibleContent>
             </Collapsible>
-          </div>
-        </div>
-      </header>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
