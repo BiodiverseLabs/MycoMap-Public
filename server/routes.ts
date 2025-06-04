@@ -125,26 +125,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { startDate, endDate, dateRange, state } = req.query;
       
-      console.log(`[API] GET /api/metrics - dateRange: "${dateRange}", startDate: "${startDate}", endDate: "${endDate}", state: "${state}"`);
+      // Set cache headers for better performance
+      res.set('Cache-Control', 'public, max-age=300'); // 5 minute cache
       
       // Convert dateRange to actual dates
       let actualStartDate: string | undefined;
       let actualEndDate: string | undefined;
       
       if (dateRange === 'last_30_days') {
-        // Recent observations from 2025
         actualStartDate = '2025-01-01';
         actualEndDate = '2025-04-18';
       } else if (dateRange === 'last_6_months') {
-        // Last 6 months of data
         actualStartDate = '2024-10-01';
         actualEndDate = '2025-04-18';
       } else if (dateRange === 'last_year') {
-        // All 2024-2025 data
         actualStartDate = '2024-01-01';
         actualEndDate = '2025-04-18';
       } else if (dateRange === 'all_time') {
-        // Don't set date filters for all time
         actualStartDate = undefined;
         actualEndDate = undefined;
       } else if (startDate && endDate) {
@@ -152,10 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actualEndDate = endDate as string;
       }
       
-      console.log(`[API] Calculated dates - actualStartDate: "${actualStartDate}", actualEndDate: "${actualEndDate}"`);
-      
       const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate, state as string);
-      console.log(`[API] Metrics result:`, metrics);
       res.json(metrics);
     } catch (error) {
       console.error("Error fetching metrics:", error);
