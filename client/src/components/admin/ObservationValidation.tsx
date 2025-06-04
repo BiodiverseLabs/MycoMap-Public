@@ -463,6 +463,8 @@ export function ObservationValidation() {
   };
 
   const getSourceName = (source: string | null) => {
+    if (source?.toLowerCase() === 'inaturalist') return 'iNaturalist';
+    if (source?.toLowerCase() === 'mo') return 'Mushroom Observer';
     return source || 'Other';
   };
 
@@ -502,7 +504,7 @@ export function ObservationValidation() {
           Observation Validation
         </CardTitle>
         <p className="text-sm text-slate-600">
-          Validate and sync observation data with external sources like iNaturalist
+          Validate and sync observation data with external sources like iNaturalist and Mushroom Observer
         </p>
       </CardHeader>
       <CardContent>
