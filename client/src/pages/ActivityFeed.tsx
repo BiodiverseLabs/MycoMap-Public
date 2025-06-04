@@ -421,7 +421,7 @@ export default function ActivityFeed() {
                           </Badge>
                         )}
                         {record.isFirstInState && (
-                          <Badge variant="secondary">
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
                             <Flag className="w-3 h-3 mr-1" />
                             State First
                           </Badge>
