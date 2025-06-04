@@ -285,6 +285,39 @@ export const inaturalistData = pgTable("inaturalist_data", {
   qualityIdx: index("inat_quality_idx").on(table.quality),
 }));
 
+// Mushroom Observer data table for API validation
+export const mushroomObserverData = pgTable("mushroom_observer_data", {
+  id: serial("id").primaryKey(),
+  observationId: text("observation_id").notNull().unique(),
+  moId: text("mo_id").notNull(), // Mushroom Observer ID
+  moUuid: text("mo_uuid"),
+  scientificName: text("scientific_name"),
+  commonName: text("common_name"),
+  observer: text("observer"),
+  observedOn: text("observed_on"),
+  location: text("location"),
+  state: text("state"),
+  country: text("country"),
+  latitude: numeric("latitude"),
+  longitude: numeric("longitude"),
+  photos: text("photos").array(),
+  confidence: text("confidence"),
+  vote: text("vote"),
+  quality: text("quality"),
+  isCollection: boolean("is_collection"),
+  specimenAvailable: boolean("specimen_available"),
+  notes: text("notes"),
+  syncStatus: text("sync_status").default('pending'),
+  syncError: text("sync_error"),
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  observationIdx: index("mo_observation_idx").on(table.observationId),
+  moIdIdx: index("mo_id_idx").on(table.moId),
+  syncStatusIdx: index("mo_sync_status_idx").on(table.syncStatus),
+}));
+
 // Relations
 export const observationsRelations = relations(observations, ({ one }) => ({
   contributor: one(contributors, {
@@ -343,6 +376,13 @@ export const insertInaturalistPlaceSchema = createInsertSchema(inaturalistPlaces
   updatedAt: true,
 });
 
+export const insertMushroomObserverDataSchema = createInsertSchema(mushroomObserverData).omit({
+  id: true,
+  lastSyncedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertObservation = z.infer<typeof insertObservationSchema>;
 export type Observation = typeof observations.$inferSelect;
@@ -367,6 +407,9 @@ export type InaturalistData = typeof inaturalistData.$inferSelect;
 
 export type InsertInaturalistPlace = z.infer<typeof insertInaturalistPlaceSchema>;
 export type InaturalistPlace = typeof inaturalistPlaces.$inferSelect;
+
+export type InsertMushroomObserverData = z.infer<typeof insertMushroomObserverDataSchema>;
+export type MushroomObserverData = typeof mushroomObserverData.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
