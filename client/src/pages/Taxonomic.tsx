@@ -56,6 +56,18 @@ export default function Taxonomic() {
     setCollectorSearch(value);
   };
 
+  const handleContributorSearch = (query: string) => {
+    setCollectorSearch(query);
+    if (query.length === 0) {
+      setCollectorQuery("");
+    }
+  };
+
+  const handleSuggestionSelect = (suggestion: string) => {
+    setCollectorSearch(suggestion);
+    setCollectorQuery(suggestion);
+  };
+
   const handleStateSelect = (state: string) => {
     setSelectedState(state === "all" ? null : state);
   };
@@ -178,8 +190,8 @@ export default function Taxonomic() {
               <Label htmlFor="collector-search" className="text-sm font-medium text-slate-700">Collector:</Label>
               <AutocompleteInput
                 value={collectorSearch}
-                onChange={setCollectorSearch}
-                onSearch={setCollectorSearch}
+                onChange={handleContributorSearch}
+                onSearch={handleContributorSearch}
                 suggestions={filteredContributors.map((contributor: any) => contributor.name)}
                 placeholder="Search contributors..."
                 className="w-64"
