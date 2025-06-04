@@ -104,6 +104,12 @@ export const observations = pgTable("observations", {
   observedStateIdx: index("observed_state_idx").on(table.observedOn, table.state),
   // Composite index for species frequency analysis
   speciesCountIdx: index("species_count_idx").on(table.scientificName, table.observedOn),
+  // Index for validation page source filtering
+  sourceIdx: index("source_idx").on(table.source),
+  // Index for observation ID lookups (used heavily in validation)
+  observationIdIdx: index("observation_id_idx").on(table.observationId),
+  // Composite index for validation queries (source + observationId)
+  sourceObservationIdx: index("source_observation_idx").on(table.source, table.observationId),
 }));
 
 export const uploads = pgTable("uploads", {
