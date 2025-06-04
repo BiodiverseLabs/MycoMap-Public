@@ -94,6 +94,7 @@ export interface IStorage {
     isFirstGlobal: boolean;
     isFirstInState: boolean;
     collector: string;
+    thumbnailUrl?: string;
   }>>;
   
   // Data management

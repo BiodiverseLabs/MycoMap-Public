@@ -749,6 +749,7 @@ export class DatabaseStorage implements IStorage {
     isFirstGlobal: boolean;
     isFirstInState: boolean;
     collector: string;
+    thumbnailUrl?: string;
   }>> {
     let whereConditions = [
       sql`${observations.scientificName} IS NOT NULL`,
@@ -787,32 +788,38 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       WITH global_rankings AS (
         SELECT 
-          ${observations.id} as id,
-          ${observations.scientificName} as species,
-          ${observations.state} as state,
-          ${observations.observedOn} as "reportDate",
-          COALESCE(${observations.source}, 'Unknown') as source,
-          COALESCE(${observations.observationId}, 'N/A') as "referenceNumber",
-          COALESCE(${observations.collector}, 'Unknown') as collector,
+          o.${observations.id} as id,
+          o.${observations.scientificName} as species,
+          o.${observations.state} as state,
+          o.${observations.observedOn} as "reportDate",
+          COALESCE(o.${observations.source}, 'Unknown') as source,
+          COALESCE(o.${observations.observationId}, 'N/A') as "referenceNumber",
+          COALESCE(o.${observations.collector}, 'Unknown') as collector,
+          CASE 
+            WHEN inat.photos IS NOT NULL AND array_length(inat.photos, 1) > 0 
+            THEN inat.photos[1]
+            ELSE NULL 
+          END as thumbnail_url,
           ROW_NUMBER() OVER (
-            ORDER BY ${observations.observedOn}, ${observations.scientificName}
+            ORDER BY o.${observations.observedOn}, o.${observations.scientificName}
           ) as "datasetRecordNumber",
           ROW_NUMBER() OVER (
-            PARTITION BY ${observations.scientificName}, ${observations.state}
-            ORDER BY ${observations.observedOn}
+            PARTITION BY o.${observations.scientificName}, o.${observations.state}
+            ORDER BY o.${observations.observedOn}
           ) as "stateRecordNumber",
           ROW_NUMBER() OVER (
-            PARTITION BY ${observations.scientificName}
-            ORDER BY ${observations.observedOn}
+            PARTITION BY o.${observations.scientificName}
+            ORDER BY o.${observations.observedOn}
           ) as species_rank_global,
           ROW_NUMBER() OVER (
-            PARTITION BY ${observations.scientificName}, ${observations.state}
-            ORDER BY ${observations.observedOn}
+            PARTITION BY o.${observations.scientificName}, o.${observations.state}
+            ORDER BY o.${observations.observedOn}
           ) as species_rank_state
-        FROM ${observations}
-        WHERE ${observations.scientificName} IS NOT NULL 
-          AND ${observations.scientificName} != '' 
-          AND ${observations.observedOn} IS NOT NULL
+        FROM ${observations} o
+        LEFT JOIN ${inaturalistData} inat ON o.${observations.observationId} = inat.${inaturalistData.observationId}
+        WHERE o.${observations.scientificName} IS NOT NULL 
+          AND o.${observations.scientificName} != '' 
+          AND o.${observations.observedOn} IS NOT NULL
       ),
       ranked_observations AS (
         SELECT * FROM global_rankings
@@ -842,6 +849,7 @@ export class DatabaseStorage implements IStorage {
         source,
         "referenceNumber",
         collector,
+        thumbnail_url as "thumbnailUrl",
         "datasetRecordNumber",
         "stateRecordNumber",
         CASE WHEN species_rank_global = 1 THEN true ELSE false END as "isFirstGlobal",
@@ -866,6 +874,7 @@ export class DatabaseStorage implements IStorage {
       source: string;
       referenceNumber: string;
       collector: string;
+      thumbnailUrl?: string;
       datasetRecordNumber: number;
       stateRecordNumber: number;
       isFirstGlobal: boolean;
