@@ -827,8 +827,10 @@ export function ObservationValidation() {
                               {obs.scientificName}
                             </span>
                           </div>
-                          {getSyncStatusBadge(obs.inatSyncStatus, obs.hasInatData)}
-                          {obs.source === 'MO Observations' && getSyncStatusBadge(obs.moSyncStatus || null, obs.hasMoData || false)}
+                          {obs.source === 'MO Observations' ? 
+                            getSyncStatusBadge(obs.moSyncStatus || null, obs.hasMoData || false) :
+                            getSyncStatusBadge(obs.inatSyncStatus, obs.hasInatData)
+                          }
                           <Badge variant="outline" className="text-xs">
                             {getSourceName(obs.source)}
                           </Badge>
