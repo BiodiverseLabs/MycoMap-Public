@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Activity, MapPin, Calendar, User, Globe, Flag, Search, Filter, ExternalLink } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { Activity, MapPin, Calendar, User, Globe, Flag, Search, Filter, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 
 interface RecordItem {
   id: number;
@@ -30,6 +33,9 @@ export default function ActivityFeed() {
   const [endDate, setEndDate] = useState<string>('');
   const [speciesFilter, setSpeciesFilter] = useState<string>('all');
   const [collectorFilter, setCollectorFilter] = useState<string>('all');
+  const [collectorSearch, setCollectorSearch] = useState<string>('');
+  const [goingBackYears, setGoingBackYears] = useState<string>('0');
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(false);
 
   // Fetch states for filter dropdown
   const { data: statesData } = useQuery({
@@ -40,6 +46,60 @@ export default function ActivityFeed() {
       return response.json();
     },
   });
+
+  // Fetch all states for dropdown
+  const { data: states = [] } = useQuery({
+    queryKey: ['/api/states'],
+    queryFn: async () => {
+      const response = await fetch('/api/states');
+      if (!response.ok) throw new Error('Failed to fetch states');
+      return response.json();
+    },
+  });
+
+  // Fetch contributors for autocomplete
+  const { data: contributors = [] } = useQuery({
+    queryKey: ['/api/contributors'],
+    queryFn: async () => {
+      const response = await fetch('/api/contributors');
+      if (!response.ok) throw new Error('Failed to fetch contributors');
+      return response.json();
+    },
+  });
+
+  // Filter contributors based on search input
+  const filteredContributors = contributors.filter((contributor: any) =>
+    contributor.name.toLowerCase().includes(collectorSearch.toLowerCase())
+  );
+
+  // Handle state selection
+  const handleStateSelect = (value: string) => {
+    setSelectedState(value === 'all' ? 'all' : value);
+  };
+
+  // Handle contributor search
+  const handleContributorSearch = (value: string) => {
+    setCollectorSearch(value);
+    setCollectorFilter(value || 'all');
+  };
+
+  // Clear date filters
+  const clearDateFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setGoingBackYears('0');
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedState('all');
+    setStartDate('');
+    setEndDate('');
+    setSpeciesFilter('all');
+    setCollectorFilter('all');
+    setCollectorSearch('');
+    setGoingBackYears('0');
+  };
 
 
 
@@ -151,113 +211,160 @@ export default function ActivityFeed() {
   return (
     <div className="flex flex-col h-full">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-              <Activity className="w-6 h-6" />
-              Activity Feed
-            </h2>
-            <p className="text-slate-600 mt-1">
-              Real-time stream of recent observations and discoveries
-            </p>
-          </div>
-        </div>
-
-        {/* Filter Controls - Mobile Optimized */}
-        <div className="space-y-3">
-          {/* Record Type Filters - Most Important, Always Visible */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={filter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('all')}
-            >
-              All Records
-            </Button>
-            <Button
-              variant={filter === 'global' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('global')}
-            >
-              <Globe className="w-4 h-4 mr-1" />
-              Global Firsts
-            </Button>
-            <Button
-              variant={filter === 'state' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('state')}
-            >
-              <Flag className="w-4 h-4 mr-1" />
-              State Firsts
-            </Button>
-          </div>
-
-          {/* Search Filters - Compact Grid Layout */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* State Filter */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              <Select value={selectedState} onValueChange={setSelectedState}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All States" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All States</SelectItem>
-                  {statesData?.sort((a: any, b: any) => a.state.localeCompare(b.state)).map((state: any) => (
-                    <SelectItem key={state.state} value={state.state}>
-                      {state.state} ({state.count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Species Filter */}
-            <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              <Input
-                type="text"
-                placeholder="Species..."
-                value={speciesFilter === 'all' ? '' : speciesFilter}
-                onChange={(e) => setSpeciesFilter(e.target.value || 'all')}
-                className="w-full"
-              />
-            </div>
-
-            {/* Collector Filter */}
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              <Input
-                type="text"
-                placeholder="Collector..."
-                value={collectorFilter === 'all' ? '' : collectorFilter}
-                onChange={(e) => setCollectorFilter(e.target.value || 'all')}
-                className="w-full"
-              />
-            </div>
-
-            {/* Date Range - Compact */}
-            <div className="flex items-center gap-1">
-              <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full text-xs"
-                title="Start Date"
-              />
-              <span className="text-slate-400 text-xs">to</span>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full text-xs"
-                title="End Date"
-              />
-            </div>
-          </div>
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
+            <Activity className="w-6 h-6" />
+            Activity Feed
+          </h2>
+          <p className="text-slate-600 mt-1">
+            Real-time stream of recent observations and discoveries
+          </p>
         </div>
       </header>
+
+      <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+        {/* Record Type Filters - Always Visible */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Button
+            variant={filter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('all')}
+          >
+            All Records
+          </Button>
+          <Button
+            variant={filter === 'global' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('global')}
+          >
+            <Globe className="w-4 h-4 mr-1" />
+            Global Firsts
+          </Button>
+          <Button
+            variant={filter === 'state' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('state')}
+          >
+            <Flag className="w-4 h-4 mr-1" />
+            State Firsts
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-4">
+            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <span>Filters</span>
+                  </div>
+                  {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Search and Location */}
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Search by species name..."
+                        value={speciesFilter === 'all' ? '' : speciesFilter}
+                        onChange={(e) => setSpeciesFilter(e.target.value || 'all')}
+                        className="pl-10"
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
+                      <Select value={selectedState} onValueChange={handleStateSelect}>
+                        <SelectTrigger className="pl-10">
+                          <SelectValue placeholder="All States" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All States</SelectItem>
+                          {states.map((state: string) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Search by Collector</Label>
+                      <AutocompleteInput
+                        value={collectorSearch}
+                        onChange={handleContributorSearch}
+                        placeholder="Type collector name..."
+                        suggestions={filteredContributors.map((contributor: any) => contributor.name)}
+                        onSearch={handleContributorSearch}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column - Date Controls */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar className="h-4 w-4 text-slate-500" />
+                        <Label className="text-sm font-medium">Dates</Label>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Date Range</Label>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>Between</span>
+                          <Input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="flex-1"
+                          />
+                          <span>and</span>
+                          <Input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Going Back</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={goingBackYears}
+                          onChange={(e) => setGoingBackYears(e.target.value)}
+                          className="w-20"
+                        />
+                        <span className="text-sm text-slate-600">years</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t flex gap-2">
+                  <Button variant="outline" size="sm" onClick={clearDateFilters}>
+                    Clear Dates
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                    Clear All
+                  </Button>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto space-y-4">
