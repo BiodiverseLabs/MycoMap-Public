@@ -148,24 +148,28 @@ export function Sidebar() {
 
           {/* Admin Section */}
           <div className="space-y-1">
-            <button
-              onClick={() => setIsAdminExpanded(!isAdminExpanded)}
-              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg font-medium text-left ${
+            <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
                 location.startsWith('/admin')
                   ? "bg-primary/10 text-primary"
                   : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <Settings className="w-5 h-5" />
-                <span>Admin</span>
-              </div>
-              {isAdminExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
+              }`}>
+              <Link href="/admin" className="flex-1">
+                <div className="flex items-center space-x-3 px-3 py-2">
+                  <Settings className="w-5 h-5" />
+                  <span>Admin</span>
+                </div>
+              </Link>
+              <button
+                onClick={() => setIsAdminExpanded(!isAdminExpanded)}
+                className="px-2 py-2 hover:bg-slate-200 rounded-r-lg"
+              >
+                {isAdminExpanded ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
+            </div>
             
             {isAdminExpanded && (
               <div className="ml-6 space-y-1 bg-white">
@@ -248,24 +252,28 @@ export function Sidebar() {
 
           {/* Admin Section - Mobile */}
           <div className="space-y-1">
-            <button
-              onClick={() => setIsAdminExpanded(!isAdminExpanded)}
-              className={`flex items-center justify-between w-full px-3 py-3 rounded-lg font-medium text-left ${
+            <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
                 location.startsWith('/admin')
                   ? "bg-primary/10 text-primary"
                   : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <Settings className="w-5 h-5" />
-                <span>Admin</span>
-              </div>
-              {isAdminExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
+              }`}>
+              <Link href="/admin" className="flex-1">
+                <div className="flex items-center space-x-3 px-3 py-3">
+                  <Settings className="w-5 h-5" />
+                  <span>Admin</span>
+                </div>
+              </Link>
+              <button
+                onClick={() => setIsAdminExpanded(!isAdminExpanded)}
+                className="px-2 py-3 hover:bg-slate-200 rounded-r-lg"
+              >
+                {isAdminExpanded ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
+            </div>
             
             {isAdminExpanded && (
               <div className="ml-6 space-y-1">
