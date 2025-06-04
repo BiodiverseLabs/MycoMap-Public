@@ -22,6 +22,7 @@ interface RecordItem {
   isFirstGlobal: boolean;
   isFirstInState: boolean;
   collector: string;
+  thumbnailUrl?: string;
 }
 
 const RECORDS_PER_PAGE = 20;
@@ -392,7 +393,21 @@ export default function ActivityFeed() {
           {allRecords.map((record: RecordItem, index: number) => (
             <Card key={`${record.id}-${record.datasetRecordNumber}-${index}`} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  {/* Thumbnail */}
+                  {record.thumbnailUrl && (
+                    <div className="flex-shrink-0">
+                      <img 
+                        src={record.thumbnailUrl} 
+                        alt={`${record.species} observation`}
+                        className="w-16 h-16 rounded-lg object-cover border border-slate-200"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="font-medium text-slate-900 italic">

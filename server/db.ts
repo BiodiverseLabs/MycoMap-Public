@@ -751,95 +751,90 @@ export class DatabaseStorage implements IStorage {
     collector: string;
     thumbnailUrl?: string;
   }>> {
-    let whereConditions = [
-      sql`${observations.scientificName} IS NOT NULL`,
-      sql`${observations.scientificName} != ''`,
-      sql`${observations.observedOn} IS NOT NULL`
-    ];
+    // Since we're using raw SQL, we need to handle where conditions differently
+    let filterConditions = [];
     
     if (state) {
-      whereConditions.push(sql`${observations.state} = ${state}`);
+      filterConditions.push(`state = '${state}'`);
     }
 
     if (startDate) {
-      whereConditions.push(sql`${observations.observedOn} >= ${startDate}`);
+      filterConditions.push(`"reportDate" >= '${startDate}'`);
     }
 
     if (endDate) {
-      whereConditions.push(sql`${observations.observedOn} <= ${endDate}`);
+      filterConditions.push(`"reportDate" <= '${endDate}'`);
     }
 
     if (species) {
-      // More precise species search - exact match or starts with the search term
-      whereConditions.push(sql`(
-        LOWER(${observations.scientificName}) = LOWER(${species}) OR
-        LOWER(${observations.scientificName}) LIKE LOWER(${species + ' %'}) OR
-        LOWER(${observations.scientificName}) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
+      filterConditions.push(`(
+        LOWER(species) = LOWER('${species}') OR
+        LOWER(species) LIKE LOWER('${species} %') OR
+        LOWER(species) LIKE LOWER('${species.replace(/['"]/g, '')}%')
       )`);
     }
 
     if (collector) {
-      // Search collector field with partial matching
-      whereConditions.push(sql`LOWER(${observations.collector}) LIKE LOWER(${'%' + collector + '%'})`);
+      filterConditions.push(`LOWER(collector) LIKE LOWER('%${collector}%')`);
     }
     
-    const baseWhereClause = sql.join(whereConditions, sql` AND `);
+    // Build the complete SQL query as a string to avoid mixing Drizzle and raw SQL
+    let whereClause = '';
+    let finalWhereClause = '';
     
-    const result = await db.execute(sql`
+    if (filterConditions.length > 0) {
+      whereClause = `WHERE ${filterConditions.join(' AND ')}`;
+    }
+    
+    if (globalFirstsOnly) {
+      finalWhereClause = 'WHERE species_rank_global = 1';
+    } else if (stateFirstsOnly) {
+      finalWhereClause = 'WHERE species_rank_state = 1';
+    } else if (recent) {
+      finalWhereClause = 'WHERE (species_rank_global = 1 OR species_rank_state = 1)';
+    }
+    
+    const orderBy = recent ? 'ORDER BY "reportDate" DESC' : 'ORDER BY "datasetRecordNumber"';
+    
+    const result = await db.execute(sql.raw(`
       WITH global_rankings AS (
         SELECT 
-          o.${observations.id} as id,
-          o.${observations.scientificName} as species,
-          o.${observations.state} as state,
-          o.${observations.observedOn} as "reportDate",
-          COALESCE(o.${observations.source}, 'Unknown') as source,
-          COALESCE(o.${observations.observationId}, 'N/A') as "referenceNumber",
-          COALESCE(o.${observations.collector}, 'Unknown') as collector,
+          o.id as id,
+          o.scientific_name as species,
+          o.state as state,
+          o.observed_on as "reportDate",
+          COALESCE(o.source, 'Unknown') as source,
+          COALESCE(o.observation_id, 'N/A') as "referenceNumber",
+          COALESCE(o.collector, 'Unknown') as collector,
           CASE 
             WHEN inat.photos IS NOT NULL AND array_length(inat.photos, 1) > 0 
             THEN inat.photos[1]
             ELSE NULL 
           END as thumbnail_url,
           ROW_NUMBER() OVER (
-            ORDER BY o.${observations.observedOn}, o.${observations.scientificName}
+            ORDER BY o.observed_on, o.scientific_name
           ) as "datasetRecordNumber",
           ROW_NUMBER() OVER (
-            PARTITION BY o.${observations.scientificName}, o.${observations.state}
-            ORDER BY o.${observations.observedOn}
+            PARTITION BY o.scientific_name, o.state
+            ORDER BY o.observed_on
           ) as "stateRecordNumber",
           ROW_NUMBER() OVER (
-            PARTITION BY o.${observations.scientificName}
-            ORDER BY o.${observations.observedOn}
+            PARTITION BY o.scientific_name
+            ORDER BY o.observed_on
           ) as species_rank_global,
           ROW_NUMBER() OVER (
-            PARTITION BY o.${observations.scientificName}, o.${observations.state}
-            ORDER BY o.${observations.observedOn}
+            PARTITION BY o.scientific_name, o.state
+            ORDER BY o.observed_on
           ) as species_rank_state
-        FROM ${observations} o
-        LEFT JOIN ${inaturalistData} inat ON o.${observations.observationId} = inat.${inaturalistData.observationId}
-        WHERE o.${observations.scientificName} IS NOT NULL 
-          AND o.${observations.scientificName} != '' 
-          AND o.${observations.observedOn} IS NOT NULL
+        FROM observations o
+        LEFT JOIN inaturalist_data inat ON o.observation_id = inat.observation_id
+        WHERE o.scientific_name IS NOT NULL 
+          AND o.scientific_name != '' 
+          AND o.observed_on IS NOT NULL
       ),
       ranked_observations AS (
         SELECT * FROM global_rankings
-        WHERE ${(() => {
-          const conditions = [];
-          if (state) conditions.push(sql`state = ${state}`);
-          if (startDate) conditions.push(sql`"reportDate" >= ${startDate}`);
-          if (endDate) conditions.push(sql`"reportDate" <= ${endDate}`);
-          if (species) {
-            conditions.push(sql`(
-              LOWER(species) = LOWER(${species}) OR
-              LOWER(species) LIKE LOWER(${species + ' %'}) OR
-              LOWER(species) LIKE LOWER(${species.replace(/['"]/g, '') + '%'})
-            )`);
-          }
-          if (collector) {
-            conditions.push(sql`LOWER(collector) LIKE LOWER(${'%' + collector + '%'})`);
-          }
-          return conditions.length > 0 ? sql.join(conditions, sql` AND `) : sql`1=1`;
-        })()}
+        ${whereClause}
       )
       SELECT 
         id,
@@ -855,16 +850,10 @@ export class DatabaseStorage implements IStorage {
         CASE WHEN species_rank_global = 1 THEN true ELSE false END as "isFirstGlobal",
         CASE WHEN species_rank_state = 1 THEN true ELSE false END as "isFirstInState"
       FROM ranked_observations
-      ${(() => {
-        const conditions = [];
-        if (globalFirstsOnly) conditions.push(sql`species_rank_global = 1`);
-        else if (stateFirstsOnly) conditions.push(sql`species_rank_state = 1`);
-        else if (recent) conditions.push(sql`(species_rank_global = 1 OR species_rank_state = 1)`);
-        return conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
-      })()}
-      ORDER BY ${recent ? sql`"reportDate" DESC` : sql`"datasetRecordNumber"`}
+      ${finalWhereClause}
+      ${orderBy}
       LIMIT ${limit} OFFSET ${offset}
-    `);
+    `));
     
     return result.rows as Array<{
       id: number;
