@@ -68,6 +68,7 @@ export function ObservationValidation() {
   const [limit, setLimit] = useState(50);
   const [expandedComparisons, setExpandedComparisons] = useState<Set<number>>(new Set());
   const [showProgress, setShowProgress] = useState(false);
+  const [syncingObservations, setSyncingObservations] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -317,8 +318,11 @@ export function ObservationValidation() {
     mutationFn: async (observationId: string) => {
       console.log(`[Frontend] Starting sync for observation: ${observationId}`);
       
+      // Add to syncing set
+      setSyncingObservations(prev => new Set(prev).add(observationId));
+      
       // Find the observation to determine its source
-      const observation = observations.find(obs => obs.observationId === observationId);
+      const observation = observations?.find((obs: ValidationObservation) => obs.observationId === observationId);
       if (!observation) {
         throw new Error('Observation not found');
       }
@@ -357,6 +361,12 @@ export function ObservationValidation() {
         description: `Observation ${observationId} synced with ${sourceName} successfully!`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/observations/validation'] });
+      // Remove from syncing set
+      setSyncingObservations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(observationId);
+        return newSet;
+      });
     },
     onError: (error, observationId) => {
       console.error(`[Frontend] Sync failed for ${observationId}:`, error);
@@ -364,6 +374,12 @@ export function ObservationValidation() {
         title: "Sync Failed", 
         description: `Failed to sync observation ${observationId}: ${error.message}`,
         variant: "destructive",
+      });
+      // Remove from syncing set
+      setSyncingObservations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(observationId);
+        return newSet;
       });
     }
   });
