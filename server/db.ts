@@ -2275,10 +2275,15 @@ export class DatabaseStorage implements IStorage {
         moUuid: observation.uuid,
         scientificName: observation.consensus?.name || observation.name?.text_name,
         commonName: observation.consensus?.name || null,
-        observer: observation.user?.login || observation.user?.name,
-        observedOn: observation.when,
+        observer: observation.owner?.login_name || observation.owner?.legal_name || observation.user?.login || observation.user?.name,
+        observedOn: observation.date || observation.when,
         location: observation.location?.name,
-        state: observation.location?.state,
+        state: observation.location?.name ? 
+          (observation.location.name.includes(', Arizona,') ? 'Arizona' :
+           observation.location.name.includes(', California,') ? 'California' :
+           observation.location.name.includes(', Oregon,') ? 'Oregon' :
+           observation.location.name.includes(', Washington,') ? 'Washington' :
+           observation.location.name.split(', ').slice(-2, -1)[0] || null) : null,
         country: observation.location?.country,
         latitude: observation.lat ? observation.lat.toString() : null,
         longitude: observation.lng ? observation.lng.toString() : null,
