@@ -2306,6 +2306,20 @@ export class DatabaseStorage implements IStorage {
         lastSyncedAt: new Date()
       };
 
+      // Save the full MO API response as a text file
+      try {
+        console.log(`[MushroomObserver] Saving API response for ${observationId}`);
+        const apiSaveResult = await blastDownloader.saveMoApiResponse(observationId, observation);
+        
+        if (apiSaveResult.success) {
+          moRecord.apiFile = apiSaveResult.apiFilePath;
+          moRecord.apiSaveDate = new Date();
+          console.log(`[MushroomObserver] API response saved: ${apiSaveResult.apiFilePath}`);
+        }
+      } catch (apiError) {
+        console.error(`[MushroomObserver] Failed to save API response for ${observationId}:`, apiError);
+      }
+
       if (existing.length > 0) {
         await this.updateMushroomObserverData(observationId, moRecord);
         const [updated] = await db.select()
