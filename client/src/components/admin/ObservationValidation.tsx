@@ -67,6 +67,21 @@ interface ValidationObservation {
   // Mushroom Observer DNA sequence data
   moDnaBarcode?: string | null;
   moSequenceNotes?: string | null;
+  // MyCoPortal data
+  hasMycoportalData?: boolean;
+  mycoportalCatalogNumber?: string | null;
+  mycoportalSyncStatus?: 'pending' | 'success' | 'error' | null;
+  mycoportalLastSynced?: string | null;
+  mycoportalSyncError?: string | null;
+  // MyCoPortal comparison data
+  mycoportalScientificName?: string | null;
+  mycoportalRecordedBy?: string | null;
+  mycoportalEventDate?: string | null;
+  mycoportalState?: string | null;
+  // MyCoPortal API file tracking
+  mycoportalApiSaved?: boolean;
+  mycoportalApiFile?: string | null;
+  mycoportalApiSaveDate?: string | null;
 }
 
 interface SyncProgress {
@@ -366,8 +381,10 @@ export function ObservationValidation() {
         syncEndpoint = `/api/mushroom-observer/sync/${observationId}`;
       } else if (observation.source?.toLowerCase() === 'inaturalist') {
         syncEndpoint = `/api/inaturalist/sync/${observationId}`;
+      } else if (observation.source?.toLowerCase() === 'mycoportal') {
+        syncEndpoint = `/api/sync/mycoportal/${observationId}`;
       } else {
-        throw new Error('Only iNaturalist and Mushroom Observer observations can be synced');
+        throw new Error('Only iNaturalist, Mushroom Observer, and MyCoPortal observations can be synced');
       }
       
       const response = await fetch(syncEndpoint, {
@@ -388,7 +405,8 @@ export function ObservationValidation() {
       console.log(`[Frontend] Sync successful for ${observationId}:`, data);
       const source = data?.source || 'external source';
       const sourceName = source.toLowerCase() === 'mo' ? 'Mushroom Observer' : 
-                        source.toLowerCase() === 'inaturalist' ? 'iNaturalist' : source;
+                        source.toLowerCase() === 'inaturalist' ? 'iNaturalist' :
+                        source.toLowerCase() === 'mycoportal' ? 'MyCoPortal' : source;
       toast({
         title: "Success",
         description: `Observation ${observationId} synced with ${sourceName} successfully!`,
@@ -1253,16 +1271,17 @@ export function ObservationValidation() {
                             console.log('Refresh clicked for:', obs.observationId, 'Source:', getSourceName(obs.source));
                             handleSync(obs.observationId);
                           }}
-                          disabled={syncingObservations.has(obs.observationId) || (obs.source?.toLowerCase() !== 'inaturalist' && obs.source?.toLowerCase() !== 'mo observations')}
+                          disabled={syncingObservations.has(obs.observationId) || (obs.source?.toLowerCase() !== 'inaturalist' && obs.source?.toLowerCase() !== 'mo observations' && obs.source?.toLowerCase() !== 'mycoportal')}
                           className={`flex items-center gap-1 ${
-                            (obs.source?.toLowerCase() === 'inaturalist' || obs.source?.toLowerCase() === 'mo observations')
+                            (obs.source?.toLowerCase() === 'inaturalist' || obs.source?.toLowerCase() === 'mo observations' || obs.source?.toLowerCase() === 'mycoportal')
                               ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
                           title={
                             obs.source?.toLowerCase() === 'inaturalist' ? 'Refresh data from iNaturalist' :
                             obs.source?.toLowerCase() === 'mo observations' ? 'Refresh data from Mushroom Observer' :
-                            'Only iNaturalist and Mushroom Observer observations can be refreshed'
+                            obs.source?.toLowerCase() === 'mycoportal' ? 'Refresh data from MyCoPortal' :
+                            'Only iNaturalist, Mushroom Observer, and MyCoPortal observations can be refreshed'
                           }
                         >
                           <RefreshCw className={`w-3 h-3 ${syncingObservations.has(obs.observationId) ? 'animate-spin' : ''}`} />
