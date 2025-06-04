@@ -99,7 +99,7 @@ export function Sidebar() {
       )}
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white shadow-sm border-r border-slate-200 flex-col">
+      <aside className="hidden lg:flex w-64 bg-white shadow-sm border-r border-slate-200 flex-col relative z-10">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center space-x-3">
             <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center overflow-hidden">
@@ -112,7 +112,7 @@ export function Sidebar() {
           </div>
         </div>
         
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
@@ -134,7 +134,7 @@ export function Sidebar() {
           })}
         </nav>
         
-        <div className="p-4 border-t border-slate-200 space-y-2">
+        <div className="p-4 border-t border-slate-200 space-y-2 bg-white">
           <Link href="/updates">
             <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left ${
               location === "/updates" || location.startsWith("/updates")
@@ -168,7 +168,7 @@ export function Sidebar() {
             </button>
             
             {isAdminExpanded && (
-              <div className="ml-6 space-y-1">
+              <div className="ml-6 space-y-1 bg-white">
                 {adminItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
