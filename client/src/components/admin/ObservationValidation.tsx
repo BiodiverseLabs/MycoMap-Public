@@ -122,6 +122,15 @@ export function ObservationValidation() {
           const normalizedMycoMap = normalizeDate(mycoMapValue);
           const normalizedInat = normalizeDate(inatValue);
           
+          // Debug logging for date comparison
+          console.log('Date comparison:', {
+            mycoMapRaw: mycoMapValue,
+            inatRaw: inatValue,
+            mycoMapNormalized: normalizedMycoMap,
+            inatNormalized: normalizedInat,
+            match: normalizedMycoMap === normalizedInat
+          });
+          
           return normalizedMycoMap === normalizedInat;
         } catch (e) {
           // If date parsing fails, fall back to string comparison
