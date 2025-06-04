@@ -1587,7 +1587,12 @@ export class DatabaseStorage implements IStorage {
     sqlQuery += ` ORDER BY o.id DESC LIMIT $${queryParams.length + 1}`;
     queryParams.push(limit);
 
+    console.log('[DEBUG] Validation SQL Query:', sqlQuery);
+    console.log('[DEBUG] Query Parameters:', queryParams);
+    
     const result = await pool.query(sqlQuery, queryParams);
+    console.log('[DEBUG] Query returned', result.rows.length, 'rows');
+    
     return result.rows;
   }
 
