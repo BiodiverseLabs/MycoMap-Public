@@ -522,26 +522,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { state } = req.query;
       
-      // Get actual global first records from database
-      const records = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
-      const globalFirsts = records.filter(record => record.isFirstGlobal);
-      
-      // Group by state and count
-      const stateGroups = globalFirsts.reduce((acc, record) => {
-        if (state && record.state !== state) return acc;
-        acc[record.state] = (acc[record.state] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      
-      const total = Object.values(stateGroups).reduce((sum, count) => sum + count, 0);
-      
-      const data = Object.entries(stateGroups)
-        .map(([stateName, count]) => ({
-          state: stateName,
-          globalFirstCount: count,
-          percentage: total > 0 ? (count / total) * 100 : 0
-        }))
-        .sort((a, b) => b.globalFirstCount - a.globalFirstCount);
+      // Use optimized database method instead of fetching 50k+ records
+      const data = await storage.getStatesWithMostGlobalFirsts(state as string);
       
       res.json(data);
     } catch (error) {
@@ -553,49 +535,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contributors/global-firsts", async (req, res) => {
     try {
       const { state, limit } = req.query;
-      const limitNum = limit ? parseInt(limit as string) : 10000;
+      const limitNum = limit ? parseInt(limit as string) : 10;
       
-      // Get global first records from record index
-      const records = await storage.getRecordIndex(50000, 0, false, false, undefined, true);
-      const globalFirsts = records.filter(record => record.isFirstGlobal);
-      
-      // Filter by state if specified
-      const filteredRecords = state 
-        ? globalFirsts.filter(record => record.state === state)
-        : globalFirsts;
-      
-      // Get all observations to match observer names
-      const observations = await storage.getAllObservations();
-      
-      // Create a map of observation IDs to collector names
-      const collectorMap = new Map<number, string>();
-      observations.forEach(obs => {
-        if (obs.collector) {
-          collectorMap.set(obs.id, obs.collector);
-        }
-      });
-      
-      // Group by collector and count
-      const contributorGroups = filteredRecords.reduce((acc, record) => {
-        const collectorName = collectorMap.get(record.id);
-        if (collectorName) {
-          acc[collectorName] = (acc[collectorName] || 0) + 1;
-        }
-        return acc;
-      }, {} as Record<string, number>);
-      
-      const total = Object.values(contributorGroups).reduce((sum, count) => sum + count, 0);
-      
-      const data = Object.entries(contributorGroups)
-        .map(([name, count]) => ({
-          id: name.replace(/\s+/g, '_').toLowerCase(),
-          name: name,
-          affiliation: undefined,
-          globalFirstCount: count,
-          percentage: total > 0 ? (count / total) * 100 : 0
-        }))
-        .sort((a, b) => b.globalFirstCount - a.globalFirstCount)
-        .slice(0, limitNum);
+      // Use optimized database method instead of fetching 50k+ records
+      const data = await storage.getContributorsWithMostGlobalFirsts(limitNum, state as string);
       
       res.json(data);
     } catch (error) {
@@ -607,49 +550,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contributors/state-firsts", async (req, res) => {
     try {
       const { state, limit } = req.query;
-      const limitNum = limit ? parseInt(limit as string) : 10000;
+      const limitNum = limit ? parseInt(limit as string) : 10;
       
-      // Get state first records from record index
-      const records = await storage.getRecordIndex(50000, 0, true, false, undefined, false);
-      const stateFirsts = records.filter(record => record.isFirstInState);
+      // Create optimized query for state first records
+      const { observations, contributors } = schema;
       
-      // Filter by state if specified
-      const filteredRecords = state 
-        ? stateFirsts.filter(record => record.state === state)
-        : stateFirsts;
+      let query = db
+        .select({
+          id: contributors.id,
+          name: contributors.name,
+          affiliation: contributors.affiliation,
+          stateFirstCount: sql<number>`COUNT(*)`.as('stateFirstCount')
+        })
+        .from(observations)
+        .innerJoin(contributors, eq(observations.contributorId, contributors.id))
+        .where(eq(observations.isFirstStateRecord, true))
+        .groupBy(contributors.id, contributors.name, contributors.affiliation)
+        .orderBy(sql`COUNT(*) DESC`)
+        .limit(limitNum);
+
+      if (state) {
+        query = query.where(and(
+          eq(observations.isFirstStateRecord, true),
+          eq(observations.state, state)
+        ));
+      }
+
+      const results = await query;
       
-      // Get all observations to match observer names
-      const observations = await storage.getAllObservations();
+      // Calculate total state firsts for percentage calculation
+      const totalStateFirsts = results.reduce((sum, item) => sum + item.stateFirstCount, 0);
       
-      // Create a map of observation IDs to collector names
-      const collectorMap = new Map<number, string>();
-      observations.forEach(obs => {
-        if (obs.collector) {
-          collectorMap.set(obs.id, obs.collector);
-        }
-      });
-      
-      // Group by collector and count
-      const contributorGroups = filteredRecords.reduce((acc, record) => {
-        const collectorName = collectorMap.get(record.id);
-        if (collectorName) {
-          acc[collectorName] = (acc[collectorName] || 0) + 1;
-        }
-        return acc;
-      }, {} as Record<string, number>);
-      
-      const total = Object.values(contributorGroups).reduce((sum, count) => sum + count, 0);
-      
-      const data = Object.entries(contributorGroups)
-        .map(([name, count]) => ({
-          id: name.replace(/\s+/g, '_').toLowerCase(),
-          name: name,
-          affiliation: undefined,
-          stateFirstCount: count,
-          percentage: total > 0 ? (count / total) * 100 : 0
-        }))
-        .sort((a, b) => b.stateFirstCount - a.stateFirstCount)
-        .slice(0, limitNum);
+      const data = results.map(item => ({
+        id: item.id.toString(),
+        name: item.name,
+        affiliation: item.affiliation || undefined,
+        stateFirstCount: item.stateFirstCount,
+        percentage: totalStateFirsts > 0 ? (item.stateFirstCount / totalStateFirsts) * 100 : 0
+      }));
       
       res.json(data);
     } catch (error) {
