@@ -16,8 +16,7 @@ import {
   Shield,
   Database,
   Upload,
-  ChevronDown,
-  ChevronRight
+
 } from "lucide-react";
 import { Button } from "./button";
 import { useState, useEffect } from "react";
@@ -25,7 +24,6 @@ import { useState, useEffect } from "react";
 export function Sidebar() {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAdminExpanded, setIsAdminExpanded] = useState(false);
 
   const navigationItems = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -46,12 +44,7 @@ export function Sidebar() {
     { href: "/admin/settings", label: "System Settings", icon: Settings },
   ];
 
-  // Check if admin section should be expanded
-  useEffect(() => {
-    if (location.startsWith('/admin')) {
-      setIsAdminExpanded(true);
-    }
-  }, [location]);
+
 
   // Close mobile menu when location changes
   useEffect(() => {
@@ -148,48 +141,31 @@ export function Sidebar() {
 
           {/* Admin Section */}
           <div className="space-y-1">
-            <button
-              onClick={() => setIsAdminExpanded(!isAdminExpanded)}
-              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg font-medium text-left ${
-                location.startsWith('/admin')
-                  ? "bg-primary/10 text-primary"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <Settings className="w-5 h-5" />
-                <span>Admin</span>
-              </div>
-              {isAdminExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
+            <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Admin
+            </div>
             
-            {isAdminExpanded && (
-              <div className="ml-6 space-y-1">
-                {adminItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location === item.href;
-                  
-                  return (
-                    <Link key={item.href} href={item.href}>
-                      <div
-                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
-                          isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+            <div className="space-y-1">
+              {adminItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location === item.href;
+                
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <a
+                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left text-sm ${
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </a>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       </aside>
@@ -248,48 +224,31 @@ export function Sidebar() {
 
           {/* Admin Section - Mobile */}
           <div className="space-y-1">
-            <button
-              onClick={() => setIsAdminExpanded(!isAdminExpanded)}
-              className={`flex items-center justify-between w-full px-3 py-3 rounded-lg font-medium text-left ${
-                location.startsWith('/admin')
-                  ? "bg-primary/10 text-primary"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <Settings className="w-5 h-5" />
-                <span>Admin</span>
-              </div>
-              {isAdminExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-            </button>
+            <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Admin
+            </div>
             
-            {isAdminExpanded && (
-              <div className="ml-6 space-y-1">
-                {adminItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location === item.href;
-                  
-                  return (
-                    <Link key={item.href} href={item.href}>
-                      <div
-                        className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
-                          isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+            <div className="space-y-1">
+              {adminItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location === item.href;
+                
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <a
+                      className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left text-sm ${
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </a>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       </aside>
