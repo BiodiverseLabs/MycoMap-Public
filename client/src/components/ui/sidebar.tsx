@@ -41,6 +41,7 @@ export function Sidebar() {
 
   const adminItems = [
     { href: "/admin/validation", label: "Data Validation", icon: Database },
+    { href: "/admin/biorecords", label: "BioRecord Management", icon: Microscope },
     { href: "/admin/upload", label: "Data Upload", icon: Upload },
     { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
     { href: "/admin/settings", label: "System Settings", icon: Settings },

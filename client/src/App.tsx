@@ -28,6 +28,7 @@ import OrderDetail from "@/pages/OrderDetail";
 import GenusDetail from "@/pages/GenusDetail";
 import Admin from "@/pages/Admin";
 import AdminValidation from "@/pages/admin/AdminValidation";
+import BioRecordManagement from "@/pages/BioRecordManagement";
 import AdminUpload from "@/pages/admin/AdminUpload";
 import AdminRedList from "@/pages/admin/AdminRedList";
 import AdminSettings from "@/pages/admin/AdminSettings";
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/updates" component={Updates} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/validation" component={AdminValidation} />
+      <Route path="/admin/biorecords" component={BioRecordManagement} />
       <Route path="/admin/upload" component={AdminUpload} />
       <Route path="/admin/redlist" component={AdminRedList} />
       <Route path="/admin/settings" component={AdminSettings} />
