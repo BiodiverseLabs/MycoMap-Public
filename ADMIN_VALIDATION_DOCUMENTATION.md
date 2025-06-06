@@ -164,81 +164,138 @@ A record achieves full validation status when it meets all of the following crit
 #### Validation Assessment Process
 The system evaluates each record by checking all individual field comparisons, species-level identification requirements, and file download completeness. Only when every requirement is satisfied does the record receive the green checkmark indicating full validation status. Records failing any single requirement are marked as incomplete and require additional work to achieve full validation.
 
-## Platform-Specific API Integration
+## External Platform API Integration
 
 ### iNaturalist API Integration
 
-#### Individual Record Sync
-**Endpoint:** `POST /api/inaturalist/sync/:observationId`
+#### API Endpoint and Authentication
+**Base URL**: `https://api.inaturalist.org/v1/`
+**Observation Endpoint**: `https://api.inaturalist.org/v1/observations/{observation_id}`
+**Authentication**: No API key required for public observation data
+**Rate Limiting**: 60 requests per minute for unauthenticated calls
 
-**Process:**
-1. Extract iNaturalist ID from observation ID using regex pattern
-2. Rate-limited API call to iNaturalist (1.1 second delay between requests)
-3. API URL: `https://api.inaturalist.org/v1/observations/{inatId}`
-4. Store complete API response in database
-5. Update sync status and timestamp
+#### Individual Record Synchronization Process
+The system extracts iNaturalist observation IDs from MycoMap observation identifiers using pattern matching. Each sync request calls the iNaturalist API to retrieve complete observation details including taxonomic identifications, user information, observation metadata, and associated photos.
 
-#### Bulk Sync Operation
-**Endpoint:** `POST /api/inaturalist/sync-bulk`
-
-**Request Body:**
-```json
-{
-  "limit": 50,
-  "source": "inaturalist"
-}
+**Example API Call**:
+```
+GET https://api.inaturalist.org/v1/observations/265571056
 ```
 
-**Process:**
-1. Filter observations by source and unsynced status
-2. Initialize sync progress tracking
-3. Process observations sequentially with rate limiting
-4. Update progress indicators in real-time
-5. Handle and log individual failures
+**Rate Limiting Implementation**: The system enforces a 1.1-second delay between API calls to respect iNaturalist's rate limits, ensuring sustainable data synchronization without overwhelming their servers.
 
-#### API Response Processing
-Key fields extracted from iNaturalist API response:
-- `species_guess`: Scientific name from iNaturalist
-- `user.name` or `user.login`: Observer information
-- `observed_on_string`: Observation date
-- `place_ids`: Geographic location array
-- `photos`: Associated images
+#### Bulk Synchronization Operations
+Bulk sync processes filter observations by source platform and synchronization status, then process multiple records sequentially with proper rate limiting. Progress tracking provides real-time updates on processing status, successful syncs, and any errors encountered during the operation.
+
+#### API Response Data Extraction
+The iNaturalist API returns comprehensive JSON responses containing multiple data fields:
+
+**Taxonomic Information**: 
+- `species_guess`: Primary species identification from original observer
+- `taxon.name`: Current taxonomic name if identified to species level
+- `identifications`: Array of community identifications and comments
+
+**Observer Data**:
+- `user.name`: User's display name for public identification
+- `user.login`: Username for fallback identification
+- `user.id`: Unique user identifier
+
+**Temporal Information**:
+- `observed_on`: ISO date string for observation date
+- `observed_on_string`: Human-readable date format
+- `created_at`: Record creation timestamp
+
+**Geographic Data**:
+- `place_ids`: Array of numeric place identifiers for location hierarchy
+- `latitude` and `longitude`: Precise coordinate data
+- `place_guess`: Text description of location
+
+**Media and Quality**:
+- `photos`: Array of associated images with URLs and metadata
+- `quality_grade`: Data quality assessment (research, needs_id, casual)
 
 ### Mushroom Observer Integration
 
-#### Data Synchronization
-**Endpoint:** `POST /api/mushroom-observer/sync/:observationId`
+#### API Endpoint and Authentication
+**Base URL**: `https://mushroomobserver.org/api2/`
+**Observation Endpoint**: `https://mushroomobserver.org/api2/observations/{observation_id}`
+**Sequence Endpoint**: `https://mushroomobserver.org/api2/sequences/{sequence_id}`
+**Authentication**: Requires API key stored in environment variable `MUSHROOM_OBSERVER_API_KEY`
+**Rate Limiting**: Managed by Mushroom Observer servers
 
-**API Integration:**
-- Base URL: `https://mushroomobserver.org/api2/`
-- Endpoints used:
-  - `/observations/{id}` for observation details
-  - `/sequences/{id}` for DNA sequence data
-- Authentication via API key (stored in `MUSHROOM_OBSERVER_API_KEY`)
+#### API Call Structure
+The system makes authenticated requests to retrieve observation data and associated DNA sequence information when available.
 
-#### Key Data Fields
-- `scientific_name`: Taxonomic identification
-- `observer`: User who made observation  
-- `observed_on`: Date of observation
-- `dna_barcode`: DNA sequence data
-- `sequence_notes`: Additional sequence information
+**Example Observation API Call**:
+```
+GET https://mushroomobserver.org/api2/observations/495264824
+Authorization: Bearer {MUSHROOM_OBSERVER_API_KEY}
+```
+
+**Example Sequence API Call**:
+```
+GET https://mushroomobserver.org/api2/sequences/123456
+Authorization: Bearer {MUSHROOM_OBSERVER_API_KEY}
+```
+
+#### Data Fields Extracted
+**Taxonomic and Observational Data**:
+- `scientific_name`: Community-determined taxonomic identification
+- `observer`: Username of person who made the observation
+- `observed_on`: Date when specimen was observed or collected
+- `location`: Geographic description and coordinates
+- `notes`: Observational notes and habitat information
+
+**DNA Sequence Information**:
+- `dna_barcode`: Raw DNA sequence data in FASTA or text format
+- `sequence_notes`: Methodology notes, primer information, and quality assessments
+- `locus`: Target gene region (ITS, COI, etc.)
+- `accession_number`: GenBank or other database accession identifier
 
 ### MyCoPortal Integration
 
-#### Data Synchronization  
-**Endpoint:** `POST /api/mycoportal/sync/:observationId`
+#### API Endpoint and Authentication
+**Base URL**: Varies by institution (e.g., `https://mycoportal.org/portal/webservices/`)
+**Record Endpoint**: `{portal_base_url}/occurrences/{catalog_number}`
+**Search Endpoint**: `{portal_base_url}/occurrences/search`
+**Authentication**: Institution-specific API keys or public access for open collections
+**Data Format**: Darwin Core standard compliant JSON responses
 
-**API Integration:**
-- Portal-specific API endpoints
-- Specimen catalog number based lookups
-- Institution and collection code tracking
+#### API Call Structure
+MyCoPortal integration uses catalog numbers to retrieve specimen records from participating institutions.
 
-#### Key Data Fields
-- `catalog_number`: Specimen catalog identifier
-- `scientific_name`: Taxonomic identification
-- `recorded_by`: Collector information
-- `event_date`: Collection date
-- `state_province`: Geographic location
+**Example Record API Call**:
+```
+GET https://mycoportal.org/portal/webservices/occurrences/DUKE:Fungi:12345
+```
+
+**Example Search API Call**:
+```
+POST https://mycoportal.org/portal/webservices/occurrences/search
+Content-Type: application/json
+{
+  "catalogNumber": "DUKE:Fungi:12345",
+  "institutionCode": "DUKE",
+  "collectionCode": "Fungi"
+}
+```
+
+#### Data Fields Extracted
+**Specimen Information**:
+- `catalog_number`: Unique specimen identifier within institution
+- `institution_code`: Code identifying the holding institution
+- `collection_code`: Code identifying the specific collection within institution
+- `scientific_name`: Current taxonomic determination
+- `family`: Taxonomic family classification
+- `genus`: Taxonomic genus classification
+
+**Collection Data**:
+- `recorded_by`: Collector name(s)
+- `event_date`: Collection date in ISO format
+- `verbatim_event_date`: Original date as recorded by collector
+- `state_province`: State or province where collected
+- `locality`: Specific collection locality description
+- `decimal_latitude` and `decimal_longitude`: Coordinate data
 
 ## File Management System
 
