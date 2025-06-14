@@ -1,7 +1,8 @@
-const fs = require('fs');
-const path = require('path');
-const xlsx = require('xlsx');
-const { Client } = require('pg');
+import fs from 'fs';
+import path from 'path';
+import xlsx from 'xlsx';
+import pkg from 'pg';
+const { Client } = pkg;
 
 async function restoreOriginalData() {
   console.log('Starting data restoration from original Excel file...');
@@ -20,7 +21,7 @@ async function restoreOriginalData() {
     await client.query('TRUNCATE TABLE observations CASCADE');
     
     // Load original Excel file
-    const excelPath = path.join(__dirname, 'attached_assets', 'Validated Observations05.30.25.xlsx');
+    const excelPath = path.join(process.cwd(), 'attached_assets', 'Validated Observations05.30.25.xlsx');
     console.log(`Loading Excel file: ${excelPath}`);
     
     if (!fs.existsSync(excelPath)) {
