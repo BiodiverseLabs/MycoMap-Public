@@ -1759,6 +1759,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await rateLimitedDelay();
       const result = await storage.syncObservationWithInaturalist(observationId);
       if (result) {
+        // Auto-upload to IPFS if observation is now fully validated
+        await checkAndAutoUploadToIPFS(observationId, 'iNaturalist sync');
         res.json({ success: true, data: result });
       } else {
         res.status(404).json({ error: "Failed to sync observation" });
@@ -1901,6 +1903,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Failed to sync observation" });
       }
 
+      // Auto-upload to IPFS if observation is now fully validated
+      await checkAndAutoUploadToIPFS(observationId, `${source} sync`);
+
       res.json({
         success: true,
         data: result,
@@ -1936,6 +1941,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ error: "Failed to sync observation" });
       }
+
+      // Auto-upload to IPFS if observation is now fully validated
+      await checkAndAutoUploadToIPFS(observationId, 'MO sync');
 
       res.json({
         success: true,
