@@ -1086,6 +1086,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Original name:', originalName);
       console.log('File exists:', fs.existsSync(filePath));
       
+      // Check if cancelled before starting
+      if (cancelledUploads.has(uploadId)) {
+        console.log(`Upload ${uploadId} was cancelled before processing started`);
+        return;
+      }
+      
       // Initialize progress tracking
       progressTracker.set(uploadId, {
         progress: 0,
@@ -1104,6 +1110,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phase: 'clearing',
         message: 'Clearing existing data...'
       });
+      
+      // Check for cancellation
+      if (cancelledUploads.has(uploadId)) {
+        console.log(`Upload ${uploadId} cancelled during data clearing`);
+        return;
+      }
+      
       await storage.clearAllData();
       console.log('✓ Data cleared');
       
@@ -1125,6 +1138,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phase: 'reading',
         message: 'Parsing Excel data...'
       });
+      
+      // Check for cancellation
+      if (cancelledUploads.has(uploadId)) {
+        console.log(`Upload ${uploadId} cancelled during file reading`);
+        return;
+      }
+      
       const workbook = readFile(filePath, { cellDates: true });
       console.log('✓ Workbook loaded, sheet names:', workbook.SheetNames);
       const sheetName = workbook.SheetNames.find((name: string) => 
@@ -1380,6 +1400,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`[${new Date().toISOString()}] Starting batch ${batchNum}/${totalBatches} (records ${recordRange})`);
         
+        // Check for cancellation before each batch
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled during batch processing at batch ${batchNum}/${totalBatches}`);
+          return;
+        }
+        
         try {
           const startTime = Date.now();
           await storage.createObservations(batch);
@@ -1445,6 +1471,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         console.log('Phase 1: Updating contributor statistics...');
+        
+        // Check for cancellation before contributor stats
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled before contributor statistics`);
+          return;
+        }
+        
         progressTracker.set(uploadId, {
           progress: 75,
           phase: 'post-processing',
