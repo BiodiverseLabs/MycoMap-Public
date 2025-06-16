@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Archive, History, CheckCircle, Clock, AlertCircle, Coins, ExternalLink } from "lucide-react";
+import { Search, Archive, History, CheckCircle, Clock, AlertCircle, Coins, ExternalLink, Download, Image as ImageIcon, Palette } from "lucide-react";
 import { format } from "date-fns";
 
 interface Biorecord {
@@ -222,6 +224,481 @@ export default function BioRecordManagement() {
     return <Badge variant="secondary"><AlertCircle className="w-3 h-3 mr-1" />Incomplete</Badge>;
   };
 
+// BioRecord Image Generator Component
+function BioRecordImageGenerator() {
+  const [observationId, setObservationId] = useState("");
+  const [platform, setPlatform] = useState<"inat" | "mo" | "mycoportal">("inat");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const canvasRefs = [useRef<HTMLCanvasElement>(null), useRef<HTMLCanvasElement>(null), useRef<HTMLCanvasElement>(null)];
+  const { toast } = useToast();
+
+  // Fetch observation data from selected platform
+  const fetchObservationData = async (id: string, platformType: string) => {
+    try {
+      setIsGenerating(true);
+      
+      let apiUrl = "";
+      switch (platformType) {
+        case "inat":
+          apiUrl = `https://api.inaturalist.org/v1/observations/${id}`;
+          break;
+        case "mo":
+          apiUrl = `/api/mo-lookup/${id}`;
+          break;
+        case "mycoportal":
+          apiUrl = `/api/mycoportal-lookup/${id}`;
+          break;
+      }
+
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`Failed to fetch ${platformType} data`);
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching observation data:", error);
+      toast({
+        title: "Error",
+        description: `Failed to fetch observation data from ${platform}`,
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Generate playing card designs
+  const generatePlayingCards = async () => {
+    if (!observationId.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an observation ID",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const observationData = await fetchObservationData(observationId, platform);
+    if (!observationData) return;
+
+    // Extract data based on platform
+    let cardData: any = {};
+    
+    if (platform === "inat" && observationData.results?.[0]) {
+      const obs = observationData.results[0];
+      cardData = {
+        scientificName: obs.taxon?.name || obs.species_guess || "Unknown species",
+        commonName: obs.taxon?.preferred_common_name,
+        location: obs.place_guess || "Unknown location",
+        state: obs.place_ids ? "Unknown state" : undefined,
+        country: "Unknown country",
+        imageUrl: obs.photos?.[0]?.url?.replace("square", "medium") || obs.observation_photos?.[0]?.photo?.url,
+        observer: obs.user?.name || obs.user?.login,
+        observedOn: obs.observed_on,
+        platform: "iNaturalist"
+      };
+    }
+
+    // Generate three different card designs
+    generateCardDesign1(cardData, 0);
+    generateCardDesign2(cardData, 1);
+    generateCardDesign3(cardData, 2);
+  };
+
+  // Card Design 1: Classic Scientific Card
+  const generateCardDesign1 = (data: any, canvasIndex: number) => {
+    const canvas = canvasRefs[canvasIndex].current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = 400;
+    canvas.height = 600;
+
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+    gradient.addColorStop(0, '#1a365d');
+    gradient.addColorStop(1, '#2d3748');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 400, 600);
+
+    // Border
+    ctx.strokeStyle = '#4a5568';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(10, 10, 380, 580);
+
+    // Title area
+    ctx.fillStyle = '#2b6cb0';
+    ctx.fillRect(20, 20, 360, 60);
+    
+    // Scientific name
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    const scientificName = data.scientificName || 'Unknown Species';
+    ctx.fillText(scientificName, 200, 45);
+    
+    // Common name
+    if (data.commonName) {
+      ctx.font = '14px Arial';
+      ctx.fillText(data.commonName, 200, 65);
+    }
+
+    // Image placeholder
+    ctx.fillStyle = '#4a5568';
+    ctx.fillRect(50, 100, 300, 250);
+    ctx.fillStyle = 'white';
+    ctx.font = '12px Arial';
+    ctx.fillText('Observation Image', 200, 230);
+
+    // Details section
+    ctx.fillStyle = 'white';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'left';
+    
+    let yPosition = 380;
+    ctx.fillText(`Location: ${data.location || 'Unknown'}`, 30, yPosition);
+    yPosition += 25;
+    if (data.state) {
+      ctx.fillText(`State: ${data.state}`, 30, yPosition);
+      yPosition += 25;
+    }
+    ctx.fillText(`Observer: ${data.observer || 'Unknown'}`, 30, yPosition);
+    yPosition += 25;
+    ctx.fillText(`Platform: ${data.platform}`, 30, yPosition);
+    yPosition += 25;
+    if (data.observedOn) {
+      ctx.fillText(`Date: ${data.observedOn}`, 30, yPosition);
+    }
+
+    // Footer
+    ctx.fillStyle = '#2b6cb0';
+    ctx.fillRect(20, 540, 360, 40);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('BioRecord Trading Card', 200, 565);
+  };
+
+  // Card Design 2: Modern Minimal
+  const generateCardDesign2 = (data: any, canvasIndex: number) => {
+    const canvas = canvasRefs[canvasIndex].current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = 400;
+    canvas.height = 600;
+
+    // White background
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, 400, 600);
+
+    // Colored accent bar
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(0, 0, 400, 20);
+
+    // Scientific name
+    ctx.fillStyle = '#1f2937';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    const scientificName = data.scientificName || 'Unknown Species';
+    ctx.fillText(scientificName, 200, 60);
+
+    // Common name
+    if (data.commonName) {
+      ctx.fillStyle = '#6b7280';
+      ctx.font = 'italic 16px Arial';
+      ctx.fillText(data.commonName, 200, 85);
+    }
+
+    // Image area
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(50, 110, 300, 250);
+    ctx.fillStyle = '#f3f4f6';
+    ctx.fillRect(51, 111, 298, 248);
+    
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '14px Arial';
+    ctx.fillText('Observation Photo', 200, 240);
+
+    // Info cards
+    const infoY = 390;
+    ctx.fillStyle = '#f9fafb';
+    ctx.fillRect(30, infoY, 340, 120);
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeRect(30, infoY, 340, 120);
+
+    ctx.fillStyle = '#374151';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'left';
+    
+    let y = infoY + 25;
+    ctx.fillText(`📍 ${data.location || 'Unknown location'}`, 50, y);
+    y += 20;
+    if (data.state) {
+      ctx.fillText(`🗺️ ${data.state}, ${data.country || 'Unknown country'}`, 50, y);
+      y += 20;
+    }
+    ctx.fillText(`👤 ${data.observer || 'Unknown observer'}`, 50, y);
+    y += 20;
+    ctx.fillText(`🔬 ${data.platform}`, 50, y);
+    y += 20;
+    if (data.observedOn) {
+      ctx.fillText(`📅 ${data.observedOn}`, 50, y);
+    }
+
+    // Bottom accent
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(0, 580, 400, 20);
+  };
+
+  // Card Design 3: Vintage Style
+  const generateCardDesign3 = (data: any, canvasIndex: number) => {
+    const canvas = canvasRefs[canvasIndex].current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = 400;
+    canvas.height = 600;
+
+    // Vintage background
+    ctx.fillStyle = '#fef7ed';
+    ctx.fillRect(0, 0, 400, 600);
+
+    // Ornate border
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(15, 15, 370, 570);
+    
+    ctx.lineWidth = 2;
+    ctx.strokeRect(25, 25, 350, 550);
+
+    // Header banner
+    ctx.fillStyle = '#92400e';
+    ctx.fillRect(40, 40, 320, 50);
+
+    // Title
+    ctx.fillStyle = '#fef7ed';
+    ctx.font = 'bold 18px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SPECIMEN RECORD', 200, 70);
+
+    // Scientific name in decorative box
+    ctx.fillStyle = '#451a03';
+    ctx.font = 'italic 20px serif';
+    const scientificName = data.scientificName || 'Unknown Species';
+    ctx.fillText(scientificName, 200, 130);
+
+    // Common name
+    if (data.commonName) {
+      ctx.font = '14px serif';
+      ctx.fillText(`"${data.commonName}"`, 200, 155);
+    }
+
+    // Image frame
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(60, 180, 280, 200);
+    ctx.fillStyle = '#f4f4f5';
+    ctx.fillRect(66, 186, 268, 188);
+    
+    ctx.fillStyle = '#71717a';
+    ctx.font = '12px serif';
+    ctx.fillText('Specimen Photograph', 200, 285);
+
+    // Information panel
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(50, 410, 300, 130);
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(50, 410, 300, 130);
+
+    ctx.fillStyle = '#451a03';
+    ctx.font = 'bold 12px serif';
+    ctx.textAlign = 'left';
+    
+    let yPos = 435;
+    ctx.fillText(`Collection Site: ${data.location || 'Unknown'}`, 70, yPos);
+    yPos += 20;
+    if (data.state) {
+      ctx.fillText(`Region: ${data.state}, ${data.country || 'Unknown'}`, 70, yPos);
+      yPos += 20;
+    }
+    ctx.fillText(`Collector: ${data.observer || 'Unknown'}`, 70, yPos);
+    yPos += 20;
+    ctx.fillText(`Source: ${data.platform}`, 70, yPos);
+    yPos += 20;
+    if (data.observedOn) {
+      ctx.fillText(`Date: ${data.observedOn}`, 70, yPos);
+    }
+
+    // Footer seal
+    ctx.fillStyle = '#92400e';
+    ctx.beginPath();
+    ctx.arc(200, 565, 15, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    ctx.fillStyle = '#fef7ed';
+    ctx.font = 'bold 10px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('BR', 200, 570);
+  };
+
+  // Download card as image
+  const downloadCard = (canvasIndex: number, designName: string) => {
+    const canvas = canvasRefs[canvasIndex].current;
+    if (!canvas) return;
+
+    const link = document.createElement('a');
+    link.download = `biorecord-${observationId}-${designName.toLowerCase().replace(/\s+/g, '-')}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Palette className="h-5 w-5" />
+          BioRecord Playing Card Generator
+        </CardTitle>
+        <CardDescription>
+          Generate playing card designs from observation data across platforms
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Input Form */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="platform">Platform</Label>
+            <Select value={platform} onValueChange={(value: "inat" | "mo" | "mycoportal") => setPlatform(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inat">iNaturalist</SelectItem>
+                <SelectItem value="mo">Mushroom Observer</SelectItem>
+                <SelectItem value="mycoportal">MyCoPortal</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="observationId">Observation ID</Label>
+            <Input
+              id="observationId"
+              placeholder="Enter observation ID"
+              value={observationId}
+              onChange={(e) => setObservationId(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-end">
+            <Button 
+              onClick={generatePlayingCards}
+              disabled={isGenerating}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Generate Cards
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Generated Cards Display */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Design 1: Classic Scientific */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Classic Scientific</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCard(0, "Classic Scientific")}
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Download
+              </Button>
+            </div>
+            <canvas
+              ref={canvasRefs[0]}
+              className="border rounded-lg shadow-lg max-w-full h-auto"
+              style={{ maxHeight: "400px" }}
+            />
+          </div>
+
+          {/* Design 2: Modern Minimal */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Modern Minimal</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCard(1, "Modern Minimal")}
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Download
+              </Button>
+            </div>
+            <canvas
+              ref={canvasRefs[1]}
+              className="border rounded-lg shadow-lg max-w-full h-auto"
+              style={{ maxHeight: "400px" }}
+            />
+          </div>
+
+          {/* Design 3: Vintage Style */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Vintage Style</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCard(2, "Vintage Style")}
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Download
+              </Button>
+            </div>
+            <canvas
+              ref={canvasRefs[2]}
+              className="border rounded-lg shadow-lg max-w-full h-auto"
+              style={{ maxHeight: "400px" }}
+            />
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">How to use:</h4>
+          <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+            <li>1. Select the platform (iNaturalist, Mushroom Observer, or MyCoPortal)</li>
+            <li>2. Enter the observation ID from that platform</li>
+            <li>3. Click "Generate Cards" to create three different design variations</li>
+            <li>4. Use the download buttons to save your preferred card designs</li>
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto p-6">
@@ -239,6 +716,7 @@ export default function BioRecordManagement() {
             <TabsList>
               <TabsTrigger value="biorecords">Historical BioRecords</TabsTrigger>
               <TabsTrigger value="validation">Create from Validated</TabsTrigger>
+              <TabsTrigger value="images">BioRecord Images</TabsTrigger>
             </TabsList>
 
             <TabsContent value="biorecords" className="space-y-4">
@@ -501,6 +979,10 @@ export default function BioRecordManagement() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="images" className="space-y-4">
+          <BioRecordImageGenerator />
         </TabsContent>
       </Tabs>
         </div>
