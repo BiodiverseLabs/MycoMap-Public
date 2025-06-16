@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@helia/unixfs": "^5.0.3",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
@@ -57,11 +58,14 @@
     "express-session": "^1.18.1",
     "form-data": "^4.0.2",
     "framer-motion": "^11.13.1",
+    "helia": "^5.4.2",
     "input-otp": "^1.4.2",
+    "ipfs-http-client": "^60.0.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
     "multer": "^2.0.0",
+    "multiformats": "^13.3.7",
     "next-themes": "^0.4.6",
     "node-fetch": "^3.3.2",
     "passport": "^0.7.0",
