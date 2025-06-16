@@ -114,6 +114,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 - **Database Migrations**: Automated schema updates via Drizzle Kit
 - **Static Assets**: Vite-optimized frontend assets with proper caching
 
+## Recent Changes
+
+- June 16, 2025: Complete NFT minting functionality implemented
+  - Added database operations for NFT token tracking and metadata
+  - Created API endpoints for minting NFTs from biorecords
+  - Implemented "BioRecord Minted" status badge in validation interface
+  - Restored missing biorecords from fully validated observations
+  - Added mock minting capability for demonstration purposes
+
 ## Changelog
 
 - June 16, 2025. Initial setup
