@@ -1509,6 +1509,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // iNaturalist API genus lookup function
+  async function lookupGenusFromInat(genusName: string) {
+    try {
+      console.log(`Looking up genus "${genusName}" from iNaturalist API...`);
+      
+      // Rate limiting
+      await rateLimitedDelay();
+      lastRequestTime = Date.now();
+      
+      const response = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genusName)}&rank=genus&is_active=true&order=desc&order_by=observations_count&per_page=1`);
+      
+      if (!response.ok) {
+        console.error(`iNaturalist API error: ${response.status}`);
+        return null;
+      }
+      
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const taxon = data.results[0];
+        
+        // Extract taxonomy from the taxon ancestry
+        const taxonomy: any = {
+          genus: taxon.name
+        };
+        
+        if (taxon.ancestors) {
+          taxon.ancestors.forEach((ancestor: any) => {
+            switch (ancestor.rank) {
+              case 'kingdom':
+                taxonomy.kingdom = ancestor.name;
+                break;
+              case 'phylum':
+                taxonomy.phylum = ancestor.name;
+                break;
+              case 'class':
+                taxonomy.class = ancestor.name;
+                break;
+              case 'order':
+                taxonomy.order = ancestor.name;
+                break;
+              case 'family':
+                taxonomy.family = ancestor.name;
+                break;
+            }
+          });
+        }
+        
+        // Only return if we have at least kingdom, phylum, class, order, family
+        if (taxonomy.kingdom && taxonomy.phylum && taxonomy.class && 
+            taxonomy.order && taxonomy.family) {
+          console.log(`✓ Found iNaturalist taxonomy for "${genusName}": ${taxonomy.family} family`);
+          return taxonomy;
+        } else {
+          console.log(`⚠ Incomplete taxonomy from iNaturalist for "${genusName}"`);
+          return null;
+        }
+      } else {
+        console.log(`⚠ No results from iNaturalist for genus "${genusName}"`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error looking up genus "${genusName}" from iNaturalist:`, error);
+      return null;
+    }
+  }
+
   async function autoPopulateClassificationUpdates() {
     console.log('Starting automated classification updates by genus matching...');
     
@@ -1549,6 +1616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Built genus lookup table with ${genusLookup.size} complete taxonomy references`);
       
       let updatedCount = 0;
+      let inatLookupCount = 0;
       const batchSize = 100;
       
       // Process classification updates in batches
@@ -1567,9 +1635,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               genusCandidate = record.infraspecies.split(' ')[0].toLowerCase().trim();
             }
             
-            if (genusCandidate && genusLookup.has(genusCandidate)) {
-              const taxonomyRef = genusLookup.get(genusCandidate);
-              
+            if (!genusCandidate) {
+              continue; // Skip if no genus candidate found
+            }
+            
+            let taxonomyRef = null;
+            let source = '';
+            
+            // First try local genus lookup
+            if (genusLookup.has(genusCandidate)) {
+              taxonomyRef = genusLookup.get(genusCandidate);
+              source = 'local database';
+            } else {
+              // Fallback to iNaturalist API lookup
+              console.log(`No local match for "${genusCandidate}", trying iNaturalist API...`);
+              taxonomyRef = await lookupGenusFromInat(genusCandidate);
+              if (taxonomyRef) {
+                source = 'iNaturalist API';
+                inatLookupCount++;
+                
+                // Cache the iNaturalist result for future use
+                genusLookup.set(genusCandidate, taxonomyRef);
+              }
+            }
+            
+            if (taxonomyRef) {
               // Update the record with missing taxonomy
               const updateData = {
                 kingdom: record.kingdom || taxonomyRef.kingdom,
@@ -1585,7 +1675,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.updateObservationTaxonomy(record.id, updateData);
               updatedCount++;
               
-              console.log(`✓ Updated record ${record.id}: "${genusCandidate}" matched to ${taxonomyRef.genus} family`);
+              console.log(`✓ Updated record ${record.id}: "${genusCandidate}" matched to ${taxonomyRef.genus} family (${source})`);
+            } else {
+              console.log(`⚠ No taxonomy found for genus "${genusCandidate}" in record ${record.id}`);
             }
           } catch (recordError) {
             console.error(`Error updating record ${record.id}:`, recordError);
@@ -1593,7 +1685,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`✓ Automated classification updates completed: ${updatedCount} records updated`);
+      console.log(`✓ Automated classification updates completed:`);
+      console.log(`  - Total records updated: ${updatedCount}`);
+      console.log(`  - iNaturalist API lookups: ${inatLookupCount}`);
+      console.log(`  - Local database matches: ${updatedCount - inatLookupCount}`);
       
     } catch (error) {
       console.error('Error in automated classification updates:', error);
