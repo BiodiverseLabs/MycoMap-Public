@@ -1122,9 +1122,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Dynamically import XLSX with proper CommonJS handling
       console.log('Importing XLSX library...');
       progressTracker.set(uploadId, {
-        progress: 10,
+        progress: 2,
         phase: 'reading',
-        message: 'Loading Excel file...'
+        message: 'Loading Excel processing library...'
       });
       const XLSX = await import('xlsx');
       const { readFile, utils } = XLSX.default;
@@ -1133,9 +1133,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Read Excel file with streaming to handle large files
       console.log('Reading Excel file...');
       progressTracker.set(uploadId, {
-        progress: 15,
+        progress: 5,
         phase: 'reading',
-        message: 'Parsing Excel data...'
+        message: 'Reading and parsing Excel file...'
       });
       
       // Check for cancellation
@@ -1379,9 +1379,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update progress for data transformation phase
       progressTracker.set(uploadId, {
-        progress: 20,
+        progress: 10,
         phase: 'processing',
-        message: `Processing ${observations.length} observations...`
+        message: `Processed ${observations.length.toLocaleString()} observations, preparing for database insertion...`
       });
 
       // Insert observations in batches with enhanced monitoring
@@ -1415,12 +1415,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const avgTimePerRecord = batchDuration / batch.length;
           const progressPercent = ((insertedCount / observations.length) * 100).toFixed(1);
           
-          // Update progress tracker with batch completion
-          const insertionProgress = 20 + (insertedCount / observations.length * 50); // 20-70% for insertion
+          // Update progress tracker with real-time batch completion
+          const actualProgress = Math.round((insertedCount / observations.length) * 100);
           progressTracker.set(uploadId, {
-            progress: Math.round(insertionProgress),
+            progress: actualProgress,
             phase: 'inserting',
-            message: `Inserting batch ${batchNum}/${totalBatches} (${progressPercent}% complete)`,
+            message: `Processing records: ${insertedCount.toLocaleString()}/${observations.length.toLocaleString()} (${progressPercent}% complete)`,
             batchInfo: {
               currentBatch: batchNum,
               totalBatches: totalBatches,
@@ -1462,11 +1462,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update all index tables and statistics with monitoring
       console.log(`[${new Date().toISOString()}] Starting post-insertion processing...`);
-      progressTracker.set(uploadId, {
-        progress: 70,
-        phase: 'post-processing',
-        message: 'Building database indexes and statistics...'
-      });
+      const totalPostProcessingPhases = 4;
+      let completedPhases = 0;
+      
+      const updatePostProcessingProgress = (phaseDescription: string) => {
+        const progressPercent = Math.round(((completedPhases / totalPostProcessingPhases) * 20) + 80); // 80-100% for post-processing
+        progressTracker.set(uploadId, {
+          progress: progressPercent,
+          phase: 'post-processing',
+          message: `${phaseDescription} (Phase ${completedPhases + 1}/${totalPostProcessingPhases})`
+        });
+      };
       
       try {
         console.log('Phase 1: Updating contributor statistics...');
@@ -1477,14 +1483,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        progressTracker.set(uploadId, {
-          progress: 75,
-          phase: 'post-processing',
-          message: 'Updating contributor statistics...'
-        });
+        updatePostProcessingProgress('Updating contributor statistics...');
         const contribStart = Date.now();
         await updateContributorStatistics();
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
+        completedPhases++;
         
         console.log('Phase 2: Updating species statistics...');
         
@@ -1494,14 +1497,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        progressTracker.set(uploadId, {
-          progress: 80,
-          phase: 'post-processing',
-          message: 'Updating species statistics...'
-        });
+        updatePostProcessingProgress('Updating species statistics...');
         const speciesStart = Date.now();
         await updateSpeciesStatistics();
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
+        completedPhases++;
         
         console.log('Phase 3: Building GPS index for map performance...');
         
@@ -1511,14 +1511,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        progressTracker.set(uploadId, {
-          progress: 85,
-          phase: 'post-processing',
-          message: 'Building GPS index for map performance...'
-        });
+        updatePostProcessingProgress('Building GPS index for map performance...');
         const gpsStart = Date.now();
         await storage.buildGpsIndex();
         console.log(`✓ GPS index completed in ${Date.now() - gpsStart}ms`);
+        completedPhases++;
         
         console.log('✓ All index tables updated successfully');
 
@@ -1531,21 +1528,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        progressTracker.set(uploadId, {
-          progress: 90,
-          phase: 'post-processing',
-          message: 'Running automated classification updates...'
-        });
+        updatePostProcessingProgress('Running automated classification updates...');
         const classificationStart = Date.now();
         await autoPopulateClassificationUpdates();
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
+        completedPhases++;
 
         // Update upload status
         console.log(`[${new Date().toISOString()}] Upload processing completed successfully`);
         progressTracker.set(uploadId, {
           progress: 100,
           phase: 'completed',
-          message: 'Data processing completed successfully!'
+          message: `Successfully processed ${insertedCount.toLocaleString()} observations!`
         });
         await storage.updateUploadStatus(uploadId, 'completed');
         
