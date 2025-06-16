@@ -1,4 +1,4 @@
-const { DatabaseStorage } = require('./server/db.js');
+import { DatabaseStorage } from './server/db.ts';
 
 async function testUpsertLogic() {
   console.log('Testing upsert logic with composite key (source + observation_id)...');
