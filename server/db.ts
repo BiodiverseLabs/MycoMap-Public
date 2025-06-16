@@ -1682,6 +1682,16 @@ export class DatabaseStorage implements IStorage {
         i.observation_id IS NOT NULL 
         AND i.sync_status = 'success'
         AND
+        -- Scientific name must match between MycoMap and iNaturalist
+        LOWER(TRIM(o.scientific_name)) = LOWER(TRIM(COALESCE(
+          i.provisional_species_name,
+          CASE 
+            WHEN i.taxon IS NOT NULL THEN 
+              (i.taxon::json->>'name')
+            ELSE NULL
+          END
+        )))
+        AND
         -- Has iNaturalist API file saved
         o.inat_api_saved = true
         AND
@@ -2820,6 +2830,23 @@ export class DatabaseStorage implements IStorage {
           (o.source = 'iNaturalist' AND i.sync_status = 'success') OR
           (o.source = 'MO Observations' AND m.sync_status = 'success') OR
           (o.source = 'MycoPortal' AND mc.sync_status = 'success')
+        )
+        AND
+        -- Scientific name must match between MycoMap and external platform
+        (
+          (o.source = 'iNaturalist' AND 
+           LOWER(TRIM(o.scientific_name)) = LOWER(TRIM(COALESCE(
+             i.provisional_species_name,
+             CASE 
+               WHEN i.taxon IS NOT NULL THEN 
+                 (i.taxon::json->>'name')
+               ELSE NULL
+             END
+           )))) OR
+          (o.source = 'MO Observations' AND 
+           LOWER(TRIM(o.scientific_name)) = LOWER(TRIM(m.scientific_name))) OR
+          (o.source = 'MycoPortal' AND 
+           LOWER(TRIM(o.scientific_name)) = LOWER(TRIM(mc.scientific_name)))
         )
         AND
         -- Has required files when URLs exist
