@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X, Play, Square, Search } from "lucide-react";
+import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X, Play, Square, Search, Archive } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import BioRecordManagement from "@/pages/admin/BioRecordManagement";
 
 interface ValidationObservation {
   id: number;
@@ -605,17 +607,32 @@ export function ObservationValidation() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Database className="w-5 h-5" />
-          Observation Validation
-        </CardTitle>
-        <p className="text-sm text-slate-600">
-          Validate and sync observation data with external sources like iNaturalist and Mushroom Observer
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Admin Validation</h1>
+        <p className="text-muted-foreground">
+          Manage observation validation, external platform synchronization, and biorecord creation
         </p>
-      </CardHeader>
-      <CardContent>
+      </div>
+
+      <Tabs defaultValue="validation" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="validation">Observation Validation</TabsTrigger>
+          <TabsTrigger value="biorecords">BioRecord Management</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="validation">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Observation Validation
+              </CardTitle>
+              <p className="text-sm text-slate-600">
+                Validate and sync observation data with external sources like iNaturalist and Mushroom Observer
+              </p>
+            </CardHeader>
+            <CardContent>
         {/* Sync Controls */}
         <div className="flex gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
           <Button
@@ -1351,5 +1368,12 @@ export function ObservationValidation() {
         )}
       </CardContent>
     </Card>
+  </TabsContent>
+
+        <TabsContent value="biorecords">
+          <BioRecordManagement />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
