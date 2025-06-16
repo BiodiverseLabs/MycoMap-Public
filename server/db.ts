@@ -3,12 +3,13 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 import { 
-  users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData, biorecords,
+  users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData, biorecords, inaturalistClassificationCache,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment,
   type InaturalistData, type InsertInaturalistData, type InaturalistPlace, type InsertInaturalistPlace,
-  type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord
+  type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
+  type InaturalistClassificationCache, type InsertInaturalistClassificationCache
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray } from 'drizzle-orm';
 import type { IStorage } from "./storage";

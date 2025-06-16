@@ -247,6 +247,30 @@ export const inaturalistPlaces = pgTable("inaturalist_places", {
   placeTypeIdx: index("inat_place_type_idx").on(table.placeType),
 }));
 
+// iNaturalist classification cache table to avoid duplicate API calls
+export const inaturalistClassificationCache = pgTable("inaturalist_classification_cache", {
+  id: serial("id").primaryKey(),
+  genus: text("genus").notNull().unique(), // The genus name used for lookup
+  kingdom: text("kingdom"),
+  phylum: text("phylum"),
+  class: text("class"),
+  order: text("order"),
+  family: text("family"),
+  inatTaxonId: integer("inat_taxon_id"), // iNaturalist taxon ID
+  observationCount: integer("observation_count"), // Number of observations for this taxon on iNat
+  isActive: boolean("is_active").default(true), // Whether the taxon is active on iNat
+  apiResponse: text("api_response"), // Full JSON response from iNaturalist API
+  lookupCount: integer("lookup_count").default(1), // How many times this genus has been requested
+  lastUsedAt: timestamp("last_used_at").defaultNow(), // When this cache entry was last accessed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  genusIdx: index("inat_classification_genus_idx").on(table.genus),
+  familyIdx: index("inat_classification_family_idx").on(table.family),
+  lastUsedIdx: index("inat_classification_last_used_idx").on(table.lastUsedAt),
+  lookupCountIdx: index("inat_classification_lookup_count_idx").on(table.lookupCount),
+}));
+
 // iNaturalist data table for validation and detailed records
 export const inaturalistData = pgTable("inaturalist_data", {
   id: serial("id").primaryKey(),
@@ -468,6 +492,12 @@ export const insertMushroomObserverDataSchema = createInsertSchema(mushroomObser
   updatedAt: true,
 });
 
+export const insertInaturalistClassificationCacheSchema = createInsertSchema(inaturalistClassificationCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertObservation = z.infer<typeof insertObservationSchema>;
 export type Observation = typeof observations.$inferSelect;
@@ -495,6 +525,9 @@ export type InaturalistPlace = typeof inaturalistPlaces.$inferSelect;
 
 export type InsertMushroomObserverData = z.infer<typeof insertMushroomObserverDataSchema>;
 export type MushroomObserverData = typeof mushroomObserverData.$inferSelect;
+
+export type InsertInaturalistClassificationCache = z.infer<typeof insertInaturalistClassificationCacheSchema>;
+export type InaturalistClassificationCache = typeof inaturalistClassificationCache.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
