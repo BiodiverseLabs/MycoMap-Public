@@ -422,12 +422,34 @@ export function FileUpload() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-600">Records Processed:</span>
-                          <span className="font-medium">{batchInfo.insertedCount?.toLocaleString()} / {batchInfo.totalRecords?.toLocaleString()}</span>
+                          <span className="font-medium">
+                            {(batchInfo.insertedCount || batchInfo.processedRecords || 0).toLocaleString()} / {batchInfo.totalRecords?.toLocaleString()}
+                          </span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Processing Speed:</span>
-                          <span className="font-medium">{batchInfo.avgTimePerRecord}ms per record</span>
-                        </div>
+                        {batchInfo.avgTimePerRecord && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Processing Speed:</span>
+                            <span className="font-medium">{batchInfo.avgTimePerRecord}ms per record</span>
+                          </div>
+                        )}
+                        {batchInfo.updatedCount !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Records Updated:</span>
+                            <span className="font-medium text-green-600">{batchInfo.updatedCount.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {batchInfo.inatLookups !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">API Lookups:</span>
+                            <span className="font-medium text-blue-600">{batchInfo.inatLookups.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {batchInfo.estimatedTimeRemaining && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Time Remaining:</span>
+                            <span className="font-medium text-orange-600">{batchInfo.estimatedTimeRemaining}s</span>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -447,6 +469,9 @@ export function FileUpload() {
                       )}
                       {processingPhase === 'post-processing' && (
                         <p>• Building indexes, updating statistics, and running classification updates</p>
+                      )}
+                      {processingPhase === 'classification-updates' && (
+                        <p>• Running automated genus-based taxonomy completion with iNaturalist API fallback</p>
                       )}
                       {processingPhase === 'completed' && (
                         <p className="text-green-600 font-medium">• All data processing completed successfully!</p>

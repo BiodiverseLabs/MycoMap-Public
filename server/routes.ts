@@ -1547,7 +1547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         updatePostProcessingProgress('Running automated classification updates...');
         const classificationStart = Date.now();
-        await autoPopulateClassificationUpdates();
+        await autoPopulateClassificationUpdates(uploadId, progressTracker);
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
         completedPhases++;
 
@@ -1631,7 +1631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return await storage.lookupGenusClassificationWithCache(genusName);
   }
 
-  async function autoPopulateClassificationUpdates() {
+  async function autoPopulateClassificationUpdates(uploadId: number, progressTracker: Map<number, any>) {
     console.log('Starting automated classification updates by genus matching...');
     
     try {
