@@ -228,7 +228,7 @@ export default function BioRecordManagement() {
         <div>
           <h1 className="text-3xl font-bold">BioRecord Management</h1>
           <p className="text-muted-foreground">
-            Manage historical snapshots of fully validated observations
+            Manage historical snapshots and mint NFTs from fully validated observations
           </p>
         </div>
       </div>
@@ -247,7 +247,7 @@ export default function BioRecordManagement() {
                 BioRecord Archive ({filteredBiorecords.length})
               </CardTitle>
               <CardDescription>
-                Historical snapshots of fully validated observations captured at specific validation dates
+                Historical snapshots of fully validated observations with NFT minting capabilities
               </CardDescription>
               <div className="flex items-center space-x-2">
                 <Search className="w-4 h-4 text-muted-foreground" />
@@ -366,53 +366,53 @@ export default function BioRecordManagement() {
                                     All historical snapshots for this observation
                                   </DialogDescription>
                                 </DialogHeader>
-                              <ScrollArea className="h-96">
-                                <div className="space-y-4">
-                                  {biorecordHistory.map((historyRecord: Biorecord, index: number) => (
-                                    <Card key={historyRecord.id}>
-                                      <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start">
-                                          <div>
-                                            <CardTitle className="text-lg">
-                                              Snapshot #{biorecordHistory.length - index}
-                                            </CardTitle>
-                                            <CardDescription>
-                                              {format(new Date(historyRecord.validatedAt), "PPP 'at' p")}
-                                            </CardDescription>
-                                          </div>
-                                          <Badge variant="outline">v{historyRecord.validationVersion}</Badge>
-                                        </div>
-                                      </CardHeader>
-                                      <CardContent className="pt-0">
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                          <div>
-                                            <div className="font-medium">Scientific Name</div>
-                                            <div>{historyRecord.scientificName}</div>
-                                          </div>
-                                          <div>
-                                            <div className="font-medium">Observer</div>
-                                            <div>{historyRecord.observer || "Unknown"}</div>
-                                          </div>
-                                          {historyRecord.inatScientificName && (
+                                <ScrollArea className="h-96">
+                                  <div className="space-y-4">
+                                    {biorecordHistory.map((historyRecord: Biorecord, index: number) => (
+                                      <Card key={historyRecord.id}>
+                                        <CardHeader className="pb-2">
+                                          <div className="flex justify-between items-start">
                                             <div>
-                                              <div className="font-medium">iNaturalist Name</div>
-                                              <div>{historyRecord.inatScientificName}</div>
+                                              <CardTitle className="text-lg">
+                                                Snapshot #{biorecordHistory.length - index}
+                                              </CardTitle>
+                                              <CardDescription>
+                                                {format(new Date(historyRecord.validatedAt), "PPP 'at' p")}
+                                              </CardDescription>
                                             </div>
-                                          )}
-                                          {historyRecord.moScientificName && (
+                                            <Badge variant="outline">v{historyRecord.validationVersion}</Badge>
+                                          </div>
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                          <div className="grid grid-cols-2 gap-4 text-sm">
                                             <div>
-                                              <div className="font-medium">MO Name</div>
-                                              <div>{historyRecord.moScientificName}</div>
+                                              <div className="font-medium">Scientific Name</div>
+                                              <div>{historyRecord.scientificName}</div>
                                             </div>
-                                          )}
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  ))}
-                                </div>
-                              </ScrollArea>
-                            </DialogContent>
-                          </Dialog>
+                                            <div>
+                                              <div className="font-medium">Observer</div>
+                                              <div>{historyRecord.observer || "Unknown"}</div>
+                                            </div>
+                                            {historyRecord.inatScientificName && (
+                                              <div>
+                                                <div className="font-medium">iNaturalist Name</div>
+                                                <div>{historyRecord.inatScientificName}</div>
+                                              </div>
+                                            )}
+                                            {historyRecord.moScientificName && (
+                                              <div>
+                                                <div className="font-medium">MO Name</div>
+                                                <div>{historyRecord.moScientificName}</div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                </ScrollArea>
+                              </DialogContent>
+                            </Dialog>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -448,7 +448,7 @@ export default function BioRecordManagement() {
                   onClick={handleBatchCreate}
                   disabled={batchCreateMutation.isPending || filteredValidatedObservations.length === 0}
                 >
-                  Create All BioRecords ({filteredValidatedObservations.length})
+                  {batchCreateMutation.isPending ? "Creating..." : `Create All (${filteredValidatedObservations.length})`}
                 </Button>
               </div>
             </CardHeader>
@@ -463,8 +463,7 @@ export default function BioRecordManagement() {
                       <TableHead>Scientific Name</TableHead>
                       <TableHead>Observer</TableHead>
                       <TableHead>State</TableHead>
-                      <TableHead>Validation Status</TableHead>
-                      <TableHead>Platforms</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -484,26 +483,13 @@ export default function BioRecordManagement() {
                         <TableCell>{observation.state || "Unknown"}</TableCell>
                         <TableCell>{getValidationStatusBadge(observation)}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            {observation.hasInatData && (
-                              <Badge variant="outline" className="text-xs">iNat</Badge>
-                            )}
-                            {observation.hasMoData && (
-                              <Badge variant="outline" className="text-xs">MO</Badge>
-                            )}
-                            {observation.hasMycoportalData && (
-                              <Badge variant="outline" className="text-xs">MC</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleCreateBiorecord(observation.observationId)}
                             disabled={createBiorecordMutation.isPending}
                           >
-                            Create BioRecord
+                            {createBiorecordMutation.isPending ? "Creating..." : "Create BioRecord"}
                           </Button>
                         </TableCell>
                       </TableRow>
