@@ -62,6 +62,7 @@ interface ValidationObservation {
   traceFilesDownloaded: boolean;
   inatApiSaved: boolean;
   dnaBarcode?: string;
+  inatGenbankAccession?: string;
   mycoMapBlastUrl?: string;
   mycoMapTraceUrl?: string;
 }
