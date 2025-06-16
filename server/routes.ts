@@ -900,6 +900,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Progress tracking for uploads
   const activeUploads = new Map<number, { progress: number; phase: string; message: string; batchInfo?: any }>();
   
+  // Cancellation tracking for uploads
+  const cancelledUploads = new Set<number>();
+  
   // SSE endpoint for real-time progress updates
   app.get("/api/upload/progress/:uploadId", (req, res) => {
     const uploadId = parseInt(req.params.uploadId);
@@ -939,6 +942,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     req.on('close', () => {
       clearInterval(interval);
     });
+  });
+
+  // Stop processing endpoint
+  app.post("/api/upload/stop/:uploadId", async (req, res) => {
+    try {
+      const uploadId = parseInt(req.params.uploadId);
+      
+      if (isNaN(uploadId)) {
+        return res.status(400).json({ error: "Invalid upload ID" });
+      }
+
+      // Add to cancelled uploads set
+      cancelledUploads.add(uploadId);
+      
+      // Update progress to indicate cancellation
+      activeUploads.set(uploadId, {
+        progress: 0,
+        phase: 'cancelled',
+        message: 'Processing cancelled by user'
+      });
+
+      // Update upload status in database
+      await storage.updateUploadStatus(uploadId, 'cancelled', 'Processing cancelled by user');
+
+      console.log(`Upload ${uploadId} cancelled by user`);
+
+      res.json({ 
+        success: true,
+        message: "Processing cancellation initiated" 
+      });
+
+    } catch (error) {
+      console.error("Error stopping upload processing:", error);
+      res.status(500).json({ error: "Failed to stop processing" });
+    }
   });
 
   app.post("/api/upload", upload.single('file'), async (req, res) => {

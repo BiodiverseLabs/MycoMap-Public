@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { CloudUpload, FileCheck, Loader2, Database, BarChart3 } from "lucide-react";
+import { CloudUpload, FileCheck, Loader2, Database, BarChart3, StopCircle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,41 @@ export function FileUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Stop processing mutation
+  const stopProcessingMutation = useMutation({
+    mutationFn: async (uploadId: number) => {
+      const response = await apiRequest('POST', `/api/upload/stop/${uploadId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      setUploadPhase('idle');
+      setUploadProgress(0);
+      setProcessingProgress(0);
+      setProcessingPhase('');
+      setProcessingMessage('');
+      setBatchInfo(null);
+      setUploadId(null);
+      toast({
+        title: "Processing Stopped",
+        description: "Data processing has been cancelled",
+        variant: "destructive",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Stop Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleStopProcessing = () => {
+    if (uploadId && uploadPhase === 'processing') {
+      stopProcessingMutation.mutate(uploadId);
+    }
+  };
 
   // SSE connection for processing progress
   useEffect(() => {
@@ -241,6 +276,26 @@ export function FileUpload() {
                       </span>
                     </div>
                     <Progress value={processingProgress} className="w-full" />
+                    
+                    {/* Stop Processing Button */}
+                    {processingPhase !== 'completed' && (
+                      <div className="flex justify-center">
+                        <Button
+                          onClick={handleStopProcessing}
+                          disabled={stopProcessingMutation.isPending}
+                          variant="destructive"
+                          size="sm"
+                          className="flex items-center gap-2"
+                        >
+                          {stopProcessingMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <StopCircle className="w-4 h-4" />
+                          )}
+                          {stopProcessingMutation.isPending ? 'Stopping...' : 'Stop Processing'}
+                        </Button>
+                      </div>
+                    )}
                     
                     {processingMessage && (
                       <p className="text-xs text-slate-600 font-medium">
