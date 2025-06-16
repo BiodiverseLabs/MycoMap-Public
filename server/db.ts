@@ -1619,7 +1619,15 @@ export class DatabaseStorage implements IStorage {
         b.id as "biorecordId",
         b.nft_minted as "nftMinted",
         b.nft_token_id as "nftTokenId",
-        b.nft_minted_at as "nftMintedAt"
+        b.nft_minted_at as "nftMintedAt",
+        -- IPFS web3 storage status
+        o.ipfs_uploaded as "ipfsUploaded",
+        o.ipfs_upload_date as "ipfsUploadDate",
+        o.ipfs_folder_url as "ipfsFolderUrl",
+        o.ipfs_ncbi_blast_url as "ipfsNcbiBlastUrl",
+        o.ipfs_local_blast_url as "ipfsLocalBlastUrl",
+        o.ipfs_fastq_url as "ipfsFastqUrl",
+        o.ipfs_inat_api_url as "ipfsInatApiUrl"
       FROM observations o
       LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
       LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id

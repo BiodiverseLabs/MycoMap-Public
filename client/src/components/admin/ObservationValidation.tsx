@@ -1052,7 +1052,7 @@ export function ObservationValidation() {
                                               <XCircle className="w-4 h-4 text-red-600" />
                                             )
                                           ) : (
-                                            obs.inatApiSaved && obs.inatApiFile ? (
+                                            obs.inatApiSaved && obs.inatApiFile && obs.ipfsUploaded && obs.ipfsInatApiUrl ? (
                                               <CheckCircle className="w-4 h-4 text-green-600" />
                                             ) : (
                                               <XCircle className="w-4 h-4 text-red-600" />
@@ -1087,14 +1087,29 @@ export function ObservationValidation() {
                                           )
                                         ) : (
                                           obs.inatApiSaved && obs.inatApiFile ? (
-                                            <a
-                                              href={`/api/download/inat-api/${obs.inatApiFile}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-blue-600 hover:text-blue-800 underline"
-                                            >
-                                              {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : 'Download'}
-                                            </a>
+                                            <div className="flex items-center gap-2">
+                                              <a
+                                                href={`/api/download/inat-api/${obs.inatApiFile}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 underline"
+                                              >
+                                                {obs.inatApiSaveDate ? new Date(obs.inatApiSaveDate).toLocaleDateString() : 'Download'}
+                                              </a>
+                                              {obs.ipfsUploaded && obs.ipfsInatApiUrl && (
+                                                <div className="flex items-center gap-1 text-sm">
+                                                  <span className="text-purple-600 font-medium">IPFS:</span>
+                                                  <a
+                                                    href={obs.ipfsInatApiUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-purple-600 hover:text-purple-800 underline"
+                                                  >
+                                                    API
+                                                  </a>
+                                                </div>
+                                              )}
+                                            </div>
                                           ) : (
                                             <span className="text-gray-500">No API file saved</span>
                                           )
