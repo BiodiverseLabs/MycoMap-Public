@@ -509,7 +509,7 @@ function BioRecordImageGenerator() {
     ctx.fillText(platformId, 200, 532);
   };
 
-  // Card Design 3: Victorian Specimen Card
+  // Card Design 3: Vintage Green Trading Card (Similar style to first two but green)
   const generateCardDesign3 = (data: any, canvasIndex: number) => {
     const canvas = canvasRefs[canvasIndex].current;
     if (!canvas) return;
@@ -520,186 +520,95 @@ function BioRecordImageGenerator() {
     canvas.width = 400;
     canvas.height = 600;
 
-    // Aged paper background with texture
-    const paperGradient = ctx.createRadialGradient(200, 300, 0, 200, 300, 500);
-    paperGradient.addColorStop(0, '#fefbf3');
-    paperGradient.addColorStop(0.8, '#fef7ed');
-    paperGradient.addColorStop(1, '#fed7aa');
-    ctx.fillStyle = paperGradient;
+    // Forest green background
+    ctx.fillStyle = '#2e4f3e';
     ctx.fillRect(0, 0, 400, 600);
 
-    // Multiple ornate borders
-    ctx.strokeStyle = '#8b4513';
-    ctx.lineWidth = 5;
+    // Multiple borders matching the vintage style
+    ctx.strokeStyle = '#1a2e1a';
+    ctx.lineWidth = 6;
     ctx.strokeRect(12, 12, 376, 576);
     
-    ctx.strokeStyle = '#a0522d';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(20, 20, 360, 560);
-    
-    ctx.strokeStyle = '#cd853f';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(28, 28, 344, 544);
-
-    // Decorative corner flourishes
-    ctx.strokeStyle = '#8b4513';
+    ctx.strokeStyle = '#4a6741';
     ctx.lineWidth = 3;
-    // Top left corner
-    ctx.beginPath();
-    ctx.moveTo(35, 50);
-    ctx.lineTo(50, 35);
-    ctx.moveTo(35, 35);
-    ctx.lineTo(50, 50);
-    ctx.stroke();
+    ctx.strokeRect(18, 18, 364, 564);
     
-    // Top right corner
-    ctx.beginPath();
-    ctx.moveTo(350, 50);
-    ctx.lineTo(365, 35);
-    ctx.moveTo(365, 50);
-    ctx.lineTo(350, 35);
-    ctx.stroke();
-    
-    // Bottom corners
-    ctx.beginPath();
-    ctx.moveTo(35, 550);
-    ctx.lineTo(50, 565);
-    ctx.moveTo(35, 565);
-    ctx.lineTo(50, 550);
-    ctx.stroke();
-    
-    ctx.beginPath();
-    ctx.moveTo(350, 550);
-    ctx.lineTo(365, 565);
-    ctx.moveTo(365, 550);
-    ctx.lineTo(350, 565);
-    ctx.stroke();
-
-    // Header with ornate design
-    ctx.fillStyle = '#8b4513';
-    ctx.fillRect(40, 40, 320, 60);
-    
-    // Header decorative border
-    ctx.strokeStyle = '#daa520';
+    ctx.strokeStyle = '#8bc34a';
     ctx.lineWidth = 2;
-    ctx.strokeRect(40, 40, 320, 60);
-    
-    // Inner header decoration
-    ctx.fillStyle = '#daa520';
-    ctx.fillRect(50, 50, 300, 5);
-    ctx.fillRect(50, 85, 300, 5);
+    ctx.strokeRect(24, 24, 352, 552);
 
-    // Main title
-    ctx.fillStyle = '#fefbf3';
-    ctx.font = 'bold 16px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('MYCOLOGICAL SPECIMEN', 200, 62);
-    ctx.font = '12px serif';
-    ctx.fillText('Field Collection Record', 200, 78);
-
-    // Scientific name with elegant frame
-    ctx.fillStyle = '#fefbf3';
-    ctx.fillRect(45, 115, 310, 45);
-    ctx.strokeStyle = '#8b4513';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(45, 115, 310, 45);
+    // Header section
+    ctx.fillStyle = '#1a2e1a';
+    ctx.fillRect(32, 32, 336, 60);
     
-    ctx.fillStyle = '#2d1b0e';
-    ctx.font = 'italic 18px serif';
-    ctx.textAlign = 'center';
-    const scientificName = data.scientificName || 'Unknown Species';
-    ctx.fillText(scientificName, 200, 140);
-
-    // Common name with quotation marks
-    if (data.commonName) {
-      ctx.font = '14px serif';
-      ctx.fillStyle = '#654321';
-      ctx.fillText(`"${data.commonName}"`, 200, 155);
-    }
-
-    // Specimen image with ornate frame
-    ctx.fillStyle = '#8b4513';
-    ctx.fillRect(50, 175, 300, 220);
-    
-    ctx.fillStyle = '#daa520';
-    ctx.fillRect(55, 180, 290, 210);
-    
-    ctx.fillStyle = '#f5f5dc';
-    ctx.fillRect(60, 185, 280, 200);
-    
-    // Image placeholder with period styling
-    ctx.fillStyle = '#8b7355';
-    ctx.font = '14px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('PHOTOGRAPHIC PLATE', 200, 270);
-    ctx.font = '10px serif';
-    ctx.fillText('Natural habitat documentation', 200, 285);
-    ctx.fillText('Captured in field conditions', 200, 300);
-
-    // Classification section
-    ctx.fillStyle = '#fefbf3';
-    ctx.fillRect(40, 410, 320, 130);
-    ctx.strokeStyle = '#8b4513';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(40, 410, 320, 130);
-    
-    // Classification header
-    ctx.fillStyle = '#8b4513';
-    ctx.fillRect(45, 415, 310, 25);
-    ctx.fillStyle = '#fefbf3';
-    ctx.font = 'bold 12px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('COLLECTION PARTICULARS', 200, 430);
-
-    // Collection data in formal style
-    ctx.fillStyle = '#2d1b0e';
-    ctx.font = '11px serif';
-    ctx.textAlign = 'left';
-    
-    let dataY = 455;
-    ctx.fillText(`Locality: ${data.location || 'Unknown locality'}`, 55, dataY);
-    dataY += 16;
-    
-    if (data.state) {
-      ctx.fillText(`Province: ${data.state}, ${data.country || 'Unknown'}`, 55, dataY);
-      dataY += 16;
-    }
-    
-    ctx.fillText(`Collected by: ${data.observer || 'Anonymous'}`, 55, dataY);
-    dataY += 16;
-    
-    ctx.fillText(`Repository: ${data.platform} Database`, 55, dataY);
-    dataY += 16;
-    
-    if (data.observedOn) {
-      ctx.fillText(`Date of Collection: ${data.observedOn}`, 55, dataY);
-    }
-
-    // Authentication seal
-    ctx.fillStyle = '#8b4513';
+    // Orange/red accent circle (keeping this consistent with other designs)
+    ctx.fillStyle = '#c44332';
     ctx.beginPath();
-    ctx.arc(200, 565, 20, 0, 2 * Math.PI);
+    ctx.arc(70, 62, 20, 0, 2 * Math.PI);
     ctx.fill();
     
-    ctx.strokeStyle = '#daa520';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(200, 565, 18, 0, 2 * Math.PI);
-    ctx.stroke();
-    
-    ctx.fillStyle = '#fefbf3';
-    ctx.font = 'bold 8px serif';
+    // Mushroom icon in circle
+    ctx.fillStyle = 'white';
+    ctx.font = '16px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('VERIFIED', 200, 562);
-    ctx.fillText('BIORECORD', 200, 572);
+    ctx.fillText('🍄', 70, 68);
 
-    // Decorative flourish at bottom
-    ctx.strokeStyle = '#8b4513';
+    // Main title text
+    ctx.fillStyle = '#c8e6c9';
+    ctx.font = 'bold 20px serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('SPECIES', 110, 55);
+    ctx.fillText('OBSERVATION', 110, 78);
+
+    // Main image frame
+    ctx.fillStyle = '#1a2e1a';
+    ctx.fillRect(40, 110, 320, 280);
+    
+    ctx.fillStyle = '#4a6741';
+    ctx.fillRect(45, 115, 310, 270);
+    
+    ctx.fillStyle = '#f1f8e9';
+    ctx.fillRect(50, 120, 300, 260);
+    
+    // Image placeholder
+    ctx.fillStyle = '#2e4f3e';
+    ctx.font = '14px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SPECIMEN PHOTOGRAPH', 200, 245);
+    ctx.font = '10px serif';
+    ctx.fillText('Field observation image would appear here', 200, 260);
+
+    // Species name section (like the other designs)
+    ctx.fillStyle = '#c8e6c9';
+    ctx.fillRect(40, 410, 320, 85);
+    
+    ctx.strokeStyle = '#1a2e1a';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(120, 585);
-    ctx.quadraticCurveTo(200, 575, 280, 585);
-    ctx.stroke();
+    ctx.strokeRect(40, 410, 320, 85);
+
+    // Species name
+    const scientificName = data.scientificName || 'UNKNOWN SPECIES';
+    ctx.fillStyle = '#1a2e1a';
+    ctx.font = 'bold 18px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(scientificName.toUpperCase(), 200, 435);
+
+    // Observer and location
+    ctx.font = '12px serif';
+    ctx.fillText(data.observer || 'Unknown Observer', 200, 455);
+    ctx.fillText(`${data.state || 'Unknown'}, ${data.country || 'Unknown'}`, 200, 475);
+
+    // Platform ID section (dark like the other designs)
+    ctx.fillStyle = '#1a2e1a';
+    ctx.fillRect(40, 510, 320, 35);
+    
+    ctx.fillStyle = '#c8e6c9';
+    ctx.font = 'bold 14px serif';
+    ctx.textAlign = 'center';
+    const platformId = data.platform === 'iNaturalist' ? `iNaturalist #${data.observationId || 'Unknown'}` : 
+                      data.platform === 'Mushroom Observer' ? `MO #${data.observationId || 'Unknown'}` :
+                      `${data.platform} #${data.observationId || 'Unknown'}`;
+    ctx.fillText(platformId, 200, 532);
   };
 
   // Download card as image
@@ -814,14 +723,14 @@ function BioRecordImageGenerator() {
             />
           </div>
 
-          {/* Design 3: Victorian Specimen */}
+          {/* Design 3: Vintage Green */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Victorian Specimen</h3>
+              <h3 className="font-semibold">Vintage Green</h3>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => downloadCard(2, "Victorian Specimen")}
+                onClick={() => downloadCard(2, "Vintage Green")}
               >
                 <Download className="h-3 w-3 mr-1" />
                 Download
