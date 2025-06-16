@@ -116,6 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 16, 2025: Incremental Upload System and Stop Processing Implementation
+  - Transformed upload process from destructive (clearing all data) to incremental (preserving existing records)
+  - Implemented comprehensive stop processing functionality with frontend button and backend cancellation endpoint
+  - Added cancellation checks throughout upload workflow with global cancelledUploads Map tracking
+  - Removed non-functional upload settings UI (validate duplicates, require geolocation, notify contributors)
+  - Updated UI messaging to reflect incremental upload approach with preserved existing data
+  - Enhanced data management to allow additive uploads without losing previous observations
+
 - June 16, 2025: Upload Process Enhancement and Foreign Key Fix
   - Added iNaturalist API lookup as fallback for classification updates during upload process
   - Enhanced genus matching to query iNaturalist API when local database matches fail
