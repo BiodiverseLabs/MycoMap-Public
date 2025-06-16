@@ -51,6 +51,7 @@ interface ValidationObservation {
   scientificName: string;
   commonName?: string;
   observer?: string;
+  collector?: string;
   state?: string;
   hasInatData: boolean;
   hasMoData: boolean;
@@ -75,6 +76,7 @@ interface ValidationObservation {
 }
 
 export default function BioRecordManagement() {
+  // Cache buster: v2.0.1 - Updated collector display priority
   const [selectedObservationId, setSelectedObservationId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedMetadata, setExpandedMetadata] = useState<Set<number>>(new Set());
@@ -821,7 +823,7 @@ function BioRecordImageGenerator() {
                     <TableRow>
                       <TableHead>Observation ID</TableHead>
                       <TableHead>Scientific Name</TableHead>
-                      <TableHead>Collector</TableHead>
+                      <TableHead>Collector Name</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Validated Date</TableHead>
                       <TableHead>Version</TableHead>
@@ -1014,7 +1016,7 @@ function BioRecordImageGenerator() {
                     <TableRow>
                       <TableHead>Observation ID</TableHead>
                       <TableHead>Scientific Name</TableHead>
-                      <TableHead>Collector</TableHead>
+                      <TableHead>Collector Name</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
