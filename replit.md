@@ -116,6 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 16, 2025: Enhanced Classification System and Real-time Progress Monitoring
+  - Fixed incomplete genus match detection in classification updates to catch genera with missing taxonomy fields
+  - Added family-level search to iNaturalist API lookup (genus, subgenus, section, family ranks)
+  - Enhanced classification logic to verify complete taxonomy before accepting local database matches
+  - Implemented real-time batch progression monitoring for classification updates phase (85-100% progress)
+  - Added detailed batch information display showing current batch, records processed, updated count, API lookups, and time estimates
+  - Resolved Gloioxanthomyces classification issue where genus existed locally but lacked Family Hygrophoraceae classification
+  - System now properly triggers iNaturalist API fallback for incomplete local taxonomy matches
+
 - June 16, 2025: Incremental Upload System and Stop Processing Implementation
   - Transformed upload process from destructive (clearing all data) to incremental (preserving existing records)
   - Implemented comprehensive stop processing functionality with frontend button and backend cancellation endpoint
