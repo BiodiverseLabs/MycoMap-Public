@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -11,7 +11,7 @@ export const users = pgTable("users", {
 
 export const observations = pgTable("observations", {
   id: serial("id").primaryKey(),
-  observationId: text("observation_id").notNull().unique(),
+  observationId: text("observation_id").notNull(),
   scientificName: text("scientific_name").notNull(),
   commonName: text("common_name"),
   phylum: text("phylum"),
@@ -120,6 +120,8 @@ export const observations = pgTable("observations", {
   observationIdIdx: index("observation_id_idx").on(table.observationId),
   // Composite index for validation queries (source + observationId)
   sourceObservationIdx: index("source_observation_idx").on(table.source, table.observationId),
+  // Composite unique constraint: same observation ID can exist across different sources
+  sourceObservationUnique: unique("source_observation_unique").on(table.source, table.observationId),
 }));
 
 export const uploads = pgTable("uploads", {

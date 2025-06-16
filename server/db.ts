@@ -75,7 +75,88 @@ export class DatabaseStorage implements IStorage {
 
   async createObservations(observationList: InsertObservation[]): Promise<Observation[]> {
     if (observationList.length === 0) return [];
-    const newObservations = await db.insert(observations).values(observationList).returning();
+    
+    // Use upsert to handle existing records based on source + observation_id composite key
+    const newObservations = await db.insert(observations)
+      .values(observationList)
+      .onConflictDoUpdate({
+        target: [observations.source, observations.observationId],
+        set: {
+          scientificName: sql`EXCLUDED.scientific_name`,
+          commonName: sql`EXCLUDED.common_name`,
+          phylum: sql`EXCLUDED.phylum`,
+          class: sql`EXCLUDED.class`,
+          order: sql`EXCLUDED.order`,
+          family: sql`EXCLUDED.family`,
+          genus: sql`EXCLUDED.genus`,
+          species: sql`EXCLUDED.species`,
+          infraspecies: sql`EXCLUDED.infraspecies`,
+          observer: sql`EXCLUDED.observer`,
+          collector: sql`EXCLUDED.collector`,
+          observedOn: sql`EXCLUDED.observed_on`,
+          latitude: sql`EXCLUDED.latitude`,
+          longitude: sql`EXCLUDED.longitude`,
+          placeGuess: sql`EXCLUDED.place_guess`,
+          state: sql`EXCLUDED.state`,
+          country: sql`EXCLUDED.country`,
+          genbankAccession: sql`EXCLUDED.genbank_accession`,
+          mycoportalNumber: sql`EXCLUDED.mycoportal_number`,
+          dnaSequence: sql`EXCLUDED.dna_sequence`,
+          sequence: sql`EXCLUDED.sequence`,
+          collectionNumber: sql`EXCLUDED.collection_number`,
+          creationDate: sql`EXCLUDED.creation_date`,
+          verified: sql`EXCLUDED.verified`,
+          kingdom: sql`EXCLUDED.kingdom`,
+          authority: sql`EXCLUDED.authority`,
+          abbreviatedAuthority: sql`EXCLUDED.abbreviated_authority`,
+          mycobankNumber: sql`EXCLUDED.mycobank_number`,
+          fungariumSpecimen: sql`EXCLUDED.fungarium_specimen`,
+          images: sql`EXCLUDED.images`,
+          flags: sql`EXCLUDED.flags`,
+          forwardPrimer: sql`EXCLUDED.forward_primer`,
+          reversePrimer: sql`EXCLUDED.reverse_primer`,
+          runName: sql`EXCLUDED.run_name`,
+          sequence2: sql`EXCLUDED.sequence_2`,
+          forwardPrimer2: sql`EXCLUDED.forward_primer_2`,
+          reversePrimer2: sql`EXCLUDED.reverse_primer_2`,
+          sequenceOwner2: sql`EXCLUDED.sequence_owner_2`,
+          runName2: sql`EXCLUDED.run_name_2`,
+          locationName: sql`EXCLUDED.location_name`,
+          notes: sql`EXCLUDED.notes`,
+          moNotes: sql`EXCLUDED.mo_notes`,
+          reportLink: sql`EXCLUDED.report_link`,
+          imageLink: sql`EXCLUDED.image_link`,
+          firstGenbankRecord: sql`EXCLUDED.first_genbank_record`,
+          isFirstStateRecord: sql`EXCLUDED.is_first_state_record`,
+          hasMultipleGenotypes: sql`EXCLUDED.has_multiple_genotypes`,
+          sourceUrl: sql`EXCLUDED.source_url`,
+          nameUpdate: sql`EXCLUDED.name_update`,
+          classificationUpdate: sql`EXCLUDED.classification_update`,
+          mycoMapBlastUrl: sql`EXCLUDED.mycomap_blast_url`,
+          ncbiBlastFile: sql`EXCLUDED.ncbi_blast_file`,
+          localBlastFile: sql`EXCLUDED.local_blast_file`,
+          blastFilesDownloaded: sql`EXCLUDED.blast_files_downloaded`,
+          blastDownloadDate: sql`EXCLUDED.blast_download_date`,
+          mycoMapTraceUrl: sql`EXCLUDED.mycomap_trace_url`,
+          fastqFile: sql`EXCLUDED.fastq_file`,
+          traceFilesDownloaded: sql`EXCLUDED.trace_files_downloaded`,
+          traceDownloadDate: sql`EXCLUDED.trace_download_date`,
+          inatApiFile: sql`EXCLUDED.inat_api_file`,
+          inatApiSaved: sql`EXCLUDED.inat_api_saved`,
+          inatApiSaveDate: sql`EXCLUDED.inat_api_save_date`,
+          ipfsUploaded: sql`EXCLUDED.ipfs_uploaded`,
+          ipfsUploadDate: sql`EXCLUDED.ipfs_upload_date`,
+          ipfsFolderCid: sql`EXCLUDED.ipfs_folder_cid`,
+          ipfsFolderUrl: sql`EXCLUDED.ipfs_folder_url`,
+          ipfsNcbiBlastUrl: sql`EXCLUDED.ipfs_ncbi_blast_url`,
+          ipfsLocalBlastUrl: sql`EXCLUDED.ipfs_local_blast_url`,
+          ipfsFastqUrl: sql`EXCLUDED.ipfs_fastq_url`,
+          ipfsInatApiUrl: sql`EXCLUDED.ipfs_inat_api_url`,
+          updatedAt: sql`NOW()`
+        }
+      })
+      .returning();
+    
     return newObservations;
   }
 
