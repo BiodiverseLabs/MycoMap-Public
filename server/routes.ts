@@ -1067,27 +1067,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Total: ${allColumns.length}, Mapped: ${mapped.filter(f => allColumns.includes(f)).length}, Unmapped: ${unmapped.length}`);
       }
 
+      // Character encoding fix function
+      function fixEncoding(text: string | null | undefined): string | null {
+        if (!text || typeof text !== 'string') return text || null;
+        
+        // Fix common UTF-8 encoding corruption patterns
+        return text
+          // Smart quotes and apostrophes
+          .replace(/â€œ/g, '"')     // Opening smart quote
+          .replace(/â€/g, '"')      // Closing smart quote  
+          .replace(/â€™/g, "'")     // Smart apostrophe/closing single quote
+          .replace(/â€˜/g, "'")     // Opening smart apostrophe
+          // Other common encoding issues
+          .replace(/â€"/g, '–')     // En dash
+          .replace(/â€"/g, '—')     // Em dash
+          .replace(/â€¦/g, '…')     // Ellipsis
+          .replace(/Ã¡/g, 'á')     // á with accent
+          .replace(/Ã©/g, 'é')     // é with accent
+          .replace(/Ã­/g, 'í')     // í with accent
+          .replace(/Ã³/g, 'ó')     // ó with accent
+          .replace(/Ãº/g, 'ú')     // ú with accent
+          .replace(/Ã±/g, 'ñ')     // ñ with tilde
+          .replace(/Ã§/g, 'ç')     // ç with cedilla
+          // Additional patterns found in the data
+          .replace(/â€˜/g, "'")     // Additional single quote variant
+          .replace(/â€™/g, "'")     // Additional apostrophe variant
+          .trim();
+      }
+
       // Transform and validate data using actual column names from your file
       const observations = rawData.map((row: any) => {
         // Construct scientific name following taxonomic hierarchy
         // Priority: Variety -> Species -> Genus -> Family -> Order -> Class -> Phylum -> Kingdom
         let scientificName = '';
         if (row['Variety']) {
-          scientificName = row['Variety'];
+          scientificName = fixEncoding(row['Variety']) || '';
         } else if (row['Species']) {
-          scientificName = row['Species'];
+          scientificName = fixEncoding(row['Species']) || '';
         } else if (row['Genus']) {
-          scientificName = row['Genus'];
+          scientificName = fixEncoding(row['Genus']) || '';
         } else if (row['Family']) {
-          scientificName = row['Family'];
+          scientificName = fixEncoding(row['Family']) || '';
         } else if (row['Order']) {
-          scientificName = row['Order'];
+          scientificName = fixEncoding(row['Order']) || '';
         } else if (row['Class']) {
-          scientificName = row['Class'];
+          scientificName = fixEncoding(row['Class']) || '';
         } else if (row['Phylum']) {
-          scientificName = row['Phylum'];
+          scientificName = fixEncoding(row['Phylum']) || '';
         } else if (row['Kingdom']) {
-          scientificName = row['Kingdom'];
+          scientificName = fixEncoding(row['Kingdom']) || '';
         } else {
           scientificName = 'Unknown';
         }
@@ -1104,18 +1132,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const classificationUpdate = missingHigherTaxonomy;
 
         return {
-          observationId: row['Reference Number'] || `${Date.now()}-${Math.random()}`,
+          observationId: fixEncoding(row['Reference Number']) || `${Date.now()}-${Math.random()}`,
           scientificName: scientificName,
           commonName: null, // Not present in your data
-          phylum: row['Phylum'] || null,
-          class: row['Class'] || null,
-          order: row['Order'] || null,
-          family: row['Family'] || null,
-          genus: row['Genus'] || null,
-          species: row['Species'] || null,
-          infraspecies: row['Variety'] || null,
-          observer: row['Sequence Owner'] || null,
-          collector: row['Collector'] || null,
+          phylum: fixEncoding(row['Phylum']),
+          class: fixEncoding(row['Class']),
+          order: fixEncoding(row['Order']),
+          family: fixEncoding(row['Family']),
+          genus: fixEncoding(row['Genus']),
+          species: fixEncoding(row['Species']),
+          infraspecies: fixEncoding(row['Variety']),
+          observer: fixEncoding(row['Sequence Owner']),
+          collector: fixEncoding(row['Collector']),
           observedOn: (() => {
             try {
               if (!row['Report Date']) return null;
@@ -1137,16 +1165,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })(),
           latitude: row['Latitude'] ? String(row['Latitude']) : null,
           longitude: row['Longitude'] ? String(row['Longitude']) : null,
-          placeGuess: row['City'] || null,
-          state: row['State'] || null,
-          country: row['Country'] || null,
-          genbankAccession: row['GenBank Accession #'] || null,
-          mycoportalNumber: row['MyCoPortal #'] || null,
-          dnaSequence: row['DNA Sequence'] || null,
-          sequence: row['Sequence'] || null,
+          placeGuess: fixEncoding(row['City']),
+          state: fixEncoding(row['State']),
+          country: fixEncoding(row['Country']),
+          genbankAccession: fixEncoding(row['GenBank Accession #']),
+          mycoportalNumber: fixEncoding(row['MyCoPortal #']),
+          dnaSequence: fixEncoding(row['DNA Sequence']),
+          sequence: fixEncoding(row['Sequence']),
           
           // Additional mapped fields
-          collectionNumber: row['Collection Number'] || null,
+          collectionNumber: fixEncoding(row['Collection Number']),
           creationDate: (() => {
             try {
               if (!row['Creation Date']) return null;
@@ -1166,27 +1194,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return null;
             }
           })(),
-          verified: row['Verified'] || null,
-          kingdom: row['Kingdom'] || null,
-          authority: row['Authority'] || null,
-          abbreviatedAuthority: row['Abbreviated Authority'] || null,
-          mycobankNumber: row['Mycobank #'] || null,
-          fungariumSpecimen: row['Fungarium Specimen'] || null,
-          images: row['Images'] || null,
-          flags: row['Flags'] || null,
-          forwardPrimer: row['Forward Primer'] || null,
-          reversePrimer: row['Reverse Primer'] || null,
-          runName: row['Run Name'] || null,
-          sequence2: row['Sequence #2'] || null,
-          forwardPrimer2: row['Forward Primer #2'] || null,
-          reversePrimer2: row['Reverse Primer #2'] || null,
-          sequenceOwner2: row['Sequence Owner #2'] || null,
-          runName2: row['Run Name #2'] || null,
-          locationName: row['Location Name'] || null,
-          notes: row['Notes'] || null,
-          moNotes: row['MO Notes'] || null,
-          reportLink: row['Report Link'] || null,
-          imageLink: row['Image Link'] || null,
+          verified: fixEncoding(row['Verified']),
+          kingdom: fixEncoding(row['Kingdom']),
+          authority: fixEncoding(row['Authority']),
+          abbreviatedAuthority: fixEncoding(row['Abbreviated Authority']),
+          mycobankNumber: fixEncoding(row['Mycobank #']),
+          fungariumSpecimen: fixEncoding(row['Fungarium Specimen']),
+          images: fixEncoding(row['Images']),
+          flags: fixEncoding(row['Flags']),
+          forwardPrimer: fixEncoding(row['Forward Primer']),
+          reversePrimer: fixEncoding(row['Reverse Primer']),
+          runName: fixEncoding(row['Run Name']),
+          sequence2: fixEncoding(row['Sequence #2']),
+          forwardPrimer2: fixEncoding(row['Forward Primer #2']),
+          reversePrimer2: fixEncoding(row['Reverse Primer #2']),
+          sequenceOwner2: fixEncoding(row['Sequence Owner #2']),
+          runName2: fixEncoding(row['Run Name #2']),
+          locationName: fixEncoding(row['Location Name']),
+          notes: fixEncoding(row['Notes']),
+          moNotes: fixEncoding(row['MO Notes']),
+          reportLink: fixEncoding(row['Report Link']),
+          imageLink: fixEncoding(row['Image Link']),
           firstGenbankRecord: row['First GenBank Record'] === 'yes',
           
           isFirstStateRecord: row['First State Record'] === 'yes',
