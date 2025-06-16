@@ -116,6 +116,13 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 16, 2025: Upload Process Enhancement and Foreign Key Fix
+  - Added iNaturalist API lookup as fallback for classification updates during upload process
+  - Enhanced genus matching to query iNaturalist API when local database matches fail
+  - Fixed foreign key constraint violation in data clearing process by updating table deletion order
+  - Upload process now clears biorecords and external platform data before observations table
+  - Classification updates now include comprehensive logging of local vs API lookup sources
+
 - June 16, 2025: BioRecords Collector Field Display Fix
   - Updated table headers from "Observer" to "Collector Name" in biorecords management
   - Fixed dropdown metadata to show "Collector" instead of "Observer" with proper field priority

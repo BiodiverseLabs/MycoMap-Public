@@ -1421,12 +1421,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async clearAllData(): Promise<void> {
-    const { gpsIndex, observations, contributors, species, uploads } = schema;
+    const { 
+      gpsIndex, 
+      observations, 
+      contributors, 
+      species, 
+      uploads, 
+      biorecords,
+      inaturalistData,
+      mushroomObserverData,
+      mycoportalData,
+      redlistAssessments
+    } = schema;
+    
+    // Delete dependent tables first to avoid foreign key constraint violations
+    console.log('Clearing biorecords...');
+    await db.delete(biorecords);
+    
+    console.log('Clearing external platform data...');
+    await db.delete(inaturalistData);
+    await db.delete(mushroomObserverData);
+    await db.delete(mycoportalData);
+    
+    console.log('Clearing GPS index...');
     await db.delete(gpsIndex);
+    
+    console.log('Clearing main observation data...');
     await db.delete(observations);
+    
+    console.log('Clearing statistics tables...');
     await db.delete(contributors);
     await db.delete(species);
+    
+    console.log('Clearing uploads...');
     await db.delete(uploads);
+    
+    console.log('Clearing Red List assessments...');
+    await db.delete(redlistAssessments);
+    
+    console.log('✓ All data cleared successfully');
   }
 
   async getObservationsWithNameUpdates(): Promise<Observation[]> {
