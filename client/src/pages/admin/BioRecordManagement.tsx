@@ -841,7 +841,7 @@ function BioRecordImageGenerator() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{record.observer || record.collector || "Unknown"}</TableCell>
+                        <TableCell>{record.collector || record.observer || "Unknown"}</TableCell>
                         <TableCell>{record.state || "Unknown"}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
