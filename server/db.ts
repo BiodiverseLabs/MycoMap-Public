@@ -3005,7 +3005,7 @@ export class DatabaseStorage implements IStorage {
       await db
         .update(inaturalistClassificationCache)
         .set({
-          lookupCount: cached.lookupCount + 1,
+          lookupCount: (cached.lookupCount || 0) + 1,
           lastUsedAt: new Date()
         })
         .where(eq(inaturalistClassificationCache.genus, genus));
@@ -3198,7 +3198,11 @@ export class DatabaseStorage implements IStorage {
     return {
       totalEntries: totalEntries.count,
       totalLookups: totalLookups.total || 0,
-      mostUsedGenera: mostUsed
+      mostUsedGenera: mostUsed.map(item => ({
+        genus: item.genus,
+        lookupCount: item.lookupCount || 0,
+        family: item.family
+      }))
     };
   }
 }

@@ -897,6 +897,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get iNaturalist classification cache statistics
+  app.get("/api/inaturalist-cache-stats", async (req, res) => {
+    try {
+      const cacheStats = await storage.getClassificationCacheStats();
+      const uploadStats = storage.getUploadApiCallStats();
+      
+      res.json({
+        cache: cacheStats,
+        currentUpload: uploadStats
+      });
+    } catch (error) {
+      console.error("Error fetching cache statistics:", error);
+      res.status(500).json({ error: "Failed to fetch cache statistics" });
+    }
+  });
+
   // Progress tracking for uploads
   const activeUploads = new Map<number, { progress: number; phase: string; message: string; batchInfo?: any }>();
   
