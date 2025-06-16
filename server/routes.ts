@@ -2537,7 +2537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       if (files.length > 0) {
-        const latestFile = files.sort().pop(); // Get most recent file
+        const latestFile = files.sort().pop()!; // Get most recent file
         const filePath = path.join(downloadDir, latestFile);
         res.download(filePath, latestFile);
       } else {

@@ -1159,15 +1159,27 @@ function BioRecordImageGenerator() {
                                         <div>No MycoMap BLAST URL available</div>
                                       )}
                                       {observation.blastFilesDownloaded && (
-                                        <div>
-                                          <a 
-                                            href={`/api/download/blast/${observation.observationId}`}
-                                            className="text-green-600 hover:text-green-800 underline"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            Download BLAST XML
-                                          </a>
+                                        <div className="space-y-1">
+                                          <div>
+                                            <a 
+                                              href={`/api/download/blast/${observation.observationId}?type=ncbi`}
+                                              className="text-green-600 hover:text-green-800 underline"
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                            >
+                                              Download NCBI BLAST XML
+                                            </a>
+                                          </div>
+                                          <div>
+                                            <a 
+                                              href={`/api/download/blast/${observation.observationId}?type=local`}
+                                              className="text-green-600 hover:text-green-800 underline"
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                            >
+                                              Download Local BLAST XML
+                                            </a>
+                                          </div>
                                         </div>
                                       )}
                                     </div>
