@@ -116,12 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 16, 2025: Fixed biorecords validation logic and iNaturalist scientific name display
+- June 16, 2025: Enhanced biorecords management with metadata transparency and validation fixes
+  - Added blockchain metadata dropdown to each record in "Create from Validated" table showing complete data that will be stored on Solana
   - Fixed critical issue where observations with mismatched scientific names appeared as fully validated in biorecords tab
   - Added scientific name matching requirement to validation queries: MycoMap name must exactly match iNaturalist scientific name
   - Updated validation queries to prioritize scientific names over common names (provisional species name → taxon scientific name → NULL)
   - Fixed issue where "Bitter Bracket" was showing instead of "Amaropostia stiptica" by removing common name fallbacks
   - Biorecords "Create from Validated" tab now only shows observations with truly matching taxonomic identifications
+  - Metadata dropdown displays observation ID, scientific names, observer info, sync status badges, and file completion status
 
 - June 16, 2025: BioRecord Images trading card generator implemented
   - Created new "BioRecord Images" tab in admin interface

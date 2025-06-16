@@ -9,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Archive, History, CheckCircle, Clock, AlertCircle, Coins, ExternalLink, Download, Image as ImageIcon, Palette } from "lucide-react";
+import { Search, Archive, History, CheckCircle, Clock, AlertCircle, Coins, ExternalLink, Download, Image as ImageIcon, Palette, ChevronDown, Database } from "lucide-react";
 import { format } from "date-fns";
 
 interface Biorecord {
@@ -1004,6 +1005,7 @@ function BioRecordImageGenerator() {
                       <TableHead>Observer</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Blockchain Metadata</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1022,6 +1024,88 @@ function BioRecordImageGenerator() {
                         <TableCell>{observation.observer || "Unknown"}</TableCell>
                         <TableCell>{observation.state || "Unknown"}</TableCell>
                         <TableCell>{getValidationStatusBadge(observation)}</TableCell>
+                        <TableCell>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Database className="w-4 h-4 mr-2" />
+                                View Metadata
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Blockchain Metadata Preview</DialogTitle>
+                                <DialogDescription>
+                                  This metadata will be permanently stored on the Solana blockchain when the BioRecord is created.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">Observation ID</div>
+                                    <div className="font-mono text-sm bg-gray-50 p-2 rounded">{observation.observationId}</div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">Scientific Name</div>
+                                    <div className="italic text-sm bg-gray-50 p-2 rounded">{observation.scientificName}</div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">Common Name</div>
+                                    <div className="text-sm bg-gray-50 p-2 rounded">{observation.commonName || "Not specified"}</div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">Observer</div>
+                                    <div className="text-sm bg-gray-50 p-2 rounded">{observation.observer || "Unknown"}</div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">Location</div>
+                                    <div className="text-sm bg-gray-50 p-2 rounded">{observation.state || "Unknown"}</div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">Platform Sync Status</div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {observation.inatSyncStatus === 'success' && (
+                                        <Badge variant="outline" className="text-xs">iNaturalist ✓</Badge>
+                                      )}
+                                      {observation.moSyncStatus === 'success' && (
+                                        <Badge variant="outline" className="text-xs">Mushroom Observer ✓</Badge>
+                                      )}
+                                      {observation.mycoportalSyncStatus === 'success' && (
+                                        <Badge variant="outline" className="text-xs">MyCoPortal ✓</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <div className="font-medium text-gray-700 mb-2">File Completion Status</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {observation.blastFilesDownloaded && (
+                                      <Badge variant="outline" className="text-xs">BLAST Files ✓</Badge>
+                                    )}
+                                    {observation.traceFilesDownloaded && (
+                                      <Badge variant="outline" className="text-xs">Trace Files ✓</Badge>
+                                    )}
+                                    {observation.inatApiSaved && (
+                                      <Badge variant="outline" className="text-xs">API Export ✓</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="bg-blue-50 p-3 rounded-lg">
+                                  <div className="text-sm text-blue-800">
+                                    <strong>Blockchain Storage:</strong> This observation data meets all validation requirements and is ready for permanent preservation on the Solana blockchain as an NFT-backed scientific record.
+                                  </div>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
                         <TableCell>
                           <Button
                             variant="outline"
