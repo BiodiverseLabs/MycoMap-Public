@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { CloudUpload, FileCheck, Loader2 } from "lucide-react";
-import { useState, useRef } from "react";
+import { CloudUpload, FileCheck, Loader2, Database, BarChart3 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -18,14 +18,64 @@ export function FileUpload() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadPhase, setUploadPhase] = useState<'idle' | 'uploading' | 'processing'>('idle');
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingPhase, setProcessingPhase] = useState('');
+  const [processingMessage, setProcessingMessage] = useState('');
+  const [batchInfo, setBatchInfo] = useState<any>(null);
+  const [uploadId, setUploadId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // SSE connection for processing progress
+  useEffect(() => {
+    if (uploadId && uploadPhase === 'processing') {
+      const eventSource = new EventSource(`/api/upload/progress/${uploadId}`);
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setProcessingProgress(data.progress);
+          setProcessingPhase(data.phase);
+          setProcessingMessage(data.message);
+          setBatchInfo(data.batchInfo);
+          
+          if (data.phase === 'completed' && data.progress >= 100) {
+            eventSource.close();
+            setTimeout(() => {
+              setUploadPhase('idle');
+              setUploadProgress(0);
+              setProcessingProgress(0);
+              setProcessingPhase('');
+              setProcessingMessage('');
+              setBatchInfo(null);
+              setUploadId(null);
+            }, 3000);
+          }
+        } catch (error) {
+          console.error('Error parsing SSE data:', error);
+        }
+      };
+      
+      eventSource.onerror = (error) => {
+        console.error('SSE connection error:', error);
+        eventSource.close();
+      };
+      
+      return () => {
+        eventSource.close();
+      };
+    }
+  }, [uploadId, uploadPhase]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       setUploadPhase('uploading');
       setUploadProgress(0);
+      setProcessingProgress(0);
+      setProcessingPhase('');
+      setProcessingMessage('');
+      setBatchInfo(null);
       
       const formData = new FormData();
       formData.append('file', file);
@@ -42,9 +92,12 @@ export function FileUpload() {
         const response = await apiRequest('POST', '/api/upload', formData);
         clearInterval(progressInterval);
         setUploadProgress(100);
+        
+        const result = await response.json();
+        setUploadId(result.uploadId);
         setUploadPhase('processing');
         
-        return response.json();
+        return result;
       } catch (error) {
         clearInterval(progressInterval);
         setUploadPhase('idle');
@@ -53,11 +106,6 @@ export function FileUpload() {
       }
     },
     onSuccess: () => {
-      setTimeout(() => {
-        setUploadPhase('idle');
-        setUploadProgress(0);
-      }, 2000);
-      
       toast({
         title: "Upload Successful",
         description: "File uploaded successfully and is being processed",
@@ -67,6 +115,11 @@ export function FileUpload() {
     onError: (error: Error) => {
       setUploadPhase('idle');
       setUploadProgress(0);
+      setProcessingProgress(0);
+      setProcessingPhase('');
+      setProcessingMessage('');
+      setBatchInfo(null);
+      setUploadId(null);
       toast({
         title: "Upload Failed",
         description: error.message,
@@ -152,20 +205,92 @@ export function FileUpload() {
             </div>
             
             {uploadPhase !== 'idle' && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">
-                    {uploadPhase === 'uploading' ? 'Uploading...' : 'Processing...'}
-                  </span>
-                  <span className="text-sm text-slate-500">
-                    {Math.round(uploadProgress)}%
-                  </span>
-                </div>
-                <Progress value={uploadProgress} className="w-full" />
+              <div className="mb-4 space-y-3">
+                {/* Upload Progress */}
+                {uploadPhase === 'uploading' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Uploading file...
+                      </span>
+                      <span className="text-sm text-slate-500">
+                        {Math.round(uploadProgress)}%
+                      </span>
+                    </div>
+                    <Progress value={uploadProgress} className="w-full" />
+                  </div>
+                )}
+
+                {/* Processing Progress */}
                 {uploadPhase === 'processing' && (
-                  <p className="text-xs text-slate-500 mt-2">
-                    File uploaded successfully, processing data...
-                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        {processingPhase === 'completed' ? (
+                          <FileCheck className="w-4 h-4 text-green-500" />
+                        ) : processingPhase === 'post-processing' ? (
+                          <BarChart3 className="w-4 h-4 text-blue-500" />
+                        ) : (
+                          <Database className="w-4 h-4 text-orange-500" />
+                        )}
+                        {processingPhase === 'completed' ? 'Processing Complete!' : 'Processing data...'}
+                      </span>
+                      <span className="text-sm text-slate-500">
+                        {Math.round(processingProgress)}%
+                      </span>
+                    </div>
+                    <Progress value={processingProgress} className="w-full" />
+                    
+                    {processingMessage && (
+                      <p className="text-xs text-slate-600 font-medium">
+                        {processingMessage}
+                      </p>
+                    )}
+
+                    {/* Detailed batch information */}
+                    {batchInfo && (
+                      <div className="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Current Batch:</span>
+                          <span className="font-medium">{batchInfo.currentBatch} / {batchInfo.totalBatches}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Records Processed:</span>
+                          <span className="font-medium">{batchInfo.insertedCount?.toLocaleString()} / {batchInfo.totalRecords?.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Processing Speed:</span>
+                          <span className="font-medium">{batchInfo.avgTimePerRecord}ms per record</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Phase descriptions */}
+                    <div className="text-xs text-slate-500 space-y-1">
+                      {processingPhase === 'initializing' && (
+                        <p>• Preparing data processing environment</p>
+                      )}
+                      {processingPhase === 'clearing' && (
+                        <p>• Clearing existing data to prevent duplicates</p>
+                      )}
+                      {processingPhase === 'reading' && (
+                        <p>• Loading and parsing Excel file data</p>
+                      )}
+                      {processingPhase === 'processing' && (
+                        <p>• Transforming and validating observation records</p>
+                      )}
+                      {processingPhase === 'inserting' && (
+                        <p>• Inserting observations into database in optimized batches</p>
+                      )}
+                      {processingPhase === 'post-processing' && (
+                        <p>• Building indexes, updating statistics, and running classification updates</p>
+                      )}
+                      {processingPhase === 'completed' && (
+                        <p className="text-green-600 font-medium">• All data processing completed successfully!</p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}

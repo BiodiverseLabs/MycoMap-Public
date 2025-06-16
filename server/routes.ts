@@ -1289,19 +1289,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update all index tables and statistics with monitoring
       console.log(`[${new Date().toISOString()}] Starting post-insertion processing...`);
+      progressTracker.set(uploadId, {
+        progress: 70,
+        phase: 'post-processing',
+        message: 'Building database indexes and statistics...'
+      });
       
       try {
         console.log('Phase 1: Updating contributor statistics...');
+        progressTracker.set(uploadId, {
+          progress: 75,
+          phase: 'post-processing',
+          message: 'Updating contributor statistics...'
+        });
         const contribStart = Date.now();
         await updateContributorStatistics();
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
         
         console.log('Phase 2: Updating species statistics...');
+        progressTracker.set(uploadId, {
+          progress: 80,
+          phase: 'post-processing',
+          message: 'Updating species statistics...'
+        });
         const speciesStart = Date.now();
         await updateSpeciesStatistics();
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
         
         console.log('Phase 3: Building GPS index for map performance...');
+        progressTracker.set(uploadId, {
+          progress: 85,
+          phase: 'post-processing',
+          message: 'Building GPS index for map performance...'
+        });
         const gpsStart = Date.now();
         await storage.buildGpsIndex();
         console.log(`✓ GPS index completed in ${Date.now() - gpsStart}ms`);
@@ -1310,12 +1330,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Auto-populate classification updates by matching genus
         console.log('Phase 4: Starting automated classification updates...');
+        progressTracker.set(uploadId, {
+          progress: 90,
+          phase: 'post-processing',
+          message: 'Running automated classification updates...'
+        });
         const classificationStart = Date.now();
         await autoPopulateClassificationUpdates();
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
 
         // Update upload status
         console.log(`[${new Date().toISOString()}] Upload processing completed successfully`);
+        progressTracker.set(uploadId, {
+          progress: 100,
+          phase: 'completed',
+          message: 'Data processing completed successfully!'
+        });
         await storage.updateUploadStatus(uploadId, 'completed');
         
       } catch (postError) {
