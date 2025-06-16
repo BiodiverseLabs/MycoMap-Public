@@ -1117,11 +1117,11 @@ function BioRecordImageGenerator() {
                                         <div>
                                           <a 
                                             href={observation.mycoMapTraceUrl}
-                                            className="text-blue-600 hover:text-blue-800 underline"
+                                            className="text-blue-600 hover:text-blue-800 underline break-all"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                           >
-                                            View MycoMap Trace Page
+                                            {observation.mycoMapTraceUrl}
                                           </a>
                                         </div>
                                       ) : (
@@ -1131,11 +1131,11 @@ function BioRecordImageGenerator() {
                                         <div>
                                           <a 
                                             href={`/api/download/trace/${observation.observationId}`}
-                                            className="text-green-600 hover:text-green-800 underline"
+                                            className="text-green-600 hover:text-green-800 underline break-all"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                           >
-                                            Download FASTQ file
+                                            /api/download/trace/{observation.observationId}
                                           </a>
                                         </div>
                                       )}
@@ -1149,11 +1149,11 @@ function BioRecordImageGenerator() {
                                         <div>
                                           <a 
                                             href={observation.mycoMapBlastUrl}
-                                            className="text-blue-600 hover:text-blue-800 underline"
+                                            className="text-blue-600 hover:text-blue-800 underline break-all"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                           >
-                                            View MycoMap BLAST Results
+                                            {observation.mycoMapBlastUrl}
                                           </a>
                                         </div>
                                       ) : (
@@ -1164,21 +1164,21 @@ function BioRecordImageGenerator() {
                                           <div>
                                             <a 
                                               href={`/api/download/blast/${observation.observationId}?type=ncbi`}
-                                              className="text-green-600 hover:text-green-800 underline"
+                                              className="text-green-600 hover:text-green-800 underline break-all"
                                               target="_blank"
                                               rel="noopener noreferrer"
                                             >
-                                              Download NCBI BLAST XML
+                                              /api/download/blast/{observation.observationId}?type=ncbi
                                             </a>
                                           </div>
                                           <div>
                                             <a 
                                               href={`/api/download/blast/${observation.observationId}?type=local`}
-                                              className="text-green-600 hover:text-green-800 underline"
+                                              className="text-green-600 hover:text-green-800 underline break-all"
                                               target="_blank"
                                               rel="noopener noreferrer"
                                             >
-                                              Download Local BLAST XML
+                                              /api/download/blast/{observation.observationId}?type=local
                                             </a>
                                           </div>
                                         </div>
@@ -1192,11 +1192,11 @@ function BioRecordImageGenerator() {
                                       {observation.inatApiSaved ? (
                                         <a 
                                           href={`/api/download/inat-api/${observation.observationId}`}
-                                          className="text-green-600 hover:text-green-800 underline"
+                                          className="text-green-600 hover:text-green-800 underline break-all"
                                           target="_blank"
                                           rel="noopener noreferrer"
                                         >
-                                          Download API JSON
+                                          /api/download/inat-api/{observation.observationId}
                                         </a>
                                       ) : (
                                         "No API export available"
