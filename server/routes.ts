@@ -2572,7 +2572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mockNftData = {
         tokenId: `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         contractAddress: "0x" + Math.random().toString(16).substr(2, 40),
-        blockchainNetwork: "polygon",
+        blockchainNetwork: "solana",
         metadataUri: `https://ipfs.io/metadata/${Date.now()}`,
         imageUri: `https://ipfs.io/image/${Date.now()}`,
         mintedBy: "demo-system"
