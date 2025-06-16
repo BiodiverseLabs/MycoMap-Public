@@ -1159,12 +1159,12 @@ function BioRecordImageGenerator() {
                                         <div>
                                           <a 
                                             href={observation.ipfsFastqUrl}
-                                            className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
+                                            className="text-purple-600 hover:text-purple-800 underline flex items-center gap-1"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                           >
                                             <span className="text-xs bg-purple-100 px-1 py-0.5 rounded">IPFS</span>
-                                            {observation.ipfsFastqUrl}
+                                            Raw DNA Data
                                           </a>
                                         </div>
                                       ) : observation.traceFilesDownloaded ? (
@@ -1198,7 +1198,7 @@ function BioRecordImageGenerator() {
                                             <div>
                                               <a 
                                                 href={observation.ipfsNcbiBlastUrl}
-                                                className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
+                                                className="text-purple-600 hover:text-purple-800 underline flex items-center gap-1"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                               >
@@ -1211,7 +1211,7 @@ function BioRecordImageGenerator() {
                                             <div>
                                               <a 
                                                 href={observation.ipfsLocalBlastUrl}
-                                                className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
+                                                className="text-purple-600 hover:text-purple-800 underline flex items-center gap-1"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                               >
