@@ -1061,27 +1061,57 @@ export function ObservationValidation() {
                                         </div>
                                         {obs.source === 'MycoPortal' ? (
                                           obs.mycoportalApiSaved && obs.mycoportalApiFile ? (
-                                            <a
-                                              href={`/api/download/mycoportal-api/${obs.mycoportalApiFile}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-blue-600 hover:text-blue-800 underline"
-                                            >
-                                              {obs.mycoportalApiSaveDate ? new Date(obs.mycoportalApiSaveDate).toLocaleDateString() : 'Download'}
-                                            </a>
+                                            <div className="flex items-center gap-2">
+                                              <a
+                                                href={`/api/download/mycoportal-api/${obs.mycoportalApiFile}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 underline"
+                                              >
+                                                {obs.mycoportalApiSaveDate ? new Date(obs.mycoportalApiSaveDate).toLocaleDateString() : 'Download'}
+                                              </a>
+                                              {obs.ipfsUploaded && obs.ipfsInatApiUrl && (
+                                                <div className="flex items-center gap-1 text-sm">
+                                                  <span className="text-purple-600 font-medium">IPFS:</span>
+                                                  <a
+                                                    href={obs.ipfsInatApiUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-purple-600 hover:text-purple-800 underline"
+                                                  >
+                                                    API
+                                                  </a>
+                                                </div>
+                                              )}
+                                            </div>
                                           ) : (
                                             <span className="text-gray-500">No API file saved</span>
                                           )
                                         ) : obs.source === 'MO Observations' ? (
                                           obs.moApiSaved && obs.moApiFile ? (
-                                            <a
-                                              href={`/api/download/mo-api/${obs.moApiFile}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-blue-600 hover:text-blue-800 underline"
-                                            >
-                                              {obs.moApiSaveDate ? new Date(obs.moApiSaveDate).toLocaleDateString() : 'Download'}
-                                            </a>
+                                            <div className="flex items-center gap-2">
+                                              <a
+                                                href={`/api/download/mo-api/${obs.moApiFile}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 underline"
+                                              >
+                                                {obs.moApiSaveDate ? new Date(obs.moApiSaveDate).toLocaleDateString() : 'Download'}
+                                              </a>
+                                              {obs.ipfsUploaded && obs.ipfsInatApiUrl && (
+                                                <div className="flex items-center gap-1 text-sm">
+                                                  <span className="text-purple-600 font-medium">IPFS:</span>
+                                                  <a
+                                                    href={obs.ipfsInatApiUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-purple-600 hover:text-purple-800 underline"
+                                                  >
+                                                    API
+                                                  </a>
+                                                </div>
+                                              )}
+                                            </div>
                                           ) : (
                                             <span className="text-gray-500">No API file saved</span>
                                           )
@@ -1234,6 +1264,19 @@ export function ObservationValidation() {
                                           <>
                                             {obs.blastFilesDownloaded && obs.ncbiBlastFile && obs.localBlastFile && obs.ipfsUploaded && obs.ipfsNcbiBlastUrl && obs.ipfsLocalBlastUrl ? (
                                               <CheckCircle className="w-4 h-4 text-green-600" />
+                                            ) : obs.blastFilesDownloaded && obs.ncbiBlastFile && obs.localBlastFile && (!obs.ipfsUploaded || !obs.ipfsNcbiBlastUrl || !obs.ipfsLocalBlastUrl) ? (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleBlastDownload(obs.observationId, obs.mycoMapBlastResults!)}
+                                                disabled={downloadBlastMutation.isPending}
+                                              >
+                                                {downloadBlastMutation.isPending ? (
+                                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                  'Upload Files'
+                                                )}
+                                              </Button>
                                             ) : (
                                               <Button
                                                 size="sm"
@@ -1319,6 +1362,20 @@ export function ObservationValidation() {
                                           <>
                                             {obs.traceFilesDownloaded && obs.fastqFile && obs.ipfsUploaded && obs.ipfsFastqUrl ? (
                                               <CheckCircle className="w-4 h-4 text-green-600" />
+                                            ) : obs.traceFilesDownloaded && obs.fastqFile && (!obs.ipfsUploaded || !obs.ipfsFastqUrl) ? (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleTraceDownload(obs.observationId, obs.traceFiles!)}
+                                                disabled={downloadTraceMutation.isPending}
+                                                className="ml-2"
+                                              >
+                                                {downloadTraceMutation.isPending ? (
+                                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                  'Upload FASTQ'
+                                                )}
+                                              </Button>
                                             ) : (
                                               <>
                                                 <XCircle className="w-4 h-4 text-red-600" />
