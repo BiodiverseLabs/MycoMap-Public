@@ -230,7 +230,7 @@ export default function BioRecordManagement() {
             <div>
               <h1 className="text-3xl font-bold">BioRecord Management</h1>
               <p className="text-muted-foreground">
-                Manage historical snapshots and mint NFTs from fully validated observations
+                Manage historical snapshots and mint BioRecords from fully validated observations
               </p>
             </div>
           </div>
@@ -249,7 +249,7 @@ export default function BioRecordManagement() {
                     BioRecord Archive ({filteredBiorecords.length})
                   </CardTitle>
                   <CardDescription>
-                    Historical snapshots of fully validated observations with NFT minting capabilities
+                    Historical snapshots of fully validated observations with BioRecord minting capabilities
                   </CardDescription>
                   <div className="flex items-center space-x-2">
                     <Search className="w-4 h-4 text-muted-foreground" />
@@ -274,7 +274,7 @@ export default function BioRecordManagement() {
                       <TableHead>State</TableHead>
                       <TableHead>Validated Date</TableHead>
                       <TableHead>Version</TableHead>
-                      <TableHead>NFT Status</TableHead>
+                      <TableHead>BioRecord Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -306,7 +306,7 @@ export default function BioRecordManagement() {
                             <div className="space-y-1">
                               <Badge variant="default" className="bg-purple-500 hover:bg-purple-600">
                                 <Coins className="w-3 h-3 mr-1" />
-                                NFT Minted
+                                BioRecord Minted
                               </Badge>
                               {record.nftTokenId && (
                                 <div className="text-xs text-muted-foreground font-mono">
@@ -337,7 +337,7 @@ export default function BioRecordManagement() {
                                 className="bg-purple-500 hover:bg-purple-600"
                               >
                                 <Coins className="w-3 h-3 mr-1" />
-                                {mintNftMutation.isPending ? "Minting..." : "Mint NFT"}
+                                {mintNftMutation.isPending ? "Minting..." : "Mint BioRecord"}
                               </Button>
                             )}
                             {record.nftMinted && record.nftMetadataUri && (
@@ -347,7 +347,7 @@ export default function BioRecordManagement() {
                                 onClick={() => window.open(record.nftMetadataUri, '_blank')}
                               >
                                 <ExternalLink className="w-3 h-3 mr-1" />
-                                View NFT
+                                View BioRecord
                               </Button>
                             )}
                             <Dialog>
