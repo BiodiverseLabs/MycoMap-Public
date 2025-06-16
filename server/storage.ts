@@ -189,6 +189,17 @@ export interface IStorage {
   getBiorecordHistory(observationId: string): Promise<Biorecord[]>;
   createBiorecord(observationData: any): Promise<Biorecord>;
   createBiorecordFromValidatedObservation(observationId: string): Promise<Biorecord | null>;
+  
+  // NFT minting functionality
+  mintBiorecordNFT(biorecordId: number, nftData: {
+    tokenId: string;
+    contractAddress: string;
+    blockchainNetwork: string;
+    metadataUri?: string;
+    imageUri?: string;
+    mintedBy?: string;
+  }): Promise<Biorecord>;
+  getBiorecordsEligibleForMinting(): Promise<Biorecord[]>;
 }
 
 export class MemoryStorage implements IStorage {

@@ -592,6 +592,16 @@ export const biorecords = pgTable("biorecords", {
   validatedBy: text("validated_by"), // Could track who performed validation
   validationVersion: text("validation_version").default('1.0'), // Track validation criteria version
   
+  // NFT/BioRecord minting metadata
+  nftMinted: boolean("nft_minted").default(false),
+  nftTokenId: text("nft_token_id"), // Blockchain token ID
+  nftContractAddress: text("nft_contract_address"), // Smart contract address
+  nftBlockchainNetwork: text("nft_blockchain_network"), // e.g., "ethereum", "polygon"
+  nftMintedAt: timestamp("nft_minted_at"),
+  nftMintedBy: text("nft_minted_by"), // Who triggered the mint
+  nftMetadataUri: text("nft_metadata_uri"), // IPFS or centralized metadata URL
+  nftImageUri: text("nft_image_uri"), // NFT image/media URL
+  
   // Original observation reference
   originalObservationId: integer("original_observation_id").references(() => observations.id),
   

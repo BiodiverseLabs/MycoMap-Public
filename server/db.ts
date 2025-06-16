@@ -2850,4 +2850,39 @@ export class DatabaseStorage implements IStorage {
 
     return false; // No significant changes
   }
+
+  // NFT minting functionality
+  async mintBiorecordNFT(biorecordId: number, nftData: {
+    tokenId: string;
+    contractAddress: string;
+    blockchainNetwork: string;
+    metadataUri?: string;
+    imageUri?: string;
+    mintedBy?: string;
+  }): Promise<Biorecord> {
+    const [updatedBiorecord] = await db
+      .update(biorecords)
+      .set({
+        nftMinted: true,
+        nftTokenId: nftData.tokenId,
+        nftContractAddress: nftData.contractAddress,
+        nftBlockchainNetwork: nftData.blockchainNetwork,
+        nftMetadataUri: nftData.metadataUri,
+        nftImageUri: nftData.imageUri,
+        nftMintedAt: new Date(),
+        nftMintedBy: nftData.mintedBy || 'system'
+      })
+      .where(eq(biorecords.id, biorecordId))
+      .returning();
+
+    return updatedBiorecord;
+  }
+
+  async getBiorecordsEligibleForMinting(): Promise<Biorecord[]> {
+    return await db
+      .select()
+      .from(biorecords)
+      .where(eq(biorecords.nftMinted, false))
+      .orderBy(desc(biorecords.validatedAt));
+  }
 }

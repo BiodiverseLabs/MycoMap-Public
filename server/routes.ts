@@ -2522,5 +2522,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NFT minting API endpoints
+  app.post("/api/biorecords/:biorecordId/mint-nft", async (req, res) => {
+    try {
+      const { biorecordId } = req.params;
+      const { tokenId, contractAddress, blockchainNetwork, metadataUri, imageUri, mintedBy } = req.body;
+      
+      if (!tokenId || !contractAddress || !blockchainNetwork) {
+        return res.status(400).json({ 
+          error: "tokenId, contractAddress, and blockchainNetwork are required" 
+        });
+      }
+
+      const biorecord = await storage.mintBiorecordNFT(parseInt(biorecordId), {
+        tokenId,
+        contractAddress,
+        blockchainNetwork,
+        metadataUri,
+        imageUri,
+        mintedBy
+      });
+
+      res.json({
+        message: "NFT minted successfully",
+        biorecord: biorecord
+      });
+    } catch (error) {
+      console.error("Error minting NFT:", error);
+      res.status(500).json({ error: "Failed to mint NFT" });
+    }
+  });
+
+  app.get("/api/biorecords/eligible-for-minting", async (req, res) => {
+    try {
+      const biorecords = await storage.getBiorecordsEligibleForMinting();
+      res.json(biorecords);
+    } catch (error) {
+      console.error("Error fetching biorecords eligible for minting:", error);
+      res.status(500).json({ error: "Failed to fetch eligible biorecords" });
+    }
+  });
+
+  // Mock NFT minting endpoint for demo purposes
+  app.post("/api/biorecords/:biorecordId/mock-mint", async (req, res) => {
+    try {
+      const { biorecordId } = req.params;
+      
+      // Generate mock NFT data for demonstration
+      const mockNftData = {
+        tokenId: `NFT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        contractAddress: "0x" + Math.random().toString(16).substr(2, 40),
+        blockchainNetwork: "polygon",
+        metadataUri: `https://ipfs.io/metadata/${Date.now()}`,
+        imageUri: `https://ipfs.io/image/${Date.now()}`,
+        mintedBy: "demo-system"
+      };
+
+      const biorecord = await storage.mintBiorecordNFT(parseInt(biorecordId), mockNftData);
+
+      res.json({
+        message: "Mock NFT minted successfully (demo)",
+        biorecord: biorecord,
+        nftData: mockNftData
+      });
+    } catch (error) {
+      console.error("Error mock minting NFT:", error);
+      res.status(500).json({ error: "Failed to mock mint NFT" });
+    }
+  });
+
   return httpServer;
 }
