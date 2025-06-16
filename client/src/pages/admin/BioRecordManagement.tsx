@@ -821,7 +821,7 @@ function BioRecordImageGenerator() {
                     <TableRow>
                       <TableHead>Observation ID</TableHead>
                       <TableHead>Scientific Name</TableHead>
-                      <TableHead>Observer</TableHead>
+                      <TableHead>Collector</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Validated Date</TableHead>
                       <TableHead>Version</TableHead>
@@ -1014,7 +1014,7 @@ function BioRecordImageGenerator() {
                     <TableRow>
                       <TableHead>Observation ID</TableHead>
                       <TableHead>Scientific Name</TableHead>
-                      <TableHead>Observer</TableHead>
+                      <TableHead>Collector</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
@@ -1042,7 +1042,7 @@ function BioRecordImageGenerator() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>{observation.observer || "Unknown"}</TableCell>
+                          <TableCell>{observation.collector || observation.observer || "Unknown"}</TableCell>
                           <TableCell>{observation.state || "Unknown"}</TableCell>
                           <TableCell>{getValidationStatusBadge(observation)}</TableCell>
                           <TableCell>
