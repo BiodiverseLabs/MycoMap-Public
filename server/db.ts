@@ -1611,11 +1611,17 @@ export class DatabaseStorage implements IStorage {
         mc.state_province as "mycoportalState",
         CASE WHEN mc.api_file IS NOT NULL THEN true ELSE false END as "mycoportalApiSaved",
         mc.api_file as "mycoportalApiFile",
-        mc.api_save_date as "mycoportalApiSaveDate"
+        mc.api_save_date as "mycoportalApiSaveDate",
+        -- Biorecord/NFT minting status
+        b.id as "biorecordId",
+        b.nft_minted as "nftMinted",
+        b.nft_token_id as "nftTokenId",
+        b.nft_minted_at as "nftMintedAt"
       FROM observations o
       LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
       LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id
       LEFT JOIN mycoportal_data mc ON o.observation_id = mc.observation_id
+      LEFT JOIN biorecords b ON o.observation_id = b.observation_id
     `;
 
     const queryParams: any[] = [];

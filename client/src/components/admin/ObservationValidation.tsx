@@ -68,6 +68,11 @@ interface ValidationObservation {
   moApiSaveDate?: string | null;
   // Mushroom Observer DNA sequence data
   moDnaBarcode?: string | null;
+  // BioRecord/NFT status
+  biorecordId?: number | null;
+  nftMinted?: boolean;
+  nftTokenId?: string | null;
+  nftMintedAt?: string | null;
   moSequenceNotes?: string | null;
   // MyCoPortal data
   hasMycoportalData?: boolean;
@@ -872,6 +877,13 @@ export function ObservationValidation() {
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
                             {getOverallValidationStatus(obs)}
+                            {/* BioRecord Minted Badge */}
+                            {obs.nftMinted && (
+                              <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-white text-xs flex items-center gap-1">
+                                <Coins className="w-3 h-3" />
+                                BioRecord Minted
+                              </Badge>
+                            )}
                             <span className="font-medium text-slate-900 italic">
                               {obs.scientificName}
                             </span>
