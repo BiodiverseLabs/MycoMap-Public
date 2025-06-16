@@ -3090,31 +3090,40 @@ export class DatabaseStorage implements IStorage {
       // Rate limiting
       await this.rateLimitedDelay();
       
-      const response = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genus)}&rank=genus,subgenus,section&is_active=true&order=desc&order_by=observations_count&per_page=5`);
+      // Try genus first, then subgenus, then section in order of specificity
+      let bestMatch = null;
+      const searchRanks = ['genus', 'subgenus', 'section'];
       
-      if (!response.ok) {
-        console.error(`iNaturalist API error: ${response.status}`);
-        return null;
+      for (const rank of searchRanks) {
+        console.log(`Searching iNaturalist for "${genus}" at ${rank} level...`);
+        const response = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genus)}&rank=${rank}&is_active=true&order=desc&order_by=observations_count&per_page=3`);
+        
+        if (!response.ok) {
+          console.error(`iNaturalist API error: ${response.status} for ${rank} search`);
+          continue; // Try next rank
+        }
+        
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+          // Find the best match for this rank (highest observation count)
+          const bestForRank = data.results.reduce((best: any, current: any) => 
+            (current.observations_count || 0) > (best.observations_count || 0) ? current : best
+          );
+          
+          bestMatch = bestForRank;
+          console.log(`✓ Found match for "${genus}" at ${rank} level: ${bestMatch.name} (${bestMatch.observations_count || 0} observations)`);
+          break; // Stop at first successful match
+        } else {
+          console.log(`No results for "${genus}" at ${rank} level`);
+        }
+        
+        // Add rate limiting between rank searches
+        await this.rateLimitedDelay();
       }
       
-      const data = await response.json();
-      
-      if (data.results && data.results.length > 0) {
-        // Prioritize results: genus > subgenus > section, then by observation count
-        const rankPriority = { genus: 3, subgenus: 2, section: 1 };
-        const sortedResults = data.results.sort((a: any, b: any) => {
-          const aPriority = rankPriority[a.rank as keyof typeof rankPriority] || 0;
-          const bPriority = rankPriority[b.rank as keyof typeof rankPriority] || 0;
-          
-          if (aPriority !== bPriority) {
-            return bPriority - aPriority; // Higher priority first
-          }
-          
-          // Same rank priority, sort by observation count
-          return (b.observations_count || 0) - (a.observations_count || 0);
-        });
-        
-        const taxon = sortedResults[0];
+      if (bestMatch) {
+        const taxon = bestMatch;
         
         // Extract taxonomy from the taxon ancestry
         const taxonomy: any = {
@@ -3166,7 +3175,11 @@ export class DatabaseStorage implements IStorage {
           inatTaxonId: taxon.id,
           observationCount: taxon.observations_count,
           isActive: taxon.is_active,
-          apiResponse: JSON.stringify(data)
+          apiResponse: JSON.stringify({ 
+            searchTerm: genus, 
+            matchedRank: taxon.rank, 
+            result: taxon 
+          })
         };
 
         try {
@@ -3189,10 +3202,24 @@ export class DatabaseStorage implements IStorage {
           return null;
         }
       } else {
-        console.log(`⚠ No results from iNaturalist for "${genus}"`);
+        console.log(`⚠ No results from iNaturalist for "${genus}" across genus, subgenus, and section ranks`);
         // Cache the negative result to avoid future API calls
         try {
-          await this.cacheClassificationResult(genus, {});
+          await this.cacheClassificationResult(genus, {
+            kingdom: null,
+            phylum: null,
+            class: null,
+            order: null,
+            family: null,
+            inatTaxonId: null,
+            observationCount: null,
+            isActive: false,
+            apiResponse: JSON.stringify({ 
+              searchTerm: genus, 
+              searchedRanks: searchRanks, 
+              noMatchFound: true 
+            })
+          });
         } catch (cacheError) {
           // Ignore duplicate key errors for negative caching
           if (!cacheError.message?.includes('duplicate key')) {
