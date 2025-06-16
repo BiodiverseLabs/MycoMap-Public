@@ -1099,8 +1099,8 @@ function BioRecordImageGenerator() {
                                   </div>
                                   
                                   <div>
-                                    <div className="font-medium text-gray-700 mb-1">Observer</div>
-                                    <div className="text-sm bg-white p-2 rounded border">{observation.observer || "Unknown"}</div>
+                                    <div className="font-medium text-gray-700 mb-1">Collector</div>
+                                    <div className="text-sm bg-white p-2 rounded border">{observation.collector || observation.observer || "Unknown"}</div>
                                   </div>
                                   
                                   <div>

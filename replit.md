@@ -116,6 +116,13 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 16, 2025: BioRecords Collector Field Display Fix
+  - Updated table headers from "Observer" to "Collector Name" in biorecords management
+  - Fixed dropdown metadata to show "Collector" instead of "Observer" with proper field priority
+  - Implemented collector || observer || "Unknown" fallback logic for accurate data display
+  - Enhanced ValidationObservation interface to include collector field for type safety
+  - Applied cache-busting techniques to ensure browser updates reflect changes immediately
+
 - June 16, 2025: BioRecords IPFS Integration Enhancement
   - Updated biorecords metadata dropdown to display IPFS URLs instead of local file paths
   - Added IPFS fields to ValidationObservation interface for proper data handling
