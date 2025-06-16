@@ -1,5 +1,5 @@
-import { db } from './server/db.js';
-import { observations } from './shared/schema.js';
+import { db } from './server/db.ts';
+import { observations } from './shared/schema.ts';
 import { eq, or, like } from 'drizzle-orm';
 
 async function fixEncodingIssues() {
