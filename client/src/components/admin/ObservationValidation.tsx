@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X, Play, Square, Search, Archive, Coins } from "lucide-react";
+import { RefreshCw, Database, AlertCircle, CheckCircle, Clock, ExternalLink, ChevronDown, ChevronUp, XCircle, Check, X, Play, Square, Search, Archive, Coins, Cloud } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -89,6 +89,14 @@ interface ValidationObservation {
   mycoportalApiSaved?: boolean;
   mycoportalApiFile?: string | null;
   mycoportalApiSaveDate?: string | null;
+  // IPFS web3 storage tracking
+  ipfsUploaded?: boolean;
+  ipfsUploadDate?: string | null;
+  ipfsFolderUrl?: string | null;
+  ipfsNcbiBlastUrl?: string | null;
+  ipfsLocalBlastUrl?: string | null;
+  ipfsFastqUrl?: string | null;
+  ipfsInatApiUrl?: string | null;
 }
 
 interface SyncProgress {

@@ -12,10 +12,10 @@ interface IPFSUploadResult {
 
 interface ObservationFiles {
   observationId: string;
-  ncbiBlastFile?: string;
-  localBlastFile?: string;
-  fastqFile?: string;
-  inatApiFile?: string;
+  ncbiBlastFile?: string | null;
+  localBlastFile?: string | null;
+  fastqFile?: string | null;
+  inatApiFile?: string | null;
 }
 
 export class IPFSService {
@@ -24,7 +24,22 @@ export class IPFSService {
   private initialized = false;
 
   constructor() {
-    this.initialize();
+    // Add Promise.withResolvers polyfill if not available
+    if (!(Promise as any).withResolvers) {
+      (Promise as any).withResolvers = function<T>() {
+        let resolve: (value: T | PromiseLike<T>) => void;
+        let reject: (reason?: any) => void;
+        const promise = new Promise<T>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        return { promise, resolve: resolve!, reject: reject! };
+      };
+    }
+    
+    this.initialize().catch(error => {
+      console.error('[IPFS] Failed to initialize Helia node:', error);
+    });
   }
 
   private async initialize() {
