@@ -66,6 +66,7 @@ interface ValidationObservation {
 export default function BioRecordManagement() {
   const [selectedObservationId, setSelectedObservationId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedMetadata, setExpandedMetadata] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1005,70 +1006,94 @@ function BioRecordImageGenerator() {
                       <TableHead>Observer</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Blockchain Metadata</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredValidatedObservations.map((observation: ValidationObservation) => (
-                      <TableRow key={observation.id}>
-                        <TableCell className="font-mono">{observation.observationId}</TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{observation.scientificName}</div>
-                            {observation.commonName && (
-                              <div className="text-sm text-muted-foreground">{observation.commonName}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{observation.observer || "Unknown"}</TableCell>
-                        <TableCell>{observation.state || "Unknown"}</TableCell>
-                        <TableCell>{getValidationStatusBadge(observation)}</TableCell>
-                        <TableCell>
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Database className="w-4 h-4 mr-2" />
-                                View Metadata
+                      <React.Fragment key={observation.id}>
+                        <TableRow className="cursor-pointer hover:bg-slate-50" 
+                                  onClick={() => {
+                                    const newExpanded = new Set(expandedMetadata);
+                                    if (newExpanded.has(observation.id)) {
+                                      newExpanded.delete(observation.id);
+                                    } else {
+                                      newExpanded.add(observation.id);
+                                    }
+                                    setExpandedMetadata(newExpanded);
+                                  }}>
+                          <TableCell className="font-mono">{observation.observationId}</TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{observation.scientificName}</div>
+                              {observation.commonName && (
+                                <div className="text-sm text-muted-foreground">{observation.commonName}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{observation.observer || "Unknown"}</TableCell>
+                          <TableCell>{observation.state || "Unknown"}</TableCell>
+                          <TableCell>{getValidationStatusBadge(observation)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCreateBiorecord(observation.observationId);
+                                }}
+                                disabled={createBiorecordMutation.isPending}
+                              >
+                                {createBiorecordMutation.isPending ? "Creating..." : "Create BioRecord"}
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>Blockchain Metadata Preview</DialogTitle>
-                                <DialogDescription>
-                                  This metadata will be permanently stored on the Solana blockchain when the BioRecord is created.
-                                </DialogDescription>
-                              </DialogHeader>
+                              <ChevronDown 
+                                className={`w-4 h-4 transition-transform ${
+                                  expandedMetadata.has(observation.id) ? 'rotate-180' : ''
+                                }`} 
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        
+                        {expandedMetadata.has(observation.id) && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="bg-slate-50 p-6">
                               <div className="space-y-4">
+                                <div className="flex items-center gap-2 mb-4">
+                                  <Database className="w-5 h-5 text-blue-600" />
+                                  <h4 className="font-semibold text-lg">Blockchain Metadata Preview</h4>
+                                </div>
+                                
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Observation ID</div>
-                                    <div className="font-mono text-sm bg-gray-50 p-2 rounded">{observation.observationId}</div>
+                                    <div className="font-mono text-sm bg-white p-2 rounded border">{observation.observationId}</div>
                                   </div>
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Scientific Name</div>
-                                    <div className="italic text-sm bg-gray-50 p-2 rounded">{observation.scientificName}</div>
+                                    <div className="italic text-sm bg-white p-2 rounded border">{observation.scientificName}</div>
                                   </div>
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Common Name</div>
-                                    <div className="text-sm bg-gray-50 p-2 rounded">{observation.commonName || "Not specified"}</div>
+                                    <div className="text-sm bg-white p-2 rounded border">{observation.commonName || "Not specified"}</div>
                                   </div>
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Observer</div>
-                                    <div className="text-sm bg-gray-50 p-2 rounded">{observation.observer || "Unknown"}</div>
+                                    <div className="text-sm bg-white p-2 rounded border">{observation.observer || "Unknown"}</div>
                                   </div>
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Location</div>
-                                    <div className="text-sm bg-gray-50 p-2 rounded">{observation.state || "Unknown"}</div>
+                                    <div className="text-sm bg-white p-2 rounded border">{observation.state || "Unknown"}</div>
                                   </div>
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Platform Sync Status</div>
-                                    <div className="flex flex-wrap gap-1">
+                                    <div className="flex flex-wrap gap-1 bg-white p-2 rounded border">
                                       {observation.inatSyncStatus === 'success' && (
                                         <Badge variant="outline" className="text-xs">iNaturalist ✓</Badge>
                                       )}
@@ -1084,7 +1109,7 @@ function BioRecordImageGenerator() {
                                 
                                 <div>
                                   <div className="font-medium text-gray-700 mb-2">File Completion Status</div>
-                                  <div className="flex flex-wrap gap-2">
+                                  <div className="flex flex-wrap gap-2 bg-white p-3 rounded border">
                                     {observation.blastFilesDownloaded && (
                                       <Badge variant="outline" className="text-xs">BLAST Files ✓</Badge>
                                     )}
@@ -1097,26 +1122,16 @@ function BioRecordImageGenerator() {
                                   </div>
                                 </div>
                                 
-                                <div className="bg-blue-50 p-3 rounded-lg">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                                   <div className="text-sm text-blue-800">
                                     <strong>Blockchain Storage:</strong> This observation data meets all validation requirements and is ready for permanent preservation on the Solana blockchain as an NFT-backed scientific record.
                                   </div>
                                 </div>
                               </div>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCreateBiorecord(observation.observationId)}
-                            disabled={createBiorecordMutation.isPending}
-                          >
-                            {createBiorecordMutation.isPending ? "Creating..." : "Create BioRecord"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
