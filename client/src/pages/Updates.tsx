@@ -340,6 +340,7 @@ export default function Updates() {
                   <TableBody>
                     {encodingIssues.slice(0, 100).map((record) => {
                       const issues = [];
+                      // Check for smart quotes and apostrophes
                       if (record.scientificName && (record.scientificName.includes('â€œ') || record.scientificName.includes('â€') || record.scientificName.includes('â€™'))) {
                         issues.push('Scientific Name');
                       }
@@ -348,6 +349,16 @@ export default function Updates() {
                       }
                       if (record.state && (record.state.includes('â€œ') || record.state.includes('â€') || record.state.includes('â€™'))) {
                         issues.push('State');
+                      }
+                      // Check for accented character encoding corruption
+                      if (record.state && (record.state.includes('Ã¡') || record.state.includes('Ã©') || record.state.includes('Ã­') || record.state.includes('Ã³') || record.state.includes('Ãº') || record.state.includes('Ã±') || record.state.includes('Ã§') || record.state.includes('Ã¼') || record.state.includes('Ã¨') || record.state.includes('Ã '))) {
+                        issues.push('State (Accented)');
+                      }
+                      if (record.placeGuess && (record.placeGuess.includes('Ã¡') || record.placeGuess.includes('Ã©') || record.placeGuess.includes('Ã­') || record.placeGuess.includes('Ã³') || record.placeGuess.includes('Ãº') || record.placeGuess.includes('Ã±') || record.placeGuess.includes('Ã§') || record.placeGuess.includes('Ã¼') || record.placeGuess.includes('Ã¨') || record.placeGuess.includes('Ã '))) {
+                        issues.push('Location (Accented)');
+                      }
+                      if (record.country && (record.country.includes('Ã¡') || record.country.includes('Ã©') || record.country.includes('Ã­') || record.country.includes('Ã³') || record.country.includes('Ãº') || record.country.includes('Ã±') || record.country.includes('Ã§') || record.country.includes('Ã¼') || record.country.includes('Ã¨') || record.country.includes('Ã '))) {
+                        issues.push('Country (Accented)');
                       }
                       
                       return (

@@ -1082,13 +1082,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .replace(/â€"/g, '–')     // En dash
           .replace(/â€"/g, '—')     // Em dash
           .replace(/â€¦/g, '…')     // Ellipsis
-          .replace(/Ã¡/g, 'á')     // á with accent
-          .replace(/Ã©/g, 'é')     // é with accent
-          .replace(/Ã­/g, 'í')     // í with accent
-          .replace(/Ã³/g, 'ó')     // ó with accent
-          .replace(/Ãº/g, 'ú')     // ú with accent
+          // Accented characters - comprehensive coverage
+          .replace(/Ã¡/g, 'á')     // á with acute accent
+          .replace(/Ã©/g, 'é')     // é with acute accent
+          .replace(/Ã­/g, 'í')     // í with acute accent
+          .replace(/Ã³/g, 'ó')     // ó with acute accent
+          .replace(/Ãº/g, 'ú')     // ú with acute accent
           .replace(/Ã±/g, 'ñ')     // ñ with tilde
           .replace(/Ã§/g, 'ç')     // ç with cedilla
+          .replace(/Ã¼/g, 'ü')     // ü with diaeresis
+          .replace(/Ã¨/g, 'è')     // è with grave accent
+          .replace(/Ã /g, 'à')     // à with grave accent
+          .replace(/Ã¬/g, 'ì')     // ì with grave accent
+          .replace(/Ã²/g, 'ò')     // ò with grave accent
+          .replace(/Ã¹/g, 'ù')     // ù with grave accent
+          .replace(/Ã¢/g, 'â')     // â with circumflex
+          .replace(/Ãª/g, 'ê')     // ê with circumflex
+          .replace(/Ã®/g, 'î')     // î with circumflex
+          .replace(/Ã´/g, 'ô')     // ô with circumflex
+          .replace(/Ã»/g, 'û')     // û with circumflex
+          .replace(/Ã¤/g, 'ä')     // ä with diaeresis
+          .replace(/Ã«/g, 'ë')     // ë with diaeresis
+          .replace(/Ã¯/g, 'ï')     // ï with diaeresis
+          .replace(/Ã¶/g, 'ö')     // ö with diaeresis
+          .replace(/Ã/g, 'Á')      // Á with acute accent
+          .replace(/Ã‰/g, 'É')     // É with acute accent
+          .replace(/Ã/g, 'Í')      // Í with acute accent
+          .replace(/Ã"/g, 'Ó')     // Ó with acute accent
+          .replace(/Ãš/g, 'Ú')     // Ú with acute accent
+          .replace(/Ã'/g, 'Ñ')     // Ñ with tilde
+          .replace(/Ã‡/g, 'Ç')     // Ç with cedilla
+          .replace(/Ãœ/g, 'Ü')     // Ü with diaeresis
+          .replace(/Ãˆ/g, 'È')     // È with grave accent
+          .replace(/Ã€/g, 'À')     // À with grave accent
+          .replace(/ÃŒ/g, 'Ì')     // Ì with grave accent
+          .replace(/Ã'/g, 'Ò')     // Ò with grave accent
+          .replace(/Ã™/g, 'Ù')     // Ù with grave accent
           // Additional patterns found in the data
           .replace(/â€˜/g, "'")     // Additional single quote variant
           .replace(/â€™/g, "'")     // Additional apostrophe variant

@@ -1450,6 +1450,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(observations)
       .where(or(
+        // Smart quotes and apostrophes
         like(observations.scientificName, '%â€œ%'),
         like(observations.scientificName, '%â€%'),
         like(observations.scientificName, '%â€™%'),
@@ -1458,7 +1459,38 @@ export class DatabaseStorage implements IStorage {
         like(observations.collector, '%â€™%'),
         like(observations.state, '%â€œ%'),
         like(observations.state, '%â€%'),
-        like(observations.state, '%â€™%')
+        like(observations.state, '%â€™%'),
+        // Accented character encoding issues
+        like(observations.state, '%Ã¡%'),      // á corruption
+        like(observations.state, '%Ã©%'),      // é corruption
+        like(observations.state, '%Ã­%'),      // í corruption
+        like(observations.state, '%Ã³%'),      // ó corruption
+        like(observations.state, '%Ãº%'),      // ú corruption
+        like(observations.state, '%Ã±%'),      // ñ corruption
+        like(observations.state, '%Ã§%'),      // ç corruption
+        like(observations.state, '%Ã¼%'),      // ü corruption
+        like(observations.state, '%Ã¨%'),      // è corruption
+        like(observations.state, '%Ã %'),      // à corruption
+        like(observations.placeGuess, '%Ã¡%'), // á corruption in place
+        like(observations.placeGuess, '%Ã©%'), // é corruption in place
+        like(observations.placeGuess, '%Ã­%'), // í corruption in place
+        like(observations.placeGuess, '%Ã³%'), // ó corruption in place
+        like(observations.placeGuess, '%Ãº%'), // ú corruption in place
+        like(observations.placeGuess, '%Ã±%'), // ñ corruption in place
+        like(observations.placeGuess, '%Ã§%'), // ç corruption in place
+        like(observations.placeGuess, '%Ã¼%'), // ü corruption in place
+        like(observations.placeGuess, '%Ã¨%'), // è corruption in place
+        like(observations.placeGuess, '%Ã %'), // à corruption in place
+        like(observations.country, '%Ã¡%'),    // á corruption in country
+        like(observations.country, '%Ã©%'),    // é corruption in country
+        like(observations.country, '%Ã­%'),    // í corruption in country
+        like(observations.country, '%Ã³%'),    // ó corruption in country
+        like(observations.country, '%Ãº%'),    // ú corruption in country
+        like(observations.country, '%Ã±%'),    // ñ corruption in country
+        like(observations.country, '%Ã§%'),    // ç corruption in country
+        like(observations.country, '%Ã¼%'),    // ü corruption in country
+        like(observations.country, '%Ã¨%'),    // è corruption in country
+        like(observations.country, '%Ã %')     // à corruption in country
       ))
       .orderBy(desc(observations.updatedAt));
   }
