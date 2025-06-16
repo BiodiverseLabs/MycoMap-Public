@@ -1103,22 +1103,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(`File not found at path: ${filePath}`);
       }
       
-      // Clear existing data to avoid duplicates
-      console.log('Clearing existing data...');
+      // Skip data clearing - preserve existing records for incremental uploads
+      console.log('Preserving existing data - incremental upload mode');
       progressTracker.set(uploadId, {
         progress: 5,
-        phase: 'clearing',
-        message: 'Clearing existing data...'
+        phase: 'initializing',
+        message: 'Preparing incremental data upload...'
       });
       
       // Check for cancellation
       if (cancelledUploads.has(uploadId)) {
-        console.log(`Upload ${uploadId} cancelled during data clearing`);
+        console.log(`Upload ${uploadId} cancelled during initialization`);
         return;
       }
       
-      await storage.clearAllData();
-      console.log('✓ Data cleared');
+      console.log('✓ Ready for incremental data processing');
       
       // Dynamically import XLSX with proper CommonJS handling
       console.log('Importing XLSX library...');

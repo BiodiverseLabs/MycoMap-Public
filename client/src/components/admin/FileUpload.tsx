@@ -1,7 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { CloudUpload, FileCheck, Loader2, Database, BarChart3, StopCircle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
@@ -10,11 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 export function FileUpload() {
-  const [uploadSettings, setUploadSettings] = useState({
-    validateDuplicates: true,
-    requireGeolocation: true,
-    autoNotify: false,
-  });
   const [dragOver, setDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadPhase, setUploadPhase] = useState<'idle' | 'uploading' | 'processing'>('idle');
@@ -324,10 +317,7 @@ export function FileUpload() {
                     {/* Phase descriptions */}
                     <div className="text-xs text-slate-500 space-y-1">
                       {processingPhase === 'initializing' && (
-                        <p>• Preparing data processing environment</p>
-                      )}
-                      {processingPhase === 'clearing' && (
-                        <p>• Clearing existing data to prevent duplicates</p>
+                        <p>• Preparing incremental data upload (preserving existing records)</p>
                       )}
                       {processingPhase === 'reading' && (
                         <p>• Loading and parsing Excel file data</p>
@@ -376,53 +366,7 @@ export function FileUpload() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="validate-duplicates"
-                checked={uploadSettings.validateDuplicates}
-                onCheckedChange={(checked) =>
-                  setUploadSettings(prev => ({ ...prev, validateDuplicates: Boolean(checked) }))
-                }
-              />
-              <Label htmlFor="validate-duplicates" className="text-sm">
-                Validate for duplicates
-              </Label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="require-geolocation"
-                checked={uploadSettings.requireGeolocation}
-                onCheckedChange={(checked) =>
-                  setUploadSettings(prev => ({ ...prev, requireGeolocation: Boolean(checked) }))
-                }
-              />
-              <Label htmlFor="require-geolocation" className="text-sm">
-                Require geolocation data
-              </Label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="auto-notify"
-                checked={uploadSettings.autoNotify}
-                onCheckedChange={(checked) =>
-                  setUploadSettings(prev => ({ ...prev, autoNotify: Boolean(checked) }))
-                }
-              />
-              <Label htmlFor="auto-notify" className="text-sm">
-                Notify contributors of new data
-              </Label>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 }
