@@ -37,7 +37,35 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  const httpServer = createServer(app);
   const server = await registerRoutes(app);
+
+  // Setup WebSocket server for real-time progress updates
+  const wss = new WebSocketServer({ server: httpServer });
+  
+  // Store WebSocket clients
+  global.wsClients = new Set();
+  
+  wss.on('connection', (ws) => {
+    global.wsClients.add(ws);
+    console.log('WebSocket client connected');
+    
+    ws.on('close', () => {
+      global.wsClients.delete(ws);
+      console.log('WebSocket client disconnected');
+    });
+  });
+
+  // Function to broadcast progress updates
+  global.broadcastProgress = (data: any) => {
+    if (global.wsClients) {
+      global.wsClients.forEach((client: any) => {
+        if (client.readyState === 1) { // WebSocket.OPEN
+          client.send(JSON.stringify(data));
+        }
+      });
+    }
+  };
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -51,7 +79,7 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
-    await setupVite(app, server);
+    await setupVite(app, httpServer);
   } else {
     serveStatic(app);
   }
@@ -60,11 +88,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  httpServer.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
 })();
