@@ -300,24 +300,72 @@ export default function BioRecordManagement() {
                           <Badge variant="outline">v{record.validationVersion}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Dialog>
-                            <DialogTrigger asChild>
+                          {record.nftMinted ? (
+                            <div className="space-y-1">
+                              <Badge variant="default" className="bg-purple-500 hover:bg-purple-600">
+                                <Coins className="w-3 h-3 mr-1" />
+                                NFT Minted
+                              </Badge>
+                              {record.nftTokenId && (
+                                <div className="text-xs text-muted-foreground font-mono">
+                                  {record.nftTokenId.substring(0, 12)}...
+                                </div>
+                              )}
+                              {record.nftBlockchainNetwork && (
+                                <div className="text-xs text-muted-foreground capitalize">
+                                  {record.nftBlockchainNetwork}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="secondary">
+                              <Clock className="w-3 h-3 mr-1" />
+                              Ready to Mint
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {!record.nftMinted && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => mintNftMutation.mutate(record.id)}
+                                disabled={mintNftMutation.isPending}
+                                className="bg-purple-500 hover:bg-purple-600"
+                              >
+                                <Coins className="w-3 h-3 mr-1" />
+                                {mintNftMutation.isPending ? "Minting..." : "Mint NFT"}
+                              </Button>
+                            )}
+                            {record.nftMinted && record.nftMetadataUri && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setSelectedObservationId(record.observationId)}
+                                onClick={() => window.open(record.nftMetadataUri, '_blank')}
                               >
-                                <History className="w-3 h-3 mr-1" />
-                                History
+                                <ExternalLink className="w-3 h-3 mr-1" />
+                                View NFT
                               </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-4xl">
-                              <DialogHeader>
-                                <DialogTitle>Biorecord History - {record.observationId}</DialogTitle>
-                                <DialogDescription>
-                                  All historical snapshots for this observation
-                                </DialogDescription>
-                              </DialogHeader>
+                            )}
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedObservationId(record.observationId)}
+                                >
+                                  <History className="w-3 h-3 mr-1" />
+                                  History
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-4xl">
+                                <DialogHeader>
+                                  <DialogTitle>Biorecord History - {record.observationId}</DialogTitle>
+                                  <DialogDescription>
+                                    All historical snapshots for this observation
+                                  </DialogDescription>
+                                </DialogHeader>
                               <ScrollArea className="h-96">
                                 <div className="space-y-4">
                                   {biorecordHistory.map((historyRecord: Biorecord, index: number) => (
@@ -365,6 +413,7 @@ export default function BioRecordManagement() {
                               </ScrollArea>
                             </DialogContent>
                           </Dialog>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
