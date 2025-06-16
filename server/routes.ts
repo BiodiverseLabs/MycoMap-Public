@@ -1673,11 +1673,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedCount = 0;
       let inatLookupCount = 0;
       const batchSize = 100;
+      const totalBatches = Math.ceil(classificationUpdates.length / batchSize);
+      let processedRecords = 0;
       
-      // Process classification updates in batches
+      // Process classification updates in batches with progress tracking
       for (let i = 0; i < classificationUpdates.length; i += batchSize) {
         const batch = classificationUpdates.slice(i, i + batchSize);
-        console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(classificationUpdates.length/batchSize)}`);
+        const currentBatch = Math.floor(i/batchSize) + 1;
+        const batchStartTime = Date.now();
+        
+        console.log(`Processing batch ${currentBatch} of ${totalBatches}`);
+        
+        // Update progress tracker for classification phase
+        const progressPercent = Math.round(85 + ((processedRecords / classificationUpdates.length) * 15)); // 85-100% for classification
+        progressTracker.set(uploadId, {
+          progress: progressPercent,
+          phase: 'classification-updates',
+          message: `Running classification updates: batch ${currentBatch}/${totalBatches} (${updatedCount} updated)`,
+          batchInfo: {
+            currentBatch: currentBatch,
+            totalBatches: totalBatches,
+            processedRecords: processedRecords,
+            totalRecords: classificationUpdates.length,
+            updatedCount: updatedCount,
+            inatLookups: inatLookupCount
+          }
+        });
         
         for (const record of batch) {
           try {
@@ -1737,7 +1758,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (recordError) {
             console.error(`Error updating record ${record.id}:`, recordError);
           }
+          
+          processedRecords++;
         }
+        
+        // Update progress after each batch completion
+        const batchDuration = Date.now() - batchStartTime;
+        const avgTimePerRecord = batchDuration / batch.length;
+        const remainingBatches = totalBatches - currentBatch;
+        const estimatedTimeRemaining = remainingBatches * (batchDuration / 1000);
+        
+        console.log(`✓ Batch ${currentBatch}/${totalBatches} completed in ${batchDuration}ms (${avgTimePerRecord.toFixed(1)}ms/record)`);
+        console.log(`  Records processed: ${processedRecords}/${classificationUpdates.length}, Updated: ${updatedCount}, iNat lookups: ${inatLookupCount}`);
+        console.log(`  Estimated time remaining: ${estimatedTimeRemaining.toFixed(1)} seconds`);
+        
+        // Final progress update for this batch
+        const finalProgressPercent = Math.round(85 + ((processedRecords / classificationUpdates.length) * 15));
+        progressTracker.set(uploadId, {
+          progress: finalProgressPercent,
+          phase: 'classification-updates',
+          message: `Classification updates: batch ${currentBatch}/${totalBatches} complete (${updatedCount} updated)`,
+          batchInfo: {
+            currentBatch: currentBatch,
+            totalBatches: totalBatches,
+            processedRecords: processedRecords,
+            totalRecords: classificationUpdates.length,
+            updatedCount: updatedCount,
+            inatLookups: inatLookupCount,
+            estimatedTimeRemaining: estimatedTimeRemaining.toFixed(1)
+          }
+        });
       }
       
       console.log(`✓ Automated classification updates completed:`);
