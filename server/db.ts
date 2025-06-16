@@ -1568,7 +1568,18 @@ export class DatabaseStorage implements IStorage {
         i.sync_status as "inatSyncStatus",
         i.last_synced_at as "inatLastSynced",
         i.sync_error as "inatSyncError",
-        i.species_guess as "inatScientificName",
+        COALESCE(
+          i.provisional_species_name,
+          CASE 
+            WHEN i.taxon IS NOT NULL THEN 
+              COALESCE(
+                (i.taxon::json->>'name'),
+                (i.taxon::json->>'preferred_common_name'),
+                i.species_guess
+              )
+            ELSE i.species_guess
+          END
+        ) as "inatScientificName",
         CASE 
           WHEN i.user IS NOT NULL AND i.user != '' THEN 
             COALESCE((i.user::json->>'name'), (i.user::json->>'login'), i.user::text)
@@ -2764,7 +2775,18 @@ export class DatabaseStorage implements IStorage {
     const validatedData = await db.execute(sql`
       SELECT 
         o.*,
-        i.species_guess as "inatScientificName",
+        COALESCE(
+          i.provisional_species_name,
+          CASE 
+            WHEN i.taxon IS NOT NULL THEN 
+              COALESCE(
+                (i.taxon::json->>'name'),
+                (i.taxon::json->>'preferred_common_name'),
+                i.species_guess
+              )
+            ELSE i.species_guess
+          END
+        ) as "inatScientificName",
         CASE 
           WHEN i.user IS NOT NULL AND i.user != '' THEN 
             COALESCE((i.user::json->>'name'), (i.user::json->>'login'), i.user::text)
