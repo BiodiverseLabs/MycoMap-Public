@@ -28,7 +28,7 @@ import OrderDetail from "@/pages/OrderDetail";
 import GenusDetail from "@/pages/GenusDetail";
 import Admin from "@/pages/Admin";
 import AdminValidation from "@/pages/admin/AdminValidation";
-import BioRecordManagement from "@/pages/BioRecordManagement";
+import BioRecordManagement from "@/pages/admin/BioRecordManagement";
 import AdminUpload from "@/pages/admin/AdminUpload";
 import AdminRedList from "@/pages/admin/AdminRedList";
 import AdminSettings from "@/pages/admin/AdminSettings";
