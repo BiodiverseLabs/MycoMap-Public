@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1011,7 +1011,7 @@ function BioRecordImageGenerator() {
                   </TableHeader>
                   <TableBody>
                     {filteredValidatedObservations.map((observation: ValidationObservation) => (
-                      <React.Fragment key={observation.id}>
+                      <Fragment key={observation.id}>
                         <TableRow className="cursor-pointer hover:bg-slate-50" 
                                   onClick={() => {
                                     const newExpanded = new Set(expandedMetadata);
@@ -1131,7 +1131,7 @@ function BioRecordImageGenerator() {
                             </TableCell>
                           </TableRow>
                         )}
-                      </React.Fragment>
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>
