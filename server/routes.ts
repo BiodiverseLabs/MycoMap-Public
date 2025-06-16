@@ -2493,10 +2493,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/download/trace/:observationId", async (req, res) => {
     try {
       const { observationId } = req.params;
-      const filePath = path.join(process.cwd(), 'downloads', 'trace', `${observationId}_trace.fastq`);
+      const filePath = path.join(process.cwd(), 'downloads', 'trace', `iNat${observationId}.fastq`);
       
       if (fs.existsSync(filePath)) {
-        res.download(filePath, `${observationId}_trace.fastq`);
+        res.download(filePath, `iNat${observationId}.fastq`);
       } else {
         res.status(404).json({ error: "Trace file not found" });
       }
@@ -2509,10 +2509,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/download/blast/:observationId", async (req, res) => {
     try {
       const { observationId } = req.params;
-      const filePath = path.join(process.cwd(), 'downloads', 'blast', `${observationId}_blast.xml`);
+      const { type = 'ncbi' } = req.query;
+      const fileName = type === 'local' ? 
+        `iNat${observationId}-Local-BLAST.xml` : 
+        `iNat${observationId}-NCBI-BLAST.xml`;
+      const filePath = path.join(process.cwd(), 'downloads', 'blast', fileName);
       
       if (fs.existsSync(filePath)) {
-        res.download(filePath, `${observationId}_blast.xml`);
+        res.download(filePath, fileName);
       } else {
         res.status(404).json({ error: "BLAST file not found" });
       }
@@ -2525,10 +2529,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/download/inat-api/:observationId", async (req, res) => {
     try {
       const { observationId } = req.params;
-      const filePath = path.join(process.cwd(), 'downloads', 'inat_api', `${observationId}_inat_api.json`);
+      const downloadDir = path.join(process.cwd(), 'downloads', 'inat_api');
       
-      if (fs.existsSync(filePath)) {
-        res.download(filePath, `${observationId}_inat_api.json`);
+      // Find file with pattern iNat{observationId}.{date}.txt
+      const files = fs.readdirSync(downloadDir).filter(file => 
+        file.startsWith(`iNat${observationId}.`) && file.endsWith('.txt')
+      );
+      
+      if (files.length > 0) {
+        const latestFile = files.sort().pop(); // Get most recent file
+        const filePath = path.join(downloadDir, latestFile);
+        res.download(filePath, latestFile);
       } else {
         res.status(404).json({ error: "iNaturalist API file not found" });
       }

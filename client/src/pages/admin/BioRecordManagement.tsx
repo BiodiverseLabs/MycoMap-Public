@@ -62,6 +62,8 @@ interface ValidationObservation {
   traceFilesDownloaded: boolean;
   inatApiSaved: boolean;
   dnaBarcode?: string;
+  mycoMapBlastUrl?: string;
+  mycoMapTraceUrl?: string;
 }
 
 export default function BioRecordManagement() {
@@ -1093,7 +1095,9 @@ function BioRecordImageGenerator() {
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Location</div>
-                                    <div className="text-sm bg-white p-2 rounded border">{observation.state || "Unknown"}</div>
+                                    <div className="text-sm bg-white p-2 rounded border">
+                                      {observation.state ? `${observation.state}, USA` : "Unknown"}
+                                    </div>
                                   </div>
                                   
                                   <div>
@@ -1107,36 +1111,64 @@ function BioRecordImageGenerator() {
                                 <div className="space-y-3">
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Raw DNA Data</div>
-                                    <div className="text-sm bg-white p-2 rounded border">
-                                      {observation.traceFilesDownloaded ? (
-                                        <a 
-                                          href={`/api/download/trace/${observation.observationId}`}
-                                          className="text-blue-600 hover:text-blue-800 underline"
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        >
-                                          Download FASTQ sequence file
-                                        </a>
+                                    <div className="text-sm bg-white p-2 rounded border space-y-1">
+                                      {observation.mycoMapTraceUrl ? (
+                                        <div>
+                                          <a 
+                                            href={observation.mycoMapTraceUrl}
+                                            className="text-blue-600 hover:text-blue-800 underline break-all"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            {observation.mycoMapTraceUrl}
+                                          </a>
+                                        </div>
                                       ) : (
-                                        "No trace files available"
+                                        <div>No MycoMap trace URL available</div>
+                                      )}
+                                      {observation.traceFilesDownloaded && (
+                                        <div>
+                                          <a 
+                                            href={`/api/download/trace/${observation.observationId}`}
+                                            className="text-green-600 hover:text-green-800 underline"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            Download FASTQ file
+                                          </a>
+                                        </div>
                                       )}
                                     </div>
                                   </div>
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">MycoMap BLAST Results</div>
-                                    <div className="text-sm bg-white p-2 rounded border">
-                                      {observation.blastFilesDownloaded ? (
-                                        <a 
-                                          href={`/api/download/blast/${observation.observationId}`}
-                                          className="text-blue-600 hover:text-blue-800 underline"
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        >
-                                          Download BLAST XML results
-                                        </a>
+                                    <div className="text-sm bg-white p-2 rounded border space-y-1">
+                                      {observation.mycoMapBlastUrl ? (
+                                        <div>
+                                          <a 
+                                            href={observation.mycoMapBlastUrl}
+                                            className="text-blue-600 hover:text-blue-800 underline break-all"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            {observation.mycoMapBlastUrl}
+                                          </a>
+                                        </div>
                                       ) : (
-                                        "No BLAST results available"
+                                        <div>No MycoMap BLAST URL available</div>
+                                      )}
+                                      {observation.blastFilesDownloaded && (
+                                        <div>
+                                          <a 
+                                            href={`/api/download/blast/${observation.observationId}`}
+                                            className="text-green-600 hover:text-green-800 underline"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            Download BLAST XML
+                                          </a>
+                                        </div>
                                       )}
                                     </div>
                                   </div>
@@ -1147,11 +1179,11 @@ function BioRecordImageGenerator() {
                                       {observation.inatApiSaved ? (
                                         <a 
                                           href={`/api/download/inat-api/${observation.observationId}`}
-                                          className="text-blue-600 hover:text-blue-800 underline"
+                                          className="text-green-600 hover:text-green-800 underline"
                                           target="_blank"
                                           rel="noopener noreferrer"
                                         >
-                                          Download API response JSON
+                                          Download API JSON
                                         </a>
                                       ) : (
                                         "No API export available"
