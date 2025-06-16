@@ -24,6 +24,58 @@ const uploadMemory = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Helper function to check and auto-upload observations to IPFS
+  async function checkAndAutoUploadToIPFS(observationId: string, context: string) {
+    try {
+      const obs = await db.select()
+        .from(observations)
+        .where(eq(observations.observationId, observationId))
+        .limit(1);
+      
+      if (obs.length === 0) return;
+      
+      const observation = obs[0];
+      const isFullyValidated = observation.scientificName && 
+        observation.scientificName.trim().split(' ').length >= 2 &&
+        observation.inatApiSaved &&
+        (!observation.mycoMapBlastUrl || observation.blastFilesDownloaded) &&
+        (!observation.mycoMapTraceUrl || observation.traceFilesDownloaded);
+
+      if (isFullyValidated && !observation.ipfsUploaded) {
+        console.log(`[IPFS] Auto-uploading validated observation ${observationId} after ${context}`);
+        
+        const files = {
+          observationId,
+          ncbiBlastFile: observation.ncbiBlastFile,
+          localBlastFile: observation.localBlastFile,
+          fastqFile: observation.fastqFile,
+          inatApiFile: observation.inatApiFile
+        };
+        
+        const uploadResult = await ipfsService.uploadObservationFiles(files);
+        
+        if (uploadResult.success) {
+          await db.update(observations)
+            .set({
+              ipfsUploaded: true,
+              ipfsUploadDate: new Date(),
+              ipfsFolderCid: uploadResult.ipfsLinks?.folder?.split('/').pop(),
+              ipfsFolderUrl: uploadResult.ipfsLinks?.folder,
+              ipfsNcbiBlastUrl: uploadResult.ipfsLinks?.ncbiBlast,
+              ipfsLocalBlastUrl: uploadResult.ipfsLinks?.localBlast,
+              ipfsFastqUrl: uploadResult.ipfsLinks?.fastq,
+              ipfsInatApiUrl: uploadResult.ipfsLinks?.inatApi
+            })
+            .where(eq(observations.observationId, observationId));
+          
+          console.log(`[IPFS] Successfully auto-uploaded observation ${observationId} to IPFS`);
+        }
+      }
+    } catch (error) {
+      console.error(`[IPFS] Failed to auto-upload observation ${observationId}:`, error);
+    }
+  }
   // Analytics endpoints
   app.get("/api/observations", async (req, res) => {
     try {
@@ -2032,6 +2084,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(observations.observationId, observationId));
 
+      // Auto-upload to IPFS if observation is now fully validated
+      await checkAndAutoUploadToIPFS(observationId, 'BLAST download');
+
       res.json({
         success: true,
         ncbiFile: result.ncbiPath ? path.basename(result.ncbiPath) : null,
@@ -2111,6 +2166,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           traceDownloadDate: new Date()
         })
         .where(eq(observations.observationId, observationId));
+
+      // Auto-upload to IPFS if observation is now fully validated
+      await checkAndAutoUploadToIPFS(observationId, 'trace download');
 
       res.json({
         success: true,

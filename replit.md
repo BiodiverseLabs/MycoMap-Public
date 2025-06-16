@@ -116,6 +116,16 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 16, 2025: IPFS Web3 Storage Integration and Automatic Upload System
+  - Implemented comprehensive IPFS service using Helia client for decentralized file storage
+  - Added automatic upload functionality that triggers when observations become fully validated
+  - Created auto-upload pipeline that activates after BLAST file downloads, trace file downloads, and iNaturalist API syncing
+  - Added database schema with IPFS tracking fields: ipfs_uploaded, ipfs_upload_date, ipfs_folder_cid, ipfs_folder_url
+  - Built API endpoints for manual IPFS uploads and bulk processing of validated observations
+  - Integrated web3 storage into validation workflow for permanent scientific record preservation
+  - Files automatically uploaded to IPFS include: NCBI BLAST results, local BLAST results, DNA trace files, and iNaturalist API responses
+  - System generates permanent IPFS URLs for each file type and complete observation folders
+
 - June 16, 2025: Enhanced biorecords management with metadata transparency and validation fixes
   - Added blockchain metadata dropdown to each record in "Create from Validated" table showing complete data that will be stored on Solana
   - Fixed critical issue where observations with mismatched scientific names appeared as fully validated in biorecords tab
