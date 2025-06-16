@@ -1488,6 +1488,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
         
         console.log('Phase 2: Updating species statistics...');
+        
+        // Check for cancellation before species stats
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled before species statistics`);
+          return;
+        }
+        
         progressTracker.set(uploadId, {
           progress: 80,
           phase: 'post-processing',
@@ -1498,6 +1505,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
         
         console.log('Phase 3: Building GPS index for map performance...');
+        
+        // Check for cancellation before GPS index
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled before GPS index`);
+          return;
+        }
+        
         progressTracker.set(uploadId, {
           progress: 85,
           phase: 'post-processing',
@@ -1511,6 +1525,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Auto-populate classification updates by matching genus
         console.log('Phase 4: Starting automated classification updates...');
+        
+        // Check for cancellation before classification updates
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled before classification updates`);
+          return;
+        }
+        
         progressTracker.set(uploadId, {
           progress: 90,
           phase: 'post-processing',
@@ -1553,6 +1574,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fs.unlinkSync(filePath);
       } catch (unlinkError) {
         console.error("Error deleting file:", unlinkError);
+      }
+    } finally {
+      // Clean up cancellation tracking regardless of success/failure
+      if (cancelledUploads.has(uploadId)) {
+        cancelledUploads.delete(uploadId);
+        console.log(`Cleaned up cancellation tracking for upload ${uploadId}`);
       }
     }
   }
