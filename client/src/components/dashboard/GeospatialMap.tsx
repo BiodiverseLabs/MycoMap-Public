@@ -400,7 +400,7 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
             <div className="lg:col-span-1">
               <div className="bg-slate-50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-slate-900">Filter by State</h4>
+                  <h4 className="font-medium text-slate-900">Filter by Region</h4>
                   <div className="flex gap-1">
                     <button
                       onClick={() => setSortBy('count')}
@@ -457,7 +457,6 @@ export function GeospatialMap({ dateRange, onStateSelect, selectedState }: Geosp
           </div>
         </CardContent>
       </Card>
-
       {/* Fullscreen Modal */}
       <FullscreenModal
         isOpen={isFullscreen}
