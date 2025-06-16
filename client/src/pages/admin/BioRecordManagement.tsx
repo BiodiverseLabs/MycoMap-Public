@@ -1098,7 +1098,7 @@ function BioRecordImageGenerator() {
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">DNA Barcode ITS</div>
-                                    <div className="text-xs bg-white p-2 rounded border font-mono break-all max-h-20 overflow-y-auto">
+                                    <div className="text-xs bg-white p-2 rounded border font-mono break-all">
                                       {observation.dnaBarcode || "No DNA sequence available"}
                                     </div>
                                   </div>

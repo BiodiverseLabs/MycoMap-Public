@@ -2489,6 +2489,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // File download endpoints
+  app.get("/api/download/trace/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      const filePath = path.join(process.cwd(), 'downloads', 'trace', `${observationId}_trace.fastq`);
+      
+      if (fs.existsSync(filePath)) {
+        res.download(filePath, `${observationId}_trace.fastq`);
+      } else {
+        res.status(404).json({ error: "Trace file not found" });
+      }
+    } catch (error) {
+      console.error("Error downloading trace file:", error);
+      res.status(500).json({ error: "Failed to download trace file" });
+    }
+  });
+
+  app.get("/api/download/blast/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      const filePath = path.join(process.cwd(), 'downloads', 'blast', `${observationId}_blast.xml`);
+      
+      if (fs.existsSync(filePath)) {
+        res.download(filePath, `${observationId}_blast.xml`);
+      } else {
+        res.status(404).json({ error: "BLAST file not found" });
+      }
+    } catch (error) {
+      console.error("Error downloading BLAST file:", error);
+      res.status(500).json({ error: "Failed to download BLAST file" });
+    }
+  });
+
+  app.get("/api/download/inat-api/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      const filePath = path.join(process.cwd(), 'downloads', 'inat_api', `${observationId}_inat_api.json`);
+      
+      if (fs.existsSync(filePath)) {
+        res.download(filePath, `${observationId}_inat_api.json`);
+      } else {
+        res.status(404).json({ error: "iNaturalist API file not found" });
+      }
+    } catch (error) {
+      console.error("Error downloading iNaturalist API file:", error);
+      res.status(500).json({ error: "Failed to download iNaturalist API file" });
+    }
+  });
+
   const httpServer = createServer(app);
   // Biorecords Management API endpoints
   app.get("/api/biorecords", async (req, res) => {
