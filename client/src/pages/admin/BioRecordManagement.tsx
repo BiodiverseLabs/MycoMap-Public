@@ -306,7 +306,7 @@ function BioRecordImageGenerator() {
     generateCardDesign3(cardData, 2);
   };
 
-  // Card Design 1: Classic Scientific Card
+  // Card Design 1: Professional Scientific Card
   const generateCardDesign1 = (data: any, canvasIndex: number) => {
     const canvas = canvasRefs[canvasIndex].current;
     if (!canvas) return;
@@ -317,72 +317,115 @@ function BioRecordImageGenerator() {
     canvas.width = 400;
     canvas.height = 600;
 
-    // Background gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, 600);
-    gradient.addColorStop(0, '#1a365d');
-    gradient.addColorStop(1, '#2d3748');
+    // Background with subtle texture
+    const gradient = ctx.createLinearGradient(0, 0, 400, 600);
+    gradient.addColorStop(0, '#0f172a');
+    gradient.addColorStop(0.5, '#1e293b');
+    gradient.addColorStop(1, '#334155');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 400, 600);
 
-    // Border
-    ctx.strokeStyle = '#4a5568';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(10, 10, 380, 580);
-
-    // Title area
-    ctx.fillStyle = '#2b6cb0';
-    ctx.fillRect(20, 20, 360, 60);
+    // Outer border with rounded corners effect
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(8, 8, 384, 584);
     
-    // Scientific name
+    // Inner border
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(16, 16, 368, 568);
+
+    // Header section with gradient
+    const headerGradient = ctx.createLinearGradient(0, 20, 0, 80);
+    headerGradient.addColorStop(0, '#1e40af');
+    headerGradient.addColorStop(1, '#3b82f6');
+    ctx.fillStyle = headerGradient;
+    ctx.fillRect(24, 24, 352, 56);
+    
+    // Header border
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(24, 24, 352, 56);
+
+    // Scientific name with elegant typography
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 18px Arial';
+    ctx.font = 'bold 20px serif';
     ctx.textAlign = 'center';
     const scientificName = data.scientificName || 'Unknown Species';
-    ctx.fillText(scientificName, 200, 45);
+    ctx.fillText(scientificName, 200, 48);
     
-    // Common name
+    // Common name in italics
     if (data.commonName) {
-      ctx.font = '14px Arial';
-      ctx.fillText(data.commonName, 200, 65);
+      ctx.font = 'italic 14px serif';
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText(`"${data.commonName}"`, 200, 68);
     }
 
-    // Image placeholder
-    ctx.fillStyle = '#4a5568';
-    ctx.fillRect(50, 100, 300, 250);
-    ctx.fillStyle = 'white';
-    ctx.font = '12px Arial';
-    ctx.fillText('Observation Image', 200, 230);
+    // Main image area with professional frame
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(32, 100, 336, 240);
+    
+    // Image background
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(35, 103, 330, 234);
+    
+    // Image placeholder with professional styling
+    ctx.fillStyle = '#64748b';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SPECIMEN PHOTOGRAPH', 200, 210);
+    ctx.font = '12px sans-serif';
+    ctx.fillText('High-resolution observation image', 200, 230);
 
-    // Details section
+    // Information panel with structured layout
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(32, 360, 336, 180);
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(32, 360, 336, 180);
+
+    // Data sections
     ctx.fillStyle = 'white';
-    ctx.font = '12px Arial';
+    ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'left';
     
-    let yPosition = 380;
-    ctx.fillText(`Location: ${data.location || 'Unknown'}`, 30, yPosition);
-    yPosition += 25;
+    // Location section
+    ctx.fillText('COLLECTION DATA:', 45, 385);
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText(`Location: ${data.location || 'Unknown'}`, 45, 405);
     if (data.state) {
-      ctx.fillText(`State: ${data.state}`, 30, yPosition);
-      yPosition += 25;
+      ctx.fillText(`State/Province: ${data.state}`, 45, 420);
     }
-    ctx.fillText(`Observer: ${data.observer || 'Unknown'}`, 30, yPosition);
-    yPosition += 25;
-    ctx.fillText(`Platform: ${data.platform}`, 30, yPosition);
-    yPosition += 25;
+    ctx.fillText(`Country: ${data.country || 'Unknown'}`, 45, 435);
+    
+    // Observer section
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('OBSERVER DATA:', 45, 460);
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText(`Observer: ${data.observer || 'Unknown'}`, 45, 480);
+    ctx.fillText(`Platform: ${data.platform}`, 45, 495);
     if (data.observedOn) {
-      ctx.fillText(`Date: ${data.observedOn}`, 30, yPosition);
+      ctx.fillText(`Date: ${data.observedOn}`, 45, 510);
     }
 
-    // Footer
-    ctx.fillStyle = '#2b6cb0';
-    ctx.fillRect(20, 540, 360, 40);
+    // Footer with branding
+    const footerGradient = ctx.createLinearGradient(0, 550, 0, 584);
+    footerGradient.addColorStop(0, '#1e40af');
+    footerGradient.addColorStop(1, '#3730a3');
+    ctx.fillStyle = footerGradient;
+    ctx.fillRect(24, 550, 352, 34);
+    
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 14px Arial';
+    ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('BioRecord Trading Card', 200, 565);
+    ctx.fillText('BIORECORD TRADING CARD', 200, 572);
   };
 
-  // Card Design 2: Modern Minimal
+  // Card Design 2: Modern Botanical Style
   const generateCardDesign2 = (data: any, canvasIndex: number) => {
     const canvas = canvasRefs[canvasIndex].current;
     if (!canvas) return;
@@ -393,71 +436,152 @@ function BioRecordImageGenerator() {
     canvas.width = 400;
     canvas.height = 600;
 
-    // White background
-    ctx.fillStyle = 'white';
+    // Clean white background
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, 400, 600);
 
-    // Colored accent bar
-    ctx.fillStyle = '#10b981';
-    ctx.fillRect(0, 0, 400, 20);
+    // Subtle outer border
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, 384, 584);
 
-    // Scientific name
-    ctx.fillStyle = '#1f2937';
-    ctx.font = 'bold 24px Arial';
+    // Top accent with botanical green gradient
+    const topGradient = ctx.createLinearGradient(0, 0, 400, 24);
+    topGradient.addColorStop(0, '#059669');
+    topGradient.addColorStop(0.5, '#10b981');
+    topGradient.addColorStop(1, '#34d399');
+    ctx.fillStyle = topGradient;
+    ctx.fillRect(8, 8, 384, 24);
+
+    // Scientific name with modern typography
+    ctx.fillStyle = '#111827';
+    ctx.font = 'bold 22px system-ui';
     ctx.textAlign = 'center';
     const scientificName = data.scientificName || 'Unknown Species';
-    ctx.fillText(scientificName, 200, 60);
+    
+    // Handle long names by adjusting font size
+    const textWidth = ctx.measureText(scientificName).width;
+    if (textWidth > 360) {
+      ctx.font = 'bold 18px system-ui';
+    }
+    ctx.fillText(scientificName, 200, 65);
 
-    // Common name
+    // Common name with subtle styling
     if (data.commonName) {
       ctx.fillStyle = '#6b7280';
-      ctx.font = 'italic 16px Arial';
-      ctx.fillText(data.commonName, 200, 85);
+      ctx.font = 'italic 16px system-ui';
+      ctx.fillText(data.commonName, 200, 90);
     }
 
-    // Image area
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, 110, 300, 250);
-    ctx.fillStyle = '#f3f4f6';
-    ctx.fillRect(51, 111, 298, 248);
+    // Main image frame with modern styling
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(24, 110, 352, 260);
     
-    ctx.fillStyle = '#9ca3af';
-    ctx.font = '14px Arial';
-    ctx.fillText('Observation Photo', 200, 240);
+    // Image border with shadow effect
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(24, 110, 352, 260);
+    
+    // Inner image area
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(32, 118, 336, 244);
+    
+    // Image placeholder with clean styling
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('OBSERVATION IMAGE', 200, 235);
+    ctx.font = '11px system-ui';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('High-quality field photograph', 200, 250);
 
-    // Info cards
-    const infoY = 390;
-    ctx.fillStyle = '#f9fafb';
-    ctx.fillRect(30, infoY, 340, 120);
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.strokeRect(30, infoY, 340, 120);
-
+    // Information grid layout
+    const cardY = 385;
+    
+    // Location card
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(24, cardY, 168, 95);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(24, cardY, 168, 95);
+    
+    // Location header
+    ctx.fillStyle = '#059669';
+    ctx.fillRect(24, cardY, 168, 25);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('LOCATION', 108, cardY + 16);
+    
+    // Location details
     ctx.fillStyle = '#374151';
-    ctx.font = '12px Arial';
+    ctx.font = '10px system-ui';
     ctx.textAlign = 'left';
+    let locY = cardY + 35;
+    const location = data.location || 'Unknown';
+    if (location.length > 20) {
+      const words = location.split(' ');
+      const line1 = words.slice(0, Math.ceil(words.length/2)).join(' ');
+      const line2 = words.slice(Math.ceil(words.length/2)).join(' ');
+      ctx.fillText(line1, 28, locY);
+      ctx.fillText(line2, 28, locY + 12);
+      locY += 24;
+    } else {
+      ctx.fillText(location, 28, locY);
+      locY += 12;
+    }
     
-    let y = infoY + 25;
-    ctx.fillText(`📍 ${data.location || 'Unknown location'}`, 50, y);
-    y += 20;
     if (data.state) {
-      ctx.fillText(`🗺️ ${data.state}, ${data.country || 'Unknown country'}`, 50, y);
-      y += 20;
+      ctx.fillText(`${data.state}, ${data.country || 'Unknown'}`, 28, locY);
     }
-    ctx.fillText(`👤 ${data.observer || 'Unknown observer'}`, 50, y);
-    y += 20;
-    ctx.fillText(`🔬 ${data.platform}`, 50, y);
-    y += 20;
+
+    // Observer card
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(208, cardY, 168, 95);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(208, cardY, 168, 95);
+    
+    // Observer header
+    ctx.fillStyle = '#0ea5e9';
+    ctx.fillRect(208, cardY, 168, 25);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('OBSERVER', 292, cardY + 16);
+    
+    // Observer details
+    ctx.fillStyle = '#374151';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'left';
+    let obsY = cardY + 35;
+    const observer = data.observer || 'Unknown';
+    ctx.fillText(observer.length > 18 ? observer.substring(0, 18) + '...' : observer, 212, obsY);
+    obsY += 12;
+    ctx.fillText(`Platform: ${data.platform}`, 212, obsY);
+    obsY += 12;
     if (data.observedOn) {
-      ctx.fillText(`📅 ${data.observedOn}`, 50, y);
+      ctx.fillText(`Date: ${data.observedOn}`, 212, obsY);
     }
+
+    // Data source badge
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(24, 495, 352, 20);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('VALIDATED BIORECORD', 200, 508);
 
     // Bottom accent
-    ctx.fillStyle = '#10b981';
-    ctx.fillRect(0, 580, 400, 20);
+    const bottomGradient = ctx.createLinearGradient(0, 568, 400, 592);
+    bottomGradient.addColorStop(0, '#059669');
+    bottomGradient.addColorStop(0.5, '#10b981');
+    bottomGradient.addColorStop(1, '#34d399');
+    ctx.fillStyle = bottomGradient;
+    ctx.fillRect(8, 568, 384, 24);
   };
 
-  // Card Design 3: Vintage Style
+  // Card Design 3: Victorian Specimen Card
   const generateCardDesign3 = (data: any, canvasIndex: number) => {
     const canvas = canvasRefs[canvasIndex].current;
     if (!canvas) return;
@@ -468,87 +592,186 @@ function BioRecordImageGenerator() {
     canvas.width = 400;
     canvas.height = 600;
 
-    // Vintage background
-    ctx.fillStyle = '#fef7ed';
+    // Aged paper background with texture
+    const paperGradient = ctx.createRadialGradient(200, 300, 0, 200, 300, 500);
+    paperGradient.addColorStop(0, '#fefbf3');
+    paperGradient.addColorStop(0.8, '#fef7ed');
+    paperGradient.addColorStop(1, '#fed7aa');
+    ctx.fillStyle = paperGradient;
     ctx.fillRect(0, 0, 400, 600);
 
-    // Ornate border
-    ctx.strokeStyle = '#92400e';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(15, 15, 370, 570);
+    // Multiple ornate borders
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 5;
+    ctx.strokeRect(12, 12, 376, 576);
     
+    ctx.strokeStyle = '#a0522d';
     ctx.lineWidth = 2;
-    ctx.strokeRect(25, 25, 350, 550);
+    ctx.strokeRect(20, 20, 360, 560);
+    
+    ctx.strokeStyle = '#cd853f';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(28, 28, 344, 544);
 
-    // Header banner
-    ctx.fillStyle = '#92400e';
-    ctx.fillRect(40, 40, 320, 50);
+    // Decorative corner flourishes
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 3;
+    // Top left corner
+    ctx.beginPath();
+    ctx.moveTo(35, 50);
+    ctx.lineTo(50, 35);
+    ctx.moveTo(35, 35);
+    ctx.lineTo(50, 50);
+    ctx.stroke();
+    
+    // Top right corner
+    ctx.beginPath();
+    ctx.moveTo(350, 50);
+    ctx.lineTo(365, 35);
+    ctx.moveTo(365, 50);
+    ctx.lineTo(350, 35);
+    ctx.stroke();
+    
+    // Bottom corners
+    ctx.beginPath();
+    ctx.moveTo(35, 550);
+    ctx.lineTo(50, 565);
+    ctx.moveTo(35, 565);
+    ctx.lineTo(50, 550);
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(350, 550);
+    ctx.lineTo(365, 565);
+    ctx.moveTo(365, 550);
+    ctx.lineTo(350, 565);
+    ctx.stroke();
 
-    // Title
-    ctx.fillStyle = '#fef7ed';
-    ctx.font = 'bold 18px serif';
+    // Header with ornate design
+    ctx.fillStyle = '#8b4513';
+    ctx.fillRect(40, 40, 320, 60);
+    
+    // Header decorative border
+    ctx.strokeStyle = '#daa520';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 40, 320, 60);
+    
+    // Inner header decoration
+    ctx.fillStyle = '#daa520';
+    ctx.fillRect(50, 50, 300, 5);
+    ctx.fillRect(50, 85, 300, 5);
+
+    // Main title
+    ctx.fillStyle = '#fefbf3';
+    ctx.font = 'bold 16px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('SPECIMEN RECORD', 200, 70);
+    ctx.fillText('MYCOLOGICAL SPECIMEN', 200, 62);
+    ctx.font = '12px serif';
+    ctx.fillText('Field Collection Record', 200, 78);
 
-    // Scientific name in decorative box
-    ctx.fillStyle = '#451a03';
-    ctx.font = 'italic 20px serif';
+    // Scientific name with elegant frame
+    ctx.fillStyle = '#fefbf3';
+    ctx.fillRect(45, 115, 310, 45);
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(45, 115, 310, 45);
+    
+    ctx.fillStyle = '#2d1b0e';
+    ctx.font = 'italic 18px serif';
+    ctx.textAlign = 'center';
     const scientificName = data.scientificName || 'Unknown Species';
-    ctx.fillText(scientificName, 200, 130);
+    ctx.fillText(scientificName, 200, 140);
 
-    // Common name
+    // Common name with quotation marks
     if (data.commonName) {
       ctx.font = '14px serif';
+      ctx.fillStyle = '#654321';
       ctx.fillText(`"${data.commonName}"`, 200, 155);
     }
 
-    // Image frame
-    ctx.strokeStyle = '#92400e';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(60, 180, 280, 200);
-    ctx.fillStyle = '#f4f4f5';
-    ctx.fillRect(66, 186, 268, 188);
+    // Specimen image with ornate frame
+    ctx.fillStyle = '#8b4513';
+    ctx.fillRect(50, 175, 300, 220);
     
-    ctx.fillStyle = '#71717a';
-    ctx.font = '12px serif';
-    ctx.fillText('Specimen Photograph', 200, 285);
+    ctx.fillStyle = '#daa520';
+    ctx.fillRect(55, 180, 290, 210);
+    
+    ctx.fillStyle = '#f5f5dc';
+    ctx.fillRect(60, 185, 280, 200);
+    
+    // Image placeholder with period styling
+    ctx.fillStyle = '#8b7355';
+    ctx.font = '14px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('PHOTOGRAPHIC PLATE', 200, 270);
+    ctx.font = '10px serif';
+    ctx.fillText('Natural habitat documentation', 200, 285);
+    ctx.fillText('Captured in field conditions', 200, 300);
 
-    // Information panel
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillRect(50, 410, 300, 130);
-    ctx.strokeStyle = '#92400e';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(50, 410, 300, 130);
-
-    ctx.fillStyle = '#451a03';
+    // Classification section
+    ctx.fillStyle = '#fefbf3';
+    ctx.fillRect(40, 410, 320, 130);
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(40, 410, 320, 130);
+    
+    // Classification header
+    ctx.fillStyle = '#8b4513';
+    ctx.fillRect(45, 415, 310, 25);
+    ctx.fillStyle = '#fefbf3';
     ctx.font = 'bold 12px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('COLLECTION PARTICULARS', 200, 430);
+
+    // Collection data in formal style
+    ctx.fillStyle = '#2d1b0e';
+    ctx.font = '11px serif';
     ctx.textAlign = 'left';
     
-    let yPos = 435;
-    ctx.fillText(`Collection Site: ${data.location || 'Unknown'}`, 70, yPos);
-    yPos += 20;
+    let dataY = 455;
+    ctx.fillText(`Locality: ${data.location || 'Unknown locality'}`, 55, dataY);
+    dataY += 16;
+    
     if (data.state) {
-      ctx.fillText(`Region: ${data.state}, ${data.country || 'Unknown'}`, 70, yPos);
-      yPos += 20;
+      ctx.fillText(`Province: ${data.state}, ${data.country || 'Unknown'}`, 55, dataY);
+      dataY += 16;
     }
-    ctx.fillText(`Collector: ${data.observer || 'Unknown'}`, 70, yPos);
-    yPos += 20;
-    ctx.fillText(`Source: ${data.platform}`, 70, yPos);
-    yPos += 20;
+    
+    ctx.fillText(`Collected by: ${data.observer || 'Anonymous'}`, 55, dataY);
+    dataY += 16;
+    
+    ctx.fillText(`Repository: ${data.platform} Database`, 55, dataY);
+    dataY += 16;
+    
     if (data.observedOn) {
-      ctx.fillText(`Date: ${data.observedOn}`, 70, yPos);
+      ctx.fillText(`Date of Collection: ${data.observedOn}`, 55, dataY);
     }
 
-    // Footer seal
-    ctx.fillStyle = '#92400e';
+    // Authentication seal
+    ctx.fillStyle = '#8b4513';
     ctx.beginPath();
-    ctx.arc(200, 565, 15, 0, 2 * Math.PI);
+    ctx.arc(200, 565, 20, 0, 2 * Math.PI);
     ctx.fill();
     
-    ctx.fillStyle = '#fef7ed';
-    ctx.font = 'bold 10px serif';
+    ctx.strokeStyle = '#daa520';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(200, 565, 18, 0, 2 * Math.PI);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#fefbf3';
+    ctx.font = 'bold 8px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('BR', 200, 570);
+    ctx.fillText('VERIFIED', 200, 562);
+    ctx.fillText('BIORECORD', 200, 572);
+
+    // Decorative flourish at bottom
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(120, 585);
+    ctx.quadraticCurveTo(200, 575, 280, 585);
+    ctx.stroke();
   };
 
   // Download card as image
