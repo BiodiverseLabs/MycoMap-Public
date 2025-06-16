@@ -3,12 +3,12 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 import { 
-  users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData,
+  users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData, biorecords,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment,
   type InaturalistData, type InsertInaturalistData, type InaturalistPlace, type InsertInaturalistPlace,
-  type MushroomObserverData, type InsertMushroomObserverData
+  type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray } from 'drizzle-orm';
 import type { IStorage } from "./storage";
@@ -2632,5 +2632,222 @@ export class DatabaseStorage implements IStorage {
         return await this.createMycoportalData(errorRecord);
       }
     }
+  }
+
+  // Biorecords management - Historical snapshots of fully validated observations
+  async createBiorecord(observationData: any): Promise<Biorecord> {
+    const biorecordData: InsertBiorecord = {
+      observationId: observationData.observationId,
+      scientificName: observationData.scientificName,
+      commonName: observationData.commonName,
+      phylum: observationData.phylum,
+      class: observationData.class,
+      order: observationData.order,
+      family: observationData.family,
+      genus: observationData.genus,
+      species: observationData.species,
+      infraspecies: observationData.infraspecies,
+      observer: observationData.observer,
+      collector: observationData.collector,
+      observedOn: observationData.observedOn,
+      latitude: observationData.latitude,
+      longitude: observationData.longitude,
+      placeGuess: observationData.placeGuess,
+      state: observationData.state,
+      country: observationData.country,
+      genbankAccession: observationData.genbankAccession,
+      mycoportalNumber: observationData.mycoportalNumber,
+      dnaSequence: observationData.dnaSequence,
+      sequence: observationData.sequence,
+      collectionNumber: observationData.collectionNumber,
+      creationDate: observationData.creationDate,
+      verified: observationData.verified,
+      kingdom: observationData.kingdom,
+      authority: observationData.authority,
+      abbreviatedAuthority: observationData.abbreviatedAuthority,
+      mycobankNumber: observationData.mycobankNumber,
+      fungariumSpecimen: observationData.fungariumSpecimen,
+      images: observationData.images,
+      flags: observationData.flags,
+      forwardPrimer: observationData.forwardPrimer,
+      reversePrimer: observationData.reversePrimer,
+      runName: observationData.runName,
+      sequence2: observationData.sequence2,
+      forwardPrimer2: observationData.forwardPrimer2,
+      reversePrimer2: observationData.reversePrimer2,
+      sequenceOwner2: observationData.sequenceOwner2,
+      runName2: observationData.runName2,
+      locationName: observationData.locationName,
+      notes: observationData.notes,
+      moNotes: observationData.moNotes,
+      reportLink: observationData.reportLink,
+      imageLink: observationData.imageLink,
+      firstGenbankRecord: observationData.firstGenbankRecord,
+      isFirstStateRecord: observationData.isFirstStateRecord,
+      hasMultipleGenotypes: observationData.hasMultipleGenotypes,
+      source: observationData.source,
+      sourceUrl: observationData.sourceUrl,
+      mycoMapBlastUrl: observationData.mycoMapBlastUrl,
+      ncbiBlastFile: observationData.ncbiBlastFile,
+      localBlastFile: observationData.localBlastFile,
+      blastFilesDownloaded: observationData.blastFilesDownloaded,
+      blastDownloadDate: observationData.blastDownloadDate,
+      mycoMapTraceUrl: observationData.mycoMapTraceUrl,
+      fastqFile: observationData.fastqFile,
+      traceFilesDownloaded: observationData.traceFilesDownloaded,
+      traceDownloadDate: observationData.traceDownloadDate,
+      inatApiFile: observationData.inatApiFile,
+      inatApiSaved: observationData.inatApiSaved,
+      inatApiSaveDate: observationData.inatApiSaveDate,
+      // External platform data snapshots
+      inatScientificName: observationData.inatScientificName,
+      inatObserver: observationData.inatObserver,
+      inatObservedOn: observationData.inatObservedOn,
+      inatState: observationData.inatState,
+      inatGenbankAccession: observationData.inatGenbankAccession,
+      moScientificName: observationData.moScientificName,
+      moObserver: observationData.moObserver,
+      moObservedOn: observationData.moObservedOn,
+      moState: observationData.moState,
+      moDnaBarcode: observationData.moDnaBarcode,
+      moSequenceNotes: observationData.moSequenceNotes,
+      mycoportalScientificName: observationData.mycoportalScientificName,
+      mycoportalRecordedBy: observationData.mycoportalRecordedBy,
+      mycoportalEventDate: observationData.mycoportalEventDate,
+      mycoportalState: observationData.mycoportalState,
+      mycoportalCatalogNumber: observationData.mycoportalCatalogNumber,
+      validatedBy: observationData.validatedBy || 'system',
+      validationVersion: '1.0',
+      originalObservationId: observationData.originalObservationId
+    };
+
+    const [biorecord] = await db.insert(biorecords).values(biorecordData).returning();
+    return biorecord;
+  }
+
+  async getBiorecords(limit: number = 50, offset: number = 0): Promise<Biorecord[]> {
+    return await db
+      .select()
+      .from(biorecords)
+      .orderBy(desc(biorecords.validatedAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getBiorecordByObservationId(observationId: string): Promise<Biorecord | null> {
+    const result = await db
+      .select()
+      .from(biorecords)
+      .where(eq(biorecords.observationId, observationId))
+      .orderBy(desc(biorecords.validatedAt))
+      .limit(1);
+    
+    return result[0] || null;
+  }
+
+  async getBiorecordHistory(observationId: string): Promise<Biorecord[]> {
+    return await db
+      .select()
+      .from(biorecords)
+      .where(eq(biorecords.observationId, observationId))
+      .orderBy(desc(biorecords.validatedAt));
+  }
+
+  async createBiorecordFromValidatedObservation(observationId: string): Promise<Biorecord | null> {
+    // Get the fully validated observation data
+    const validatedData = await db.execute(sql`
+      SELECT 
+        o.*,
+        i.species_guess as "inatScientificName",
+        CASE 
+          WHEN i.user IS NOT NULL AND i.user != '' THEN 
+            COALESCE((i.user::json->>'name'), (i.user::json->>'login'), i.user::text)
+          ELSE NULL 
+        END as "inatObserver",
+        i.observed_on_string as "inatObservedOn",
+        CASE 
+          WHEN i.place_ids IS NOT NULL AND array_length(i.place_ids, 1) > 0 THEN
+            (SELECT p.name FROM inaturalist_places p 
+             WHERE p.place_id = ANY(i.place_ids) 
+             AND p.admin_level = 10 AND p.place_type::integer = 8
+             AND p.display_name LIKE '%, US'
+             LIMIT 1)
+          ELSE NULL
+        END as "inatState",
+        i.inat_genbank_accession as "inatGenbankAccession",
+        m.scientific_name as "moScientificName",
+        m.observer as "moObserver",
+        m.observed_on as "moObservedOn",
+        m.state as "moState",
+        m.dna_barcode as "moDnaBarcode",
+        m.sequence_notes as "moSequenceNotes",
+        mc.scientific_name as "mycoportalScientificName",
+        mc.recorded_by as "mycoportalRecordedBy",
+        mc.event_date as "mycoportalEventDate",
+        mc.state_province as "mycoportalState",
+        mc.catalog_number as "mycoportalCatalogNumber"
+      FROM observations o
+      LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
+      LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id
+      LEFT JOIN mycoportal_data mc ON o.observation_id = mc.observation_id
+      WHERE o.observation_id = ${observationId}
+      AND (
+        -- Species-level identification (at least 2 words in scientific name)
+        array_length(string_to_array(trim(o.scientific_name), ' '), 1) >= 2
+        AND
+        -- Has successful sync with at least one platform
+        (
+          (o.source = 'iNaturalist' AND i.sync_status = 'success') OR
+          (o.source = 'MO Observations' AND m.sync_status = 'success') OR
+          (o.source = 'MycoPortal' AND mc.sync_status = 'success')
+        )
+        AND
+        -- Has required files when URLs exist
+        (o.mycomap_blast_url IS NULL OR o.blast_files_downloaded = true)
+        AND
+        (o.mycomap_trace_url IS NULL OR o.trace_files_downloaded = true)
+        AND
+        -- Has iNaturalist API file saved for iNaturalist records
+        (o.source != 'iNaturalist' OR o.inat_api_saved = true)
+      )
+    `);
+
+    if (validatedData.rows.length === 0) {
+      return null; // Observation is not fully validated
+    }
+
+    const observationData = validatedData.rows[0] as any;
+    observationData.originalObservationId = observationData.id;
+
+    // Check if biorecord already exists
+    const existingBiorecord = await this.getBiorecordByObservationId(observationId);
+    if (existingBiorecord) {
+      // Compare data to see if there are changes
+      const hasChanges = this.compareObservationData(existingBiorecord, observationData);
+      if (!hasChanges) {
+        return existingBiorecord; // No changes, return existing biorecord
+      }
+    }
+
+    // Create new biorecord snapshot
+    return await this.createBiorecord(observationData);
+  }
+
+  private compareObservationData(existingBiorecord: Biorecord, newData: any): boolean {
+    // Compare key fields to detect changes
+    const fieldsToCompare = [
+      'scientificName', 'commonName', 'phylum', 'class', 'order', 'family', 'genus', 'species',
+      'observer', 'collector', 'state', 'country', 'genbankAccession', 'dnaSequence',
+      'inatScientificName', 'inatObserver', 'moScientificName', 'moObserver',
+      'mycoportalScientificName', 'mycoportalRecordedBy'
+    ];
+
+    for (const field of fieldsToCompare) {
+      if (existingBiorecord[field as keyof Biorecord] !== newData[field]) {
+        return true; // Changes detected
+      }
+    }
+
+    return false; // No significant changes
   }
 }

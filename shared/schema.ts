@@ -493,3 +493,121 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
 });
+
+// Biorecords table - Historical snapshots of fully validated observations
+export const biorecords = pgTable("biorecords", {
+  id: serial("id").primaryKey(),
+  observationId: text("observation_id").notNull(),
+  
+  // Core observation data snapshot
+  scientificName: text("scientific_name").notNull(),
+  commonName: text("common_name"),
+  phylum: text("phylum"),
+  class: text("class"),
+  order: text("order"),
+  family: text("family"),
+  genus: text("genus"),
+  species: text("species"),
+  infraspecies: text("infraspecies"),
+  observer: text("observer"),
+  collector: text("collector"),
+  observedOn: date("observed_on"),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  placeGuess: text("place_guess"),
+  state: text("state"),
+  country: text("country"),
+  genbankAccession: text("genbank_accession"),
+  mycoportalNumber: text("mycoportal_number"),
+  dnaSequence: text("dna_sequence"),
+  sequence: text("sequence"),
+  
+  // Additional fields
+  collectionNumber: text("collection_number"),
+  creationDate: date("creation_date"),
+  verified: text("verified"),
+  kingdom: text("kingdom"),
+  authority: text("authority"),
+  abbreviatedAuthority: text("abbreviated_authority"),
+  mycobankNumber: text("mycobank_number"),
+  fungariumSpecimen: text("fungarium_specimen"),
+  images: text("images"),
+  flags: text("flags"),
+  forwardPrimer: text("forward_primer"),
+  reversePrimer: text("reverse_primer"),
+  runName: text("run_name"),
+  sequence2: text("sequence_2"),
+  forwardPrimer2: text("forward_primer_2"),
+  reversePrimer2: text("reverse_primer_2"),
+  sequenceOwner2: text("sequence_owner_2"),
+  runName2: text("run_name_2"),
+  locationName: text("location_name"),
+  notes: text("notes"),
+  moNotes: text("mo_notes"),
+  reportLink: text("report_link"),
+  imageLink: text("image_link"),
+  firstGenbankRecord: boolean("first_genbank_record").default(false),
+  
+  isFirstStateRecord: boolean("is_first_state_record").default(false),
+  hasMultipleGenotypes: boolean("has_multiple_genotypes").default(false),
+  source: text("source"),
+  sourceUrl: text("source_url"),
+  
+  // BLAST and trace file tracking at validation time
+  mycoMapBlastUrl: text("mycomap_blast_url"),
+  ncbiBlastFile: text("ncbi_blast_file"),
+  localBlastFile: text("local_blast_file"),
+  blastFilesDownloaded: boolean("blast_files_downloaded").default(false),
+  blastDownloadDate: timestamp("blast_download_date"),
+  mycoMapTraceUrl: text("mycomap_trace_url"),
+  fastqFile: text("fastq_file"),
+  traceFilesDownloaded: boolean("trace_files_downloaded").default(false),
+  traceDownloadDate: timestamp("trace_download_date"),
+  inatApiFile: text("inat_api_file"),
+  inatApiSaved: boolean("inat_api_saved").default(false),
+  inatApiSaveDate: timestamp("inat_api_save_date"),
+  
+  // External platform data snapshots
+  inatScientificName: text("inat_scientific_name"),
+  inatObserver: text("inat_observer"),
+  inatObservedOn: text("inat_observed_on"),
+  inatState: text("inat_state"),
+  inatGenbankAccession: text("inat_genbank_accession"),
+  
+  moScientificName: text("mo_scientific_name"),
+  moObserver: text("mo_observer"),
+  moObservedOn: text("mo_observed_on"),
+  moState: text("mo_state"),
+  moDnaBarcode: text("mo_dna_barcode"),
+  moSequenceNotes: text("mo_sequence_notes"),
+  
+  mycoportalScientificName: text("mycoportal_scientific_name"),
+  mycoportalRecordedBy: text("mycoportal_recorded_by"),
+  mycoportalEventDate: text("mycoportal_event_date"),
+  mycoportalState: text("mycoportal_state"),
+  mycoportalCatalogNumber: text("mycoportal_catalog_number"),
+  
+  // Validation metadata
+  validatedAt: timestamp("validated_at").notNull().defaultNow(),
+  validatedBy: text("validated_by"), // Could track who performed validation
+  validationVersion: text("validation_version").default('1.0'), // Track validation criteria version
+  
+  // Original observation reference
+  originalObservationId: integer("original_observation_id").references(() => observations.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  observationIdIdx: index("biorecord_observation_id_idx").on(table.observationId),
+  validatedAtIdx: index("biorecord_validated_at_idx").on(table.validatedAt),
+  scientificNameIdx: index("biorecord_scientific_name_idx").on(table.scientificName),
+  stateIdx: index("biorecord_state_idx").on(table.state),
+}));
+
+export const insertBiorecordSchema = createInsertSchema(biorecords).omit({
+  id: true,
+  validatedAt: true,
+  createdAt: true,
+});
+
+export type InsertBiorecord = z.infer<typeof insertBiorecordSchema>;
+export type Biorecord = typeof biorecords.$inferSelect;
