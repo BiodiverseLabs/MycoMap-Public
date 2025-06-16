@@ -11,6 +11,7 @@ import csv from "csv-parser";
 import { db, pool } from "./db";
 import { sql, eq } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
+import { ipfsService } from "./ipfsService";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -2546,6 +2547,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error downloading iNaturalist API file:", error);
       res.status(500).json({ error: "Failed to download iNaturalist API file" });
+    }
+  });
+
+  // IPFS Upload endpoints
+  app.post("/api/observations/:id/upload-to-ipfs", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      console.log(`[IPFS] Starting upload for observation ${observationId}`);
+      
+      // Get observation data to find file paths
+      const observation = await db.select()
+        .from(observations)
+        .where(eq(observations.observationId, observationId))
+        .limit(1);
+      
+      if (observation.length === 0) {
+        return res.status(404).json({ error: "Observation not found" });
+      }
+      
+      const obs = observation[0];
+      
+      // Check if already uploaded to IPFS
+      if (obs.ipfsUploaded) {
+        return res.json({
+          success: true,
+          alreadyUploaded: true,
+          ipfsLinks: {
+            folder: obs.ipfsFolderUrl,
+            ncbiBlast: obs.ipfsNcbiBlastUrl,
+            localBlast: obs.ipfsLocalBlastUrl,
+            fastq: obs.ipfsFastqUrl,
+            inatApi: obs.ipfsInatApiUrl
+          }
+        });
+      }
+      
+      // Prepare file information for IPFS upload
+      const files = {
+        observationId,
+        ncbiBlastFile: obs.ncbiBlastFile,
+        localBlastFile: obs.localBlastFile,
+        fastqFile: obs.fastqFile,
+        inatApiFile: obs.inatApiFile
+      };
+      
+      // Upload to IPFS
+      const uploadResult = await ipfsService.uploadObservationFiles(files);
+      
+      if (!uploadResult.success) {
+        return res.status(500).json({ 
+          error: "Failed to upload to IPFS",
+          details: uploadResult.error 
+        });
+      }
+      
+      // Update database with IPFS information
+      await db.update(observations)
+        .set({
+          ipfsUploaded: true,
+          ipfsUploadDate: new Date(),
+          ipfsFolderCid: uploadResult.ipfsLinks?.folder?.split('/').pop(),
+          ipfsFolderUrl: uploadResult.ipfsLinks?.folder,
+          ipfsNcbiBlastUrl: uploadResult.ipfsLinks?.ncbiBlast,
+          ipfsLocalBlastUrl: uploadResult.ipfsLinks?.localBlast,
+          ipfsFastqUrl: uploadResult.ipfsLinks?.fastq,
+          ipfsInatApiUrl: uploadResult.ipfsLinks?.inatApi
+        })
+        .where(eq(observations.observationId, observationId));
+      
+      console.log(`[IPFS] Successfully uploaded observation ${observationId} to IPFS`);
+      
+      res.json({
+        success: true,
+        ipfsLinks: uploadResult.ipfsLinks
+      });
+      
+    } catch (error) {
+      console.error(`[IPFS] Error uploading observation ${req.params.id}:`, error);
+      res.status(500).json({ error: "Failed to upload to IPFS" });
+    }
+  });
+
+  // Check IPFS upload status
+  app.get("/api/observations/:id/ipfs-status", async (req, res) => {
+    try {
+      const observationId = req.params.id;
+      
+      const observation = await db.select({
+        ipfsUploaded: observations.ipfsUploaded,
+        ipfsUploadDate: observations.ipfsUploadDate,
+        ipfsFolderUrl: observations.ipfsFolderUrl,
+        ipfsNcbiBlastUrl: observations.ipfsNcbiBlastUrl,
+        ipfsLocalBlastUrl: observations.ipfsLocalBlastUrl,
+        ipfsFastqUrl: observations.ipfsFastqUrl,
+        ipfsInatApiUrl: observations.ipfsInatApiUrl
+      })
+        .from(observations)
+        .where(eq(observations.observationId, observationId))
+        .limit(1);
+      
+      if (observation.length === 0) {
+        return res.status(404).json({ error: "Observation not found" });
+      }
+      
+      res.json(observation[0]);
+      
+    } catch (error) {
+      console.error(`[IPFS] Error checking IPFS status:`, error);
+      res.status(500).json({ error: "Failed to check IPFS status" });
+    }
+  });
+
+  // Bulk IPFS upload for all validated observations
+  app.post("/api/observations/bulk-upload-to-ipfs", async (req, res) => {
+    try {
+      console.log(`[IPFS] Starting bulk upload for validated observations`);
+      
+      // Get all fully validated observations that haven't been uploaded to IPFS yet
+      const validatedObservations = await db.select()
+        .from(observations)
+        .where(sql`
+          array_length(string_to_array(trim(scientific_name), ' '), 1) >= 2
+          AND inat_api_saved = true
+          AND (mycomap_blast_url IS NULL OR blast_files_downloaded = true)
+          AND (mycomap_trace_url IS NULL OR trace_files_downloaded = true)
+          AND ipfs_uploaded = false
+        `)
+        .limit(10); // Process in small batches
+      
+      const uploadResults = [];
+      
+      for (const obs of validatedObservations) {
+        try {
+          const files = {
+            observationId: obs.observationId,
+            ncbiBlastFile: obs.ncbiBlastFile,
+            localBlastFile: obs.localBlastFile,
+            fastqFile: obs.fastqFile,
+            inatApiFile: obs.inatApiFile
+          };
+          
+          const uploadResult = await ipfsService.uploadObservationFiles(files);
+          
+          if (uploadResult.success) {
+            // Update database
+            await db.update(observations)
+              .set({
+                ipfsUploaded: true,
+                ipfsUploadDate: new Date(),
+                ipfsFolderCid: uploadResult.ipfsLinks?.folder?.split('/').pop(),
+                ipfsFolderUrl: uploadResult.ipfsLinks?.folder,
+                ipfsNcbiBlastUrl: uploadResult.ipfsLinks?.ncbiBlast,
+                ipfsLocalBlastUrl: uploadResult.ipfsLinks?.localBlast,
+                ipfsFastqUrl: uploadResult.ipfsLinks?.fastq,
+                ipfsInatApiUrl: uploadResult.ipfsLinks?.inatApi
+              })
+              .where(eq(observations.observationId, obs.observationId));
+            
+            uploadResults.push({
+              observationId: obs.observationId,
+              success: true,
+              ipfsLinks: uploadResult.ipfsLinks
+            });
+          } else {
+            uploadResults.push({
+              observationId: obs.observationId,
+              success: false,
+              error: uploadResult.error
+            });
+          }
+        } catch (error) {
+          uploadResults.push({
+            observationId: obs.observationId,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+      
+      res.json({
+        success: true,
+        totalProcessed: uploadResults.length,
+        successful: uploadResults.filter(r => r.success).length,
+        failed: uploadResults.filter(r => !r.success).length,
+        results: uploadResults
+      });
+      
+    } catch (error) {
+      console.error(`[IPFS] Error in bulk upload:`, error);
+      res.status(500).json({ error: "Failed to perform bulk IPFS upload" });
     }
   });
 

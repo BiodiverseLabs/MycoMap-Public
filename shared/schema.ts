@@ -85,6 +85,16 @@ export const observations = pgTable("observations", {
   inatApiSaved: boolean("inat_api_saved").default(false),
   inatApiSaveDate: timestamp("inat_api_save_date"),
   
+  // IPFS web3 storage tracking
+  ipfsUploaded: boolean("ipfs_uploaded").default(false),
+  ipfsUploadDate: timestamp("ipfs_upload_date"),
+  ipfsFolderCid: text("ipfs_folder_cid"), // CID for the complete observation folder
+  ipfsFolderUrl: text("ipfs_folder_url"), // https://ipfs.io/ipfs/{cid}
+  ipfsNcbiBlastUrl: text("ipfs_ncbi_blast_url"), // Individual file IPFS URLs
+  ipfsLocalBlastUrl: text("ipfs_local_blast_url"),
+  ipfsFastqUrl: text("ipfs_fastq_url"),
+  ipfsInatApiUrl: text("ipfs_inat_api_url"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
