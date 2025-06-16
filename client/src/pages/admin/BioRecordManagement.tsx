@@ -223,46 +223,48 @@ export default function BioRecordManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">BioRecord Management</h1>
-          <p className="text-muted-foreground">
-            Manage historical snapshots and mint NFTs from fully validated observations
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold">BioRecord Management</h1>
+              <p className="text-muted-foreground">
+                Manage historical snapshots and mint NFTs from fully validated observations
+              </p>
+            </div>
+          </div>
 
-      <Tabs defaultValue="biorecords" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="biorecords">Historical BioRecords</TabsTrigger>
-          <TabsTrigger value="validation">Create from Validated</TabsTrigger>
-        </TabsList>
+          <Tabs defaultValue="biorecords" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="biorecords">Historical BioRecords</TabsTrigger>
+              <TabsTrigger value="validation">Create from Validated</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="biorecords" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Archive className="w-5 h-5" />
-                BioRecord Archive ({filteredBiorecords.length})
-              </CardTitle>
-              <CardDescription>
-                Historical snapshots of fully validated observations with NFT minting capabilities
-              </CardDescription>
-              <div className="flex items-center space-x-2">
-                <Search className="w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search biorecords..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {biorecordsLoading ? (
-                <div className="text-center py-8">Loading biorecords...</div>
-              ) : (
+            <TabsContent value="biorecords" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Archive className="w-5 h-5" />
+                    BioRecord Archive ({filteredBiorecords.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Historical snapshots of fully validated observations with NFT minting capabilities
+                  </CardDescription>
+                  <div className="flex items-center space-x-2">
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search biorecords..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="max-w-sm"
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {biorecordsLoading ? (
+                    <div className="text-center py-8">Loading biorecords...</div>
+                  ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -501,6 +503,8 @@ export default function BioRecordManagement() {
           </Card>
         </TabsContent>
       </Tabs>
+        </div>
+      </div>
     </div>
   );
 }
