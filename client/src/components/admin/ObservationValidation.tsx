@@ -1217,7 +1217,7 @@ export function ObservationValidation() {
                                         <span className="font-medium">MycoMap BLAST Results:</span>
                                         {obs.mycoMapBlastResults && obs.mycoMapBlastResults.includes('mycomap.com') ? (
                                           <>
-                                            {obs.blastFilesDownloaded && obs.ncbiBlastFile && obs.localBlastFile ? (
+                                            {obs.blastFilesDownloaded && obs.ncbiBlastFile && obs.localBlastFile && obs.ipfsUploaded && obs.ipfsNcbiBlastUrl && obs.ipfsLocalBlastUrl ? (
                                               <CheckCircle className="w-4 h-4 text-green-600" />
                                             ) : (
                                               <Button
@@ -1267,6 +1267,32 @@ export function ObservationValidation() {
                                                 )}
                                               </div>
                                             )}
+                                            {obs.ipfsUploaded && (obs.ipfsNcbiBlastUrl || obs.ipfsLocalBlastUrl) && (
+                                              <div className="flex items-center gap-1 text-sm ml-2">
+                                                <span className="text-purple-600 font-medium">IPFS:</span>
+                                                {obs.ipfsNcbiBlastUrl && (
+                                                  <a
+                                                    href={obs.ipfsNcbiBlastUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-purple-600 hover:text-purple-800 underline"
+                                                  >
+                                                    NCBI
+                                                  </a>
+                                                )}
+                                                {obs.ipfsNcbiBlastUrl && obs.ipfsLocalBlastUrl && <span>-</span>}
+                                                {obs.ipfsLocalBlastUrl && (
+                                                  <a
+                                                    href={obs.ipfsLocalBlastUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-purple-600 hover:text-purple-800 underline"
+                                                  >
+                                                    Local
+                                                  </a>
+                                                )}
+                                              </div>
+                                            )}
                                           </>
                                         ) : (
                                           <XCircle className="w-4 h-4 text-red-600" />
@@ -1276,7 +1302,7 @@ export function ObservationValidation() {
                                         <span className="font-medium">Trace Files (Raw DNA Data):</span>
                                         {obs.traceFiles && obs.traceFiles.includes('mycomap.com') ? (
                                           <>
-                                            {obs.traceFilesDownloaded && obs.fastqFile ? (
+                                            {obs.traceFilesDownloaded && obs.fastqFile && obs.ipfsUploaded && obs.ipfsFastqUrl ? (
                                               <CheckCircle className="w-4 h-4 text-green-600" />
                                             ) : (
                                               <>
@@ -1312,6 +1338,19 @@ export function ObservationValidation() {
                                                   target="_blank"
                                                   rel="noopener noreferrer"
                                                   className="text-blue-600 hover:text-blue-800 underline"
+                                                >
+                                                  FASTQ
+                                                </a>
+                                              </div>
+                                            )}
+                                            {obs.ipfsUploaded && obs.ipfsFastqUrl && (
+                                              <div className="flex items-center gap-1 text-sm ml-2">
+                                                <span className="text-purple-600 font-medium">IPFS:</span>
+                                                <a
+                                                  href={obs.ipfsFastqUrl}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-purple-600 hover:text-purple-800 underline"
                                                 >
                                                   FASTQ
                                                 </a>
