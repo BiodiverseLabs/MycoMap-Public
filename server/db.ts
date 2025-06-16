@@ -3051,6 +3051,14 @@ export class DatabaseStorage implements IStorage {
     const [cached] = await db
       .insert(inaturalistClassificationCache)
       .values(cacheData)
+      .onConflictDoUpdate({
+        target: inaturalistClassificationCache.genus,
+        set: {
+          lookupCount: sql`${inaturalistClassificationCache.lookupCount} + 1`,
+          lastUsedAt: new Date(),
+          updatedAt: new Date()
+        }
+      })
       .returning();
 
     this.uploadApiCallStats.totalCalls++;
@@ -3134,7 +3142,14 @@ export class DatabaseStorage implements IStorage {
           apiResponse: JSON.stringify(data)
         };
 
-        await this.cacheClassificationResult(genus, cacheData);
+        try {
+          await this.cacheClassificationResult(genus, cacheData);
+        } catch (cacheError) {
+          // Ignore duplicate key errors during successful caching
+          if (!cacheError.message?.includes('duplicate key')) {
+            console.error(`Failed to cache successful result for "${genus}":`, cacheError);
+          }
+        }
         
         // Only return if we have complete taxonomy
         if (taxonomy.kingdom && taxonomy.phylum && taxonomy.class && 
@@ -3148,7 +3163,14 @@ export class DatabaseStorage implements IStorage {
       } else {
         console.log(`⚠ No results from iNaturalist for "${genus}"`);
         // Cache the negative result to avoid future API calls
-        await this.cacheClassificationResult(genus, {});
+        try {
+          await this.cacheClassificationResult(genus, {});
+        } catch (cacheError) {
+          // Ignore duplicate key errors for negative caching
+          if (!cacheError.message?.includes('duplicate key')) {
+            console.error(`Failed to cache negative result for "${genus}":`, cacheError);
+          }
+        }
         return null;
       }
     } catch (error) {
