@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Archive, History, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Search, Archive, History, CheckCircle, Clock, AlertCircle, Coins, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 
 interface Biorecord {
@@ -31,6 +31,15 @@ interface Biorecord {
   moObserver?: string;
   mycoportalScientificName?: string;
   mycoportalRecordedBy?: string;
+  // NFT minting data
+  nftMinted?: boolean;
+  nftTokenId?: string;
+  nftContractAddress?: string;
+  nftBlockchainNetwork?: string;
+  nftMetadataUri?: string;
+  nftImageUri?: string;
+  nftMintedAt?: string;
+  nftMintedBy?: string;
 }
 
 interface ValidationObservation {
@@ -126,6 +135,34 @@ export default function BioRecordManagement() {
     onError: (error: Error) => {
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // NFT minting mutations
+  const mintNftMutation = useMutation({
+    mutationFn: async (biorecordId: number) => {
+      const response = await fetch(`/api/biorecords/${biorecordId}/mock-mint`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to mint NFT");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "NFT Minted Successfully",
+        description: `Token ${data.nftData.tokenId} created on ${data.nftData.blockchainNetwork}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/biorecords"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Minting Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -235,6 +272,7 @@ export default function BioRecordManagement() {
                       <TableHead>State</TableHead>
                       <TableHead>Validated Date</TableHead>
                       <TableHead>Version</TableHead>
+                      <TableHead>NFT Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
