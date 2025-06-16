@@ -61,6 +61,7 @@ interface ValidationObservation {
   blastFilesDownloaded: boolean;
   traceFilesDownloaded: boolean;
   inatApiSaved: boolean;
+  dnaBarcode?: string;
 }
 
 export default function BioRecordManagement() {
@@ -1067,6 +1068,15 @@ function BioRecordImageGenerator() {
                                 
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
+                                    <div className="font-medium text-gray-700 mb-1">Platform</div>
+                                    <div className="text-sm bg-white p-2 rounded border">
+                                      {observation.inatSyncStatus === 'success' ? 'iNaturalist' : 
+                                       observation.moSyncStatus === 'success' ? 'Mushroom Observer' :
+                                       observation.mycoportalSyncStatus === 'success' ? 'MyCoPortal' : 'Unknown'}
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
                                     <div className="font-medium text-gray-700 mb-1">Observation ID</div>
                                     <div className="font-mono text-sm bg-white p-2 rounded border">{observation.observationId}</div>
                                   </div>
@@ -1074,11 +1084,6 @@ function BioRecordImageGenerator() {
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Scientific Name</div>
                                     <div className="italic text-sm bg-white p-2 rounded border">{observation.scientificName}</div>
-                                  </div>
-                                  
-                                  <div>
-                                    <div className="font-medium text-gray-700 mb-1">Common Name</div>
-                                    <div className="text-sm bg-white p-2 rounded border">{observation.commonName || "Not specified"}</div>
                                   </div>
                                   
                                   <div>
@@ -1092,33 +1097,66 @@ function BioRecordImageGenerator() {
                                   </div>
                                   
                                   <div>
-                                    <div className="font-medium text-gray-700 mb-1">Platform Sync Status</div>
-                                    <div className="flex flex-wrap gap-1 bg-white p-2 rounded border">
-                                      {observation.inatSyncStatus === 'success' && (
-                                        <Badge variant="outline" className="text-xs">iNaturalist ✓</Badge>
-                                      )}
-                                      {observation.moSyncStatus === 'success' && (
-                                        <Badge variant="outline" className="text-xs">Mushroom Observer ✓</Badge>
-                                      )}
-                                      {observation.mycoportalSyncStatus === 'success' && (
-                                        <Badge variant="outline" className="text-xs">MyCoPortal ✓</Badge>
-                                      )}
+                                    <div className="font-medium text-gray-700 mb-1">DNA Barcode ITS</div>
+                                    <div className="text-xs bg-white p-2 rounded border font-mono break-all max-h-20 overflow-y-auto">
+                                      {observation.dnaBarcode || "No DNA sequence available"}
                                     </div>
                                   </div>
                                 </div>
                                 
-                                <div>
-                                  <div className="font-medium text-gray-700 mb-2">File Completion Status</div>
-                                  <div className="flex flex-wrap gap-2 bg-white p-3 rounded border">
-                                    {observation.blastFilesDownloaded && (
-                                      <Badge variant="outline" className="text-xs">BLAST Files ✓</Badge>
-                                    )}
-                                    {observation.traceFilesDownloaded && (
-                                      <Badge variant="outline" className="text-xs">Trace Files ✓</Badge>
-                                    )}
-                                    {observation.inatApiSaved && (
-                                      <Badge variant="outline" className="text-xs">API Export ✓</Badge>
-                                    )}
+                                <div className="space-y-3">
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">Raw DNA Data</div>
+                                    <div className="text-sm bg-white p-2 rounded border">
+                                      {observation.traceFilesDownloaded ? (
+                                        <a 
+                                          href={`/api/download/trace/${observation.observationId}`}
+                                          className="text-blue-600 hover:text-blue-800 underline"
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          Download FASTQ sequence file
+                                        </a>
+                                      ) : (
+                                        "No trace files available"
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">MycoMap BLAST Results</div>
+                                    <div className="text-sm bg-white p-2 rounded border">
+                                      {observation.blastFilesDownloaded ? (
+                                        <a 
+                                          href={`/api/download/blast/${observation.observationId}`}
+                                          className="text-blue-600 hover:text-blue-800 underline"
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          Download BLAST XML results
+                                        </a>
+                                      ) : (
+                                        "No BLAST results available"
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="font-medium text-gray-700 mb-1">iNaturalist API Export</div>
+                                    <div className="text-sm bg-white p-2 rounded border">
+                                      {observation.inatApiSaved ? (
+                                        <a 
+                                          href={`/api/download/inat-api/${observation.observationId}`}
+                                          className="text-blue-600 hover:text-blue-800 underline"
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          Download API response JSON
+                                        </a>
+                                      ) : (
+                                        "No API export available"
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 
