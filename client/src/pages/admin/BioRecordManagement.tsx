@@ -1130,12 +1130,12 @@ function BioRecordImageGenerator() {
                                       {observation.traceFilesDownloaded && (
                                         <div>
                                           <a 
-                                            href={`/api/download/trace/${observation.observationId}`}
+                                            href={`/api/trace-files/iNat${observation.observationId}.fastq`}
                                             className="text-green-600 hover:text-green-800 underline break-all"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                           >
-                                            /api/download/trace/{observation.observationId}
+                                            /api/trace-files/iNat{observation.observationId}.fastq
                                           </a>
                                         </div>
                                       )}
@@ -1163,22 +1163,22 @@ function BioRecordImageGenerator() {
                                         <div className="space-y-1">
                                           <div>
                                             <a 
-                                              href={`/api/download/blast/${observation.observationId}?type=ncbi`}
+                                              href={`/api/blast-files/iNat${observation.observationId}-NCBI-BLAST.xml`}
                                               className="text-green-600 hover:text-green-800 underline break-all"
                                               target="_blank"
                                               rel="noopener noreferrer"
                                             >
-                                              /api/download/blast/{observation.observationId}?type=ncbi
+                                              /api/blast-files/iNat{observation.observationId}-NCBI-BLAST.xml
                                             </a>
                                           </div>
                                           <div>
                                             <a 
-                                              href={`/api/download/blast/${observation.observationId}?type=local`}
+                                              href={`/api/blast-files/iNat${observation.observationId}-Local-BLAST.xml`}
                                               className="text-green-600 hover:text-green-800 underline break-all"
                                               target="_blank"
                                               rel="noopener noreferrer"
                                             >
-                                              /api/download/blast/{observation.observationId}?type=local
+                                              /api/blast-files/iNat{observation.observationId}-Local-BLAST.xml
                                             </a>
                                           </div>
                                         </div>
@@ -1191,12 +1191,12 @@ function BioRecordImageGenerator() {
                                     <div className="text-sm bg-white p-2 rounded border">
                                       {observation.inatApiSaved ? (
                                         <a 
-                                          href={`/api/download/inat-api/${observation.observationId}`}
+                                          href={`/api/download/inat-api/iNat${observation.observationId}.2025-06-16.txt`}
                                           className="text-green-600 hover:text-green-800 underline break-all"
                                           target="_blank"
                                           rel="noopener noreferrer"
                                         >
-                                          /api/download/inat-api/{observation.observationId}
+                                          /api/download/inat-api/iNat{observation.observationId}.2025-06-16.txt
                                         </a>
                                       ) : (
                                         "No API export available"

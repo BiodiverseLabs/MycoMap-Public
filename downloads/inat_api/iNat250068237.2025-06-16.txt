@@ -1,0 +1,4784 @@
+{
+  "quality_grade": "research",
+  "time_observed_at": "2024-11-01T11:30:52-07:00",
+  "taxon_geoprivacy": null,
+  "annotations": [],
+  "uuid": "0b727fa5-4a12-4983-b311-a94480f20b14",
+  "observed_on_details": {
+    "date": "2024-11-01",
+    "day": 1,
+    "month": 11,
+    "year": 2024,
+    "hour": 11,
+    "week": 44
+  },
+  "id": 250068237,
+  "cached_votes_total": 0,
+  "identifications_most_agree": true,
+  "created_at_details": {
+    "date": "2024-11-01",
+    "day": 1,
+    "month": 11,
+    "year": 2024,
+    "hour": 16,
+    "week": 44
+  },
+  "species_guess": "Candlesnuff Fungus",
+  "identifications_most_disagree": false,
+  "tags": [],
+  "positional_accuracy": 9,
+  "comments_count": 0,
+  "site_id": 1,
+  "created_time_zone": "America/Los_Angeles",
+  "license_code": "cc-by-nc",
+  "observed_time_zone": "America/Los_Angeles",
+  "quality_metrics": [],
+  "public_positional_accuracy": 9,
+  "reviewed_by": [
+    809830,
+    5312543,
+    5731509,
+    6146635
+  ],
+  "oauth_application_id": 3,
+  "flags": [],
+  "created_at": "2024-11-01T16:21:12-07:00",
+  "description": "",
+  "time_zone_offset": "-08:00",
+  "project_ids_with_curator_id": [],
+  "observed_on": "2024-11-01",
+  "observed_on_string": "2024-11-01 11:30:52-07:00",
+  "updated_at": "2025-05-19T12:03:40-07:00",
+  "sounds": [],
+  "place_ids": [
+    1,
+    46,
+    2742,
+    9853,
+    50422,
+    53219,
+    59613,
+    65360,
+    65818,
+    66741,
+    67725,
+    67760,
+    91864,
+    92151,
+    92665,
+    96683,
+    97394,
+    119138,
+    120702,
+    123405,
+    129008,
+    133968,
+    154863,
+    155061,
+    157456,
+    208092,
+    210789
+  ],
+  "captive": false,
+  "taxon": {
+    "is_active": true,
+    "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+    "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+    "endemic": false,
+    "iconic_taxon_id": 47170,
+    "min_species_taxon_id": 55267,
+    "threatened": false,
+    "rank_level": 10,
+    "introduced": false,
+    "native": true,
+    "parent_id": 55268,
+    "name": "Xylaria hypoxylon",
+    "rank": "species",
+    "extinct": false,
+    "id": 55267,
+    "ancestor_ids": [
+      48460,
+      47170,
+      48250,
+      372740,
+      53539,
+      792674,
+      48805,
+      48806,
+      55268,
+      55267
+    ],
+    "created_at": "2010-01-25T06:46:12+00:00",
+    "default_photo": {
+      "id": 57292054,
+      "license_code": "cc0",
+      "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+      "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+      "original_dimensions": {
+        "height": 1365,
+        "width": 2048
+      },
+      "flags": [],
+      "attribution_name": "Stephen James McWilliam",
+      "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+      "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+    },
+    "taxon_changes_count": 1,
+    "taxon_schemes_count": 3,
+    "observations_count": 26145,
+    "photos_locked": false,
+    "universal_search_rank": 26145,
+    "flag_counts": {
+      "resolved": 0,
+      "unresolved": 0
+    },
+    "current_synonymous_taxon_ids": null,
+    "atlas_id": null,
+    "complete_species_count": null,
+    "wikipedia_url": "https://en.wikipedia.org/wiki/Xylaria hypoxylon",
+    "iconic_taxon_name": "Fungi",
+    "preferred_common_name": "Candlesnuff Fungus",
+    "wikipedia_summary": "<i><b>Xylaria hypoxylon</b></i> is a species of fungus in the genus <i>Xylaria</i>. It is known by a variety of common names, such as the <b>candlestick fungus</b>, the <b>candlesnuff fungus</b>, <b>carbon antlers</b>, or the <b>stag's horn fungus</b>. The fruit bodies, characterized by erect, elongated black branches with whitened tips, typically grow in clusters on decaying hardwood. The fungus can cause a root rot in hawthorn and gooseberry plants."
+  },
+  "ident_taxon_ids": [
+    48460,
+    47170,
+    48250,
+    372740,
+    53539,
+    792674,
+    48805,
+    48806,
+    55268,
+    55267
+  ],
+  "outlinks": [
+    {
+      "source": "GBIF",
+      "url": "http://www.gbif.org/occurrence/4980339310"
+    }
+  ],
+  "faves_count": 0,
+  "ofvs": [
+    {
+      "id": 33000677,
+      "uuid": "ce268bc2-ce56-4609-b53a-91ec90cca6f8",
+      "field_id": 1718,
+      "datatype": "text",
+      "name": "Associated observation",
+      "name_ci": "Associated observation",
+      "value": "https://www.inaturalist.org/observations/256431330",
+      "value_ci": "https://www.inaturalist.org/observations/256431330",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 1718,
+        "name": "Associated observation",
+        "name_autocomplete": "Associated observation",
+        "description": "full http:// url of an associated observation",
+        "description_autocomplete": "full http:// url of an associated observation",
+        "datatype": "text",
+        "allowed_values": "",
+        "values_count": 104711,
+        "users_count": 104711
+      }
+    },
+    {
+      "id": 33000685,
+      "uuid": "36de3665-7999-41d0-a9ae-259a1f3a2c33",
+      "field_id": 2863,
+      "datatype": "text",
+      "name": "Voucher Number(s)",
+      "name_ci": "Voucher Number(s)",
+      "value": "2024-NAMA-4423",
+      "value_ci": "2024-NAMA-4423",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 2863,
+        "name": "Voucher Number(s)",
+        "name_autocomplete": "Voucher Number(s)",
+        "description": "",
+        "description_autocomplete": "",
+        "datatype": "text",
+        "allowed_values": "",
+        "values_count": 124324,
+        "users_count": 124324
+      }
+    },
+    {
+      "id": 33000695,
+      "uuid": "eef6f131-37b9-4800-94cb-c1683a152055",
+      "field_id": 8257,
+      "datatype": "text",
+      "name": "Voucher Number",
+      "name_ci": "Voucher Number",
+      "value": "NEF24-1100",
+      "value_ci": "NEF24-1100",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 8257,
+        "name": "Voucher Number",
+        "name_autocomplete": "Voucher Number",
+        "description": "(UPDATE field data slips are not required) The number on your field data slip (i.e. #00001) or N/A if it wasn't vouchered",
+        "description_autocomplete": "(UPDATE field data slips are not required) The number on your field data slip (i.e. #00001) or N/A if it wasn't vouchered",
+        "datatype": "text",
+        "allowed_values": "",
+        "values_count": 14512,
+        "users_count": 14512
+      }
+    },
+    {
+      "id": 33000698,
+      "uuid": "010c8f1e-3fc1-42a1-b097-e866b699b885",
+      "field_id": 16811,
+      "datatype": "text",
+      "name": "Sequence Validator",
+      "name_ci": "Sequence Validator",
+      "value": "Andrew MacPherson",
+      "value_ci": "Andrew MacPherson",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 16811,
+        "name": "Sequence Validator",
+        "name_autocomplete": "Sequence Validator",
+        "description": "",
+        "description_autocomplete": "",
+        "datatype": "text",
+        "allowed_values": "",
+        "values_count": 9709,
+        "users_count": 9709
+      }
+    },
+    {
+      "id": 33000746,
+      "uuid": "5d97cd33-064e-46f7-abcb-a17c9737dff6",
+      "field_id": 10109,
+      "datatype": "text",
+      "name": "Trace Files (Raw DNA Data)",
+      "name_ci": "Trace Files (Raw DNA Data)",
+      "value": "https://mycomap.com/genetics/sequences/ont_sequences/c06-nef24-1100-2024-nama-4423-256431330-1-ric111-346204-inat250068237-r346204/",
+      "value_ci": "https://mycomap.com/genetics/sequences/ont_sequences/c06-nef24-1100-2024-nama-4423-256431330-1-ric111-346204-inat250068237-r346204/",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 10109,
+        "name": "Trace Files (Raw DNA Data)",
+        "name_autocomplete": "Trace Files (Raw DNA Data)",
+        "description": "",
+        "description_autocomplete": "",
+        "datatype": "text",
+        "allowed_values": "",
+        "values_count": 55607,
+        "users_count": 55607
+      }
+    },
+    {
+      "id": 33000747,
+      "uuid": "63017a73-5813-4a61-b1a2-baa72aa2206c",
+      "field_id": 9864,
+      "datatype": "text",
+      "name": "MycoMap BLAST Results",
+      "name_ci": "MycoMap BLAST Results",
+      "value": "https://mycomap.com/genetics/blast-search/c06-nef24-1100-2024-nama-4423-inat256431330-1-ric111-346204-r275000/",
+      "value_ci": "https://mycomap.com/genetics/blast-search/c06-nef24-1100-2024-nama-4423-inat256431330-1-ric111-346204-r275000/",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 9864,
+        "name": "MycoMap BLAST Results",
+        "name_autocomplete": "MycoMap BLAST Results",
+        "description": "A link to the BLAST results for this observation on MycoMap. This includes NCBI as well as local MycoMap BLAST results.",
+        "description_autocomplete": "A link to the BLAST results for this observation on MycoMap. This includes NCBI as well as local MycoMap BLAST results.",
+        "datatype": "text",
+        "allowed_values": "",
+        "values_count": 62009,
+        "users_count": 62009
+      }
+    },
+    {
+      "id": 33000754,
+      "uuid": "0423cb0b-6441-4d03-928e-e370f2b216a1",
+      "field_id": 2330,
+      "datatype": "dna",
+      "name": "DNA Barcode ITS",
+      "name_ci": "DNA Barcode ITS",
+      "value": "GTCGTAACAAGGTCTCCGTTGGTGAACCAGCGGAGGGATCATTAAAGAGTTAATTACAACTCCCAAACCCATGTGAACTTACCTTCTGTTGCCTCGGCAGGTCGTGTTTACCCTGTGAGGTCCTACCCTGTAGGACCGTACCTGGTAGATACGGGTACGCCTGCCGGTGGCCCATGAAACTCTGTTAATTCTATGTTATTCTGAATCTATAACTAAATAAGTTAAAACTTTCAACAACGGATCTCTTGGTTCTGGCATCGATGAAGAACGCAGCGAAATGCGATAAGTAATGTGAATTGCAGAATTCAGTGAATCATCGAATCTTTGAACGCACATTGCGCCCATTAGTATTCTAGTGGGCATGCCTGTTCGAGCGTCATTTCAACCCTTAAGCCCCTGTTGCTTAGCGTTGGGAGCCTACAGCCTTCTGTAGCTCCCCAAAGTTAGTGGCGGAGTCGGTTCACACTCTAGACGTAGTAGATTCTATCTCGTCTGTAGTGAGGCCGGTCCCCTGCCGTAAAACCCCCCTAATTTTTAAAGGTTGACCTCGGATCAGGTAGGAATACCCGCTGAACTT",
+      "value_ci": "GTCGTAACAAGGTCTCCGTTGGTGAACCAGCGGAGGGATCATTAAAGAGTTAATTACAACTCCCAAACCCATGTGAACTTACCTTCTGTTGCCTCGGCAGGTCGTGTTTACCCTGTGAGGTCCTACCCTGTAGGACCGTACCTGGTAGATACGGGTACGCCTGCCGGTGGCCCATGAAACTCTGTTAATTCTATGTTATTCTGAATCTATAACTAAATAAGTTAAAACTTTCAACAACGGATCTCTTGGTTCTGGCATCGATGAAGAACGCAGCGAAATGCGATAAGTAATGTGAATTGCAGAATTCAGTGAATCATCGAATCTTTGAACGCACATTGCGCCCATTAGTATTCTAGTGGGCATGCCTGTTCGAGCGTCATTTCAACCCTTAAGCCCCTGTTGCTTAGCGTTGGGAGCCTACAGCCTTCTGTAGCTCCCCAAAGTTAGTGGCGGAGTCGGTTCACACTCTAGACGTAGTAGATTCTATCTCGTCTGTAGTGAGGCCGGTCCCCTGCCGTAAAACCCCCCTAATTTTTAAAGGTTGACCTCGGATCAGGTAGGAATACCCGCTGAACTT",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 2330,
+        "name": "DNA Barcode ITS",
+        "name_autocomplete": "DNA Barcode ITS",
+        "description": "DNA sequence from ITS",
+        "description_autocomplete": "DNA sequence from ITS",
+        "datatype": "dna",
+        "allowed_values": "",
+        "values_count": 80879,
+        "users_count": 80879
+      }
+    },
+    {
+      "id": 33000758,
+      "uuid": "bc65f3e0-e760-49ae-afff-611790526637",
+      "field_id": 16718,
+      "datatype": "text",
+      "name": "Reads in Consensus (RiC)",
+      "name_ci": "Reads in Consensus (RiC)",
+      "value": "111",
+      "value_ci": "111",
+      "updater_id": 809830,
+      "user_id": 809830,
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "updater": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "observation_field": {
+        "id": 16718,
+        "name": "Reads in Consensus (RiC)",
+        "name_autocomplete": "Reads in Consensus (RiC)",
+        "description": "The number of NGS reads that form the consensus sequence.",
+        "description_autocomplete": "The number of NGS reads that form the consensus sequence.",
+        "datatype": "text",
+        "allowed_values": "",
+        "values_count": 45520,
+        "users_count": 45520
+      }
+    }
+  ],
+  "num_identification_agreements": 2,
+  "preferences": {
+    "prefers_community_taxon": null
+  },
+  "comments": [],
+  "map_scale": null,
+  "uri": "https://www.inaturalist.org/observations/250068237",
+  "project_ids": [
+    220216,
+    167811,
+    219127
+  ],
+  "community_taxon_id": 55267,
+  "geojson": {
+    "type": "Point",
+    "coordinates": [
+      -121.586245,
+      46.6742633333
+    ]
+  },
+  "owners_identification_from_vision": false,
+  "identifications_count": 2,
+  "obscured": false,
+  "num_identification_disagreements": 0,
+  "geoprivacy": null,
+  "location": "46.6742633333,-121.586245",
+  "votes": [],
+  "spam": false,
+  "user": {
+    "id": 6146635,
+    "login": "marisanborn",
+    "spam": false,
+    "suspended": false,
+    "created_at": "2022-09-14T17:19:12+00:00",
+    "site_id": 1,
+    "login_autocomplete": "marisanborn",
+    "login_exact": "marisanborn",
+    "name": "Mari Sanborn",
+    "name_autocomplete": "Mari Sanborn",
+    "orcid": null,
+    "icon": "https://static.inaturalist.org/attachments/users/icons/6146635/thumb.jpg?1680758305",
+    "observations_count": 355,
+    "identifications_count": 62,
+    "journal_posts_count": 0,
+    "activity_count": 417,
+    "species_count": 260,
+    "annotated_observations_count": 0,
+    "universal_search_rank": 355,
+    "roles": [],
+    "icon_url": "https://static.inaturalist.org/attachments/users/icons/6146635/medium.jpg?1680758305",
+    "preferences": {}
+  },
+  "mappable": true,
+  "identifications_some_agree": true,
+  "project_ids_without_curator_id": [
+    220216,
+    167811,
+    219127
+  ],
+  "place_guess": "Packwood, WA, US",
+  "identifications": [
+    {
+      "id": 559683442,
+      "uuid": "d6d0d780-b1e0-4c5c-93ce-f720edd280a3",
+      "user": {
+        "id": 6146635,
+        "login": "marisanborn",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2022-09-14T17:19:12+00:00",
+        "login_autocomplete": "marisanborn",
+        "login_exact": "marisanborn",
+        "name": "Mari Sanborn",
+        "name_autocomplete": "Mari Sanborn",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/6146635/thumb.jpg?1680758305",
+        "observations_count": 355,
+        "identifications_count": 62,
+        "journal_posts_count": 0,
+        "activity_count": 417,
+        "species_count": 260,
+        "annotated_observations_count": 0,
+        "universal_search_rank": 355,
+        "roles": [],
+        "site_id": 1,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/6146635/medium.jpg?1680758305"
+      },
+      "created_at": "2024-11-01T20:21:12-03:00",
+      "created_at_details": {
+        "date": "2024-11-01",
+        "day": 1,
+        "month": 11,
+        "year": 2024,
+        "hour": 20,
+        "week": 44
+      },
+      "body": null,
+      "category": "improving",
+      "current": false,
+      "flags": [],
+      "own_observation": true,
+      "taxon_change": null,
+      "vision": true,
+      "disagreement": null,
+      "previous_observation_taxon_id": 55268,
+      "spam": false,
+      "taxon_id": 55268,
+      "hidden": false,
+      "moderator_actions": [],
+      "taxon": {
+        "id": 55268,
+        "rank": "genus",
+        "rank_level": 20,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55268,
+        "name": "Xylaria",
+        "parent_id": 48806,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:18+00:00",
+        "default_photo": {
+          "id": 20492429,
+          "license_code": null,
+          "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+          "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "original_dimensions": {
+            "height": 1152,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Henri Holbrook",
+          "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+        },
+        "taxon_changes_count": 4,
+        "taxon_schemes_count": 2,
+        "observations_count": 86238,
+        "photos_locked": false,
+        "universal_search_rank": 86238,
+        "flag_counts": {
+          "resolved": 6,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+        "iconic_taxon_name": "Fungi",
+        "ancestors": [
+          {
+            "id": 47170,
+            "rank": "kingdom",
+            "rank_level": 70,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170
+            ],
+            "is_active": true,
+            "name": "Fungi",
+            "parent_id": 48460,
+            "ancestry": "48460",
+            "extinct": false,
+            "default_photo": {
+              "id": 260296784,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Cho Fungi, some rights reserved (CC BY-NC), uploaded by Cho Fungi",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "original_dimensions": {
+                "height": 1984,
+                "width": 1587
+              },
+              "flags": [],
+              "attribution_name": "Cho Fungi",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/medium.jpg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 15884312,
+            "flag_counts": {
+              "resolved": 55,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Fungus",
+            "complete_rank": "phylum",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Fungi Including Lichens"
+          },
+          {
+            "id": 48250,
+            "rank": "phylum",
+            "rank_level": 60,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250
+            ],
+            "is_active": true,
+            "name": "Ascomycota",
+            "parent_id": 47170,
+            "ancestry": "48460/47170",
+            "extinct": false,
+            "default_photo": {
+              "id": 4896433,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Christian Schwarz, some rights reserved (CC BY-NC), uploaded by Christian Schwarz",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Christian Schwarz",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/medium.jpg"
+            },
+            "taxon_changes_count": 2,
+            "taxon_schemes_count": 2,
+            "observations_count": 3727198,
+            "flag_counts": {
+              "resolved": 9,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Ascomycota",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Ascomycete Fungi"
+          },
+          {
+            "id": 372740,
+            "rank": "subphylum",
+            "rank_level": 57,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740
+            ],
+            "is_active": true,
+            "name": "Pezizomycotina",
+            "parent_id": 48250,
+            "ancestry": "48460/47170/48250",
+            "extinct": false,
+            "default_photo": {
+              "id": 26914623,
+              "license_code": null,
+              "attribution": "(c) Lauren Ré, all rights reserved, uploaded by Lauren Ré",
+              "url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "original_dimensions": {
+                "height": 1536,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Lauren Ré",
+              "square_url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/26914623/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 3652090,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 1
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Pezizomycotina",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Higher Ascomycetes"
+          },
+          {
+            "id": 53539,
+            "rank": "class",
+            "rank_level": 50,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539
+            ],
+            "is_active": true,
+            "name": "Sordariomycetes",
+            "parent_id": 372740,
+            "ancestry": "48460/47170/48250/372740",
+            "extinct": false,
+            "default_photo": {
+              "id": 211078,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Harry Harms, some rights reserved (CC BY-NC-SA)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "original_dimensions": {
+                "height": 1371,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Harry Harms",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 343316,
+            "flag_counts": {
+              "resolved": 3,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Sordariomycetes",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 792674,
+            "rank": "subclass",
+            "rank_level": 47,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674
+            ],
+            "is_active": true,
+            "name": "Xylariomycetidae",
+            "parent_id": 53539,
+            "ancestry": "48460/47170/48250/372740/53539",
+            "extinct": false,
+            "default_photo": {
+              "id": 8976198,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Danny Newman, some rights reserved (CC BY-NC-SA), uploaded by Danny Newman",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Danny Newman",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/medium.jpeg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 0,
+            "observations_count": 184566,
+            "flag_counts": {
+              "resolved": 0,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48805,
+            "rank": "order",
+            "rank_level": 40,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805
+            ],
+            "is_active": true,
+            "name": "Xylariales",
+            "parent_id": 792674,
+            "ancestry": "48460/47170/48250/372740/53539/792674",
+            "extinct": false,
+            "default_photo": {
+              "id": 4025448,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY-NC)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Ken-ichi Ueda",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 185073,
+            "flag_counts": {
+              "resolved": 1,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48806,
+            "rank": "family",
+            "rank_level": 30,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806
+            ],
+            "is_active": true,
+            "name": "Xylariaceae",
+            "parent_id": 48805,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805",
+            "extinct": false,
+            "default_photo": {
+              "id": 112067796,
+              "license_code": null,
+              "attribution": "(c) bmeade00, all rights reserved",
+              "url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "bmeade00",
+              "square_url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/112067796/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 104481,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariaceae",
+            "iconic_taxon_name": "Fungi"
+          }
+        ]
+      },
+      "previous_observation_taxon": {
+        "id": 55268,
+        "rank": "genus",
+        "rank_level": 20,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55268,
+        "name": "Xylaria",
+        "parent_id": 48806,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:18+00:00",
+        "default_photo": {
+          "id": 20492429,
+          "license_code": null,
+          "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+          "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "original_dimensions": {
+            "height": 1152,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Henri Holbrook",
+          "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+        },
+        "taxon_changes_count": 4,
+        "taxon_schemes_count": 2,
+        "observations_count": 86238,
+        "photos_locked": false,
+        "universal_search_rank": 86238,
+        "flag_counts": {
+          "resolved": 6,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+        "iconic_taxon_name": "Fungi"
+      }
+    },
+    {
+      "id": 561937505,
+      "uuid": "ec9368be-5371-4d3d-8229-9f390f2c3098",
+      "user": {
+        "id": 5731509,
+        "login": "yossarianc",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2022-05-26T18:01:02+00:00",
+        "login_autocomplete": "yossarianc",
+        "login_exact": "yossarianc",
+        "name": null,
+        "name_autocomplete": null,
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/5731509/thumb.jpg?1653591942",
+        "observations_count": 3520,
+        "identifications_count": 3471,
+        "journal_posts_count": 0,
+        "activity_count": 6991,
+        "species_count": 1908,
+        "annotated_observations_count": 0,
+        "universal_search_rank": 3520,
+        "roles": [],
+        "site_id": 1,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/5731509/medium.jpg?1653591942"
+      },
+      "created_at": "2024-11-07T23:44:24-04:00",
+      "created_at_details": {
+        "date": "2024-11-07",
+        "day": 7,
+        "month": 11,
+        "year": 2024,
+        "hour": 23,
+        "week": 45
+      },
+      "body": null,
+      "category": "improving",
+      "current": true,
+      "flags": [],
+      "own_observation": false,
+      "taxon_change": null,
+      "vision": true,
+      "disagreement": false,
+      "previous_observation_taxon_id": 55268,
+      "spam": false,
+      "taxon_id": 55267,
+      "hidden": false,
+      "moderator_actions": [],
+      "taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus",
+        "ancestors": [
+          {
+            "id": 47170,
+            "rank": "kingdom",
+            "rank_level": 70,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170
+            ],
+            "is_active": true,
+            "name": "Fungi",
+            "parent_id": 48460,
+            "ancestry": "48460",
+            "extinct": false,
+            "default_photo": {
+              "id": 260296784,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Cho Fungi, some rights reserved (CC BY-NC), uploaded by Cho Fungi",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "original_dimensions": {
+                "height": 1984,
+                "width": 1587
+              },
+              "flags": [],
+              "attribution_name": "Cho Fungi",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/medium.jpg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 15884312,
+            "flag_counts": {
+              "resolved": 55,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Fungus",
+            "complete_rank": "phylum",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Fungi Including Lichens"
+          },
+          {
+            "id": 48250,
+            "rank": "phylum",
+            "rank_level": 60,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250
+            ],
+            "is_active": true,
+            "name": "Ascomycota",
+            "parent_id": 47170,
+            "ancestry": "48460/47170",
+            "extinct": false,
+            "default_photo": {
+              "id": 4896433,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Christian Schwarz, some rights reserved (CC BY-NC), uploaded by Christian Schwarz",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Christian Schwarz",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/medium.jpg"
+            },
+            "taxon_changes_count": 2,
+            "taxon_schemes_count": 2,
+            "observations_count": 3727198,
+            "flag_counts": {
+              "resolved": 9,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Ascomycota",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Ascomycete Fungi"
+          },
+          {
+            "id": 372740,
+            "rank": "subphylum",
+            "rank_level": 57,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740
+            ],
+            "is_active": true,
+            "name": "Pezizomycotina",
+            "parent_id": 48250,
+            "ancestry": "48460/47170/48250",
+            "extinct": false,
+            "default_photo": {
+              "id": 26914623,
+              "license_code": null,
+              "attribution": "(c) Lauren Ré, all rights reserved, uploaded by Lauren Ré",
+              "url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "original_dimensions": {
+                "height": 1536,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Lauren Ré",
+              "square_url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/26914623/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 3652090,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 1
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Pezizomycotina",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Higher Ascomycetes"
+          },
+          {
+            "id": 53539,
+            "rank": "class",
+            "rank_level": 50,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539
+            ],
+            "is_active": true,
+            "name": "Sordariomycetes",
+            "parent_id": 372740,
+            "ancestry": "48460/47170/48250/372740",
+            "extinct": false,
+            "default_photo": {
+              "id": 211078,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Harry Harms, some rights reserved (CC BY-NC-SA)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "original_dimensions": {
+                "height": 1371,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Harry Harms",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 343316,
+            "flag_counts": {
+              "resolved": 3,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Sordariomycetes",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 792674,
+            "rank": "subclass",
+            "rank_level": 47,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674
+            ],
+            "is_active": true,
+            "name": "Xylariomycetidae",
+            "parent_id": 53539,
+            "ancestry": "48460/47170/48250/372740/53539",
+            "extinct": false,
+            "default_photo": {
+              "id": 8976198,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Danny Newman, some rights reserved (CC BY-NC-SA), uploaded by Danny Newman",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Danny Newman",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/medium.jpeg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 0,
+            "observations_count": 184566,
+            "flag_counts": {
+              "resolved": 0,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48805,
+            "rank": "order",
+            "rank_level": 40,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805
+            ],
+            "is_active": true,
+            "name": "Xylariales",
+            "parent_id": 792674,
+            "ancestry": "48460/47170/48250/372740/53539/792674",
+            "extinct": false,
+            "default_photo": {
+              "id": 4025448,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY-NC)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Ken-ichi Ueda",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 185073,
+            "flag_counts": {
+              "resolved": 1,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48806,
+            "rank": "family",
+            "rank_level": 30,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806
+            ],
+            "is_active": true,
+            "name": "Xylariaceae",
+            "parent_id": 48805,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805",
+            "extinct": false,
+            "default_photo": {
+              "id": 112067796,
+              "license_code": null,
+              "attribution": "(c) bmeade00, all rights reserved",
+              "url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "bmeade00",
+              "square_url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/112067796/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 104481,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariaceae",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 55268,
+            "rank": "genus",
+            "rank_level": 20,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806,
+              55268
+            ],
+            "is_active": true,
+            "name": "Xylaria",
+            "parent_id": 48806,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+            "extinct": false,
+            "default_photo": {
+              "id": 20492429,
+              "license_code": null,
+              "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+              "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "original_dimensions": {
+                "height": 1152,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Henri Holbrook",
+              "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 86238,
+            "flag_counts": {
+              "resolved": 6,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+            "iconic_taxon_name": "Fungi"
+          }
+        ]
+      },
+      "previous_observation_taxon": {
+        "id": 55268,
+        "rank": "genus",
+        "rank_level": 20,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55268,
+        "name": "Xylaria",
+        "parent_id": 48806,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:18+00:00",
+        "default_photo": {
+          "id": 20492429,
+          "license_code": null,
+          "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+          "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "original_dimensions": {
+            "height": 1152,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Henri Holbrook",
+          "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+        },
+        "taxon_changes_count": 4,
+        "taxon_schemes_count": 2,
+        "observations_count": 86238,
+        "photos_locked": false,
+        "universal_search_rank": 86238,
+        "flag_counts": {
+          "resolved": 6,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+        "iconic_taxon_name": "Fungi"
+      }
+    },
+    {
+      "id": 562409405,
+      "uuid": "e2408594-4007-499e-90b9-53a505ea9718",
+      "user": {
+        "id": 6146635,
+        "login": "marisanborn",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2022-09-14T17:19:12+00:00",
+        "login_autocomplete": "marisanborn",
+        "login_exact": "marisanborn",
+        "name": "Mari Sanborn",
+        "name_autocomplete": "Mari Sanborn",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/6146635/thumb.jpg?1680758305",
+        "observations_count": 355,
+        "identifications_count": 62,
+        "journal_posts_count": 0,
+        "activity_count": 417,
+        "species_count": 260,
+        "annotated_observations_count": 0,
+        "universal_search_rank": 355,
+        "roles": [],
+        "site_id": 1,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/6146635/medium.jpg?1680758305"
+      },
+      "created_at": "2024-11-09T12:01:18-04:00",
+      "created_at_details": {
+        "date": "2024-11-09",
+        "day": 9,
+        "month": 11,
+        "year": 2024,
+        "hour": 12,
+        "week": 45
+      },
+      "body": null,
+      "category": "supporting",
+      "current": true,
+      "flags": [],
+      "own_observation": true,
+      "taxon_change": null,
+      "vision": false,
+      "disagreement": false,
+      "previous_observation_taxon_id": 55267,
+      "spam": false,
+      "taxon_id": 55267,
+      "hidden": false,
+      "moderator_actions": [],
+      "taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus",
+        "ancestors": [
+          {
+            "id": 47170,
+            "rank": "kingdom",
+            "rank_level": 70,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170
+            ],
+            "is_active": true,
+            "name": "Fungi",
+            "parent_id": 48460,
+            "ancestry": "48460",
+            "extinct": false,
+            "default_photo": {
+              "id": 260296784,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Cho Fungi, some rights reserved (CC BY-NC), uploaded by Cho Fungi",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "original_dimensions": {
+                "height": 1984,
+                "width": 1587
+              },
+              "flags": [],
+              "attribution_name": "Cho Fungi",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/medium.jpg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 15884312,
+            "flag_counts": {
+              "resolved": 55,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Fungus",
+            "complete_rank": "phylum",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Fungi Including Lichens"
+          },
+          {
+            "id": 48250,
+            "rank": "phylum",
+            "rank_level": 60,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250
+            ],
+            "is_active": true,
+            "name": "Ascomycota",
+            "parent_id": 47170,
+            "ancestry": "48460/47170",
+            "extinct": false,
+            "default_photo": {
+              "id": 4896433,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Christian Schwarz, some rights reserved (CC BY-NC), uploaded by Christian Schwarz",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Christian Schwarz",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/medium.jpg"
+            },
+            "taxon_changes_count": 2,
+            "taxon_schemes_count": 2,
+            "observations_count": 3727198,
+            "flag_counts": {
+              "resolved": 9,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Ascomycota",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Ascomycete Fungi"
+          },
+          {
+            "id": 372740,
+            "rank": "subphylum",
+            "rank_level": 57,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740
+            ],
+            "is_active": true,
+            "name": "Pezizomycotina",
+            "parent_id": 48250,
+            "ancestry": "48460/47170/48250",
+            "extinct": false,
+            "default_photo": {
+              "id": 26914623,
+              "license_code": null,
+              "attribution": "(c) Lauren Ré, all rights reserved, uploaded by Lauren Ré",
+              "url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "original_dimensions": {
+                "height": 1536,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Lauren Ré",
+              "square_url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/26914623/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 3652090,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 1
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Pezizomycotina",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Higher Ascomycetes"
+          },
+          {
+            "id": 53539,
+            "rank": "class",
+            "rank_level": 50,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539
+            ],
+            "is_active": true,
+            "name": "Sordariomycetes",
+            "parent_id": 372740,
+            "ancestry": "48460/47170/48250/372740",
+            "extinct": false,
+            "default_photo": {
+              "id": 211078,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Harry Harms, some rights reserved (CC BY-NC-SA)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "original_dimensions": {
+                "height": 1371,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Harry Harms",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 343316,
+            "flag_counts": {
+              "resolved": 3,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Sordariomycetes",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 792674,
+            "rank": "subclass",
+            "rank_level": 47,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674
+            ],
+            "is_active": true,
+            "name": "Xylariomycetidae",
+            "parent_id": 53539,
+            "ancestry": "48460/47170/48250/372740/53539",
+            "extinct": false,
+            "default_photo": {
+              "id": 8976198,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Danny Newman, some rights reserved (CC BY-NC-SA), uploaded by Danny Newman",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Danny Newman",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/medium.jpeg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 0,
+            "observations_count": 184566,
+            "flag_counts": {
+              "resolved": 0,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48805,
+            "rank": "order",
+            "rank_level": 40,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805
+            ],
+            "is_active": true,
+            "name": "Xylariales",
+            "parent_id": 792674,
+            "ancestry": "48460/47170/48250/372740/53539/792674",
+            "extinct": false,
+            "default_photo": {
+              "id": 4025448,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY-NC)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Ken-ichi Ueda",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 185073,
+            "flag_counts": {
+              "resolved": 1,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48806,
+            "rank": "family",
+            "rank_level": 30,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806
+            ],
+            "is_active": true,
+            "name": "Xylariaceae",
+            "parent_id": 48805,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805",
+            "extinct": false,
+            "default_photo": {
+              "id": 112067796,
+              "license_code": null,
+              "attribution": "(c) bmeade00, all rights reserved",
+              "url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "bmeade00",
+              "square_url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/112067796/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 104481,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariaceae",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 55268,
+            "rank": "genus",
+            "rank_level": 20,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806,
+              55268
+            ],
+            "is_active": true,
+            "name": "Xylaria",
+            "parent_id": 48806,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+            "extinct": false,
+            "default_photo": {
+              "id": 20492429,
+              "license_code": null,
+              "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+              "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "original_dimensions": {
+                "height": 1152,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Henri Holbrook",
+              "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 86238,
+            "flag_counts": {
+              "resolved": 6,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+            "iconic_taxon_name": "Fungi"
+          }
+        ]
+      },
+      "previous_observation_taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268,
+          55267
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus"
+      }
+    },
+    {
+      "id": 634742802,
+      "uuid": "6ef16f43-cf09-4134-9cce-e7e72a247258",
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "created_at": "2025-05-19T15:58:13-03:00",
+      "created_at_details": {
+        "date": "2025-05-19",
+        "day": 19,
+        "month": 5,
+        "year": 2025,
+        "hour": 15,
+        "week": 21
+      },
+      "body": "2 b.p. difference from epitype sequence [KY610407](https://www.ncbi.nlm.nih.gov/nuccore/KY610407). The two differences appear to be variable positions i.e. ~25% of reads match the type sequence 100%.",
+      "category": "supporting",
+      "current": true,
+      "flags": [],
+      "own_observation": false,
+      "taxon_change": null,
+      "vision": false,
+      "disagreement": false,
+      "previous_observation_taxon_id": 55267,
+      "spam": false,
+      "taxon_id": 55267,
+      "hidden": false,
+      "moderator_actions": [],
+      "taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus",
+        "ancestors": [
+          {
+            "id": 47170,
+            "rank": "kingdom",
+            "rank_level": 70,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170
+            ],
+            "is_active": true,
+            "name": "Fungi",
+            "parent_id": 48460,
+            "ancestry": "48460",
+            "extinct": false,
+            "default_photo": {
+              "id": 260296784,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Cho Fungi, some rights reserved (CC BY-NC), uploaded by Cho Fungi",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "original_dimensions": {
+                "height": 1984,
+                "width": 1587
+              },
+              "flags": [],
+              "attribution_name": "Cho Fungi",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/medium.jpg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 15884312,
+            "flag_counts": {
+              "resolved": 55,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Fungus",
+            "complete_rank": "phylum",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Fungi Including Lichens"
+          },
+          {
+            "id": 48250,
+            "rank": "phylum",
+            "rank_level": 60,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250
+            ],
+            "is_active": true,
+            "name": "Ascomycota",
+            "parent_id": 47170,
+            "ancestry": "48460/47170",
+            "extinct": false,
+            "default_photo": {
+              "id": 4896433,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Christian Schwarz, some rights reserved (CC BY-NC), uploaded by Christian Schwarz",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Christian Schwarz",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/medium.jpg"
+            },
+            "taxon_changes_count": 2,
+            "taxon_schemes_count": 2,
+            "observations_count": 3727198,
+            "flag_counts": {
+              "resolved": 9,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Ascomycota",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Ascomycete Fungi"
+          },
+          {
+            "id": 372740,
+            "rank": "subphylum",
+            "rank_level": 57,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740
+            ],
+            "is_active": true,
+            "name": "Pezizomycotina",
+            "parent_id": 48250,
+            "ancestry": "48460/47170/48250",
+            "extinct": false,
+            "default_photo": {
+              "id": 26914623,
+              "license_code": null,
+              "attribution": "(c) Lauren Ré, all rights reserved, uploaded by Lauren Ré",
+              "url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "original_dimensions": {
+                "height": 1536,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Lauren Ré",
+              "square_url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/26914623/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 3652090,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 1
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Pezizomycotina",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Higher Ascomycetes"
+          },
+          {
+            "id": 53539,
+            "rank": "class",
+            "rank_level": 50,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539
+            ],
+            "is_active": true,
+            "name": "Sordariomycetes",
+            "parent_id": 372740,
+            "ancestry": "48460/47170/48250/372740",
+            "extinct": false,
+            "default_photo": {
+              "id": 211078,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Harry Harms, some rights reserved (CC BY-NC-SA)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "original_dimensions": {
+                "height": 1371,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Harry Harms",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 343316,
+            "flag_counts": {
+              "resolved": 3,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Sordariomycetes",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 792674,
+            "rank": "subclass",
+            "rank_level": 47,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674
+            ],
+            "is_active": true,
+            "name": "Xylariomycetidae",
+            "parent_id": 53539,
+            "ancestry": "48460/47170/48250/372740/53539",
+            "extinct": false,
+            "default_photo": {
+              "id": 8976198,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Danny Newman, some rights reserved (CC BY-NC-SA), uploaded by Danny Newman",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Danny Newman",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/medium.jpeg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 0,
+            "observations_count": 184566,
+            "flag_counts": {
+              "resolved": 0,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48805,
+            "rank": "order",
+            "rank_level": 40,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805
+            ],
+            "is_active": true,
+            "name": "Xylariales",
+            "parent_id": 792674,
+            "ancestry": "48460/47170/48250/372740/53539/792674",
+            "extinct": false,
+            "default_photo": {
+              "id": 4025448,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY-NC)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Ken-ichi Ueda",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 185073,
+            "flag_counts": {
+              "resolved": 1,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48806,
+            "rank": "family",
+            "rank_level": 30,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806
+            ],
+            "is_active": true,
+            "name": "Xylariaceae",
+            "parent_id": 48805,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805",
+            "extinct": false,
+            "default_photo": {
+              "id": 112067796,
+              "license_code": null,
+              "attribution": "(c) bmeade00, all rights reserved",
+              "url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "bmeade00",
+              "square_url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/112067796/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 104481,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariaceae",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 55268,
+            "rank": "genus",
+            "rank_level": 20,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806,
+              55268
+            ],
+            "is_active": true,
+            "name": "Xylaria",
+            "parent_id": 48806,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+            "extinct": false,
+            "default_photo": {
+              "id": 20492429,
+              "license_code": null,
+              "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+              "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "original_dimensions": {
+                "height": 1152,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Henri Holbrook",
+              "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 86238,
+            "flag_counts": {
+              "resolved": 6,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+            "iconic_taxon_name": "Fungi"
+          }
+        ]
+      },
+      "previous_observation_taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268,
+          55267
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus"
+      }
+    }
+  ],
+  "project_observations": [
+    {
+      "id": 115473366,
+      "uuid": "cfd12b61-8046-459b-a430-fb25a9d35699",
+      "project": {
+        "id": 220216,
+        "title": "NAMA 2024 DNA Barcoding",
+        "hide_title": false,
+        "description": "",
+        "slug": "nama-2024-dna-barcoding",
+        "project_type": "",
+        "delegated_project_id": null,
+        "is_delegated_umbrella": false,
+        "banner_color": null,
+        "place_id": null,
+        "user_id": 995608,
+        "admins": [
+          {
+            "id": 2700971,
+            "user_id": 995608,
+            "project_id": 220216,
+            "role": "manager"
+          }
+        ],
+        "user_ids": [
+          26049,
+          349909,
+          384718,
+          477643,
+          516166,
+          772856,
+          809830,
+          995608,
+          1032440,
+          1174719,
+          1244301,
+          1585824,
+          1794085,
+          1917899,
+          1988165,
+          2656331,
+          2683253,
+          3157342,
+          3871321,
+          4430082,
+          5224990,
+          5243170,
+          5544011,
+          6776366,
+          6788889,
+          7120228,
+          7526842,
+          7724018,
+          7870277,
+          8285483
+        ],
+        "location": null,
+        "icon": "https://www.inaturalist.org/attachment_defaults/general/span2.png",
+        "icon_file_name": null,
+        "header_image_url": null,
+        "header_image_file_name": null,
+        "header_image_contain": false,
+        "project_observation_fields": [
+          {
+            "id": 30536,
+            "required": false,
+            "observation_field": {
+              "id": 2863,
+              "name": "Voucher Number(s)",
+              "name_autocomplete": "Voucher Number(s)",
+              "description": "",
+              "description_autocomplete": "",
+              "datatype": "text",
+              "allowed_values": "",
+              "values_count": 124324,
+              "users_count": 124324
+            },
+            "position": 0
+          },
+          {
+            "id": 30537,
+            "required": false,
+            "observation_field": {
+              "id": 18476,
+              "name": "Sequencing Failed",
+              "name_autocomplete": "Sequencing Failed",
+              "description": "Mark this if sequencing failed",
+              "description_autocomplete": "Mark this if sequencing failed",
+              "datatype": "date",
+              "allowed_values": "",
+              "values_count": 1162,
+              "users_count": 1162
+            },
+            "position": 1
+          }
+        ],
+        "terms": null,
+        "search_parameters": [
+          {
+            "field": "quality_grade",
+            "value": [
+              "research",
+              "needs_id"
+            ],
+            "value_keyword": [
+              "research",
+              "needs_id"
+            ]
+          }
+        ],
+        "project_observation_rules": [],
+        "rule_preferences": [
+          {
+            "field": "quality_grade",
+            "value": "research,needs_id"
+          }
+        ],
+        "created_at": "2024-10-15T14:00:53+00:00",
+        "updated_at": "2025-06-12T12:06:14+00:00",
+        "flags": [],
+        "site_features": [],
+        "prefers_user_trust": false,
+        "observation_requirements_updated_at": "2024-10-08T14:00:53+00:00",
+        "is_umbrella": false,
+        "is_new_style_project": false
+      },
+      "user_id": 809830,
+      "preferences": {
+        "allows_curator_coordinate_access": false
+      },
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "project_id": 220216
+    },
+    {
+      "id": 115473362,
+      "uuid": "8c0df5cc-bd31-4588-b1d5-6170cffd463c",
+      "project": {
+        "id": 167811,
+        "title": "Fungi with DNA barcode data",
+        "hide_title": false,
+        "description": "Mapping all fungi in North America with DNA barcode/sequence data. \r\n\r\n",
+        "slug": "fungi-with-dna-barcode-data",
+        "project_type": "",
+        "delegated_project_id": null,
+        "is_delegated_umbrella": false,
+        "banner_color": null,
+        "place_id": 9853,
+        "user_id": 3573736,
+        "admins": [
+          {
+            "id": 2027852,
+            "user_id": 3573736,
+            "project_id": 167811,
+            "role": "manager"
+          },
+          {
+            "id": 2085139,
+            "user_id": 5224990,
+            "project_id": 167811,
+            "role": "curator"
+          },
+          {
+            "id": 2224411,
+            "user_id": 374372,
+            "project_id": 167811,
+            "role": "curator"
+          },
+          {
+            "id": 2109445,
+            "user_id": 995608,
+            "project_id": 167811,
+            "role": "curator"
+          },
+          {
+            "id": 2074930,
+            "user_id": 25945,
+            "project_id": 167811,
+            "role": "curator"
+          },
+          {
+            "id": 2242605,
+            "user_id": 1164145,
+            "project_id": 167811,
+            "role": "curator"
+          },
+          {
+            "id": 2027857,
+            "user_id": 2468949,
+            "project_id": 167811,
+            "role": "curator"
+          },
+          {
+            "id": 2079360,
+            "user_id": 712654,
+            "project_id": 167811,
+            "role": "curator"
+          }
+        ],
+        "user_ids": [
+          14908,
+          21062,
+          25945,
+          27450,
+          34728,
+          65624,
+          113704,
+          132236,
+          187480,
+          230128,
+          246572,
+          282384,
+          291929,
+          304776,
+          309220,
+          314759,
+          374372,
+          382370,
+          384718,
+          398340,
+          469820,
+          470148,
+          477643,
+          491988,
+          507838,
+          516166,
+          587203,
+          618372,
+          668490,
+          696596,
+          712654,
+          747000,
+          772856,
+          794555,
+          809830,
+          912975,
+          995608,
+          1026966,
+          1110235,
+          1132241,
+          1164145,
+          1171946,
+          1180604,
+          1244301,
+          1345064,
+          1409076,
+          1433603,
+          1455261,
+          1494532,
+          1590417,
+          1718404,
+          1772002,
+          1788994,
+          1861314,
+          1878812,
+          1883444,
+          1945923,
+          1988165,
+          1988553,
+          2348081,
+          2468949,
+          2518024,
+          2623580,
+          2623798,
+          2656331,
+          2665367,
+          2668036,
+          2683253,
+          2718707,
+          2781534,
+          2840605,
+          2906785,
+          2958721,
+          3103301,
+          3263400,
+          3318219,
+          3448908,
+          3573736,
+          3624527,
+          3629027,
+          3637521,
+          3652396,
+          3806453,
+          3812117,
+          3891041,
+          3913694,
+          3979141,
+          4315664,
+          4350079,
+          4422775,
+          4430082,
+          4739296,
+          4748980,
+          4752764,
+          4790152,
+          4883919,
+          4914982,
+          4954403,
+          5132545,
+          5224990,
+          5243170,
+          5259070,
+          5279856,
+          5299834,
+          5320048,
+          5408708,
+          5475483,
+          5508084,
+          5638528,
+          5682833,
+          5691431,
+          5759470,
+          5763257,
+          5839857,
+          6257083,
+          6435766,
+          6631220,
+          6704825,
+          6733096,
+          6769923,
+          6776366,
+          7013525,
+          7020789,
+          7094248,
+          7102666,
+          7245927,
+          7261616,
+          7304582,
+          7522876,
+          7698867,
+          7876312,
+          7903557,
+          8227264,
+          8291519,
+          8591564
+        ],
+        "location": "54.525961,-105.255119",
+        "icon": "https://static.inaturalist.org/projects/167811-icon-span2.png?1686785541",
+        "icon_file_name": "IMG_0033.png",
+        "header_image_url": "https://static.inaturalist.org/projects/167811-cover.png?1687390804",
+        "header_image_file_name": "IMG_1459.png",
+        "header_image_contain": false,
+        "project_observation_fields": [
+          {
+            "id": 27452,
+            "required": false,
+            "observation_field": {
+              "id": 2330,
+              "name": "DNA Barcode ITS",
+              "name_autocomplete": "DNA Barcode ITS",
+              "description": "DNA sequence from ITS",
+              "description_autocomplete": "DNA sequence from ITS",
+              "datatype": "dna",
+              "allowed_values": "",
+              "values_count": 80879,
+              "users_count": 80879
+            },
+            "position": 0
+          },
+          {
+            "id": 27651,
+            "required": false,
+            "observation_field": {
+              "id": 14524,
+              "name": "DNA Barcode LSU",
+              "name_autocomplete": "DNA Barcode LSU",
+              "description": "Enter the nrLSU eukaryotic sequence",
+              "description_autocomplete": "Enter the nrLSU eukaryotic sequence",
+              "datatype": "dna",
+              "allowed_values": "",
+              "values_count": 2546,
+              "users_count": 2546
+            },
+            "position": 1
+          },
+          {
+            "id": 27652,
+            "required": false,
+            "observation_field": {
+              "id": 14901,
+              "name": "DNA Barcode TEF1",
+              "name_autocomplete": "DNA Barcode TEF1",
+              "description": "TEF1/TEF1-a/TEF1-alpha sequence",
+              "description_autocomplete": "TEF1/TEF1-a/TEF1-alpha sequence",
+              "datatype": "text",
+              "allowed_values": "",
+              "values_count": 403,
+              "users_count": 403
+            },
+            "position": 2
+          },
+          {
+            "id": 27653,
+            "required": false,
+            "observation_field": {
+              "id": 14019,
+              "name": "DNA Barcode RPB2",
+              "name_autocomplete": "DNA Barcode RPB2",
+              "description": "",
+              "description_autocomplete": "",
+              "datatype": "text",
+              "allowed_values": "",
+              "values_count": 371,
+              "users_count": 371
+            },
+            "position": 3
+          },
+          {
+            "id": 27654,
+            "required": false,
+            "observation_field": {
+              "id": 16101,
+              "name": "DNA Barcode RPB1",
+              "name_autocomplete": "DNA Barcode RPB1",
+              "description": "",
+              "description_autocomplete": "",
+              "datatype": "text",
+              "allowed_values": "",
+              "values_count": 229,
+              "users_count": 229
+            },
+            "position": 4
+          },
+          {
+            "id": 27655,
+            "required": false,
+            "observation_field": {
+              "id": 11240,
+              "name": "DNA Barcode Lr0r",
+              "name_autocomplete": "DNA Barcode Lr0r",
+              "description": "",
+              "description_autocomplete": "",
+              "datatype": "text",
+              "allowed_values": "",
+              "values_count": 190,
+              "users_count": 190
+            },
+            "position": 5
+          }
+        ],
+        "terms": null,
+        "search_parameters": [
+          {
+            "field": "quality_grade",
+            "value": [
+              "research",
+              "needs_id"
+            ],
+            "value_keyword": [
+              "research",
+              "needs_id"
+            ]
+          },
+          {
+            "field": "place_id",
+            "value": [
+              9853
+            ],
+            "value_number": [
+              9853
+            ]
+          }
+        ],
+        "project_observation_rules": [
+          {
+            "id": 1325145,
+            "operator": "observed_in_place?",
+            "operand_type": "Place",
+            "operand_id": 9853
+          }
+        ],
+        "rule_preferences": [
+          {
+            "field": "quality_grade",
+            "value": "research,needs_id"
+          }
+        ],
+        "created_at": "2023-05-15T18:38:35+00:00",
+        "updated_at": "2025-06-16T05:54:10+00:00",
+        "flags": [],
+        "site_features": [],
+        "prefers_user_trust": false,
+        "observation_requirements_updated_at": "2023-05-08T18:38:35+00:00",
+        "is_umbrella": false,
+        "is_new_style_project": false,
+        "latitude": "54.525961",
+        "longitude": "-105.255119"
+      },
+      "user_id": 809830,
+      "preferences": {
+        "allows_curator_coordinate_access": false
+      },
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "project_id": 167811
+    },
+    {
+      "id": 115473358,
+      "uuid": "8222cb47-ab5a-4778-857c-a63cdf61ff29",
+      "project": {
+        "id": 219127,
+        "title": "DNAMA Volunteer Sequence Validation Corps",
+        "hide_title": false,
+        "description": "A project that contains records where the DNA barcode sequence was validated by the DNAMA Volunteer Sequence Validation Corps",
+        "slug": "dnama-volunteer-sequence-validation-corps",
+        "project_type": "",
+        "delegated_project_id": null,
+        "is_delegated_umbrella": false,
+        "banner_color": null,
+        "place_id": null,
+        "user_id": 995608,
+        "admins": [
+          {
+            "id": 2684209,
+            "user_id": 2468949,
+            "project_id": 219127,
+            "role": "manager"
+          },
+          {
+            "id": 2702004,
+            "user_id": 25945,
+            "project_id": 219127,
+            "role": "manager"
+          },
+          {
+            "id": 2684208,
+            "user_id": 5224990,
+            "project_id": 219127,
+            "role": "manager"
+          },
+          {
+            "id": 2684098,
+            "user_id": 995608,
+            "project_id": 219127,
+            "role": "manager"
+          },
+          {
+            "id": 2684206,
+            "user_id": 5544011,
+            "project_id": 219127,
+            "role": "manager"
+          }
+        ],
+        "user_ids": [
+          25766,
+          25945,
+          166236,
+          384718,
+          477643,
+          480083,
+          516166,
+          587203,
+          643824,
+          712654,
+          809830,
+          844805,
+          995608,
+          1032440,
+          1139602,
+          1244301,
+          1368645,
+          1455261,
+          1585824,
+          1794085,
+          1881603,
+          1917899,
+          2262282,
+          2381661,
+          2468949,
+          2683253,
+          2781534,
+          2906785,
+          3103301,
+          3157342,
+          3235696,
+          3318219,
+          3682722,
+          3871321,
+          3913694,
+          4245858,
+          4430082,
+          4476552,
+          5091421,
+          5224990,
+          5243170,
+          5320048,
+          5508084,
+          5544011,
+          5957404,
+          6212725,
+          6733096,
+          6788889,
+          7094248,
+          7120228,
+          7300024,
+          7526842,
+          7656874,
+          7870277,
+          8107809,
+          8285483,
+          9224430
+        ],
+        "location": null,
+        "icon": "https://www.inaturalist.org/attachment_defaults/general/span2.png",
+        "icon_file_name": null,
+        "header_image_url": null,
+        "header_image_file_name": null,
+        "header_image_contain": false,
+        "project_observation_fields": [
+          {
+            "id": 30152,
+            "required": true,
+            "observation_field": {
+              "id": 16811,
+              "name": "Sequence Validator",
+              "name_autocomplete": "Sequence Validator",
+              "description": "",
+              "description_autocomplete": "",
+              "datatype": "text",
+              "allowed_values": "",
+              "values_count": 9709,
+              "users_count": 9709
+            },
+            "position": 0
+          },
+          {
+            "id": 30153,
+            "required": false,
+            "observation_field": {
+              "id": 18476,
+              "name": "Sequencing Failed",
+              "name_autocomplete": "Sequencing Failed",
+              "description": "Mark this if sequencing failed",
+              "description_autocomplete": "Mark this if sequencing failed",
+              "datatype": "date",
+              "allowed_values": "",
+              "values_count": 1162,
+              "users_count": 1162
+            },
+            "position": 1
+          }
+        ],
+        "terms": null,
+        "search_parameters": [
+          {
+            "field": "quality_grade",
+            "value": [
+              "research",
+              "needs_id"
+            ],
+            "value_keyword": [
+              "research",
+              "needs_id"
+            ]
+          }
+        ],
+        "project_observation_rules": [
+          {
+            "id": 1824745,
+            "operator": "has_observation_field?",
+            "operand_type": "ObservationField",
+            "operand_id": 16811
+          }
+        ],
+        "rule_preferences": [
+          {
+            "field": "quality_grade",
+            "value": "research,needs_id"
+          }
+        ],
+        "created_at": "2024-10-02T00:56:37+00:00",
+        "updated_at": "2025-06-14T19:03:36+00:00",
+        "flags": [],
+        "site_features": [],
+        "prefers_user_trust": false,
+        "observation_requirements_updated_at": "2024-09-25T00:56:37+00:00",
+        "is_umbrella": false,
+        "is_new_style_project": false
+      },
+      "user_id": 809830,
+      "preferences": {
+        "allows_curator_coordinate_access": false
+      },
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "project_id": 219127
+    }
+  ],
+  "observation_photos": [
+    {
+      "id": 416181411,
+      "position": 0,
+      "uuid": "27a0192e-1267-4046-8e3b-c6b5159e8bb2",
+      "photo_id": 447149311,
+      "photo": {
+        "id": 447149311,
+        "license_code": "cc-by-nc",
+        "original_dimensions": {
+          "width": 1536,
+          "height": 2048
+        },
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149311/square.jpeg",
+        "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+        "flags": [],
+        "moderator_actions": [],
+        "hidden": false
+      }
+    },
+    {
+      "id": 416181481,
+      "position": 1,
+      "uuid": "58b76174-115a-44e6-8b98-836d5d2b3e8b",
+      "photo_id": 447149358,
+      "photo": {
+        "id": 447149358,
+        "license_code": "cc-by-nc",
+        "original_dimensions": {
+          "width": 1536,
+          "height": 2048
+        },
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149358/square.jpeg",
+        "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+        "flags": [],
+        "moderator_actions": [],
+        "hidden": false
+      }
+    },
+    {
+      "id": 416181528,
+      "position": 2,
+      "uuid": "6f0c9bec-8350-4625-8a83-5300f7386264",
+      "photo_id": 447149399,
+      "photo": {
+        "id": 447149399,
+        "license_code": "cc-by-nc",
+        "original_dimensions": {
+          "width": 2048,
+          "height": 1536
+        },
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149399/square.jpeg",
+        "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+        "flags": [],
+        "moderator_actions": [],
+        "hidden": false
+      }
+    },
+    {
+      "id": 416181558,
+      "position": 3,
+      "uuid": "c06a7fb3-8e77-4ab2-8f4b-8c3bd72c41eb",
+      "photo_id": 447149426,
+      "photo": {
+        "id": 447149426,
+        "license_code": "cc-by-nc",
+        "original_dimensions": {
+          "width": 2048,
+          "height": 1536
+        },
+        "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149426/square.jpeg",
+        "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+        "flags": [],
+        "moderator_actions": [],
+        "hidden": false
+      }
+    }
+  ],
+  "photos": [
+    {
+      "id": 447149311,
+      "license_code": "cc-by-nc",
+      "original_dimensions": {
+        "width": 1536,
+        "height": 2048
+      },
+      "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149311/square.jpeg",
+      "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+      "flags": [],
+      "moderator_actions": [],
+      "hidden": false
+    },
+    {
+      "id": 447149358,
+      "license_code": "cc-by-nc",
+      "original_dimensions": {
+        "width": 1536,
+        "height": 2048
+      },
+      "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149358/square.jpeg",
+      "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+      "flags": [],
+      "moderator_actions": [],
+      "hidden": false
+    },
+    {
+      "id": 447149399,
+      "license_code": "cc-by-nc",
+      "original_dimensions": {
+        "width": 2048,
+        "height": 1536
+      },
+      "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149399/square.jpeg",
+      "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+      "flags": [],
+      "moderator_actions": [],
+      "hidden": false
+    },
+    {
+      "id": 447149426,
+      "license_code": "cc-by-nc",
+      "original_dimensions": {
+        "width": 2048,
+        "height": 1536
+      },
+      "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/447149426/square.jpeg",
+      "attribution": "(c) Mari Sanborn, some rights reserved (CC BY-NC)",
+      "flags": [],
+      "moderator_actions": [],
+      "hidden": false
+    }
+  ],
+  "application": {
+    "id": 3,
+    "name": "iNaturalist iPhone App",
+    "url": "https://itunes.apple.com/us/app/inaturalist/id421397028?mt=8",
+    "icon": "https://static.inaturalist.org/oauth_applications/3-thumb.png"
+  },
+  "community_taxon": {
+    "id": 55267,
+    "rank": "species",
+    "rank_level": 10,
+    "iconic_taxon_id": 47170,
+    "ancestor_ids": [
+      48460,
+      47170,
+      48250,
+      372740,
+      53539,
+      792674,
+      48805,
+      48806,
+      55268,
+      55267
+    ],
+    "is_active": true,
+    "name": "Xylaria hypoxylon",
+    "parent_id": 55268,
+    "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+    "extinct": false,
+    "default_photo": {
+      "id": 57292054,
+      "license_code": "cc0",
+      "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+      "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+      "original_dimensions": {
+        "height": 1365,
+        "width": 2048
+      },
+      "flags": [],
+      "attribution_name": "Stephen James McWilliam",
+      "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+      "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+    },
+    "taxon_changes_count": 1,
+    "taxon_schemes_count": 3,
+    "observations_count": 26145,
+    "flag_counts": {
+      "resolved": 0,
+      "unresolved": 0
+    },
+    "current_synonymous_taxon_ids": null,
+    "atlas_id": null,
+    "complete_species_count": null,
+    "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+    "iconic_taxon_name": "Fungi",
+    "preferred_common_name": "Candlesnuff Fungus"
+  },
+  "faves": [],
+  "non_owner_ids": [
+    {
+      "id": 561937505,
+      "uuid": "ec9368be-5371-4d3d-8229-9f390f2c3098",
+      "user": {
+        "id": 5731509,
+        "login": "yossarianc",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2022-05-26T18:01:02+00:00",
+        "login_autocomplete": "yossarianc",
+        "login_exact": "yossarianc",
+        "name": null,
+        "name_autocomplete": null,
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/5731509/thumb.jpg?1653591942",
+        "observations_count": 3520,
+        "identifications_count": 3471,
+        "journal_posts_count": 0,
+        "activity_count": 6991,
+        "species_count": 1908,
+        "annotated_observations_count": 0,
+        "universal_search_rank": 3520,
+        "roles": [],
+        "site_id": 1,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/5731509/medium.jpg?1653591942"
+      },
+      "created_at": "2024-11-07T23:44:24-04:00",
+      "created_at_details": {
+        "date": "2024-11-07",
+        "day": 7,
+        "month": 11,
+        "year": 2024,
+        "hour": 23,
+        "week": 45
+      },
+      "body": null,
+      "category": "improving",
+      "current": true,
+      "flags": [],
+      "own_observation": false,
+      "taxon_change": null,
+      "vision": true,
+      "disagreement": false,
+      "previous_observation_taxon_id": 55268,
+      "spam": false,
+      "taxon_id": 55267,
+      "hidden": false,
+      "moderator_actions": [],
+      "taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus",
+        "ancestors": [
+          {
+            "id": 47170,
+            "rank": "kingdom",
+            "rank_level": 70,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170
+            ],
+            "is_active": true,
+            "name": "Fungi",
+            "parent_id": 48460,
+            "ancestry": "48460",
+            "extinct": false,
+            "default_photo": {
+              "id": 260296784,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Cho Fungi, some rights reserved (CC BY-NC), uploaded by Cho Fungi",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "original_dimensions": {
+                "height": 1984,
+                "width": 1587
+              },
+              "flags": [],
+              "attribution_name": "Cho Fungi",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/medium.jpg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 15884312,
+            "flag_counts": {
+              "resolved": 55,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Fungus",
+            "complete_rank": "phylum",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Fungi Including Lichens"
+          },
+          {
+            "id": 48250,
+            "rank": "phylum",
+            "rank_level": 60,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250
+            ],
+            "is_active": true,
+            "name": "Ascomycota",
+            "parent_id": 47170,
+            "ancestry": "48460/47170",
+            "extinct": false,
+            "default_photo": {
+              "id": 4896433,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Christian Schwarz, some rights reserved (CC BY-NC), uploaded by Christian Schwarz",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Christian Schwarz",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/medium.jpg"
+            },
+            "taxon_changes_count": 2,
+            "taxon_schemes_count": 2,
+            "observations_count": 3727198,
+            "flag_counts": {
+              "resolved": 9,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Ascomycota",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Ascomycete Fungi"
+          },
+          {
+            "id": 372740,
+            "rank": "subphylum",
+            "rank_level": 57,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740
+            ],
+            "is_active": true,
+            "name": "Pezizomycotina",
+            "parent_id": 48250,
+            "ancestry": "48460/47170/48250",
+            "extinct": false,
+            "default_photo": {
+              "id": 26914623,
+              "license_code": null,
+              "attribution": "(c) Lauren Ré, all rights reserved, uploaded by Lauren Ré",
+              "url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "original_dimensions": {
+                "height": 1536,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Lauren Ré",
+              "square_url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/26914623/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 3652090,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 1
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Pezizomycotina",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Higher Ascomycetes"
+          },
+          {
+            "id": 53539,
+            "rank": "class",
+            "rank_level": 50,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539
+            ],
+            "is_active": true,
+            "name": "Sordariomycetes",
+            "parent_id": 372740,
+            "ancestry": "48460/47170/48250/372740",
+            "extinct": false,
+            "default_photo": {
+              "id": 211078,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Harry Harms, some rights reserved (CC BY-NC-SA)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "original_dimensions": {
+                "height": 1371,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Harry Harms",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 343316,
+            "flag_counts": {
+              "resolved": 3,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Sordariomycetes",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 792674,
+            "rank": "subclass",
+            "rank_level": 47,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674
+            ],
+            "is_active": true,
+            "name": "Xylariomycetidae",
+            "parent_id": 53539,
+            "ancestry": "48460/47170/48250/372740/53539",
+            "extinct": false,
+            "default_photo": {
+              "id": 8976198,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Danny Newman, some rights reserved (CC BY-NC-SA), uploaded by Danny Newman",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Danny Newman",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/medium.jpeg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 0,
+            "observations_count": 184566,
+            "flag_counts": {
+              "resolved": 0,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48805,
+            "rank": "order",
+            "rank_level": 40,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805
+            ],
+            "is_active": true,
+            "name": "Xylariales",
+            "parent_id": 792674,
+            "ancestry": "48460/47170/48250/372740/53539/792674",
+            "extinct": false,
+            "default_photo": {
+              "id": 4025448,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY-NC)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Ken-ichi Ueda",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 185073,
+            "flag_counts": {
+              "resolved": 1,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48806,
+            "rank": "family",
+            "rank_level": 30,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806
+            ],
+            "is_active": true,
+            "name": "Xylariaceae",
+            "parent_id": 48805,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805",
+            "extinct": false,
+            "default_photo": {
+              "id": 112067796,
+              "license_code": null,
+              "attribution": "(c) bmeade00, all rights reserved",
+              "url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "bmeade00",
+              "square_url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/112067796/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 104481,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariaceae",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 55268,
+            "rank": "genus",
+            "rank_level": 20,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806,
+              55268
+            ],
+            "is_active": true,
+            "name": "Xylaria",
+            "parent_id": 48806,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+            "extinct": false,
+            "default_photo": {
+              "id": 20492429,
+              "license_code": null,
+              "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+              "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "original_dimensions": {
+                "height": 1152,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Henri Holbrook",
+              "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 86238,
+            "flag_counts": {
+              "resolved": 6,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+            "iconic_taxon_name": "Fungi"
+          }
+        ]
+      },
+      "previous_observation_taxon": {
+        "id": 55268,
+        "rank": "genus",
+        "rank_level": 20,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55268,
+        "name": "Xylaria",
+        "parent_id": 48806,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:18+00:00",
+        "default_photo": {
+          "id": 20492429,
+          "license_code": null,
+          "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+          "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "original_dimensions": {
+            "height": 1152,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Henri Holbrook",
+          "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+          "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+        },
+        "taxon_changes_count": 4,
+        "taxon_schemes_count": 2,
+        "observations_count": 86238,
+        "photos_locked": false,
+        "universal_search_rank": 86238,
+        "flag_counts": {
+          "resolved": 6,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+        "iconic_taxon_name": "Fungi"
+      }
+    },
+    {
+      "id": 634742802,
+      "uuid": "6ef16f43-cf09-4134-9cce-e7e72a247258",
+      "user": {
+        "id": 809830,
+        "login": "antephylloxera",
+        "spam": false,
+        "suspended": false,
+        "created_at": "2018-03-25T18:26:22+00:00",
+        "login_autocomplete": "antephylloxera",
+        "login_exact": "antephylloxera",
+        "name": "Andrew MacPherson",
+        "name_autocomplete": "Andrew MacPherson",
+        "orcid": null,
+        "icon": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-thumb.jpeg?1742059690",
+        "observations_count": 1804,
+        "identifications_count": 2305,
+        "journal_posts_count": 0,
+        "activity_count": 4109,
+        "species_count": 637,
+        "annotated_observations_count": 27,
+        "universal_search_rank": 1804,
+        "roles": [],
+        "site_id": 5,
+        "icon_url": "https://static.inaturalist.org/attachments/users/icons/809830/21924fc0a6f21009c6bfa360ce0fa2f7-medium.jpeg?1742059690"
+      },
+      "created_at": "2025-05-19T15:58:13-03:00",
+      "created_at_details": {
+        "date": "2025-05-19",
+        "day": 19,
+        "month": 5,
+        "year": 2025,
+        "hour": 15,
+        "week": 21
+      },
+      "body": "2 b.p. difference from epitype sequence [KY610407](https://www.ncbi.nlm.nih.gov/nuccore/KY610407). The two differences appear to be variable positions i.e. ~25% of reads match the type sequence 100%.",
+      "category": "supporting",
+      "current": true,
+      "flags": [],
+      "own_observation": false,
+      "taxon_change": null,
+      "vision": false,
+      "disagreement": false,
+      "previous_observation_taxon_id": 55267,
+      "spam": false,
+      "taxon_id": 55267,
+      "hidden": false,
+      "moderator_actions": [],
+      "taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus",
+        "ancestors": [
+          {
+            "id": 47170,
+            "rank": "kingdom",
+            "rank_level": 70,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170
+            ],
+            "is_active": true,
+            "name": "Fungi",
+            "parent_id": 48460,
+            "ancestry": "48460",
+            "extinct": false,
+            "default_photo": {
+              "id": 260296784,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Cho Fungi, some rights reserved (CC BY-NC), uploaded by Cho Fungi",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "original_dimensions": {
+                "height": 1984,
+                "width": 1587
+              },
+              "flags": [],
+              "attribution_name": "Cho Fungi",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/260296784/medium.jpg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 15884312,
+            "flag_counts": {
+              "resolved": 55,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Fungus",
+            "complete_rank": "phylum",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Fungi Including Lichens"
+          },
+          {
+            "id": 48250,
+            "rank": "phylum",
+            "rank_level": 60,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250
+            ],
+            "is_active": true,
+            "name": "Ascomycota",
+            "parent_id": 47170,
+            "ancestry": "48460/47170",
+            "extinct": false,
+            "default_photo": {
+              "id": 4896433,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Christian Schwarz, some rights reserved (CC BY-NC), uploaded by Christian Schwarz",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Christian Schwarz",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4896433/medium.jpg"
+            },
+            "taxon_changes_count": 2,
+            "taxon_schemes_count": 2,
+            "observations_count": 3727198,
+            "flag_counts": {
+              "resolved": 9,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Ascomycota",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Ascomycete Fungi"
+          },
+          {
+            "id": 372740,
+            "rank": "subphylum",
+            "rank_level": 57,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740
+            ],
+            "is_active": true,
+            "name": "Pezizomycotina",
+            "parent_id": 48250,
+            "ancestry": "48460/47170/48250",
+            "extinct": false,
+            "default_photo": {
+              "id": 26914623,
+              "license_code": null,
+              "attribution": "(c) Lauren Ré, all rights reserved, uploaded by Lauren Ré",
+              "url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "original_dimensions": {
+                "height": 1536,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Lauren Ré",
+              "square_url": "https://static.inaturalist.org/photos/26914623/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/26914623/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 3652090,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 1
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Pezizomycotina",
+            "iconic_taxon_name": "Fungi",
+            "preferred_common_name": "Higher Ascomycetes"
+          },
+          {
+            "id": 53539,
+            "rank": "class",
+            "rank_level": 50,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539
+            ],
+            "is_active": true,
+            "name": "Sordariomycetes",
+            "parent_id": 372740,
+            "ancestry": "48460/47170/48250/372740",
+            "extinct": false,
+            "default_photo": {
+              "id": 211078,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Harry Harms, some rights reserved (CC BY-NC-SA)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "original_dimensions": {
+                "height": 1371,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Harry Harms",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/211078/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 343316,
+            "flag_counts": {
+              "resolved": 3,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Sordariomycetes",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 792674,
+            "rank": "subclass",
+            "rank_level": 47,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674
+            ],
+            "is_active": true,
+            "name": "Xylariomycetidae",
+            "parent_id": 53539,
+            "ancestry": "48460/47170/48250/372740/53539",
+            "extinct": false,
+            "default_photo": {
+              "id": 8976198,
+              "license_code": "cc-by-nc-sa",
+              "attribution": "(c) Danny Newman, some rights reserved (CC BY-NC-SA), uploaded by Danny Newman",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Danny Newman",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/square.jpeg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/8976198/medium.jpeg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 0,
+            "observations_count": 184566,
+            "flag_counts": {
+              "resolved": 0,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48805,
+            "rank": "order",
+            "rank_level": 40,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805
+            ],
+            "is_active": true,
+            "name": "Xylariales",
+            "parent_id": 792674,
+            "ancestry": "48460/47170/48250/372740/53539/792674",
+            "extinct": false,
+            "default_photo": {
+              "id": 4025448,
+              "license_code": "cc-by-nc",
+              "attribution": "(c) Ken-ichi Ueda, some rights reserved (CC BY-NC)",
+              "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 1365
+              },
+              "flags": [],
+              "attribution_name": "Ken-ichi Ueda",
+              "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/square.jpg",
+              "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/4025448/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 185073,
+            "flag_counts": {
+              "resolved": 1,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "https://en.wikipedia.org/wiki/Xylariales",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 48806,
+            "rank": "family",
+            "rank_level": 30,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806
+            ],
+            "is_active": true,
+            "name": "Xylariaceae",
+            "parent_id": 48805,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805",
+            "extinct": false,
+            "default_photo": {
+              "id": 112067796,
+              "license_code": null,
+              "attribution": "(c) bmeade00, all rights reserved",
+              "url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "original_dimensions": {
+                "height": 2048,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "bmeade00",
+              "square_url": "https://static.inaturalist.org/photos/112067796/square.jpg",
+              "medium_url": "https://static.inaturalist.org/photos/112067796/medium.jpg"
+            },
+            "taxon_changes_count": 0,
+            "taxon_schemes_count": 2,
+            "observations_count": 104481,
+            "flag_counts": {
+              "resolved": 2,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylariaceae",
+            "iconic_taxon_name": "Fungi"
+          },
+          {
+            "id": 55268,
+            "rank": "genus",
+            "rank_level": 20,
+            "iconic_taxon_id": 47170,
+            "ancestor_ids": [
+              48460,
+              47170,
+              48250,
+              372740,
+              53539,
+              792674,
+              48805,
+              48806,
+              55268
+            ],
+            "is_active": true,
+            "name": "Xylaria",
+            "parent_id": 48806,
+            "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806",
+            "extinct": false,
+            "default_photo": {
+              "id": 20492429,
+              "license_code": null,
+              "attribution": "(c) Henri Holbrook, all rights reserved, uploaded by Henri Holbrook",
+              "url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "original_dimensions": {
+                "height": 1152,
+                "width": 2048
+              },
+              "flags": [],
+              "attribution_name": "Henri Holbrook",
+              "square_url": "https://static.inaturalist.org/photos/20492429/square.jpeg",
+              "medium_url": "https://static.inaturalist.org/photos/20492429/medium.jpeg"
+            },
+            "taxon_changes_count": 4,
+            "taxon_schemes_count": 2,
+            "observations_count": 86238,
+            "flag_counts": {
+              "resolved": 6,
+              "unresolved": 0
+            },
+            "current_synonymous_taxon_ids": null,
+            "atlas_id": null,
+            "complete_species_count": null,
+            "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria",
+            "iconic_taxon_name": "Fungi"
+          }
+        ]
+      },
+      "previous_observation_taxon": {
+        "id": 55267,
+        "rank": "species",
+        "rank_level": 10,
+        "iconic_taxon_id": 47170,
+        "ancestor_ids": [
+          48460,
+          47170,
+          48250,
+          372740,
+          53539,
+          792674,
+          48805,
+          48806,
+          55268,
+          55267
+        ],
+        "is_active": true,
+        "min_species_taxon_id": 55267,
+        "name": "Xylaria hypoxylon",
+        "parent_id": 55268,
+        "ancestry": "48460/47170/48250/372740/53539/792674/48805/48806/55268",
+        "min_species_ancestry": "48460,47170,48250,372740,53539,792674,48805,48806,55268,55267",
+        "extinct": false,
+        "created_at": "2010-01-25T06:46:12+00:00",
+        "default_photo": {
+          "id": 57292054,
+          "license_code": "cc0",
+          "attribution": "no rights reserved, uploaded by Stephen James McWilliam",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "original_dimensions": {
+            "height": 1365,
+            "width": 2048
+          },
+          "flags": [],
+          "attribution_name": "Stephen James McWilliam",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/57292054/medium.jpeg"
+        },
+        "taxon_changes_count": 1,
+        "taxon_schemes_count": 3,
+        "observations_count": 26145,
+        "photos_locked": false,
+        "universal_search_rank": 26145,
+        "flag_counts": {
+          "resolved": 0,
+          "unresolved": 0
+        },
+        "current_synonymous_taxon_ids": null,
+        "atlas_id": null,
+        "complete_species_count": null,
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Xylaria_hypoxylon",
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Candlesnuff Fungus"
+      }
+    }
+  ]
+}
