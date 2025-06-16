@@ -778,10 +778,10 @@ function BioRecordImageGenerator() {
             </div>
           </div>
 
-          <Tabs defaultValue="biorecords" className="space-y-4">
+          <Tabs defaultValue="validation" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="biorecords">Historical BioRecords</TabsTrigger>
               <TabsTrigger value="validation">Create from Validated</TabsTrigger>
+              <TabsTrigger value="biorecords">Historical BioRecords</TabsTrigger>
               <TabsTrigger value="images">BioRecord Images</TabsTrigger>
             </TabsList>
 
