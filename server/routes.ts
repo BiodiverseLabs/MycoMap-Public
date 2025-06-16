@@ -2423,6 +2423,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mushroom Observer API lookup endpoint for BioRecord Image Generator
+  app.get('/api/mo-lookup/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // First check if we have this observation in our database
+      const existingMoData = await db.getMoDataByMoId(id);
+      
+      if (existingMoData) {
+        // Return data from our database
+        const responseData = {
+          scientific_name: existingMoData.scientificName,
+          common_name: existingMoData.commonName,
+          observer: existingMoData.observer,
+          location: existingMoData.location,
+          state: existingMoData.state,
+          country: existingMoData.country || 'United States',
+          observed_on: existingMoData.observedOn,
+          image_url: null // Would need to fetch from MO API if needed
+        };
+        res.json(responseData);
+      } else {
+        // Return error - we don't have mock data, need real API integration
+        res.status(404).json({ 
+          error: 'Mushroom Observer record not found in database. Please provide valid MO observation ID from synced data.' 
+        });
+      }
+    } catch (error) {
+      console.error('Error in MO lookup:', error);
+      res.status(500).json({ error: 'Failed to fetch Mushroom Observer data' });
+    }
+  });
+
+  // MyCoPortal API lookup endpoint for BioRecord Image Generator
+  app.get('/api/mycoportal-lookup/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // First check if we have this observation in our database
+      const existingMcData = await db.getMycoportalDataByCatalogNumber(id);
+      
+      if (existingMcData) {
+        // Return data from our database
+        const responseData = {
+          scientific_name: existingMcData.scientificName,
+          common_name: existingMcData.commonName,
+          recorded_by: existingMcData.recordedBy,
+          locality: existingMcData.locality,
+          state_province: existingMcData.stateProvince,
+          country: existingMcData.country || 'United States',
+          event_date: existingMcData.eventDate,
+          image_url: null // Would need to fetch from MyCoPortal API if needed
+        };
+        res.json(responseData);
+      } else {
+        // Return error - we don't have mock data, need real API integration
+        res.status(404).json({ 
+          error: 'MyCoPortal record not found in database. Please provide valid catalog number from synced data.' 
+        });
+      }
+    } catch (error) {
+      console.error('Error in MyCoPortal lookup:', error);
+      res.status(500).json({ error: 'Failed to fetch MyCoPortal data' });
+    }
+  });
+
   const httpServer = createServer(app);
   // Biorecords Management API endpoints
   app.get("/api/biorecords", async (req, res) => {
