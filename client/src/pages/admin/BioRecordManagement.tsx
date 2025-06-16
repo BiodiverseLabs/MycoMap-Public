@@ -65,6 +65,13 @@ interface ValidationObservation {
   inatGenbankAccession?: string;
   mycoMapBlastUrl?: string;
   mycoMapTraceUrl?: string;
+  // IPFS web3 storage URLs
+  ipfsUploaded?: boolean;
+  ipfsFolderUrl?: string;
+  ipfsNcbiBlastUrl?: string;
+  ipfsLocalBlastUrl?: string;
+  ipfsFastqUrl?: string;
+  ipfsInatApiUrl?: string;
 }
 
 export default function BioRecordManagement() {
@@ -1109,6 +1116,27 @@ function BioRecordImageGenerator() {
                                   </div>
                                 </div>
                                 
+                                {observation.ipfsFolderUrl && (
+                                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="text-lg">🌐</span>
+                                      <div className="font-semibold text-purple-800">Complete IPFS Package</div>
+                                    </div>
+                                    <div className="text-sm text-purple-700 mb-2">
+                                      All observation files bundled in permanent decentralized storage
+                                    </div>
+                                    <a 
+                                      href={observation.ipfsFolderUrl}
+                                      className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <span className="text-xs bg-purple-200 px-2 py-1 rounded font-bold">IPFS FOLDER</span>
+                                      {observation.ipfsFolderUrl}
+                                    </a>
+                                  </div>
+                                )}
+                                
                                 <div className="space-y-3">
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">Raw DNA Data</div>
@@ -1127,18 +1155,23 @@ function BioRecordImageGenerator() {
                                       ) : (
                                         <div>No MycoMap trace URL available</div>
                                       )}
-                                      {observation.traceFilesDownloaded && (
+                                      {observation.ipfsFastqUrl ? (
                                         <div>
                                           <a 
-                                            href={`/api/trace-files/iNat${observation.observationId}.fastq`}
-                                            className="text-green-600 hover:text-green-800 underline break-all"
+                                            href={observation.ipfsFastqUrl}
+                                            className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                           >
-                                            /api/trace-files/iNat{observation.observationId}.fastq
+                                            <span className="text-xs bg-purple-100 px-1 py-0.5 rounded">IPFS</span>
+                                            {observation.ipfsFastqUrl}
                                           </a>
                                         </div>
-                                      )}
+                                      ) : observation.traceFilesDownloaded ? (
+                                        <div className="text-orange-600">
+                                          FASTQ downloaded but not yet uploaded to IPFS
+                                        </div>
+                                      ) : null}
                                     </div>
                                   </div>
                                   
@@ -1159,45 +1192,60 @@ function BioRecordImageGenerator() {
                                       ) : (
                                         <div>No MycoMap BLAST URL available</div>
                                       )}
-                                      {observation.blastFilesDownloaded && (
+                                      {observation.ipfsNcbiBlastUrl || observation.ipfsLocalBlastUrl ? (
                                         <div className="space-y-1">
-                                          <div>
-                                            <a 
-                                              href={`/api/blast-files/iNat${observation.observationId}-NCBI-BLAST.xml`}
-                                              className="text-green-600 hover:text-green-800 underline break-all"
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                            >
-                                              /api/blast-files/iNat{observation.observationId}-NCBI-BLAST.xml
-                                            </a>
-                                          </div>
-                                          <div>
-                                            <a 
-                                              href={`/api/blast-files/iNat${observation.observationId}-Local-BLAST.xml`}
-                                              className="text-green-600 hover:text-green-800 underline break-all"
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                            >
-                                              /api/blast-files/iNat{observation.observationId}-Local-BLAST.xml
-                                            </a>
-                                          </div>
+                                          {observation.ipfsNcbiBlastUrl && (
+                                            <div>
+                                              <a 
+                                                href={observation.ipfsNcbiBlastUrl}
+                                                className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                              >
+                                                <span className="text-xs bg-purple-100 px-1 py-0.5 rounded">IPFS</span>
+                                                NCBI BLAST Results
+                                              </a>
+                                            </div>
+                                          )}
+                                          {observation.ipfsLocalBlastUrl && (
+                                            <div>
+                                              <a 
+                                                href={observation.ipfsLocalBlastUrl}
+                                                className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                              >
+                                                <span className="text-xs bg-purple-100 px-1 py-0.5 rounded">IPFS</span>
+                                                Local BLAST Results
+                                              </a>
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
+                                      ) : observation.blastFilesDownloaded ? (
+                                        <div className="text-orange-600">
+                                          BLAST files downloaded but not yet uploaded to IPFS
+                                        </div>
+                                      ) : null}
                                     </div>
                                   </div>
                                   
                                   <div>
                                     <div className="font-medium text-gray-700 mb-1">iNaturalist API Export</div>
                                     <div className="text-sm bg-white p-2 rounded border">
-                                      {observation.inatApiSaved ? (
+                                      {observation.ipfsInatApiUrl ? (
                                         <a 
-                                          href={`/api/download/inat-api/iNat${observation.observationId}.2025-06-16.txt`}
-                                          className="text-green-600 hover:text-green-800 underline break-all"
+                                          href={observation.ipfsInatApiUrl}
+                                          className="text-purple-600 hover:text-purple-800 underline break-all flex items-center gap-1"
                                           target="_blank"
                                           rel="noopener noreferrer"
                                         >
-                                          /api/download/inat-api/iNat{observation.observationId}.2025-06-16.txt
+                                          <span className="text-xs bg-purple-100 px-1 py-0.5 rounded">IPFS</span>
+                                          iNaturalist API Data
                                         </a>
+                                      ) : observation.inatApiSaved ? (
+                                        <div className="text-orange-600">
+                                          API data saved but not yet uploaded to IPFS
+                                        </div>
                                       ) : (
                                         "No API export available"
                                       )}

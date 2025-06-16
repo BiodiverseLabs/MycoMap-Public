@@ -116,6 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 16, 2025: BioRecords IPFS Integration Enhancement
+  - Updated biorecords metadata dropdown to display IPFS URLs instead of local file paths
+  - Added IPFS fields to ValidationObservation interface for proper data handling
+  - Replaced all local file links (/api/trace-files/, /api/blast-files/, etc.) with permanent IPFS URLs
+  - Added purple styling with "IPFS" badges to distinguish decentralized storage links
+  - Created prominent "Complete IPFS Package" section showing bundled observation folder
+  - Added fallback states for files downloaded but not yet uploaded to IPFS
+  - Enhanced user experience with clear visual indicators for web3 storage status
+
 - June 16, 2025: IPFS Web3 Storage Integration and Automatic Upload System
   - Implemented comprehensive IPFS service using Helia client for decentralized file storage
   - Added automatic upload functionality that triggers when observations become fully validated
