@@ -116,6 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 16, 2025: BioRecord Images trading card generator implemented
+  - Created new "BioRecord Images" tab in admin interface
+  - Built three vintage-style trading card designs based on user-provided templates
+  - Implemented canvas-based card generation with downloadable PNG output
+  - Added platform-specific data fetching for iNaturalist, Mushroom Observer, and MyCoPortal
+  - Designed cards feature specimen photos, scientific names, location data, and platform IDs
+  - Cards use vintage trading card aesthetics with multiple border styles and classic typography
+
 - June 16, 2025: Complete NFT minting functionality implemented
   - Added database operations for NFT token tracking and metadata
   - Created API endpoints for minting NFTs from biorecords

@@ -306,7 +306,7 @@ function BioRecordImageGenerator() {
     generateCardDesign3(cardData, 2);
   };
 
-  // Card Design 1: Professional Scientific Card
+  // Card Design 1: Vintage Light Trading Card (Based on your beige design)
   const generateCardDesign1 = (data: any, canvasIndex: number) => {
     const canvas = canvasRefs[canvasIndex].current;
     if (!canvas) return;
@@ -317,115 +317,97 @@ function BioRecordImageGenerator() {
     canvas.width = 400;
     canvas.height = 600;
 
-    // Background with subtle texture
-    const gradient = ctx.createLinearGradient(0, 0, 400, 600);
-    gradient.addColorStop(0, '#0f172a');
-    gradient.addColorStop(0.5, '#1e293b');
-    gradient.addColorStop(1, '#334155');
-    ctx.fillStyle = gradient;
+    // Vintage beige background
+    ctx.fillStyle = '#f4e5d3';
     ctx.fillRect(0, 0, 400, 600);
 
-    // Outer border with rounded corners effect
-    ctx.strokeStyle = '#64748b';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(8, 8, 384, 584);
+    // Multiple borders like your design
+    ctx.strokeStyle = '#2c1810';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(12, 12, 376, 576);
     
-    // Inner border
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(16, 16, 368, 568);
-
-    // Header section with gradient
-    const headerGradient = ctx.createLinearGradient(0, 20, 0, 80);
-    headerGradient.addColorStop(0, '#1e40af');
-    headerGradient.addColorStop(1, '#3b82f6');
-    ctx.fillStyle = headerGradient;
-    ctx.fillRect(24, 24, 352, 56);
-    
-    // Header border
-    ctx.strokeStyle = '#60a5fa';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(24, 24, 352, 56);
-
-    // Scientific name with elegant typography
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 20px serif';
-    ctx.textAlign = 'center';
-    const scientificName = data.scientificName || 'Unknown Species';
-    ctx.fillText(scientificName, 200, 48);
-    
-    // Common name in italics
-    if (data.commonName) {
-      ctx.font = 'italic 14px serif';
-      ctx.fillStyle = '#e2e8f0';
-      ctx.fillText(`"${data.commonName}"`, 200, 68);
-    }
-
-    // Main image area with professional frame
-    ctx.strokeStyle = '#475569';
+    ctx.strokeStyle = '#8b4513';
     ctx.lineWidth = 3;
-    ctx.strokeRect(32, 100, 336, 240);
+    ctx.strokeRect(18, 18, 364, 564);
     
-    // Image background
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(35, 103, 330, 234);
-    
-    // Image placeholder with professional styling
-    ctx.fillStyle = '#64748b';
-    ctx.font = '16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('SPECIMEN PHOTOGRAPH', 200, 210);
-    ctx.font = '12px sans-serif';
-    ctx.fillText('High-resolution observation image', 200, 230);
-
-    // Information panel with structured layout
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(32, 360, 336, 180);
-    ctx.strokeStyle = '#475569';
+    ctx.strokeStyle = '#d4a574';
     ctx.lineWidth = 2;
-    ctx.strokeRect(32, 360, 336, 180);
+    ctx.strokeRect(24, 24, 352, 552);
 
-    // Data sections
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'left';
+    // Header section matching your design
+    ctx.fillStyle = '#2c1810';
+    ctx.fillRect(32, 32, 336, 60);
     
-    // Location section
-    ctx.fillText('COLLECTION DATA:', 45, 385);
-    ctx.font = '11px sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(`Location: ${data.location || 'Unknown'}`, 45, 405);
-    if (data.state) {
-      ctx.fillText(`State/Province: ${data.state}`, 45, 420);
-    }
-    ctx.fillText(`Country: ${data.country || 'Unknown'}`, 45, 435);
+    // Orange/red accent circle like your design
+    ctx.fillStyle = '#c44332';
+    ctx.beginPath();
+    ctx.arc(70, 62, 20, 0, 2 * Math.PI);
+    ctx.fill();
     
-    // Observer section
+    // Leaf icon in circle
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText('OBSERVER DATA:', 45, 460);
-    ctx.font = '11px sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(`Observer: ${data.observer || 'Unknown'}`, 45, 480);
-    ctx.fillText(`Platform: ${data.platform}`, 45, 495);
-    if (data.observedOn) {
-      ctx.fillText(`Date: ${data.observedOn}`, 45, 510);
-    }
-
-    // Footer with branding
-    const footerGradient = ctx.createLinearGradient(0, 550, 0, 584);
-    footerGradient.addColorStop(0, '#1e40af');
-    footerGradient.addColorStop(1, '#3730a3');
-    ctx.fillStyle = footerGradient;
-    ctx.fillRect(24, 550, 352, 34);
-    
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.font = '16px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('BIORECORD TRADING CARD', 200, 572);
+    ctx.fillText('🍄', 70, 68);
+
+    // Main title text
+    ctx.fillStyle = '#f4e5d3';
+    ctx.font = 'bold 20px serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('SPECIES', 110, 55);
+    ctx.fillText('OBSERVATIONS', 110, 78);
+
+    // Main image frame with rounded corners effect
+    ctx.fillStyle = '#2c1810';
+    ctx.fillRect(40, 110, 320, 280);
+    
+    ctx.fillStyle = '#d4a574';
+    ctx.fillRect(45, 115, 310, 270);
+    
+    ctx.fillStyle = '#f9f5f0';
+    ctx.fillRect(50, 120, 300, 260);
+    
+    // Image placeholder
+    ctx.fillStyle = '#8b7355';
+    ctx.font = '14px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SPECIMEN PHOTOGRAPH', 200, 245);
+    ctx.font = '10px serif';
+    ctx.fillText('Field observation image would appear here', 200, 260);
+
+    // Bottom information panel
+    ctx.fillStyle = '#d4a574';
+    ctx.fillRect(40, 410, 320, 120);
+    
+    ctx.strokeStyle = '#2c1810';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 410, 320, 120);
+
+    // Species name section
+    const scientificName = data.scientificName || 'UNKNOWN SPECIES';
+    ctx.fillStyle = '#2c1810';
+    ctx.font = 'bold 18px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(scientificName.toUpperCase(), 200, 440);
+
+    // Observer and location info
+    ctx.font = '12px serif';
+    ctx.fillText(data.observer || 'Unknown Observer', 200, 460);
+    ctx.fillText(`${data.state || 'Unknown'}, ${data.country || 'Unknown'}`, 200, 480);
+
+    // Platform ID at bottom
+    ctx.fillStyle = '#2c1810';
+    ctx.fillRect(40, 545, 320, 35);
+    ctx.fillStyle = '#f4e5d3';
+    ctx.font = 'bold 14px serif';
+    ctx.textAlign = 'center';
+    const platformId = data.platform === 'iNaturalist' ? `iNaturalist #${data.observationId || 'Unknown'}` : 
+                      data.platform === 'Mushroom Observer' ? `MO #${data.observationId || 'Unknown'}` :
+                      `${data.platform} #${data.observationId || 'Unknown'}`;
+    ctx.fillText(platformId, 200, 567);
   };
 
-  // Card Design 2: Modern Botanical Style
+  // Card Design 2: Vintage Dark Trading Card (Based on your brown design)
   const generateCardDesign2 = (data: any, canvasIndex: number) => {
     const canvas = canvasRefs[canvasIndex].current;
     if (!canvas) return;
@@ -436,149 +418,95 @@ function BioRecordImageGenerator() {
     canvas.width = 400;
     canvas.height = 600;
 
-    // Clean white background
-    ctx.fillStyle = '#ffffff';
+    // Dark brown background like your design
+    ctx.fillStyle = '#3e2723';
     ctx.fillRect(0, 0, 400, 600);
 
-    // Subtle outer border
-    ctx.strokeStyle = '#e2e8f0';
+    // Multiple borders matching your style
+    ctx.strokeStyle = '#1a0e0a';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(12, 12, 376, 576);
+    
+    ctx.strokeStyle = '#8d6e63';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(18, 18, 364, 564);
+    
+    ctx.strokeStyle = '#d7ccc8';
     ctx.lineWidth = 2;
-    ctx.strokeRect(8, 8, 384, 584);
+    ctx.strokeRect(24, 24, 352, 552);
 
-    // Top accent with botanical green gradient
-    const topGradient = ctx.createLinearGradient(0, 0, 400, 24);
-    topGradient.addColorStop(0, '#059669');
-    topGradient.addColorStop(0.5, '#10b981');
-    topGradient.addColorStop(1, '#34d399');
-    ctx.fillStyle = topGradient;
-    ctx.fillRect(8, 8, 384, 24);
-
-    // Scientific name with modern typography
-    ctx.fillStyle = '#111827';
-    ctx.font = 'bold 22px system-ui';
-    ctx.textAlign = 'center';
-    const scientificName = data.scientificName || 'Unknown Species';
+    // Header section
+    ctx.fillStyle = '#1a0e0a';
+    ctx.fillRect(32, 32, 336, 60);
     
-    // Handle long names by adjusting font size
-    const textWidth = ctx.measureText(scientificName).width;
-    if (textWidth > 360) {
-      ctx.font = 'bold 18px system-ui';
-    }
-    ctx.fillText(scientificName, 200, 65);
-
-    // Common name with subtle styling
-    if (data.commonName) {
-      ctx.fillStyle = '#6b7280';
-      ctx.font = 'italic 16px system-ui';
-      ctx.fillText(data.commonName, 200, 90);
-    }
-
-    // Main image frame with modern styling
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(24, 110, 352, 260);
+    // Orange/red accent circle
+    ctx.fillStyle = '#c44332';
+    ctx.beginPath();
+    ctx.arc(70, 62, 20, 0, 2 * Math.PI);
+    ctx.fill();
     
-    // Image border with shadow effect
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(24, 110, 352, 260);
-    
-    // Inner image area
-    ctx.fillStyle = '#f1f5f9';
-    ctx.fillRect(32, 118, 336, 244);
-    
-    // Image placeholder with clean styling
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '14px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText('OBSERVATION IMAGE', 200, 235);
-    ctx.font = '11px system-ui';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText('High-quality field photograph', 200, 250);
-
-    // Information grid layout
-    const cardY = 385;
-    
-    // Location card
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(24, cardY, 168, 95);
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(24, cardY, 168, 95);
-    
-    // Location header
-    ctx.fillStyle = '#059669';
-    ctx.fillRect(24, cardY, 168, 25);
+    // Mushroom icon in circle
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 11px system-ui';
+    ctx.font = '16px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('LOCATION', 108, cardY + 16);
-    
-    // Location details
-    ctx.fillStyle = '#374151';
-    ctx.font = '10px system-ui';
+    ctx.fillText('🍄', 70, 68);
+
+    // Main title text
+    ctx.fillStyle = '#d7ccc8';
+    ctx.font = 'bold 20px serif';
     ctx.textAlign = 'left';
-    let locY = cardY + 35;
-    const location = data.location || 'Unknown';
-    if (location.length > 20) {
-      const words = location.split(' ');
-      const line1 = words.slice(0, Math.ceil(words.length/2)).join(' ');
-      const line2 = words.slice(Math.ceil(words.length/2)).join(' ');
-      ctx.fillText(line1, 28, locY);
-      ctx.fillText(line2, 28, locY + 12);
-      locY += 24;
-    } else {
-      ctx.fillText(location, 28, locY);
-      locY += 12;
-    }
-    
-    if (data.state) {
-      ctx.fillText(`${data.state}, ${data.country || 'Unknown'}`, 28, locY);
-    }
+    ctx.fillText('SPECIES', 110, 55);
+    ctx.fillText('OBSERVATION', 110, 78);
 
-    // Observer card
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(208, cardY, 168, 95);
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(208, cardY, 168, 95);
+    // Main image frame
+    ctx.fillStyle = '#1a0e0a';
+    ctx.fillRect(40, 110, 320, 280);
     
-    // Observer header
-    ctx.fillStyle = '#0ea5e9';
-    ctx.fillRect(208, cardY, 168, 25);
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 11px system-ui';
+    ctx.fillStyle = '#8d6e63';
+    ctx.fillRect(45, 115, 310, 270);
+    
+    ctx.fillStyle = '#efebe9';
+    ctx.fillRect(50, 120, 300, 260);
+    
+    // Image placeholder
+    ctx.fillStyle = '#5d4037';
+    ctx.font = '14px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('OBSERVER', 292, cardY + 16);
+    ctx.fillText('SPECIMEN PHOTOGRAPH', 200, 245);
+    ctx.font = '10px serif';
+    ctx.fillText('Field observation image would appear here', 200, 260);
+
+    // Species name section (like your design)
+    ctx.fillStyle = '#d7ccc8';
+    ctx.fillRect(40, 410, 320, 85);
     
-    // Observer details
-    ctx.fillStyle = '#374151';
-    ctx.font = '10px system-ui';
-    ctx.textAlign = 'left';
-    let obsY = cardY + 35;
-    const observer = data.observer || 'Unknown';
-    ctx.fillText(observer.length > 18 ? observer.substring(0, 18) + '...' : observer, 212, obsY);
-    obsY += 12;
-    ctx.fillText(`Platform: ${data.platform}`, 212, obsY);
-    obsY += 12;
-    if (data.observedOn) {
-      ctx.fillText(`Date: ${data.observedOn}`, 212, obsY);
-    }
+    ctx.strokeStyle = '#1a0e0a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 410, 320, 85);
 
-    // Data source badge
-    ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(24, 495, 352, 20);
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 12px system-ui';
+    // Species name
+    const scientificName = data.scientificName || 'UNKNOWN SPECIES';
+    ctx.fillStyle = '#1a0e0a';
+    ctx.font = 'bold 18px serif';
     ctx.textAlign = 'center';
-    ctx.fillText('VALIDATED BIORECORD', 200, 508);
+    ctx.fillText(scientificName.toUpperCase(), 200, 435);
 
-    // Bottom accent
-    const bottomGradient = ctx.createLinearGradient(0, 568, 400, 592);
-    bottomGradient.addColorStop(0, '#059669');
-    bottomGradient.addColorStop(0.5, '#10b981');
-    bottomGradient.addColorStop(1, '#34d399');
-    ctx.fillStyle = bottomGradient;
-    ctx.fillRect(8, 568, 384, 24);
+    // Observer and location
+    ctx.font = '12px serif';
+    ctx.fillText(data.observer || 'Unknown Observer', 200, 455);
+    ctx.fillText(`${data.state || 'Unknown'}, ${data.country || 'Unknown'}`, 200, 475);
+
+    // Platform ID section (dark like your design)
+    ctx.fillStyle = '#1a0e0a';
+    ctx.fillRect(40, 510, 320, 35);
+    
+    ctx.fillStyle = '#d7ccc8';
+    ctx.font = 'bold 14px serif';
+    ctx.textAlign = 'center';
+    const platformId = data.platform === 'iNaturalist' ? `iNaturalist #${data.observationId || 'Unknown'}` : 
+                      data.platform === 'Mushroom Observer' ? `MO #${data.observationId || 'Unknown'}` :
+                      `${data.platform} #${data.observationId || 'Unknown'}`;
+    ctx.fillText(platformId, 200, 532);
   };
 
   // Card Design 3: Victorian Specimen Card
@@ -846,14 +774,14 @@ function BioRecordImageGenerator() {
 
         {/* Generated Cards Display */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Design 1: Classic Scientific */}
+          {/* Design 1: Vintage Light */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Classic Scientific</h3>
+              <h3 className="font-semibold">Vintage Light</h3>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => downloadCard(0, "Classic Scientific")}
+                onClick={() => downloadCard(0, "Vintage Light")}
               >
                 <Download className="h-3 w-3 mr-1" />
                 Download
@@ -866,14 +794,14 @@ function BioRecordImageGenerator() {
             />
           </div>
 
-          {/* Design 2: Modern Minimal */}
+          {/* Design 2: Vintage Dark */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Modern Minimal</h3>
+              <h3 className="font-semibold">Vintage Dark</h3>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => downloadCard(1, "Modern Minimal")}
+                onClick={() => downloadCard(1, "Vintage Dark")}
               >
                 <Download className="h-3 w-3 mr-1" />
                 Download
@@ -886,14 +814,14 @@ function BioRecordImageGenerator() {
             />
           </div>
 
-          {/* Design 3: Vintage Style */}
+          {/* Design 3: Victorian Specimen */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Vintage Style</h3>
+              <h3 className="font-semibold">Victorian Specimen</h3>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => downloadCard(2, "Vintage Style")}
+                onClick={() => downloadCard(2, "Victorian Specimen")}
               >
                 <Download className="h-3 w-3 mr-1" />
                 Download
