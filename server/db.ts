@@ -3090,7 +3090,7 @@ export class DatabaseStorage implements IStorage {
       // Rate limiting
       await this.rateLimitedDelay();
       
-      const response = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genus)}&rank=genus&is_active=true&order=desc&order_by=observations_count&per_page=1`);
+      const response = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genus)}&rank=genus,subgenus,section&is_active=true&order=desc&order_by=observations_count&per_page=5`);
       
       if (!response.ok) {
         console.error(`iNaturalist API error: ${response.status}`);
@@ -3100,11 +3100,28 @@ export class DatabaseStorage implements IStorage {
       const data = await response.json();
       
       if (data.results && data.results.length > 0) {
-        const taxon = data.results[0];
+        // Prioritize results: genus > subgenus > section, then by observation count
+        const rankPriority = { genus: 3, subgenus: 2, section: 1 };
+        const sortedResults = data.results.sort((a: any, b: any) => {
+          const aPriority = rankPriority[a.rank as keyof typeof rankPriority] || 0;
+          const bPriority = rankPriority[b.rank as keyof typeof rankPriority] || 0;
+          
+          if (aPriority !== bPriority) {
+            return bPriority - aPriority; // Higher priority first
+          }
+          
+          // Same rank priority, sort by observation count
+          return (b.observations_count || 0) - (a.observations_count || 0);
+        });
+        
+        const taxon = sortedResults[0];
         
         // Extract taxonomy from the taxon ancestry
         const taxonomy: any = {
-          genus: taxon.name
+          genus: taxon.name,
+          rank: taxon.rank,
+          subgenus: taxon.rank === 'subgenus' ? taxon.name : null,
+          section: taxon.rank === 'section' ? taxon.name : null
         };
         
         if (taxon.ancestors) {
@@ -3125,11 +3142,21 @@ export class DatabaseStorage implements IStorage {
               case 'family':
                 taxonomy.family = ancestor.name;
                 break;
+              case 'genus':
+                if (taxon.rank !== 'genus') {
+                  taxonomy.genus = ancestor.name; // Use parent genus for subgenus/section
+                }
+                break;
+              case 'subgenus':
+                if (taxon.rank === 'section') {
+                  taxonomy.subgenus = ancestor.name; // Use parent subgenus for section
+                }
+                break;
             }
           });
         }
         
-        // Cache the result
+        // Cache the result with enhanced taxonomic detail
         const cacheData = {
           kingdom: taxonomy.kingdom,
           phylum: taxonomy.phylum,
@@ -3154,10 +3181,11 @@ export class DatabaseStorage implements IStorage {
         // Only return if we have complete taxonomy
         if (taxonomy.kingdom && taxonomy.phylum && taxonomy.class && 
             taxonomy.order && taxonomy.family) {
-          console.log(`✓ Found iNaturalist taxonomy for "${genus}": ${taxonomy.family} family (cached for future use)`);
+          const rankInfo = taxon.rank !== 'genus' ? ` (${taxon.rank} level)` : '';
+          console.log(`✓ Found iNaturalist taxonomy for "${genus}": ${taxonomy.family} family${rankInfo} (cached for future use)`);
           return taxonomy;
         } else {
-          console.log(`⚠ Incomplete taxonomy from iNaturalist for "${genus}"`);
+          console.log(`⚠ Incomplete taxonomy from iNaturalist for "${genus}" at ${taxon.rank} level`);
           return null;
         }
       } else {
