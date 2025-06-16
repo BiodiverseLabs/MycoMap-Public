@@ -1718,10 +1718,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let taxonomyRef = null;
             let source = '';
             
-            // First try local genus lookup
+            // First try local genus lookup - but only if it has complete taxonomy
             if (genusLookup.has(genusCandidate)) {
-              taxonomyRef = genusLookup.get(genusCandidate);
-              source = 'local database';
+              const localMatch = genusLookup.get(genusCandidate);
+              // Verify the local match has complete taxonomy
+              if (localMatch.kingdom && localMatch.phylum && localMatch.class && 
+                  localMatch.order && localMatch.family) {
+                taxonomyRef = localMatch;
+                source = 'local database';
+              } else {
+                console.log(`Local match for "${genusCandidate}" has incomplete taxonomy, trying iNaturalist API...`);
+                taxonomyRef = await lookupGenusFromInat(genusCandidate);
+                if (taxonomyRef) {
+                  source = 'iNaturalist API';
+                  inatLookupCount++;
+                  
+                  // Cache the iNaturalist result for future use
+                  genusLookup.set(genusCandidate, taxonomyRef);
+                }
+              }
             } else {
               // Fallback to iNaturalist API lookup
               console.log(`No local match for "${genusCandidate}", trying iNaturalist API...`);

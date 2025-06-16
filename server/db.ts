@@ -3171,9 +3171,9 @@ export class DatabaseStorage implements IStorage {
       // Rate limiting
       await this.rateLimitedDelay();
       
-      // Try genus first, then subgenus, then section in order of specificity
+      // Try genus first, then subgenus, then section, then family in order of specificity
       let bestMatch = null;
-      const searchRanks = ['genus', 'subgenus', 'section'];
+      const searchRanks = ['genus', 'subgenus', 'section', 'family'];
       
       for (const rank of searchRanks) {
         console.log(`Searching iNaturalist for "${genus}" at ${rank} level...`);
@@ -3283,7 +3283,7 @@ export class DatabaseStorage implements IStorage {
           return null;
         }
       } else {
-        console.log(`⚠ No results from iNaturalist for "${genus}" across genus, subgenus, and section ranks`);
+        console.log(`⚠ No results from iNaturalist for "${genus}" across genus, subgenus, section, and family ranks`);
         // Cache the negative result to avoid future API calls
         try {
           await this.cacheClassificationResult(genus, {
