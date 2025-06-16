@@ -844,6 +844,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Progress tracking for uploads
+  const activeUploads = new Map<number, { progress: number; phase: string; message: string; batchInfo?: any }>();
+  
+  // SSE endpoint for real-time progress updates
+  app.get("/api/upload/progress/:uploadId", (req, res) => {
+    const uploadId = parseInt(req.params.uploadId);
+    
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    // Send initial state
+    const currentProgress = activeUploads.get(uploadId) || { 
+      progress: 0, 
+      phase: 'waiting', 
+      message: 'Waiting to start processing...' 
+    };
+    res.write(`data: ${JSON.stringify(currentProgress)}\n\n`);
+
+    // Set up interval to send progress updates
+    const interval = setInterval(() => {
+      const progress = activeUploads.get(uploadId);
+      if (progress) {
+        res.write(`data: ${JSON.stringify(progress)}\n\n`);
+        
+        // Clean up completed uploads
+        if (progress.progress >= 100 && progress.phase === 'completed') {
+          clearInterval(interval);
+          res.end();
+          setTimeout(() => activeUploads.delete(uploadId), 10000);
+        }
+      }
+    }, 500);
+
+    // Clean up on client disconnect
+    req.on('close', () => {
+      clearInterval(interval);
+    });
+  });
+
   app.post("/api/upload", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -860,11 +904,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'processing'
       });
 
-      // Process Excel file asynchronously
-      processExcelFile(uploadRecord.id, filePath, originalname)
+      // Process Excel file asynchronously with progress tracking
+      processExcelFile(uploadRecord.id, filePath, originalname, activeUploads)
         .catch(error => {
           console.error("Error processing file:", error);
           storage.updateUploadStatus(uploadRecord.id, 'failed', error.message);
+          activeUploads.set(uploadRecord.id, {
+            progress: 0,
+            phase: 'failed',
+            message: `Processing failed: ${error.message}`
+          });
         });
 
       res.json({ 
@@ -938,7 +987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  async function processExcelFile(uploadId: number, filePath: string, originalName: string) {
+  async function processExcelFile(uploadId: number, filePath: string, originalName: string, progressTracker: Map<number, any>) {
     try {
       console.log('=== STARTING EXCEL PROCESSING ===');
       console.log('Upload ID:', uploadId);
@@ -946,23 +995,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Original name:', originalName);
       console.log('File exists:', fs.existsSync(filePath));
       
+      // Initialize progress tracking
+      progressTracker.set(uploadId, {
+        progress: 0,
+        phase: 'initializing',
+        message: 'Starting data processing...'
+      });
+      
       if (!fs.existsSync(filePath)) {
         throw new Error(`File not found at path: ${filePath}`);
       }
       
       // Clear existing data to avoid duplicates
       console.log('Clearing existing data...');
+      progressTracker.set(uploadId, {
+        progress: 5,
+        phase: 'clearing',
+        message: 'Clearing existing data...'
+      });
       await storage.clearAllData();
       console.log('✓ Data cleared');
       
       // Dynamically import XLSX with proper CommonJS handling
       console.log('Importing XLSX library...');
+      progressTracker.set(uploadId, {
+        progress: 10,
+        phase: 'reading',
+        message: 'Loading Excel file...'
+      });
       const XLSX = await import('xlsx');
       const { readFile, utils } = XLSX.default;
       console.log('✓ XLSX library imported');
       
       // Read Excel file with streaming to handle large files
       console.log('Reading Excel file...');
+      progressTracker.set(uploadId, {
+        progress: 15,
+        phase: 'reading',
+        message: 'Parsing Excel data...'
+      });
       const workbook = readFile(filePath, { cellDates: true });
       console.log('✓ Workbook loaded, sheet names:', workbook.SheetNames);
       const sheetName = workbook.SheetNames.find((name: string) => 
@@ -1139,6 +1210,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Processed ${observations.length} valid observations`);
       console.log(`Validation flags: ${nameUpdateCount} name updates, ${classificationUpdateCount} classification updates`);
 
+      // Update progress for data transformation phase
+      progressTracker.set(uploadId, {
+        progress: 20,
+        phase: 'processing',
+        message: `Processing ${observations.length} observations...`
+      });
+
       // Insert observations in batches with enhanced monitoring
       const batchSize = 500; // Reduced batch size for better stability
       let insertedCount = 0;
@@ -1163,6 +1241,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const batchDuration = endTime - startTime;
           const avgTimePerRecord = batchDuration / batch.length;
           const progressPercent = ((insertedCount / observations.length) * 100).toFixed(1);
+          
+          // Update progress tracker with batch completion
+          const insertionProgress = 20 + (insertedCount / observations.length * 50); // 20-70% for insertion
+          progressTracker.set(uploadId, {
+            progress: Math.round(insertionProgress),
+            phase: 'inserting',
+            message: `Inserting batch ${batchNum}/${totalBatches} (${progressPercent}% complete)`,
+            batchInfo: {
+              currentBatch: batchNum,
+              totalBatches: totalBatches,
+              insertedCount: insertedCount,
+              totalRecords: observations.length,
+              avgTimePerRecord: avgTimePerRecord.toFixed(1)
+            }
+          });
           
           console.log(`✓ Batch ${batchNum}/${totalBatches} completed in ${batchDuration}ms (${avgTimePerRecord.toFixed(1)}ms/record)`);
           console.log(`  Total inserted: ${insertedCount}/${observations.length} (${progressPercent}%)`);
