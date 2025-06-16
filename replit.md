@@ -119,8 +119,8 @@ This is a comprehensive taxonomic observation database application focused on ma
 - June 16, 2025: Fixed iNaturalist scientific name validation bug
   - Updated validation queries to prioritize scientific names over common names
   - Fixed issue where "Bitter Bracket" was showing instead of "Amaropostia stiptica"
-  - Scientific name now extracted from taxon data with priority: provisional species name → taxon scientific name → preferred common name → species guess
-  - Validation interface now displays proper taxonomic identifications for accurate cross-platform comparison
+  - Scientific name now extracted from taxon data with priority: provisional species name → taxon scientific name → NULL (no fallbacks to common names)
+  - Validation interface now displays only authentic taxonomic identifications for accurate cross-platform comparison
 
 - June 16, 2025: BioRecord Images trading card generator implemented
   - Created new "BioRecord Images" tab in admin interface

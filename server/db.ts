@@ -1572,12 +1572,8 @@ export class DatabaseStorage implements IStorage {
           i.provisional_species_name,
           CASE 
             WHEN i.taxon IS NOT NULL THEN 
-              COALESCE(
-                (i.taxon::json->>'name'),
-                (i.taxon::json->>'preferred_common_name'),
-                i.species_guess
-              )
-            ELSE i.species_guess
+              (i.taxon::json->>'name')
+            ELSE NULL
           END
         ) as "inatScientificName",
         CASE 
@@ -2779,12 +2775,8 @@ export class DatabaseStorage implements IStorage {
           i.provisional_species_name,
           CASE 
             WHEN i.taxon IS NOT NULL THEN 
-              COALESCE(
-                (i.taxon::json->>'name'),
-                (i.taxon::json->>'preferred_common_name'),
-                i.species_guess
-              )
-            ELSE i.species_guess
+              (i.taxon::json->>'name')
+            ELSE NULL
           END
         ) as "inatScientificName",
         CASE 
