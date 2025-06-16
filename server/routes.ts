@@ -1092,7 +1092,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
       
-      // Initialize progress tracking
+      // Initialize progress tracking and reset API call statistics for this upload
+      storage.resetUploadApiCallStats();
       progressTracker.set(uploadId, {
         progress: 0,
         phase: 'initializing',
@@ -1534,12 +1535,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
         completedPhases++;
 
+        // Get API call statistics for this upload
+        const apiStats = storage.getUploadApiCallStats();
+        
         // Update upload status
         console.log(`[${new Date().toISOString()}] Upload processing completed successfully`);
+        console.log(`API Call Statistics: ${apiStats.totalCalls} total calls (${apiStats.cacheHits} cache hits, ${apiStats.cacheMisses} API calls, ${apiStats.newCacheEntries} new entries cached)`);
+        
+        const completionMessage = apiStats.totalCalls > 0 
+          ? `Successfully processed ${insertedCount.toLocaleString()} observations! iNaturalist API: ${apiStats.totalCalls} lookups (${apiStats.cacheHits} cached, ${apiStats.cacheMisses} new)`
+          : `Successfully processed ${insertedCount.toLocaleString()} observations!`;
+        
         progressTracker.set(uploadId, {
           progress: 100,
           phase: 'completed',
-          message: `Successfully processed ${insertedCount.toLocaleString()} observations!`
+          message: completionMessage
         });
         await storage.updateUploadStatus(uploadId, 'completed');
         
@@ -1600,71 +1610,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // iNaturalist API genus lookup function
+  // Use the cached iNaturalist API genus lookup function from storage
   async function lookupGenusFromInat(genusName: string) {
-    try {
-      console.log(`Looking up genus "${genusName}" from iNaturalist API...`);
-      
-      // Rate limiting
-      await rateLimitedDelay();
-      lastRequestTime = Date.now();
-      
-      const response = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genusName)}&rank=genus&is_active=true&order=desc&order_by=observations_count&per_page=1`);
-      
-      if (!response.ok) {
-        console.error(`iNaturalist API error: ${response.status}`);
-        return null;
-      }
-      
-      const data = await response.json();
-      
-      if (data.results && data.results.length > 0) {
-        const taxon = data.results[0];
-        
-        // Extract taxonomy from the taxon ancestry
-        const taxonomy: any = {
-          genus: taxon.name
-        };
-        
-        if (taxon.ancestors) {
-          taxon.ancestors.forEach((ancestor: any) => {
-            switch (ancestor.rank) {
-              case 'kingdom':
-                taxonomy.kingdom = ancestor.name;
-                break;
-              case 'phylum':
-                taxonomy.phylum = ancestor.name;
-                break;
-              case 'class':
-                taxonomy.class = ancestor.name;
-                break;
-              case 'order':
-                taxonomy.order = ancestor.name;
-                break;
-              case 'family':
-                taxonomy.family = ancestor.name;
-                break;
-            }
-          });
-        }
-        
-        // Only return if we have at least kingdom, phylum, class, order, family
-        if (taxonomy.kingdom && taxonomy.phylum && taxonomy.class && 
-            taxonomy.order && taxonomy.family) {
-          console.log(`✓ Found iNaturalist taxonomy for "${genusName}": ${taxonomy.family} family`);
-          return taxonomy;
-        } else {
-          console.log(`⚠ Incomplete taxonomy from iNaturalist for "${genusName}"`);
-          return null;
-        }
-      } else {
-        console.log(`⚠ No results from iNaturalist for genus "${genusName}"`);
-        return null;
-      }
-    } catch (error) {
-      console.error(`Error looking up genus "${genusName}" from iNaturalist:`, error);
-      return null;
-    }
+    return await storage.lookupGenusClassificationWithCache(genusName);
   }
 
   async function autoPopulateClassificationUpdates() {

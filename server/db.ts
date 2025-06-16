@@ -2970,4 +2970,235 @@ export class DatabaseStorage implements IStorage {
       .where(eq(biorecords.nftMinted, false))
       .orderBy(desc(biorecords.validatedAt));
   }
+
+  // iNaturalist Classification Cache Methods
+  
+  // Per-upload API call tracking (resets for each upload)
+  private uploadApiCallStats = {
+    totalCalls: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    newCacheEntries: 0
+  };
+
+  resetUploadApiCallStats(): void {
+    this.uploadApiCallStats = {
+      totalCalls: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+      newCacheEntries: 0
+    };
+  }
+
+  getUploadApiCallStats() {
+    return { ...this.uploadApiCallStats };
+  }
+
+  async getCachedClassification(genus: string): Promise<InaturalistClassificationCache | null> {
+    const [cached] = await db
+      .select()
+      .from(inaturalistClassificationCache)
+      .where(eq(inaturalistClassificationCache.genus, genus));
+
+    if (cached) {
+      // Update usage stats
+      await db
+        .update(inaturalistClassificationCache)
+        .set({
+          lookupCount: cached.lookupCount + 1,
+          lastUsedAt: new Date()
+        })
+        .where(eq(inaturalistClassificationCache.genus, genus));
+
+      this.uploadApiCallStats.totalCalls++;
+      this.uploadApiCallStats.cacheHits++;
+      
+      return cached;
+    }
+
+    return null;
+  }
+
+  async cacheClassificationResult(
+    genus: string,
+    taxonomyData: {
+      kingdom?: string;
+      phylum?: string;
+      class?: string;
+      order?: string;
+      family?: string;
+      inatTaxonId?: number;
+      observationCount?: number;
+      isActive?: boolean;
+      apiResponse?: string;
+    }
+  ): Promise<InaturalistClassificationCache> {
+    const cacheData: InsertInaturalistClassificationCache = {
+      genus,
+      kingdom: taxonomyData.kingdom || null,
+      phylum: taxonomyData.phylum || null,
+      class: taxonomyData.class || null,
+      order: taxonomyData.order || null,
+      family: taxonomyData.family || null,
+      inatTaxonId: taxonomyData.inatTaxonId || null,
+      observationCount: taxonomyData.observationCount || null,
+      isActive: taxonomyData.isActive ?? true,
+      apiResponse: taxonomyData.apiResponse || null,
+      lookupCount: 1,
+      lastUsedAt: new Date()
+    };
+
+    const [cached] = await db
+      .insert(inaturalistClassificationCache)
+      .values(cacheData)
+      .returning();
+
+    this.uploadApiCallStats.totalCalls++;
+    this.uploadApiCallStats.cacheMisses++;
+    this.uploadApiCallStats.newCacheEntries++;
+
+    return cached;
+  }
+
+  async lookupGenusClassificationWithCache(genus: string): Promise<any> {
+    // First check cache
+    const cached = await this.getCachedClassification(genus);
+    if (cached && cached.kingdom && cached.phylum && cached.class && cached.order && cached.family) {
+      console.log(`✓ Cache hit for genus "${genus}" - ${cached.family} family (used ${cached.lookupCount} times)`);
+      return {
+        kingdom: cached.kingdom,
+        phylum: cached.phylum,
+        class: cached.class,
+        order: cached.order,
+        family: cached.family,
+        genus: cached.genus
+      };
+    }
+
+    // Cache miss - call iNaturalist API
+    console.log(`Looking up genus "${genus}" from iNaturalist API...`);
+    
+    try {
+      // Rate limiting
+      await this.rateLimitedDelay();
+      
+      const response = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genus)}&rank=genus&is_active=true&order=desc&order_by=observations_count&per_page=1`);
+      
+      if (!response.ok) {
+        console.error(`iNaturalist API error: ${response.status}`);
+        return null;
+      }
+      
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const taxon = data.results[0];
+        
+        // Extract taxonomy from the taxon ancestry
+        const taxonomy: any = {
+          genus: taxon.name
+        };
+        
+        if (taxon.ancestors) {
+          taxon.ancestors.forEach((ancestor: any) => {
+            switch (ancestor.rank) {
+              case 'kingdom':
+                taxonomy.kingdom = ancestor.name;
+                break;
+              case 'phylum':
+                taxonomy.phylum = ancestor.name;
+                break;
+              case 'class':
+                taxonomy.class = ancestor.name;
+                break;
+              case 'order':
+                taxonomy.order = ancestor.name;
+                break;
+              case 'family':
+                taxonomy.family = ancestor.name;
+                break;
+            }
+          });
+        }
+        
+        // Cache the result
+        const cacheData = {
+          kingdom: taxonomy.kingdom,
+          phylum: taxonomy.phylum,
+          class: taxonomy.class,
+          order: taxonomy.order,
+          family: taxonomy.family,
+          inatTaxonId: taxon.id,
+          observationCount: taxon.observations_count,
+          isActive: taxon.is_active,
+          apiResponse: JSON.stringify(data)
+        };
+
+        await this.cacheClassificationResult(genus, cacheData);
+        
+        // Only return if we have complete taxonomy
+        if (taxonomy.kingdom && taxonomy.phylum && taxonomy.class && 
+            taxonomy.order && taxonomy.family) {
+          console.log(`✓ Found iNaturalist taxonomy for "${genus}": ${taxonomy.family} family (cached for future use)`);
+          return taxonomy;
+        } else {
+          console.log(`⚠ Incomplete taxonomy from iNaturalist for "${genus}"`);
+          return null;
+        }
+      } else {
+        console.log(`⚠ No results from iNaturalist for "${genus}"`);
+        // Cache the negative result to avoid future API calls
+        await this.cacheClassificationResult(genus, {});
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error looking up genus "${genus}":`, error);
+      return null;
+    }
+  }
+
+  private lastRequestTime = 0;
+  private readonly RATE_LIMIT_DELAY = 1100; // 1.1 seconds between requests
+
+  private async rateLimitedDelay() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.RATE_LIMIT_DELAY) {
+      const delayNeeded = this.RATE_LIMIT_DELAY - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, delayNeeded));
+    }
+    this.lastRequestTime = Date.now();
+  }
+
+  async getClassificationCacheStats(): Promise<{
+    totalEntries: number;
+    totalLookups: number;
+    mostUsedGenera: Array<{ genus: string; lookupCount: number; family: string | null }>;
+  }> {
+    const [totalEntries] = await db
+      .select({ count: count() })
+      .from(inaturalistClassificationCache);
+
+    const [totalLookups] = await db
+      .select({ 
+        total: sql<number>`SUM(${inaturalistClassificationCache.lookupCount})` 
+      })
+      .from(inaturalistClassificationCache);
+
+    const mostUsed = await db
+      .select({
+        genus: inaturalistClassificationCache.genus,
+        lookupCount: inaturalistClassificationCache.lookupCount,
+        family: inaturalistClassificationCache.family
+      })
+      .from(inaturalistClassificationCache)
+      .orderBy(desc(inaturalistClassificationCache.lookupCount))
+      .limit(10);
+
+    return {
+      totalEntries: totalEntries.count,
+      totalLookups: totalLookups.total || 0,
+      mostUsedGenera: mostUsed
+    };
+  }
 }
