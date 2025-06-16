@@ -7,6 +7,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
+interface UploadState {
+  uploadProgress: number;
+  uploadPhase: 'idle' | 'uploading' | 'processing';
+  processingProgress: number;
+  processingPhase: string;
+  processingMessage: string;
+  batchInfo: any;
+  uploadId: number | null;
+}
+
+const UPLOAD_STATE_KEY = 'mycomap_upload_state';
+
 export function FileUpload() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -16,9 +28,60 @@ export function FileUpload() {
   const [processingMessage, setProcessingMessage] = useState('');
   const [batchInfo, setBatchInfo] = useState<any>(null);
   const [uploadId, setUploadId] = useState<number | null>(null);
+  const [restoredFromCache, setRestoredFromCache] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Load upload state from localStorage on component mount
+  useEffect(() => {
+    const savedState = localStorage.getItem(UPLOAD_STATE_KEY);
+    if (savedState) {
+      try {
+        const state: UploadState = JSON.parse(savedState);
+        setUploadProgress(state.uploadProgress);
+        setUploadPhase(state.uploadPhase);
+        setProcessingProgress(state.processingProgress);
+        setProcessingPhase(state.processingPhase);
+        setProcessingMessage(state.processingMessage);
+        setBatchInfo(state.batchInfo);
+        setUploadId(state.uploadId);
+        setRestoredFromCache(true);
+        
+        // Show notification about restored progress
+        if (state.uploadPhase !== 'idle') {
+          toast({
+            title: "Upload Progress Restored",
+            description: "Continuing from where you left off",
+            duration: 3000,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading upload state:', error);
+        localStorage.removeItem(UPLOAD_STATE_KEY);
+      }
+    }
+  }, []);
+
+  // Save upload state to localStorage whenever it changes
+  const saveUploadState = (state: Partial<UploadState>) => {
+    const currentState: UploadState = {
+      uploadProgress,
+      uploadPhase,
+      processingProgress,
+      processingPhase,
+      processingMessage,
+      batchInfo,
+      uploadId,
+      ...state
+    };
+    
+    if (currentState.uploadPhase === 'idle') {
+      localStorage.removeItem(UPLOAD_STATE_KEY);
+    } else {
+      localStorage.setItem(UPLOAD_STATE_KEY, JSON.stringify(currentState));
+    }
+  };
 
   // Stop processing mutation
   const stopProcessingMutation = useMutation({
@@ -34,6 +97,15 @@ export function FileUpload() {
       setProcessingMessage('');
       setBatchInfo(null);
       setUploadId(null);
+      saveUploadState({ 
+        uploadPhase: 'idle', 
+        uploadProgress: 0, 
+        processingProgress: 0, 
+        processingPhase: '', 
+        processingMessage: '', 
+        batchInfo: null, 
+        uploadId: null 
+      });
       toast({
         title: "Processing Stopped",
         description: "Data processing has been cancelled",
@@ -68,6 +140,14 @@ export function FileUpload() {
           setProcessingMessage(data.message);
           setBatchInfo(data.batchInfo);
           
+          // Save progress to localStorage
+          saveUploadState({
+            processingProgress: data.progress,
+            processingPhase: data.phase,
+            processingMessage: data.message,
+            batchInfo: data.batchInfo
+          });
+          
           if (data.phase === 'completed' && data.progress >= 100) {
             eventSource.close();
             setTimeout(() => {
@@ -78,6 +158,15 @@ export function FileUpload() {
               setProcessingMessage('');
               setBatchInfo(null);
               setUploadId(null);
+              saveUploadState({ 
+                uploadPhase: 'idle', 
+                uploadProgress: 0, 
+                processingProgress: 0, 
+                processingPhase: '', 
+                processingMessage: '', 
+                batchInfo: null, 
+                uploadId: null 
+              });
             }, 3000);
           }
         } catch (error) {
@@ -105,6 +194,16 @@ export function FileUpload() {
       setProcessingMessage('');
       setBatchInfo(null);
       
+      // Save initial upload state
+      saveUploadState({
+        uploadPhase: 'uploading',
+        uploadProgress: 0,
+        processingProgress: 0,
+        processingPhase: '',
+        processingMessage: '',
+        batchInfo: null
+      });
+      
       const formData = new FormData();
       formData.append('file', file);
       
@@ -112,7 +211,9 @@ export function FileUpload() {
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) return prev;
-          return prev + Math.random() * 10;
+          const newProgress = prev + Math.random() * 10;
+          saveUploadState({ uploadProgress: newProgress });
+          return newProgress;
         });
       }, 100);
       
@@ -125,11 +226,20 @@ export function FileUpload() {
         setUploadId(result.uploadId);
         setUploadPhase('processing');
         
+        // Save processing state
+        saveUploadState({
+          uploadProgress: 100,
+          uploadId: result.uploadId,
+          uploadPhase: 'processing'
+        });
+        
         return result;
       } catch (error) {
         clearInterval(progressInterval);
         setUploadPhase('idle');
         setUploadProgress(0);
+        // Clear localStorage on error
+        localStorage.removeItem(UPLOAD_STATE_KEY);
         throw error;
       }
     },
@@ -148,6 +258,8 @@ export function FileUpload() {
       setProcessingMessage('');
       setBatchInfo(null);
       setUploadId(null);
+      // Clear localStorage on error
+      localStorage.removeItem(UPLOAD_STATE_KEY);
       toast({
         title: "Upload Failed",
         description: error.message,
@@ -263,6 +375,11 @@ export function FileUpload() {
                           <Database className="w-4 h-4 text-orange-500" />
                         )}
                         {processingPhase === 'completed' ? 'Processing Complete!' : 'Processing data...'}
+                        {restoredFromCache && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                            Restored
+                          </span>
+                        )}
                       </span>
                       <span className="text-sm text-slate-500">
                         {Math.round(processingProgress)}%
