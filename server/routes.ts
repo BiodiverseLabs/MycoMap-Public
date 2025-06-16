@@ -2424,5 +2424,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  // Biorecords Management API endpoints
+  app.get("/api/biorecords", async (req, res) => {
+    try {
+      const { limit = '50', offset = '0' } = req.query;
+      const biorecords = await storage.getBiorecords(
+        parseInt(limit as string), 
+        parseInt(offset as string)
+      );
+      res.json(biorecords);
+    } catch (error) {
+      console.error("Error fetching biorecords:", error);
+      res.status(500).json({ error: "Failed to fetch biorecords" });
+    }
+  });
+
+  app.get("/api/biorecords/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      const biorecord = await storage.getBiorecordByObservationId(observationId);
+      if (!biorecord) {
+        return res.status(404).json({ error: "Biorecord not found" });
+      }
+      res.json(biorecord);
+    } catch (error) {
+      console.error("Error fetching biorecord:", error);
+      res.status(500).json({ error: "Failed to fetch biorecord" });
+    }
+  });
+
+  app.get("/api/biorecords/:observationId/history", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      const history = await storage.getBiorecordHistory(observationId);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching biorecord history:", error);
+      res.status(500).json({ error: "Failed to fetch biorecord history" });
+    }
+  });
+
+  app.post("/api/biorecords/create/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      const biorecord = await storage.createBiorecordFromValidatedObservation(observationId);
+      
+      if (!biorecord) {
+        return res.status(400).json({ 
+          error: "Observation is not fully validated or does not meet validation criteria" 
+        });
+      }
+
+      res.json({
+        message: "Biorecord created successfully",
+        biorecord: biorecord
+      });
+    } catch (error) {
+      console.error("Error creating biorecord:", error);
+      res.status(500).json({ error: "Failed to create biorecord" });
+    }
+  });
+
+  app.post("/api/biorecords/batch-create", async (req, res) => {
+    try {
+      const { observationIds } = req.body;
+      
+      if (!Array.isArray(observationIds)) {
+        return res.status(400).json({ error: "observationIds must be an array" });
+      }
+
+      const results = [];
+      for (const observationId of observationIds) {
+        try {
+          const biorecord = await storage.createBiorecordFromValidatedObservation(observationId);
+          results.push({
+            observationId,
+            success: !!biorecord,
+            biorecord: biorecord
+          });
+        } catch (error) {
+          results.push({
+            observationId,
+            success: false,
+            error: (error as Error).message
+          });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      res.json({
+        message: `Created ${successCount} biorecords from ${observationIds.length} observations`,
+        results: results
+      });
+    } catch (error) {
+      console.error("Error creating batch biorecords:", error);
+      res.status(500).json({ error: "Failed to create batch biorecords" });
+    }
+  });
+
   return httpServer;
 }

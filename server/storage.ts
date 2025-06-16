@@ -2,7 +2,7 @@ import {
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type InaturalistData, type InsertInaturalistData,
-  type MushroomObserverData, type InsertMushroomObserverData
+  type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord
 } from "@shared/schema";
 
 export interface IStorage {
@@ -182,6 +182,13 @@ export interface IStorage {
   createMushroomObserverData(data: InsertMushroomObserverData): Promise<MushroomObserverData>;
   updateMushroomObserverData(observationId: string, data: Partial<InsertMushroomObserverData>): Promise<void>;
   syncObservationWithMushroomObserver(observationId: string): Promise<MushroomObserverData | null>;
+  
+  // Biorecords management - Historical snapshots of fully validated observations
+  getBiorecords(limit?: number, offset?: number): Promise<Biorecord[]>;
+  getBiorecordByObservationId(observationId: string): Promise<Biorecord | null>;
+  getBiorecordHistory(observationId: string): Promise<Biorecord[]>;
+  createBiorecord(observationData: any): Promise<Biorecord>;
+  createBiorecordFromValidatedObservation(observationId: string): Promise<Biorecord | null>;
 }
 
 export class MemoryStorage implements IStorage {
