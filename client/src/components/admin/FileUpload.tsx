@@ -226,32 +226,34 @@ export function FileUpload() {
             if (data.message.includes("✓") || data.message.includes("completed") || data.message.includes("successfully")) {
               const completedPhase = phaseNames[currentPhase - 1];
               
-              // Create corrected metrics that show the actual phase numbers
-              const correctedMetrics = {
-                ...data.batchInfo,
-                currentPhase: currentPhase,
-                totalPhases: 5,
-                phaseProgress: 100  // Phase is completed
-              };
-              
-              const phaseResult: PhaseResult = {
-                phase: completedPhase,
-                message: data.message,
-                progress: data.progress, // Use the actual progress from server
-                timestamp: new Date().toISOString(),
-                metrics: correctedMetrics
-              };
-              
-              setPhaseHistory(prev => {
-                const existingIndex = prev.findIndex(p => p.phase === completedPhase);
-                if (existingIndex >= 0) {
-                  const updated = [...prev];
-                  updated[existingIndex] = phaseResult;
-                  return updated;
-                } else {
-                  return [...prev, phaseResult];
-                }
-              });
+              if (completedPhase) {
+                // Create comprehensive metrics that include actual data from the phase
+                const phaseMetrics = {
+                  currentPhase: currentPhase,
+                  totalPhases: 5,
+                  phaseProgress: 100,
+                  ...data.batchInfo
+                };
+                
+                const phaseResult: PhaseResult = {
+                  phase: completedPhase,
+                  message: data.message,
+                  progress: data.progress,
+                  timestamp: new Date().toISOString(),
+                  metrics: phaseMetrics
+                };
+                
+                setPhaseHistory(prev => {
+                  const existingIndex = prev.findIndex(p => p.phase === completedPhase);
+                  if (existingIndex >= 0) {
+                    const updated = [...prev];
+                    updated[existingIndex] = phaseResult;
+                    return updated;
+                  } else {
+                    return [...prev, phaseResult];
+                  }
+                });
+              }
             }
           }
           
@@ -264,6 +266,21 @@ export function FileUpload() {
           });
           
           if (data.phase === 'completed' && data.progress >= 100) {
+            // Add final completion result to phase history
+            const finalResult: PhaseResult = {
+              phase: 'Upload Complete',
+              message: data.message,
+              progress: 100,
+              timestamp: new Date().toISOString(),
+              metrics: {
+                ...data.batchInfo,
+                totalPhases: 5,
+                phaseProgress: 100
+              }
+            };
+            
+            setPhaseHistory(prev => [...prev, finalResult]);
+            
             eventSource.close();
             setTimeout(() => {
               setUploadPhase('idle');

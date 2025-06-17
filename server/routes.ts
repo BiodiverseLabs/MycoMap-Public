@@ -1810,6 +1810,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               ...progressData,
               progress: completedProgress,
               message: `✓ Phase ${completedPhases + 1}/5 completed`,
+              batchInfo: {
+                ...progressData.batchInfo,
+                currentPhase: completedPhases + 1,
+                totalPhases: 5,
+                phaseProgress: 100
+              }
             });
           }, 100);
         }
@@ -1903,13 +1909,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         console.log(`API Call Statistics: ${apiStats.totalCalls} total calls (${apiStats.cacheHits} cache hits, ${apiStats.cacheMisses} API calls, ${apiStats.newCacheEntries} new entries cached)`);
         
         const completionMessage = apiStats.totalCalls > 0 
-          ? `Successfully processed ${insertedCount.toLocaleString()} observations! iNaturalist API: ${apiStats.totalCalls} lookups (${apiStats.cacheHits} cached, ${apiStats.cacheMisses} new)`
-          : `Successfully processed ${insertedCount.toLocaleString()} observations!`;
+          ? `✓ Successfully processed ${insertedCount.toLocaleString()} observations! iNaturalist API: ${apiStats.totalCalls} lookups (${apiStats.cacheHits} cached, ${apiStats.cacheMisses} new)`
+          : `✓ Successfully processed ${insertedCount.toLocaleString()} observations!`;
         
         progressTracker.set(uploadId, {
           progress: 100,
           phase: 'completed',
-          message: completionMessage
+          message: completionMessage,
+          batchInfo: {
+            totalRecords: insertedCount,
+            processedRecords: insertedCount,
+            apiCalls: apiStats.totalCalls,
+            cacheHits: apiStats.cacheHits,
+            newApiCalls: apiStats.cacheMisses,
+            completedPhases: 5,
+            totalPhases: 5
+          }
         });
         await storage.updateUploadStatus(uploadId, 'completed');
         
