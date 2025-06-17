@@ -1194,42 +1194,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allContributors = await storage.getAllContributors();
       const contributorLookup = new Map(allContributors.map(c => [c.name, c]));
       
-      // Process each affected contributor
-      for (const contributorName of contributorsToUpdate) {
-        // Count observations for this contributor efficiently
-        const currentTotalCount = await storage.getContributorObservationCount(contributorName);
+      // Process contributors in smaller batches with connection recovery
+      const batchSize = 25; // Reduced batch size for better stability
+      
+      for (let i = 0; i < contributorsToUpdate.length; i += batchSize) {
+        // Check for cancellation
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled during contributor statistics`);
+          return;
+        }
+
+        const batch = contributorsToUpdate.slice(i, i + batchSize);
+        console.log(`Processing contributor batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(contributorsToUpdate.length / batchSize)} (${batch.length} contributors)`);
         
-        // Check existing contributor record
-        const existingContributor = contributorLookup.get(contributorName);
-        
-        const isNew = !existingContributor;
-        const storedCount = isNew ? 0 : (existingContributor.observationCount || 0);
-        const needsUpdate = isNew || storedCount !== currentTotalCount;
-        
-        if (needsUpdate) {
-          await storage.upsertContributor({
-            name: contributorName,
-            affiliation: null,
-            observationCount: currentTotalCount
-          });
-          
-          if (isNew) {
-            newContributors++;
-          } else {
-            updatedContributors++;
+        // Process each contributor in the batch
+        for (const contributorName of batch) {
+          try {
+            // Get observation count with retry logic and timeout
+            let currentTotalCount;
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+              try {
+                // Add timeout to prevent hanging
+                const countPromise = storage.getContributorObservationCount(contributorName);
+                const timeoutPromise = new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Database query timeout')), 30000)
+                );
+                
+                currentTotalCount = await Promise.race([countPromise, timeoutPromise]);
+                break;
+              } catch (error) {
+                retryCount++;
+                console.log(`Retry ${retryCount}/${maxRetries} for contributor ${contributorName}: ${error.message}`);
+                
+                if (retryCount >= maxRetries) {
+                  console.error(`Failed to get count for contributor ${contributorName} after ${maxRetries} retries`);
+                  // Skip this contributor instead of failing entire upload
+                  unchangedContributors++;
+                  currentTotalCount = null;
+                  break;
+                }
+                
+                // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
+              }
+            }
+
+            // Skip if we couldn't get the count
+            if (currentTotalCount === null) continue;
+            
+            // Check existing contributor record
+            const existingContributor = contributorLookup.get(contributorName);
+            
+            const isNew = !existingContributor;
+            const storedCount = isNew ? 0 : (existingContributor.observationCount || 0);
+            const needsUpdate = isNew || storedCount !== currentTotalCount;
+            
+            if (needsUpdate) {
+              // Upsert with retry logic
+              let upsertRetries = 0;
+              const maxUpsertRetries = 2;
+              
+              while (upsertRetries < maxUpsertRetries) {
+                try {
+                  await storage.upsertContributor({
+                    name: contributorName,
+                    affiliation: null,
+                    observationCount: currentTotalCount
+                  });
+                  
+                  if (isNew) {
+                    newContributors++;
+                  } else {
+                    updatedContributors++;
+                  }
+                  processed++;
+                  break;
+                } catch (upsertError) {
+                  upsertRetries++;
+                  if (upsertRetries >= maxUpsertRetries) {
+                    console.error(`Failed to upsert contributor ${contributorName}:`, upsertError);
+                    unchangedContributors++;
+                  } else {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                  }
+                }
+              }
+            } else {
+              unchangedContributors++;
+            }
+          } catch (error) {
+            console.error(`Error processing contributor ${contributorName}:`, error);
+            unchangedContributors++;
           }
-          processed++;
-        } else {
-          unchangedContributors++;
         }
         
-        // Send progress update to frontend
+        // Send progress update after each batch
         const totalContributors = contributorsToUpdate.length;
         const progressIndex = newContributors + updatedContributors + unchangedContributors;
         
-        if (progressTracker && progressTracker.has(uploadId) && progressIndex % 25 === 0) {
-          const progress = Math.round((progressIndex / totalContributors) * 100);
-          const phaseProgress = 50 + (progress * 0.1); // Phase 1: 50-60%
+        if (progressTracker && progressTracker.has(uploadId)) {
+          const progress = Math.min(100, Math.round((progressIndex / totalContributors) * 100));
+          const phaseProgress = Math.min(60, 50 + (progress * 0.1)); // Phase 1: 50-60%
+          
           progressTracker.set(uploadId, {
             progress: Math.round(phaseProgress),
             phase: 'post-processing',
@@ -1241,6 +1310,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               totalPhases: 5
             }
           });
+        }
+        
+        // Brief pause between batches to prevent overwhelming the database
+        if (i + batchSize < contributorsToUpdate.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
       
