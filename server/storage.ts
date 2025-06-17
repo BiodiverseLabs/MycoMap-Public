@@ -784,6 +784,50 @@ export class MemoryStorage implements IStorage {
     });
   }
 
+  async getSpeciesFromUpload(uploadId: number): Promise<string[]> {
+    const uploadObservations = await this.getObservationsFromUpload(uploadId);
+    const uniqueSpecies = new Set<string>();
+    
+    uploadObservations.forEach(obs => {
+      if (obs.scientificName) {
+        uniqueSpecies.add(obs.scientificName);
+      }
+    });
+    
+    return Array.from(uniqueSpecies);
+  }
+
+  async getSpeciesStatistics(scientificName: string): Promise<{
+    scientificName: string;
+    commonName: string | null;
+    phylum: string | null;
+    class: string | null;
+    order: string | null;
+    family: string | null;
+    observationCount: number;
+  } | null> {
+    const matchingObservations = this.observations.filter(obs => 
+      obs.scientificName === scientificName
+    );
+    
+    if (matchingObservations.length === 0) {
+      return null;
+    }
+    
+    // Get taxonomic data from the first matching observation
+    const firstObs = matchingObservations[0];
+    
+    return {
+      scientificName,
+      commonName: firstObs.commonName,
+      phylum: firstObs.phylum,
+      class: firstObs.class,
+      order: firstObs.order,
+      family: firstObs.family,
+      observationCount: matchingObservations.length
+    };
+  }
+
   async getObservationSources(dateRange?: string): Promise<Array<{
     source: string;
     count: number;

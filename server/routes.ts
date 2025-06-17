@@ -1266,7 +1266,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Contributor statistics updated: ${processed} contributors processed`);
   }
 
-  async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<number, any>) {
+  // Upload-scoped species statistics - only processes species from current upload
+async function updateSpeciesStatisticsScoped(uploadId: number, progressTracker?: Map<number, any>) {
+    console.log(`Updating species statistics for upload ${uploadId}...`);
+    
+    try {
+      const startTime = Date.now();
+      
+      // Get only the species from the current upload
+      const uploadSpecies = await storage.getSpeciesFromUpload(uploadId);
+      console.log(`Found ${uploadSpecies.length} unique species from upload ${uploadId} to update`);
+      
+      if (uploadSpecies.length === 0) {
+        console.log('No species from upload need statistics updates');
+        return;
+      }
+      
+      // Process each species from the upload
+      for (let i = 0; i < uploadSpecies.length; i++) {
+        const speciesName = uploadSpecies[i];
+        
+        // Get updated count for this species across all observations
+        const speciesData = await storage.getSpeciesStatistics(speciesName);
+        
+        if (speciesData) {
+          await storage.upsertSpecies({
+            scientificName: speciesData.scientificName,
+            commonName: speciesData.commonName,
+            phylum: speciesData.phylum,
+            class: speciesData.class,
+            order: speciesData.order,
+            family: speciesData.family,
+            observationCount: speciesData.observationCount
+          });
+        }
+        
+        // Send progress update to frontend
+        if (uploadId && progressTracker && progressTracker.has(uploadId)) {
+          const progress = Math.round(((i + 1) / uploadSpecies.length) * 100);
+          const phaseProgress = 60 + (progress * 0.1); // Phase 2: 60-70%
+          progressTracker.set(uploadId, {
+            progress: Math.round(phaseProgress),
+            phase: 'post-processing',
+            message: `Updating species statistics: ${i + 1}/${uploadSpecies.length} species from upload processed`,
+            batchInfo: {
+              recordsProcessed: i + 1,
+              totalRecords: uploadSpecies.length,
+              currentPhase: 2,
+              totalPhases: 5
+            }
+          });
+        }
+      }
+      
+      const duration = Date.now() - startTime;
+      console.log(`✓ Species statistics completed in ${duration}ms - ${uploadSpecies.length} species from upload ${uploadId} processed`);
+    } catch (error) {
+      console.error('Error in upload-scoped species statistics update:', error);
+      throw error;
+    }
+  }
+
+// Legacy function - processes all species in database
+async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<number, any>) {
     console.log('Rebuilding species statistics...');
     
     // Use optimized approach: get aggregated data and bulk upsert
@@ -1779,7 +1841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         updatePostProcessingProgress('Updating species statistics', 0);
         const speciesStart = Date.now();
-        await updateSpeciesStatistics(uploadId, progressTracker);
+        await updateSpeciesStatisticsScoped(uploadId, progressTracker);
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
         updatePostProcessingProgress('Species statistics', 100, true);
         completedPhases++;
