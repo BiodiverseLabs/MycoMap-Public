@@ -767,7 +767,21 @@ export class MemoryStorage implements IStorage {
   }
 
   async getObservationsFromUpload(uploadId: number): Promise<Observation[]> {
-    return this.observations.filter(obs => obs.uploadId === uploadId);
+    // Get the upload to find its timestamp
+    const upload = this.uploads.find(u => u.id === uploadId);
+    if (!upload || !upload.uploadedAt) {
+      return [];
+    }
+    
+    // Get observations created within 1 hour of the upload time
+    const oneHourBefore = new Date(upload.uploadedAt.getTime() - 60 * 60 * 1000);
+    const oneHourAfter = new Date(upload.uploadedAt.getTime() + 60 * 60 * 1000);
+    
+    return this.observations.filter(obs => {
+      if (!obs.createdAt) return false;
+      const createdTime = new Date(obs.createdAt);
+      return createdTime >= oneHourBefore && createdTime <= oneHourAfter;
+    });
   }
 
   async getObservationSources(dateRange?: string): Promise<Array<{

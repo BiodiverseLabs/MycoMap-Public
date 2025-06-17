@@ -11,7 +11,7 @@ import {
   type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
   type InaturalistClassificationCache, type InsertInaturalistClassificationCache
 } from "@shared/schema";
-import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray } from 'drizzle-orm';
+import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray, gte, lte } from 'drizzle-orm';
 import type { IStorage } from "./storage";
 import { blastDownloader } from "./blastDownloader";
 
@@ -1605,10 +1605,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getObservationsFromUpload(uploadId: number): Promise<Observation[]> {
-    const { observations } = schema;
+    const { observations, uploads } = schema;
+    
+    // Get the upload timestamp to filter observations created during this upload
+    const upload = await db.select()
+      .from(uploads)
+      .where(eq(uploads.id, uploadId))
+      .limit(1);
+    
+    if (upload.length === 0) {
+      return [];
+    }
+    
+    const uploadTime = upload[0].uploadedAt;
+    if (!uploadTime) {
+      return [];
+    }
+    
+    // Get observations created within 1 hour of the upload time (to account for processing time)
+    const oneHourBefore = new Date(uploadTime.getTime() - 60 * 60 * 1000);
+    const oneHourAfter = new Date(uploadTime.getTime() + 60 * 60 * 1000);
+    
     return await db.select()
       .from(observations)
-      .where(eq(observations.uploadId, uploadId))
+      .where(
+        and(
+          sql`${observations.createdAt} >= ${oneHourBefore}`,
+          sql`${observations.createdAt} <= ${oneHourAfter}`
+        )
+      )
       .orderBy(desc(observations.updatedAt));
   }
 
