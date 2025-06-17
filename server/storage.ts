@@ -148,6 +148,7 @@ export interface IStorage {
   // Update flags
   getObservationsWithNameUpdates(): Promise<Observation[]>;
   getObservationsWithClassificationUpdates(): Promise<Observation[]>;
+  getObservationsFromUpload(uploadId: number): Promise<Observation[]>;
   getObservationsWithEncodingIssues(): Promise<Observation[]>;
   
   // Update observation taxonomy
@@ -763,6 +764,10 @@ export class MemoryStorage implements IStorage {
     this.contributors = [];
     this.species = [];
     this.users = [];
+  }
+
+  async getObservationsFromUpload(uploadId: number): Promise<Observation[]> {
+    return this.observations.filter(obs => obs.uploadId === uploadId);
   }
 
   async getObservationSources(dateRange?: string): Promise<Array<{

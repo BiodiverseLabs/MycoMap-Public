@@ -1604,6 +1604,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(observations.updatedAt));
   }
 
+  async getObservationsFromUpload(uploadId: number): Promise<Observation[]> {
+    const { observations } = schema;
+    return await db.select()
+      .from(observations)
+      .where(eq(observations.uploadId, uploadId))
+      .orderBy(desc(observations.updatedAt));
+  }
+
   async getObservationsWithEncodingIssues(): Promise<Observation[]> {
     const { observations } = schema;
     return await db.select()

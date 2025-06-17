@@ -1929,9 +1929,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('Starting automated classification updates by genus matching...');
     
     try {
-      // Get all observations with classification update flags
-      const classificationUpdates = await storage.getObservationsWithClassificationUpdates();
-      console.log(`Found ${classificationUpdates.length} records needing classification updates`);
+      // Get only observations from this upload that need classification updates
+      const classificationUpdates = await storage.getObservationsFromUpload(uploadId);
+      console.log(`Found ${classificationUpdates.length} records from upload ${uploadId} needing classification updates`);
       
       if (classificationUpdates.length === 0) {
         console.log('No classification updates needed');
