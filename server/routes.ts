@@ -1666,16 +1666,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalPostProcessingPhases = 5;
       let completedPhases = 0;
       
-      const updatePostProcessingProgress = (phaseDescription: string, phaseProgress: number = 0) => {
+      const updatePostProcessingProgress = (phaseDescription: string, phaseProgress: number = 0, completed: boolean = false) => {
+        const baseProgress = 50; // Post-processing starts at 50%
+        const progressPerPhase = 10; // Each phase gets 10% (50-100%)
+        const actualProgress = baseProgress + (completedPhases * progressPerPhase) + (phaseProgress * progressPerPhase / 100);
+        
         const progressData = {
-          progress: phaseProgress,
+          progress: Math.round(actualProgress),
           phase: 'post-processing',
-          message: `${phaseDescription} (Phase ${completedPhases + 1}/${totalPostProcessingPhases})`
+          message: completed ? `✓ ${phaseDescription} completed` : `${phaseDescription}`,
+          batchInfo: {
+            currentPhase: completedPhases + 1,
+            totalPhases: totalPostProcessingPhases,
+            phaseProgress: phaseProgress
+          }
         };
         progressTracker.set(uploadId, progressData);
-        // Also update activeUploads for SSE
-        if (typeof activeUploads !== 'undefined') {
-          activeUploads.set(uploadId, progressData);
+        
+        // Send completion signal if phase is done
+        if (completed) {
+          setTimeout(() => {
+            progressTracker.set(uploadId, {
+              ...progressData,
+              progress: Math.round(baseProgress + ((completedPhases + 1) * progressPerPhase)),
+              message: `✓ Phase ${completedPhases + 1}/${totalPostProcessingPhases} completed`,
+            });
+          }, 100);
         }
       };
       
@@ -1688,11 +1704,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        updatePostProcessingProgress('Updating contributor statistics... (Phase 1/5)', 0);
+        updatePostProcessingProgress('Updating contributor statistics', 0);
         const contribStart = Date.now();
         await updateContributorStatistics();
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
-        updatePostProcessingProgress('Phase 1 completed: Contributor statistics updated', 20);
+        updatePostProcessingProgress('Contributor statistics', 100, true);
         completedPhases++;
         
         console.log('Phase 2: Updating species statistics...');
@@ -1703,11 +1719,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        updatePostProcessingProgress('Updating species statistics...', 0);
+        updatePostProcessingProgress('Updating species statistics', 0);
         const speciesStart = Date.now();
         await updateSpeciesStatistics();
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
-        updatePostProcessingProgress('Species statistics completed', 100);
+        updatePostProcessingProgress('Species statistics', 100, true);
         completedPhases++;
         
         console.log('Phase 3: Building GPS index for map performance...');
@@ -1718,11 +1734,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        updatePostProcessingProgress('Building GPS index for map performance...', 0);
+        updatePostProcessingProgress('Building GPS index for map performance', 0);
         const gpsStart = Date.now();
         await storage.buildGpsIndex();
         console.log(`✓ GPS index completed in ${Date.now() - gpsStart}ms`);
-        updatePostProcessingProgress('GPS index completed', 100);
+        updatePostProcessingProgress('GPS index for map performance', 100, true);
         completedPhases++;
         
         console.log('✓ All index tables updated successfully');
@@ -1736,11 +1752,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        updatePostProcessingProgress('Running automated classification updates...', 0);
+        updatePostProcessingProgress('Running automated classification updates', 0);
         const classificationStart = Date.now();
         await autoPopulateClassificationUpdates(uploadId, progressTracker);
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
-        updatePostProcessingProgress('Classification updates completed', 100);
+        updatePostProcessingProgress('Automated classification updates', 100, true);
         completedPhases++;
 
         // Phase 5: Sync iNaturalist API data for all uploaded records
@@ -1752,11 +1768,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        updatePostProcessingProgress('Syncing iNaturalist API data...', 0);
+        updatePostProcessingProgress('Syncing iNaturalist API data', 0);
         const inatSyncStart = Date.now();
         await syncUploadedInaturalistData(uploadId, progressTracker);
         console.log(`✓ iNaturalist API sync completed in ${Date.now() - inatSyncStart}ms`);
-        updatePostProcessingProgress('iNaturalist API sync completed', 100);
+        updatePostProcessingProgress('iNaturalist API sync', 100, true);
         completedPhases++;
 
         // Get API call statistics for this upload
