@@ -1,117 +1,169 @@
-import { db } from './server/db.js';
-import { observations } from './shared/schema.js';
-import { eq, and, isNull, isNotNull } from 'drizzle-orm';
+#!/usr/bin/env tsx
 
-async function runClassificationUpdates() {
+import { pool } from './server/db.ts';
+
+async function fetchTaxonomyFromAPI(searchTerm) {
   try {
-    console.log('=== RUNNING AUTOMATED CLASSIFICATION UPDATES ===');
+    const searchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(searchTerm)}&rank=genus,subgenus,section,family&per_page=5`;
+    const response = await fetch(searchUrl);
     
-    // Get records needing classification updates
-    const classificationUpdates = await db
-      .select()
-      .from(observations)
-      .where(eq(observations.classificationUpdate, true));
+    if (!response.ok) return null;
     
-    console.log(`Found ${classificationUpdates.length} records needing classification updates`);
+    const data = await response.json();
     
-    if (classificationUpdates.length === 0) {
-      console.log('No classification updates needed');
-      return;
-    }
-    
-    // Get all observations with complete taxonomy for reference
-    const completeRecords = await db
-      .select()
-      .from(observations)
-      .where(and(
-        isNotNull(observations.genus),
-        isNotNull(observations.kingdom),
-        isNotNull(observations.phylum),
-        isNotNull(observations.class),
-        isNotNull(observations.order),
-        isNotNull(observations.family)
-      ));
-    
-    // Build genus lookup table
-    const genusLookup = new Map();
-    completeRecords.forEach(obs => {
-      const genusKey = obs.genus.toLowerCase().trim();
-      if (!genusLookup.has(genusKey)) {
-        genusLookup.set(genusKey, {
-          kingdom: obs.kingdom,
-          phylum: obs.phylum,
-          class: obs.class,
-          order: obs.order,
-          family: obs.family,
-          genus: obs.genus
-        });
-      }
-    });
-    
-    console.log(`Built genus lookup table with ${genusLookup.size} reference entries`);
-    
-    let updatedCount = 0;
-    const batchSize = 100;
-    
-    for (let i = 0; i < classificationUpdates.length; i += batchSize) {
-      const batch = classificationUpdates.slice(i, i + batchSize);
-      console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(classificationUpdates.length/batchSize)}`);
-      
-      for (const record of batch) {
-        try {
-          let genusCandidate = null;
+    if (data.results && data.results.length > 0) {
+      for (const result of data.results) {
+        if (result.ancestors && result.ancestors.length > 0) {
+          const detailUrl = `https://api.inaturalist.org/v1/taxa/${result.id}`;
+          const detailResponse = await fetch(detailUrl);
           
-          if (record.species) {
-            genusCandidate = record.species.split(' ')[0].toLowerCase().trim();
-          } else if (record.infraspecies) {
-            genusCandidate = record.infraspecies.split(' ')[0].toLowerCase().trim();
-          }
-          
-          if (genusCandidate && genusLookup.has(genusCandidate)) {
-            const taxonomyRef = genusLookup.get(genusCandidate);
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json();
+            const taxon = detailData.results?.[0];
             
-            // Update the record
-            await db
-              .update(observations)
-              .set({
-                kingdom: record.kingdom || taxonomyRef.kingdom,
-                phylum: record.phylum || taxonomyRef.phylum,
-                class: record.class || taxonomyRef.class,
-                order: record.order || taxonomyRef.order,
-                family: record.family || taxonomyRef.family,
-                genus: record.genus || taxonomyRef.genus,
-                classificationUpdate: false
-              })
-              .where(eq(observations.id, record.id));
-            
-            updatedCount++;
-            
-            if (updatedCount % 100 === 0) {
-              console.log(`Progress: ${updatedCount} records updated...`);
+            if (taxon && taxon.ancestors) {
+              const taxonomy = {};
+              
+              [taxon, ...taxon.ancestors].forEach(ancestor => {
+                if (ancestor.rank && ancestor.name) {
+                  taxonomy[ancestor.rank] = ancestor.name;
+                }
+              });
+              
+              if (taxonomy.kingdom && taxonomy.family) {
+                return {
+                  ...taxonomy,
+                  matched_rank: result.rank,
+                  search_term: searchTerm,
+                  matched_taxon_name: result.name,
+                  genus_from_api: taxonomy.genus || null
+                };
+              }
             }
           }
-        } catch (recordError) {
-          console.error(`Error updating record ${record.id}:`, recordError.message);
         }
       }
     }
     
-    console.log(`✓ Automated classification updates completed: ${updatedCount} records updated`);
-    
-    // Check remaining classification updates
-    const remainingUpdates = await db
-      .select()
-      .from(observations)
-      .where(eq(observations.classificationUpdate, true));
-    
-    console.log(`Remaining classification updates needed: ${remainingUpdates.length}`);
-    console.log(`Success rate: ${((updatedCount / classificationUpdates.length) * 100).toFixed(1)}%`);
-    
+    return null;
   } catch (error) {
-    console.error('Error in automated classification updates:', error);
-  } finally {
-    process.exit(0);
+    console.log(`    API error: ${error.message}`);
+    return null;
   }
 }
 
-runClassificationUpdates();
+async function runClassificationUpdates() {
+  console.log('Running classification updates for next 50 genera...\n');
+  
+  let processedCount = 0;
+  let successCount = 0;
+  
+  for (let i = 0; i < 50; i++) {
+    try {
+      // Get next genus to process
+      const result = await pool.query(`
+        SELECT DISTINCT o.genus
+        FROM observations o
+        WHERE o.genus IS NOT NULL 
+          AND o.genus != ''
+          AND o.genus NOT LIKE '%http%'
+          AND o.genus NOT LIKE '%aceae'
+          AND o.genus NOT LIKE '%ales'
+          AND o.genus NOT LIKE '%mycota'
+          AND o.genus NOT LIKE '%ineae'
+          AND o.genus NOT LIKE '% %'
+          AND LENGTH(o.genus) >= 3
+          AND o.genus != 'fungi'
+          AND o.genus NOT IN (
+            SELECT genus FROM inaturalist_classification_cache 
+            WHERE updated_at IS NOT NULL
+          )
+        ORDER BY o.genus ASC
+        LIMIT 1
+      `);
+
+      if (result.rows.length === 0) {
+        console.log(`\nAll genera processed! Completed ${processedCount} in this batch (${successCount} successful)`);
+        break;
+      }
+
+      const genus = result.rows[0].genus;
+      processedCount++;
+      
+      console.log(`[${processedCount}/50] Processing "${genus}"`);
+
+      const taxonomyData = await fetchTaxonomyFromAPI(genus);
+      
+      if (taxonomyData) {
+        await pool.query(`
+          INSERT INTO inaturalist_classification_cache (
+            genus, kingdom, phylum, class, "order", family, matched_rank, search_term, matched_taxon_name, genus_from_api, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+          ON CONFLICT (genus) DO UPDATE SET
+            kingdom = EXCLUDED.kingdom,
+            phylum = EXCLUDED.phylum,
+            class = EXCLUDED.class,
+            "order" = EXCLUDED."order",
+            family = EXCLUDED.family,
+            matched_rank = EXCLUDED.matched_rank,
+            search_term = EXCLUDED.search_term,
+            matched_taxon_name = EXCLUDED.matched_taxon_name,
+            genus_from_api = EXCLUDED.genus_from_api,
+            updated_at = NOW()
+        `, [
+          genus,
+          taxonomyData.kingdom || null,
+          taxonomyData.phylum || null,
+          taxonomyData.class || null,
+          taxonomyData.order || null,
+          taxonomyData.family || null,
+          taxonomyData.matched_rank || null,
+          taxonomyData.search_term || null,
+          taxonomyData.matched_taxon_name || null,
+          taxonomyData.genus_from_api || null
+        ]);
+
+        successCount++;
+        console.log(`  ✓ ${taxonomyData.family} family, ${taxonomyData.kingdom} kingdom`);
+      } else {
+        // Mark as processed but no taxonomy found
+        await pool.query(`
+          INSERT INTO inaturalist_classification_cache (genus, kingdom, updated_at)
+          VALUES ($1, 'INVALID', NOW())
+          ON CONFLICT (genus) DO UPDATE SET
+            kingdom = 'INVALID',
+            updated_at = NOW()
+        `, [genus]);
+        
+        console.log(`  ✗ No taxonomy found - marked as invalid`);
+      }
+
+      // Rate limiting - 1.5 seconds between requests
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+    } catch (error) {
+      console.error(`Error: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+  
+  // Final status
+  const statusResult = await pool.query(`
+    SELECT 
+      COUNT(CASE WHEN updated_at IS NOT NULL THEN 1 END) as total_processed,
+      COUNT(CASE WHEN kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) as successful,
+      (1087 - COUNT(CASE WHEN updated_at IS NOT NULL THEN 1 END)) as remaining
+    FROM inaturalist_classification_cache
+  `);
+  
+  const stats = statusResult.rows[0];
+  console.log(`\n📊 Overall Progress:`);
+  console.log(`   Total processed: ${stats.total_processed}/1087 (${Math.round(stats.total_processed/1087*100)}%)`);
+  console.log(`   Successful: ${stats.successful} genera with complete taxonomy`);
+  console.log(`   Remaining: ${stats.remaining} genera`);
+  console.log(`   Success rate: ${Math.round(stats.successful/stats.total_processed*100)}%`);
+  
+  await pool.end();
+}
+
+runClassificationUpdates().catch(console.error);
