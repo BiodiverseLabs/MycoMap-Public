@@ -253,11 +253,40 @@ export const inaturalistPlaces = pgTable("inaturalist_places", {
 export const inaturalistClassificationCache = pgTable("inaturalist_classification_cache", {
   id: serial("id").primaryKey(),
   genus: text("genus").notNull().unique(), // The genus name used for lookup
+  
+  // Complete taxonomy hierarchy from iNaturalist API
   kingdom: text("kingdom"),
   phylum: text("phylum"),
+  subphylum: text("subphylum"),
+  superclass: text("superclass"),
   class: text("class"),
+  subclass: text("subclass"),
+  infraclass: text("infraclass"),
+  superorder: text("superorder"),
   order: text("order"),
+  suborder: text("suborder"),
+  infraorder: text("infraorder"),
+  parvorder: text("parvorder"),
+  superfamily: text("superfamily"),
   family: text("family"),
+  subfamily: text("subfamily"),
+  tribe: text("tribe"),
+  subtribe: text("subtribe"),
+  genusFromApi: text("genus_from_api"), // Genus name as returned by API (may differ from search term)
+  subgenus: text("subgenus"),
+  section: text("section"),
+  subsection: text("subsection"),
+  species: text("species"),
+  subspecies: text("subspecies"),
+  variety: text("variety"),
+  form: text("form"),
+  
+  // Match metadata
+  matchedRank: text("matched_rank"), // Which rank was actually matched (genus, subgenus, section, family, etc.)
+  searchTerm: text("search_term"), // Original search term used
+  matchedTaxonName: text("matched_taxon_name"), // Name of the matched taxon
+  
+  // iNaturalist metadata
   inatTaxonId: integer("inat_taxon_id"), // iNaturalist taxon ID
   observationCount: integer("observation_count"), // Number of observations for this taxon on iNat
   isActive: boolean("is_active").default(true), // Whether the taxon is active on iNat
