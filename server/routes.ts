@@ -1234,7 +1234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`Contributor statistics updated: ${processed} contributors processed`);
   }
 
-  async function updateSpeciesStatistics() {
+  async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<number, any>) {
     console.log('Rebuilding species statistics...');
     
     // Use optimized approach: get aggregated data and bulk upsert
@@ -1266,7 +1266,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Progress indicator for large datasets
         if (speciesStats.length > 5000) {
           const progress = Math.round(((i + batchSize) / speciesStats.length) * 100);
-          console.log(`Species statistics progress: ${Math.min(progress, 100)}% (${Math.min(i + batchSize, speciesStats.length)}/${speciesStats.length})`);
+          const processed = Math.min(i + batchSize, speciesStats.length);
+          console.log(`Species statistics progress: ${Math.min(progress, 100)}% (${processed}/${speciesStats.length})`);
+          
+          // Send progress update to frontend if uploadId is provided
+          if (uploadId && progressTracker && progressTracker.has(uploadId)) {
+            const phaseProgress = 60 + (progress * 0.1); // Phase 2: 60-70%
+            progressTracker.set(uploadId, {
+              progress: Math.round(phaseProgress),
+              phase: 'post-processing',
+              message: `Updating species statistics: ${processed.toLocaleString()}/${speciesStats.length.toLocaleString()} species processed`,
+              batchInfo: {
+                currentBatch: Math.floor(i / batchSize) + 1,
+                totalBatches: Math.ceil(speciesStats.length / batchSize),
+                recordsProcessed: processed,
+                totalRecords: speciesStats.length,
+                currentPhase: 2,
+                totalPhases: 5
+              }
+            });
+          }
         }
       }
       
@@ -1721,7 +1740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         updatePostProcessingProgress('Updating species statistics', 0);
         const speciesStart = Date.now();
-        await updateSpeciesStatistics();
+        await updateSpeciesStatistics(uploadId, progressTracker);
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
         updatePostProcessingProgress('Species statistics', 100, true);
         completedPhases++;
