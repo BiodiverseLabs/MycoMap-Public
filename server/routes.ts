@@ -2069,14 +2069,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         for (const record of batch) {
           try {
-            // Extract first word from Species or Variety
+            // Extract first word from Species, Variety, or Scientific Name
             let genusCandidate = null;
             
             if (record.species) {
               genusCandidate = record.species.split(' ')[0].toLowerCase().trim();
             } else if (record.infraspecies) { // Variety field
               genusCandidate = record.infraspecies.split(' ')[0].toLowerCase().trim();
+            } else if (record.scientificName) {
+              genusCandidate = record.scientificName.split(' ')[0].toLowerCase().trim();
             }
+            
+            console.log(`Record ${record.id}: species="${record.species}", variety="${record.infraspecies}", scientificName="${record.scientificName}" → genus candidate: "${genusCandidate}"`);
             
             if (!genusCandidate) {
               continue; // Skip if no genus candidate found
