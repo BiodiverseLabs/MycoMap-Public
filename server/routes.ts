@@ -1159,89 +1159,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload-scoped contributor statistics - only processes contributors from current upload
+  // Optimized contributor statistics - processes only contributors affected by upload
   async function updateContributorStatisticsScoped(uploadId: number, progressTracker?: Map<number, any>) {
     console.log(`Updating contributor statistics for upload ${uploadId}...`);
     
     try {
       const startTime = Date.now();
       
-      // Get unique contributors from the current upload
+      // Get contributors from the current upload who need their stats updated
       const uploadObservations = await storage.getObservationsFromUpload(uploadId);
-      const uploadContributorNames = new Set<string>();
+      const affectedContributors = new Set<string>();
       
       uploadObservations.forEach(obs => {
         const contributorName = obs.collector || obs.observer;
         if (contributorName && contributorName.trim()) {
-          uploadContributorNames.add(contributorName.trim());
+          affectedContributors.add(contributorName.trim());
         }
       });
       
-      const contributorsFromUpload = Array.from(uploadContributorNames);
-      console.log(`Found ${contributorsFromUpload.length} unique contributors from upload ${uploadId} to update`);
+      const contributorsToUpdate = Array.from(affectedContributors);
+      console.log(`Found ${contributorsToUpdate.length} contributors affected by upload ${uploadId}`);
       
-      if (contributorsFromUpload.length === 0) {
-        console.log('No contributors from upload need statistics updates');
+      if (contributorsToUpdate.length === 0) {
+        console.log('No contributors affected by upload need statistics updates');
         return;
       }
       
       let processed = 0;
       let newContributors = 0;
       let updatedContributors = 0;
+      let unchangedContributors = 0;
       
-      // Process each contributor from the upload
-      for (const contributorName of contributorsFromUpload) {
-        // Get current observation count for this contributor across all data
+      // Process each affected contributor
+      for (const contributorName of contributorsToUpdate) {
+        // Get current total observation count for this contributor across ALL data
         const contributorData = await storage.db.execute(`
           SELECT COUNT(*) as observation_count
           FROM observations 
           WHERE COALESCE(collector, observer) = $1
         `, [contributorName]);
         
-        const observationCount = parseInt(contributorData.rows[0]?.observation_count || '0');
+        const currentTotalCount = parseInt(contributorData.rows[0]?.observation_count || '0');
         
-        // Check if contributor already exists
+        // Check existing record in contributors table
         const existingContributor = await storage.db.execute(`
           SELECT observation_count FROM contributors WHERE name = $1
         `, [contributorName]);
         
         const isNew = existingContributor.rows.length === 0;
-        const needsUpdate = !isNew && parseInt(existingContributor.rows[0]?.observation_count || '0') !== observationCount;
+        const storedCount = isNew ? 0 : parseInt(existingContributor.rows[0]?.observation_count || '0');
+        const needsUpdate = isNew || storedCount !== currentTotalCount;
         
-        if (isNew || needsUpdate) {
+        if (needsUpdate) {
           await storage.upsertContributor({
             name: contributorName,
             affiliation: null,
-            observationCount: observationCount
+            observationCount: currentTotalCount
           });
           
-          if (isNew) newContributors++;
-          else updatedContributors++;
-          processed++;
-          
-          // Send progress update to frontend
-          if (progressTracker && progressTracker.has(uploadId) && processed % 10 === 0) {
-            const progress = Math.round((processed / contributorsFromUpload.length) * 100);
-            const phaseProgress = 50 + (progress * 0.1); // Phase 1: 50-60%
-            progressTracker.set(uploadId, {
-              progress: Math.round(phaseProgress),
-              phase: 'post-processing',
-              message: `Updating contributor statistics: ${processed}/${contributorsFromUpload.length} contributors from upload processed`,
-              batchInfo: {
-                recordsProcessed: processed,
-                totalRecords: contributorsFromUpload.length,
-                currentPhase: 1,
-                totalPhases: 5
-              }
-            });
+          if (isNew) {
+            newContributors++;
+          } else {
+            updatedContributors++;
           }
+          processed++;
+        } else {
+          unchangedContributors++;
+        }
+        
+        // Send progress update to frontend
+        const totalContributors = contributorsToUpdate.length;
+        const progressIndex = newContributors + updatedContributors + unchangedContributors;
+        
+        if (progressTracker && progressTracker.has(uploadId) && progressIndex % 25 === 0) {
+          const progress = Math.round((progressIndex / totalContributors) * 100);
+          const phaseProgress = 50 + (progress * 0.1); // Phase 1: 50-60%
+          progressTracker.set(uploadId, {
+            progress: Math.round(phaseProgress),
+            phase: 'post-processing',
+            message: `Updating contributor statistics: ${progressIndex}/${totalContributors} affected contributors processed`,
+            batchInfo: {
+              recordsProcessed: progressIndex,
+              totalRecords: totalContributors,
+              currentPhase: 1,
+              totalPhases: 5
+            }
+          });
         }
       }
       
       console.log(`Contributor Statistics Summary for Upload ${uploadId}:`);
-      console.log(`  Contributors from upload: ${contributorsFromUpload.length}`);
+      console.log(`  Contributors affected by upload: ${contributorsToUpdate.length}`);
       console.log(`  New contributors: ${newContributors}`);
       console.log(`  Updated contributors: ${updatedContributors}`);
+      console.log(`  Unchanged contributors: ${unchangedContributors}`);
       console.log(`  Total processed: ${processed}`);
       console.log(`✓ Contributor statistics completed in ${Date.now() - startTime}ms`);
       
