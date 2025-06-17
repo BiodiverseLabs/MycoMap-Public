@@ -260,10 +260,27 @@ export const inaturalistClassificationCache = pgTable("inaturalist_classificatio
   parentId: integer("parent_id"), // Parent taxon ID
   ancestry: text("ancestry"), // Full ancestry path
   kingdom: text("kingdom"),
+  subkingdom: text("subkingdom"),
   phylum: text("phylum"),
+  subphylum: text("subphylum"),
   class: text("class"),
+  subclass: text("subclass"),
   order: text("order"),
+  suborder: text("suborder"),
+  infraorder: text("infraorder"),
+  superfamily: text("superfamily"),
   family: text("family"),
+  subfamily: text("subfamily"),
+  tribe: text("tribe"),
+  subtribe: text("subtribe"),
+  genus: text("genus"),
+  subgenus: text("subgenus"),
+  section: text("section"),
+  subsection: text("subsection"),
+  species: text("species"),
+  subspecies: text("subspecies"),
+  variety: text("variety"),
+  form: text("form"),
   observationsCount: integer("observations_count").default(0), // Number of observations on iNat
   isActive: boolean("is_active").default(true), // Whether the taxon is active on iNat
   apiResponse: text("api_response"), // Full JSON response from iNaturalist API

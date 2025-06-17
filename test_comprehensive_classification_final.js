@@ -2,12 +2,18 @@
 
 import { db } from './server/db.ts';
 
-async function testComprehensiveClassification() {
-  console.log('Testing comprehensive classification system...\n');
+async function testComprehensiveClassificationFinal() {
+  console.log('Testing comprehensive classification system with all ranks...\n');
   
   try {
-    // Test a few search terms with comprehensive API lookup
-    const testTerms = ['Amanita', 'Russula', 'Boletus', 'Cortinarius'];
+    // Test a diverse set of taxonomic terms at different ranks
+    const testTerms = [
+      'Amanita',          // genus
+      'Pluteineae',       // suborder  
+      'Entolomataceae',   // family
+      'Helotiales',       // order
+      'Agaricomycetes'    // class
+    ];
     
     for (const term of testTerms) {
       console.log(`Testing "${term}"...`);
@@ -48,10 +54,12 @@ async function testComprehensiveClassification() {
         console.log(`  ✓ ${fullTaxon.rank}: ${fullTaxon.name}`);
         console.log(`    Kingdom: ${taxonomyData.kingdom}, Family: ${taxonomyData.family}`);
         console.log(`    Order: ${taxonomyData.order}, Genus: ${taxonomyData.genus}`);
+        if (taxonomyData.suborder) console.log(`    Suborder: ${taxonomyData.suborder}`);
+        if (taxonomyData.subfamily) console.log(`    Subfamily: ${taxonomyData.subfamily}`);
         console.log(`    Observations: ${fullTaxon.observations_count || 0}`);
         
-        // Update or insert comprehensive cache entry
-        await db.execute(`
+        // Use a simpler insert/update approach
+        const insertQuery = `
           INSERT INTO inaturalist_classification_cache 
           (search_term, taxon_rank, taxon_id, scientific_name, common_name, 
            parent_id, ancestry, kingdom, subkingdom, phylum, subphylum, 
@@ -60,7 +68,7 @@ async function testComprehensiveClassification() {
            subsection, species, subspecies, variety, form, 
            observations_count, is_active, api_response, lookup_count, 
            created_at, updated_at, last_used_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW(), NOW())
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, 1, NOW(), NOW(), NOW())
           ON CONFLICT (search_term) 
           DO UPDATE SET
             taxon_rank = EXCLUDED.taxon_rank,
@@ -97,7 +105,9 @@ async function testComprehensiveClassification() {
             lookup_count = inaturalist_classification_cache.lookup_count + 1,
             updated_at = NOW(),
             last_used_at = NOW()
-        `, [
+        `;
+        
+        await db.execute(insertQuery, [
           term.toLowerCase(),
           fullTaxon.rank,
           fullTaxon.id,
@@ -132,7 +142,7 @@ async function testComprehensiveClassification() {
           JSON.stringify(fullTaxon)
         ]);
         
-        console.log(`    ✓ Cached comprehensive data\n`);
+        console.log(`    ✓ Cached comprehensive data with all ranks\n`);
         
       } else {
         console.log(`  ✗ No results found\n`);
@@ -159,7 +169,7 @@ async function testComprehensiveClassification() {
     console.log(`Invalid entries: ${stats.invalid_entries}`);
     console.log(`Total lookups: ${stats.total_lookups}`);
     
-    // Show rank distribution
+    // Show rank distribution including all new ranks
     const rankResult = await db.execute(`
       SELECT taxon_rank, COUNT(*) as count
       FROM inaturalist_classification_cache 
@@ -173,6 +183,20 @@ async function testComprehensiveClassification() {
       console.log(`  ${row.taxon_rank}: ${row.count} entries`);
     }
     
+    // Show examples with complete taxonomy hierarchies
+    const exampleResult = await db.execute(`
+      SELECT search_term, taxon_rank, kingdom, "order", suborder, family, genus 
+      FROM inaturalist_classification_cache 
+      WHERE taxon_rank IS NOT NULL AND kingdom IS NOT NULL 
+      ORDER BY observations_count DESC
+      LIMIT 5
+    `);
+    
+    console.log('\nExample complete taxonomies:');
+    for (const row of exampleResult.rows) {
+      console.log(`  ${row.search_term} (${row.taxon_rank}): ${row.kingdom} → ${row.order || 'N/A'} → ${row.suborder || 'N/A'} → ${row.family || 'N/A'} → ${row.genus || 'N/A'}`);
+    }
+    
   } catch (error) {
     console.error('Test error:', error.message);
     process.exit(1);
@@ -181,4 +205,4 @@ async function testComprehensiveClassification() {
   process.exit(0);
 }
 
-testComprehensiveClassification();
+testComprehensiveClassificationFinal();
