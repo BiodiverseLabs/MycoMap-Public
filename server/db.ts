@@ -926,8 +926,10 @@ export class DatabaseStorage implements IStorage {
             THEN inat.photos[1]
             WHEN o.image_link IS NOT NULL AND o.image_link != ''
             THEN CASE 
-              WHEN o.image_link LIKE '%static.inaturalist.org%' OR o.image_link LIKE '%inaturalist-open-data.s3.amazonaws.com%'
-              THEN REPLACE(REPLACE(o.image_link, '/large.jpeg', '/square.jpg'), '/large.jpg', '/square.jpg')
+              WHEN o.image_link LIKE '%static.inaturalist.org%'
+              THEN REPLACE(REPLACE(REPLACE(o.image_link, '/large.jpeg', '/square.jpeg'), '/large.jpg', '/square.jpeg'), '/medium.jpeg', '/square.jpeg')
+              WHEN o.image_link LIKE '%inaturalist-open-data.s3.amazonaws.com%'
+              THEN REPLACE(REPLACE(REPLACE(o.image_link, '/large.jpeg', '/square.jpeg'), '/large.jpg', '/square.jpeg'), '/medium.jpeg', '/square.jpeg')
               ELSE o.image_link
             END
             ELSE NULL 
