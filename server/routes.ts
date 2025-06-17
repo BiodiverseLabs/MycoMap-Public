@@ -792,49 +792,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { state, limit } = req.query;
       const limitNum = limit ? parseInt(limit as string) : 10;
       
-      // Use raw SQL to avoid Drizzle schema mapping issues
-      let sqlQuery = `
-        SELECT 
-          c.id,
-          c.name,
-          c.affiliation,
-          COUNT(*) as state_first_count
-        FROM observations o
-        INNER JOIN contributors c ON o.contributor_id = c.id
-        WHERE o.is_first_state_record = true
-      `;
-      
-      const params: any[] = [];
-      if (state) {
-        sqlQuery += ` AND o.state = $${params.length + 1}`;
-        params.push(state);
-      }
-      
-      sqlQuery += `
-        GROUP BY c.id, c.name, c.affiliation
-        ORDER BY COUNT(*) DESC
-        LIMIT $${params.length + 1}
-      `;
-      params.push(limitNum);
-
-      const results = await pool.query(sqlQuery, params);
-      const rows = results.rows;
-      
-      // Calculate total state firsts for percentage calculation
-      const totalStateFirsts = rows.reduce((sum: number, item: any) => sum + parseInt(item.state_first_count), 0);
-      
-      const data = rows.map((item: any) => ({
-        id: item.id.toString(),
-        name: item.name,
-        affiliation: item.affiliation || undefined,
-        stateFirstCount: parseInt(item.state_first_count),
-        percentage: totalStateFirsts > 0 ? (parseInt(item.state_first_count) / totalStateFirsts) * 100 : 0
-      }));
-      
-      res.json(data);
+      const contributors = await storage.getContributorsWithMostStateFirsts(limitNum, state as string);
+      res.json(contributors);
     } catch (error) {
-      console.error("Error fetching contributors with state firsts:", error);
-      res.status(500).json({ error: "Failed to fetch contributors with state firsts" });
+      console.error("Error fetching contributors with most state firsts:", error);
+      res.status(500).json({ error: "Failed to fetch contributors with most state firsts" });
     }
   });
 
