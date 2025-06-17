@@ -1805,11 +1805,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Send explicit completion signal if phase is done
         if (completed) {
           const completedProgress = Math.min(100, Math.round(baseProgress + ((completedPhases + 1) * progressPerPhase)));
+          const completionMessage = `✓ ${phaseDescription} completed`;
+          
+          console.log('[SERVER PHASE DEBUG] Sending completion signal:', {
+            uploadId,
+            phaseDescription,
+            completedPhases: completedPhases + 1,
+            completionMessage,
+            progress: completedProgress
+          });
+          
           setTimeout(() => {
-            progressTracker.set(uploadId, {
+            const progressUpdate = {
               ...progressData,
               progress: completedProgress,
-              message: `✓ ${phaseDescription} completed`,
+              message: completionMessage,
               phase: 'post-processing',
               batchInfo: {
                 currentPhase: completedPhases + 1,
@@ -1817,7 +1827,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 phaseProgress: 100,
                 phaseCompletedAt: new Date().toISOString()
               }
-            });
+            };
+            
+            console.log('[SERVER PHASE DEBUG] Setting progress tracker:', progressUpdate);
+            progressTracker.set(uploadId, progressUpdate);
           }, 100);
         }
       };

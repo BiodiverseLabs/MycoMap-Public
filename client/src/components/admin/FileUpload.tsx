@@ -211,8 +211,18 @@ export function FileUpload() {
             });
           }
 
-          // Direct phase completion detection based on server console messages
+          // Enhanced phase completion detection with comprehensive logging
+          console.log('[PHASE DEBUG] Received progress update:', {
+            phase: data.phase,
+            message: data.message,
+            progress: data.progress,
+            batchInfo: data.batchInfo,
+            timestamp: new Date().toISOString()
+          });
+          
           if (data.phase === 'post-processing' && data.message.includes("✓") && data.message.includes("completed")) {
+            console.log('[PHASE DEBUG] Phase completion candidate detected:', data.message);
+            
             let phaseName = '';
             let phaseNumber = 0;
             
@@ -220,21 +230,30 @@ export function FileUpload() {
             if (data.message === "✓ Contributor statistics completed") {
               phaseName = 'Phase 1: Contributor Statistics';
               phaseNumber = 1;
+              console.log('[PHASE DEBUG] Matched Phase 1: Contributor Statistics');
             } else if (data.message === "✓ Species statistics completed") {
               phaseName = 'Phase 2: Species Statistics';
               phaseNumber = 2;
+              console.log('[PHASE DEBUG] Matched Phase 2: Species Statistics');
             } else if (data.message === "✓ GPS index completed") {
               phaseName = 'Phase 3: GPS Index Building';
               phaseNumber = 3;
+              console.log('[PHASE DEBUG] Matched Phase 3: GPS Index Building');
             } else if (data.message === "✓ Classification updates completed") {
               phaseName = 'Phase 4: Classification Updates';
               phaseNumber = 4;
+              console.log('[PHASE DEBUG] Matched Phase 4: Classification Updates');
             } else if (data.message === "✓ iNaturalist API sync completed") {
               phaseName = 'Phase 5: iNaturalist API Sync';
               phaseNumber = 5;
+              console.log('[PHASE DEBUG] Matched Phase 5: iNaturalist API Sync');
+            } else {
+              console.log('[PHASE DEBUG] No phase match found for message:', data.message);
             }
             
             if (phaseName && phaseNumber > 0) {
+              console.log('[PHASE DEBUG] Creating phase result for:', phaseName);
+              
               const phaseResult: PhaseResult = {
                 phase: phaseName,
                 message: data.message,
@@ -249,14 +268,28 @@ export function FileUpload() {
                 }
               };
               
-              // Only add if not already exists to prevent duplicates
+              // Check for duplicates and add to history
               setPhaseHistory(prev => {
                 const exists = prev.some(p => p.phase === phaseName);
+                console.log('[PHASE DEBUG] Phase history check - exists:', exists, 'current phases:', prev.map(p => p.phase));
+                
                 if (!exists) {
-                  return [...prev, phaseResult];
+                  console.log('[PHASE DEBUG] Adding new phase to history:', phaseName);
+                  const newHistory = [...prev, phaseResult];
+                  console.log('[PHASE DEBUG] Updated phase history:', newHistory.map(p => ({ phase: p.phase, message: p.message })));
+                  return newHistory;
+                } else {
+                  console.log('[PHASE DEBUG] Phase already exists, skipping:', phaseName);
+                  return prev;
                 }
-                return prev;
               });
+            } else {
+              console.log('[PHASE DEBUG] No valid phase name/number generated');
+            }
+          } else {
+            // Log non-completion messages for debugging
+            if (data.phase === 'post-processing') {
+              console.log('[PHASE DEBUG] Post-processing message (not completion):', data.message);
             }
           }
           
