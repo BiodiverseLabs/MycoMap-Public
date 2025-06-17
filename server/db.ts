@@ -1674,14 +1674,24 @@ export class DatabaseStorage implements IStorage {
           ),
           // Missing essential classification fields
           or(
-            isNull(observations.phylum),
-            isNull(observations.class),
-            isNull(observations.order),
-            isNull(observations.family),
-            eq(observations.phylum, ''),
-            eq(observations.class, ''),
-            eq(observations.order, ''),
-            eq(observations.family, '')
+            // Missing critical taxonomy fields
+            and(
+              or(
+                observations.phylum === null,
+                observations.class === null,
+                observations.order === null,
+                observations.family === null
+              )
+            ),
+            // Or has empty strings for these fields
+            and(
+              or(
+                eq(observations.phylum, ''),
+                eq(observations.class, ''),
+                eq(observations.order, ''),
+                eq(observations.family, '')
+              )
+            )
           )
         )
       )

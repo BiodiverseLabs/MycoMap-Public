@@ -1538,13 +1538,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Check for name_update flag: Species or Variety is missing
         const nameUpdate = !row['Species'] && !row['Variety'];
         
-        // Check for classification_update flag: has species/variety but missing higher taxonomy
+        // Check for classification_update flag: more conservative approach
+        // Only flag records that are missing MOST essential taxonomy AND don't have obvious genus info
         const hasSpeciesOrVariety = row['Species'] || row['Variety'];
-        const missingHigherTaxonomy = hasSpeciesOrVariety && (
-          !row['Kingdom'] || !row['Phylum'] || !row['Class'] || 
-          !row['Order'] || !row['Family'] || !row['Genus']
+        const missingCriticalTaxonomy = hasSpeciesOrVariety && (
+          (!row['Phylum'] || !row['Class'] || !row['Order'] || !row['Family']) &&
+          !row['Genus'] // If genus is missing, harder to auto-classify
         );
-        const classificationUpdate = missingHigherTaxonomy;
+        const classificationUpdate = missingCriticalTaxonomy;
 
         return {
           observationId: fixEncoding(row['Reference Number']) || `${Date.now()}-${Math.random()}`,
