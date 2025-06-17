@@ -180,6 +180,14 @@ async function processNextGenus() {
       console.log(`  ✓ Updated: ${taxonomyData.family} family, ${taxonomyData.kingdom} kingdom`);
     } else {
       console.log(`  ✗ No taxonomy found`);
+      // Mark as processed to avoid infinite loop
+      await pool.query(`
+        INSERT INTO inaturalist_classification_cache (genus, kingdom, updated_at)
+        VALUES ($1, 'INVALID', NOW())
+        ON CONFLICT (genus) DO UPDATE SET
+          kingdom = 'INVALID',
+          updated_at = NOW()
+      `, [genus]);
     }
 
     // Rate limiting
