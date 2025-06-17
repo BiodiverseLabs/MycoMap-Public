@@ -97,6 +97,11 @@ function MostGlobalFirstsByState() {
 function MostGlobalFirstsByContributor() {
   const { data: contributorData = [], isLoading } = useQuery<ContributorRecord[]>({
     queryKey: ['/api/contributors/global-firsts'],
+    queryFn: async () => {
+      const response = await fetch('/api/contributors/global-firsts?limit=10');
+      if (!response.ok) throw new Error('Failed to fetch contributor global firsts');
+      return response.json();
+    }
   });
 
   return (
@@ -157,6 +162,11 @@ function MostGlobalFirstsByContributor() {
 function MostStateFirstsByContributor() {
   const { data: contributorData = [], isLoading } = useQuery<ContributorStateRecord[]>({
     queryKey: ['/api/contributors/state-firsts'],
+    queryFn: async () => {
+      const response = await fetch('/api/contributors/state-firsts?limit=10');
+      if (!response.ok) throw new Error('Failed to fetch contributor state firsts');
+      return response.json();
+    }
   });
 
   return (
