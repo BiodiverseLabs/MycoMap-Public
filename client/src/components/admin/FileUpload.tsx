@@ -7,6 +7,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
+interface PhaseResult {
+  phase: string;
+  message: string;
+  progress: number;
+  timestamp: string;
+  metrics?: any;
+}
+
 interface UploadState {
   uploadProgress: number;
   uploadPhase: 'idle' | 'uploading' | 'processing';
@@ -15,6 +23,7 @@ interface UploadState {
   processingMessage: string;
   batchInfo: any;
   uploadId: number | null;
+  phaseHistory: PhaseResult[];
 }
 
 const UPLOAD_STATE_KEY = 'mycomap_upload_state';
@@ -28,6 +37,7 @@ export function FileUpload() {
   const [processingMessage, setProcessingMessage] = useState('');
   const [batchInfo, setBatchInfo] = useState<any>(null);
   const [uploadId, setUploadId] = useState<number | null>(null);
+  const [phaseHistory, setPhaseHistory] = useState<PhaseResult[]>([]);
   const [restoredFromCache, setRestoredFromCache] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -46,6 +56,7 @@ export function FileUpload() {
         setProcessingMessage(state.processingMessage);
         setBatchInfo(state.batchInfo);
         setUploadId(state.uploadId);
+        setPhaseHistory(state.phaseHistory || []);
         setRestoredFromCache(true);
         
         // Show notification about restored progress
@@ -73,6 +84,7 @@ export function FileUpload() {
       processingMessage,
       batchInfo,
       uploadId,
+      phaseHistory,
       ...state
     };
     
@@ -97,6 +109,7 @@ export function FileUpload() {
       setProcessingMessage('');
       setBatchInfo(null);
       setUploadId(null);
+      setPhaseHistory([]);
       saveUploadState({ 
         uploadPhase: 'idle', 
         uploadProgress: 0, 
@@ -104,7 +117,8 @@ export function FileUpload() {
         processingPhase: '', 
         processingMessage: '', 
         batchInfo: null, 
-        uploadId: null 
+        uploadId: null,
+        phaseHistory: []
       });
       toast({
         title: "Processing Stopped",
@@ -139,6 +153,36 @@ export function FileUpload() {
           setProcessingPhase(data.phase);
           setProcessingMessage(data.message);
           setBatchInfo(data.batchInfo);
+          
+          // Check if phase is completed (progress = 100 or phase completed message)
+          const isPhaseCompleted = data.progress === 100 || 
+            data.message.includes("completed") || 
+            data.message.includes("Phase") && data.message.includes("completed");
+          
+          // Add to phase history if it's a new completed phase
+          if (isPhaseCompleted && data.phase !== 'idle') {
+            const newPhaseResult: PhaseResult = {
+              phase: data.phase,
+              message: data.message,
+              progress: data.progress,
+              timestamp: new Date().toISOString(),
+              metrics: data.metrics || data.batchInfo
+            };
+            
+            setPhaseHistory(prev => {
+              // Check if this phase is already in history
+              const existingPhaseIndex = prev.findIndex(p => p.phase === data.phase);
+              if (existingPhaseIndex >= 0) {
+                // Update existing phase
+                const updated = [...prev];
+                updated[existingPhaseIndex] = newPhaseResult;
+                return updated;
+              } else {
+                // Add new phase
+                return [...prev, newPhaseResult];
+              }
+            });
+          }
           
           // Save progress to localStorage
           saveUploadState({
@@ -511,7 +555,98 @@ export function FileUpload() {
         </CardContent>
       </Card>
 
-
+      {/* Phase History Display */}
+      {phaseHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Upload Phase Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {phaseHistory.map((phase, index) => (
+                <div key={`${phase.phase}-${index}`} className="border border-slate-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <h4 className="font-medium text-slate-900 capitalize">
+                        {phase.phase.replace('-', ' ')}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <span>{phase.progress}%</span>
+                      <span>•</span>
+                      <span>{new Date(phase.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-slate-700 mb-3">
+                    {phase.message}
+                  </p>
+                  
+                  {/* Display metrics if available */}
+                  {phase.metrics && (
+                    <div className="bg-slate-50 rounded-md p-3">
+                      <h5 className="text-xs font-medium text-slate-600 mb-2 uppercase tracking-wide">
+                        Phase Metrics
+                      </h5>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        {/* Contributor Statistics Metrics */}
+                        {phase.phase === 'post-processing' && phase.message.includes('contributor') && (
+                          <>
+                            {phase.message.includes('Total contributors:') && (
+                              <>
+                                <div>
+                                  <span className="text-slate-500">Total Contributors:</span>
+                                  <div className="font-medium text-lg">
+                                    {phase.message.match(/Total contributors: (\d+)/)?.[1] || 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">Updated:</span>
+                                  <div className="font-medium text-lg text-green-600">
+                                    {phase.message.match(/Updated contributors: (\d+)/)?.[1] || 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">Unchanged:</span>
+                                  <div className="font-medium text-lg text-blue-600">
+                                    {phase.message.match(/Unchanged contributors: (\d+)/)?.[1] || 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500">New:</span>
+                                  <div className="font-medium text-lg text-purple-600">
+                                    {phase.message.match(/New contributors: (\d+)/)?.[1] || 'N/A'}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+                        
+                        {/* General metrics */}
+                        {Object.entries(phase.metrics).map(([key, value]) => (
+                          <div key={key}>
+                            <span className="text-slate-500 capitalize">
+                              {key.replace(/([A-Z])/g, ' $1').toLowerCase()}:
+                            </span>
+                            <div className="font-medium">
+                              {typeof value === 'number' ? value.toLocaleString() : value}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
