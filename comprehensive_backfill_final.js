@@ -47,7 +47,8 @@ async function comprehensiveBackfillFinal() {
           
           if (!data.results || data.results.length === 0) {
             console.log(`  ✗ No results found - marking as invalid`);
-            await db.execute(`UPDATE inaturalist_classification_cache SET kingdom = 'INVALID', updated_at = NOW() WHERE search_term = $1`, [searchTerm]);
+            const sanitizedTerm = searchTerm.replace(/'/g, "''");
+            await db.execute(`UPDATE inaturalist_classification_cache SET kingdom = 'INVALID', updated_at = NOW() WHERE search_term = '${sanitizedTerm}'`);
             invalid++;
             continue;
           }
@@ -92,15 +93,19 @@ async function comprehensiveBackfillFinal() {
           if (taxonomyData.suborder) console.log(`    Suborder: ${taxonomyData.suborder}`);
           if (taxonomyData.section) console.log(`    Section: ${taxonomyData.section}`);
           
-          // Use individual field updates to avoid parameter count issues
-          await db.execute(`UPDATE inaturalist_classification_cache SET taxon_rank = $1, updated_at = NOW() WHERE search_term = $2`, [fullTaxon.rank, searchTerm]);
-          await db.execute(`UPDATE inaturalist_classification_cache SET taxon_id = $1 WHERE search_term = $2`, [fullTaxon.id, searchTerm]);
-          await db.execute(`UPDATE inaturalist_classification_cache SET scientific_name = $1 WHERE search_term = $2`, [fullTaxon.name, searchTerm]);
-          await db.execute(`UPDATE inaturalist_classification_cache SET observations_count = $1 WHERE search_term = $2`, [fullTaxon.observations_count || 0, searchTerm]);
-          await db.execute(`UPDATE inaturalist_classification_cache SET is_active = $1 WHERE search_term = $2`, [fullTaxon.is_active !== false, searchTerm]);
+          // Use direct SQL execution to avoid parameter issues
+          const sanitizedTerm = searchTerm.replace(/'/g, "''");
+          const sanitizedName = fullTaxon.name.replace(/'/g, "''");
+          
+          await db.execute(`UPDATE inaturalist_classification_cache SET taxon_rank = '${fullTaxon.rank}', updated_at = NOW() WHERE search_term = '${sanitizedTerm}'`);
+          await db.execute(`UPDATE inaturalist_classification_cache SET taxon_id = ${fullTaxon.id} WHERE search_term = '${sanitizedTerm}'`);
+          await db.execute(`UPDATE inaturalist_classification_cache SET scientific_name = '${sanitizedName}' WHERE search_term = '${sanitizedTerm}'`);
+          await db.execute(`UPDATE inaturalist_classification_cache SET observations_count = ${fullTaxon.observations_count || 0} WHERE search_term = '${sanitizedTerm}'`);
+          await db.execute(`UPDATE inaturalist_classification_cache SET is_active = ${fullTaxon.is_active !== false} WHERE search_term = '${sanitizedTerm}'`);
           
           if (fullTaxon.preferred_common_name) {
-            await db.execute(`UPDATE inaturalist_classification_cache SET common_name = $1 WHERE search_term = $2`, [fullTaxon.preferred_common_name, searchTerm]);
+            const sanitizedCommon = fullTaxon.preferred_common_name.replace(/'/g, "''");
+            await db.execute(`UPDATE inaturalist_classification_cache SET common_name = '${sanitizedCommon}' WHERE search_term = '${sanitizedTerm}'`);
           }
           
           // Update all taxonomy fields that have values
@@ -113,13 +118,15 @@ async function comprehensiveBackfillFinal() {
           
           for (const field of taxonomyFields) {
             if (taxonomyData[field]) {
+              const sanitizedValue = taxonomyData[field].replace(/'/g, "''");
               const columnName = field === 'order' ? '"order"' : field;
-              await db.execute(`UPDATE inaturalist_classification_cache SET ${columnName} = $1 WHERE search_term = $2`, [taxonomyData[field], searchTerm]);
+              await db.execute(`UPDATE inaturalist_classification_cache SET ${columnName} = '${sanitizedValue}' WHERE search_term = '${sanitizedTerm}'`);
             }
           }
           
           // Store API response
-          await db.execute(`UPDATE inaturalist_classification_cache SET api_response = $1 WHERE search_term = $2`, [JSON.stringify(fullTaxon), searchTerm]);
+          const sanitizedResponse = JSON.stringify(fullTaxon).replace(/'/g, "''");
+          await db.execute(`UPDATE inaturalist_classification_cache SET api_response = '${sanitizedResponse}' WHERE search_term = '${sanitizedTerm}'`);
           
           updated++;
           console.log(`    ✓ Updated complete taxonomy with ${Object.values(taxonomyData).filter(Boolean).length} ranks`);
