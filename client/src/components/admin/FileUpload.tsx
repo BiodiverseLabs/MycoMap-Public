@@ -628,13 +628,14 @@ export function FileUpload() {
                         )}
                         
                         {/* General metrics */}
-                        {Object.entries(phase.metrics).map(([key, value]) => (
+                        {phase.metrics && typeof phase.metrics === 'object' && Object.entries(phase.metrics).map(([key, value]) => (
                           <div key={key}>
                             <span className="text-slate-500 capitalize">
                               {key.replace(/([A-Z])/g, ' $1').toLowerCase()}:
                             </span>
                             <div className="font-medium">
-                              {typeof value === 'number' ? value.toLocaleString() : value}
+                              {typeof value === 'number' ? value.toLocaleString() : 
+                               value !== null && value !== undefined ? String(value) : 'N/A'}
                             </div>
                           </div>
                         ))}
