@@ -116,13 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Enhanced iNaturalist Classification Cache with Complete Taxonomy Hierarchy and Rank Annotations
+- June 17, 2025: Enhanced iNaturalist Classification Cache with Robust Error Handling and Systematic Processing
   - Expanded classification cache schema to include all iNaturalist taxonomy ranks (subphylum, superclass, tribe, subspecies, etc.)
   - Added rank matching annotations: matched_rank, search_term, matched_taxon_name, genus_from_api fields
-  - Implemented enhanced backfill script processing 200 genera from observations table with complete taxonomy hierarchy
-  - Script searches across multiple ranks (genus, subgenus, section, family) and records which rank was matched
-  - Successfully processing authentic iNaturalist taxonomy: "Abortiporus" (Podoscyphaceae), "Absidia" (Cunninghamellaceae), "Acephala" (Vibrisseaceae)
-  - System now captures complete taxonomic hierarchy from kingdom down to form level with rank-specific matching metadata
+  - Implemented enhanced backfill script with comprehensive retry logic and rate limiting for API reliability
+  - Added 3-attempt retry logic per API call with progressive delays (2s, 5s) to handle fetch failures
+  - Rate limiting set to 1.5 seconds between genera to respect iNaturalist API limits
+  - Successfully processing authentic iNaturalist taxonomy with robust error recovery
+  - Current progress: 11+ genera processed including "Abortiporus" (Podoscyphaceae), "Agaricus" (Agaricaceae), "Agrocybe" (Hymenogastraceae)
+  - System systematically working through 1,109 observation genera with 0.6% completion and growing
   - Classification system enhanced with detailed rank information for improved upload processing and taxonomic accuracy
 
 - June 17, 2025: Enhanced iNaturalist API Lookup with Complete Taxonomy Extraction
