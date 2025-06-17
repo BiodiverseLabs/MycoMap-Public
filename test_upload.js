@@ -1,38 +1,60 @@
-import XLSX from 'xlsx';
+const XLSX = require('xlsx');
+const path = require('path');
 
-const workbook = XLSX.readFile('./attached_assets/Validated Observations05.30.25.xlsx');
-const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-
-// Get just the first row to see actual column headers
-const headerRange = XLSX.utils.decode_range(worksheet['!ref']);
-headerRange.e.r = 0; // Only first row
-const headerData = XLSX.utils.sheet_to_json(worksheet, { 
-  range: headerRange,
-  header: 1 
-});
-
-const actualColumns = headerData[0].filter(col => col && col.trim() !== '');
-
-console.log('=== ACTUAL COLUMNS IN YOUR EXCEL FILE ===');
-actualColumns.forEach((col, i) => {
-  console.log(`${(i + 1).toString().padStart(2)}. ${col}`);
-});
-
-// Fields we currently map
-const currentlyMapped = [
-  'Reference Number', 'Genus', 'Species', 'Variety', 'Sequence Owner', 
-  'Collector', 'Report Date', 'Latitude', 'Longitude', 'City', 'State', 
-  'Country', 'GenBank Accession #', 'MyCoPortal #', 'DNA Sequence', 
-  'Sequence', 'First State Record', 'Multiple Genotypes Under Name', 
-  'Source Database', 'Source URL', 'Phylum', 'Class', 'Order', 'Family'
+// Create a small test dataset for upload verification
+const testData = [
+  {
+    'Reference Number': '265571056',
+    'Source Database': 'iNaturalist',
+    'Genus': 'Amanita',
+    'Species': 'Amanita muscaria',
+    'Collector': 'Test Collector',
+    'Report Date': '2024-01-15',
+    'Country': 'United States',
+    'State': 'California',
+    'City': 'San Francisco',
+    'Latitude': '37.7749',
+    'Longitude': '-122.4194'
+  },
+  {
+    'Reference Number': '123456789',
+    'Source Database': 'iNaturalist', 
+    'Genus': 'Boletus',
+    'Species': 'Boletus edulis',
+    'Collector': 'Another Collector',
+    'Report Date': '2024-02-10',
+    'Country': 'United States',
+    'State': 'Oregon',
+    'City': 'Portland',
+    'Latitude': '45.5152',
+    'Longitude': '-122.6784'
+  },
+  {
+    'Reference Number': '987654321',
+    'Source Database': 'iNaturalist',
+    'Genus': 'Cantharellus',
+    'Species': 'Cantharellus cibarius',
+    'Collector': 'Test User',
+    'Report Date': '2024-03-05',
+    'Country': 'United States',
+    'State': 'Washington',
+    'City': 'Seattle',
+    'Latitude': '47.6062',
+    'Longitude': '-122.3321'
+  }
 ];
 
-console.log('\n=== UNMAPPED FIELDS IN YOUR EXCEL ===');
-const unmapped = actualColumns.filter(col => !currentlyMapped.includes(col));
-unmapped.forEach((col, i) => {
-  console.log(`${(i + 1).toString().padStart(2)}. ${col}`);
-});
+// Create workbook and worksheet
+const wb = XLSX.utils.book_new();
+const ws = XLSX.utils.json_to_sheet(testData);
 
-console.log(`\nTotal: ${actualColumns.length} columns`);
-console.log(`Mapped: ${currentlyMapped.filter(f => actualColumns.includes(f)).length}`);
-console.log(`Unmapped: ${unmapped.length}`);
+// Add worksheet to workbook
+XLSX.utils.book_append_sheet(wb, ws, 'Test Observations');
+
+// Write the file
+const outputPath = path.join(__dirname, 'test_observations.xlsx');
+XLSX.writeFile(wb, outputPath);
+
+console.log(`Test Excel file created: ${outputPath}`);
+console.log(`Contains ${testData.length} test observations`);
+console.log('File includes iNaturalist observation IDs for API sync testing');

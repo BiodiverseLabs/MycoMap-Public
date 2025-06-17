@@ -471,10 +471,13 @@ export function FileUpload() {
                         <p>• Building indexes, updating statistics, and running classification updates</p>
                       )}
                       {processingPhase === 'classification-updates' && (
-                        <p>• Running automated genus-based taxonomy completion with iNaturalist API fallback</p>
+                        <p>• Phase 4: Running automated genus-based taxonomy completion with iNaturalist API fallback</p>
+                      )}
+                      {processingPhase === 'inat-sync' && (
+                        <p>• Phase 5: Syncing iNaturalist API data for authentic photo thumbnails and validation support</p>
                       )}
                       {processingPhase === 'completed' && (
-                        <p className="text-green-600 font-medium">• All data processing completed successfully!</p>
+                        <p className="text-green-600 font-medium">• All 5 phases completed successfully!</p>
                       )}
                     </div>
                   </div>
