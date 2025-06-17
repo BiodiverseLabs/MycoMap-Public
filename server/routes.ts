@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -22,6 +22,116 @@ const uploadMemory = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for CSV files
 });
+
+// Sync iNaturalist API data for newly uploaded records
+async function syncUploadedInaturalistData(uploadId: number, progressTracker: Map<number, any>) {
+  console.log(`Starting iNaturalist API sync for upload ${uploadId}...`);
+  
+  try {
+    // Get all iNaturalist observations from this upload that don't have API data
+    const missingApiData = await db.execute(sql`
+      SELECT o.observation_id, o.scientific_name
+      FROM observations o
+      LEFT JOIN inaturalist_data inat ON o.observation_id = inat.observation_id
+      WHERE o.source = 'iNaturalist' 
+        AND inat.observation_id IS NULL
+      ORDER BY o.id DESC
+      LIMIT 1000
+    `);
+
+    const recordsToSync = missingApiData.rows as Array<{ observation_id: string; scientific_name: string }>;
+    console.log(`Found ${recordsToSync.length} iNaturalist records missing API data`);
+
+    if (recordsToSync.length === 0) {
+      console.log('No iNaturalist records need API sync');
+      return;
+    }
+
+    let syncedCount = 0;
+    let errorCount = 0;
+    const batchSize = 50; // Process in smaller batches to respect API limits
+    
+    for (let i = 0; i < recordsToSync.length; i += batchSize) {
+      const batch = recordsToSync.slice(i, i + batchSize);
+      
+      console.log(`Processing iNaturalist API sync batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(recordsToSync.length/batchSize)}`);
+      
+      for (const record of batch) {
+        try {
+          // Use the same API sync logic as validation
+          const apiUrl = `https://api.inaturalist.org/v1/observations/${record.observation_id}`;
+          const response = await fetch(apiUrl);
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data.results && data.results.length > 0) {
+              const obs = data.results[0];
+              const photos = obs.photos ? obs.photos.map((p: any) => p.url.replace('square', 'medium')) : [];
+              
+              // Insert the same data structure used in validation
+              await db.insert(inaturalistData).values({
+                observationId: record.observation_id,
+                inatId: obs.id.toString(),
+                photos: photos,
+                quality: obs.quality_grade,
+                captive: obs.captive || false,
+                geoprivacy: obs.geoprivacy,
+                licenseCode: obs.license_code,
+                observedOnString: obs.observed_on_string,
+                timeObservedAt: obs.time_observed_at ? new Date(obs.time_observed_at) : null,
+                timeZone: obs.time_zone,
+                description: obs.description,
+                tags: obs.tags || [],
+                speciesGuess: obs.species_guess,
+                identificationCount: obs.num_identification_agreements || 0,
+                numIdentificationAgreements: obs.num_identification_agreements || 0,
+                numIdentificationDisagreements: obs.num_identification_disagreements || 0,
+                commentsCount: obs.comments_count || 0,
+                createdAtInat: obs.created_at ? new Date(obs.created_at) : null,
+                updatedAtInat: obs.updated_at ? new Date(obs.updated_at) : null,
+                taxon: obs.taxon ? JSON.stringify(obs.taxon) : null,
+                user: obs.user ? JSON.stringify(obs.user) : null,
+                placeIds: obs.place_ids || [],
+                projectIds: obs.project_ids || [],
+                application: obs.application ? JSON.stringify(obs.application) : null,
+                syncStatus: 'synced',
+                lastSyncedAt: new Date()
+              }).onConflictDoNothing();
+              
+              syncedCount++;
+              console.log(`✓ Synced ${record.observation_id} (${record.scientific_name}) - ${photos.length} photos`);
+            }
+          } else {
+            errorCount++;
+            console.log(`✗ API error for ${record.observation_id}: ${response.status}`);
+          }
+          
+          // Rate limiting: 1 second between API calls
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+        } catch (error: any) {
+          errorCount++;
+          console.log(`✗ Error syncing ${record.observation_id}: ${error.message}`);
+        }
+      }
+      
+      // Update progress after each batch
+      const progressPercent = Math.round((syncedCount / recordsToSync.length) * 100);
+      progressTracker.set(uploadId, {
+        progress: 85 + Math.round(progressPercent * 0.15), // 85-100% range for iNat sync
+        phase: 'inat-sync',
+        message: `Syncing iNaturalist API data: ${syncedCount}/${recordsToSync.length} (${progressPercent}%)`
+      });
+    }
+    
+    console.log(`✓ iNaturalist API sync completed: ${syncedCount} synced, ${errorCount} errors`);
+    
+  } catch (error) {
+    console.error('Error during iNaturalist API sync:', error);
+    throw error;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -1521,7 +1631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update all index tables and statistics with monitoring
       console.log(`[${new Date().toISOString()}] Starting post-insertion processing...`);
-      const totalPostProcessingPhases = 4;
+      const totalPostProcessingPhases = 5;
       let completedPhases = 0;
       
       const updatePostProcessingProgress = (phaseDescription: string) => {
@@ -1591,6 +1701,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const classificationStart = Date.now();
         await autoPopulateClassificationUpdates(uploadId, progressTracker);
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
+        completedPhases++;
+
+        // Phase 5: Sync iNaturalist API data for all uploaded records
+        console.log('Phase 5: Syncing iNaturalist API data for thumbnail and validation support...');
+        
+        // Check for cancellation before iNat sync
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled before iNaturalist API sync`);
+          return;
+        }
+        
+        updatePostProcessingProgress('Syncing iNaturalist API data...');
+        const inatSyncStart = Date.now();
+        await syncUploadedInaturalistData(uploadId, progressTracker);
+        console.log(`✓ iNaturalist API sync completed in ${Date.now() - inatSyncStart}ms`);
         completedPhases++;
 
         // Get API call statistics for this upload
@@ -2487,6 +2612,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to serve file" });
     }
   });
+
+  // Sync iNaturalist API data for newly uploaded records
+  async function syncUploadedInaturalistData(uploadId: number, progressTracker: Map<number, any>) {
+    console.log(`Starting iNaturalist API sync for upload ${uploadId}...`);
+    
+    try {
+      // Get all iNaturalist observations from this upload that don't have API data
+      const missingApiData = await storage.db.execute(sql`
+        SELECT o.observation_id, o.scientific_name
+        FROM observations o
+        LEFT JOIN inaturalist_data inat ON o.observation_id = inat.observation_id
+        WHERE o.source = 'iNaturalist' 
+          AND inat.observation_id IS NULL
+        ORDER BY o.id DESC
+        LIMIT 1000
+      `);
+
+      const recordsToSync = missingApiData.rows as Array<{ observation_id: string; scientific_name: string }>;
+      console.log(`Found ${recordsToSync.length} iNaturalist records missing API data`);
+
+      if (recordsToSync.length === 0) {
+        console.log('No iNaturalist records need API sync');
+        return;
+      }
+
+      let syncedCount = 0;
+      let errorCount = 0;
+      const batchSize = 50; // Process in smaller batches to respect API limits
+      
+      for (let i = 0; i < recordsToSync.length; i += batchSize) {
+        const batch = recordsToSync.slice(i, i + batchSize);
+        
+        console.log(`Processing iNaturalist API sync batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(recordsToSync.length/batchSize)}`);
+        
+        for (const record of batch) {
+          try {
+            // Use the same API sync logic as validation
+            const apiUrl = `https://api.inaturalist.org/v1/observations/${record.observation_id}`;
+            const response = await fetch(apiUrl);
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (data.results && data.results.length > 0) {
+                const obs = data.results[0];
+                const photos = obs.photos ? obs.photos.map((p: any) => p.url.replace('square', 'medium')) : [];
+                
+                // Insert the same data structure used in validation
+                await storage.db.insert(storage.schema.inaturalistData).values({
+                  observationId: record.observation_id,
+                  inatId: obs.id.toString(),
+                  photos: photos,
+                  quality: obs.quality_grade,
+                  captive: obs.captive || false,
+                  geoprivacy: obs.geoprivacy,
+                  licenseCode: obs.license_code,
+                  observedOnString: obs.observed_on_string,
+                  timeObservedAt: obs.time_observed_at ? new Date(obs.time_observed_at) : null,
+                  timeZone: obs.time_zone,
+                  description: obs.description,
+                  tags: obs.tags || [],
+                  speciesGuess: obs.species_guess,
+                  identificationCount: obs.num_identification_agreements || 0,
+                  numIdentificationAgreements: obs.num_identification_agreements || 0,
+                  numIdentificationDisagreements: obs.num_identification_disagreements || 0,
+                  commentsCount: obs.comments_count || 0,
+                  createdAtInat: obs.created_at ? new Date(obs.created_at) : null,
+                  updatedAtInat: obs.updated_at ? new Date(obs.updated_at) : null,
+                  taxon: obs.taxon ? JSON.stringify(obs.taxon) : null,
+                  user: obs.user ? JSON.stringify(obs.user) : null,
+                  placeIds: obs.place_ids || [],
+                  projectIds: obs.project_ids || [],
+                  application: obs.application ? JSON.stringify(obs.application) : null,
+                  syncStatus: 'synced',
+                  lastSyncedAt: new Date()
+                }).onConflictDoNothing();
+                
+                syncedCount++;
+                console.log(`✓ Synced ${record.observation_id} (${record.scientific_name}) - ${photos.length} photos`);
+              }
+            } else {
+              errorCount++;
+              console.log(`✗ API error for ${record.observation_id}: ${response.status}`);
+            }
+            
+            // Rate limiting: 1 second between API calls
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+          } catch (error) {
+            errorCount++;
+            console.log(`✗ Error syncing ${record.observation_id}: ${error.message}`);
+          }
+        }
+        
+        // Update progress after each batch
+        const progressPercent = Math.round((syncedCount / recordsToSync.length) * 100);
+        progressTracker.set(uploadId, {
+          progress: 85 + Math.round(progressPercent * 0.15), // 85-100% range for iNat sync
+          phase: 'inat-sync',
+          message: `Syncing iNaturalist API data: ${syncedCount}/${recordsToSync.length} (${progressPercent}%)`
+        });
+      }
+      
+      console.log(`✓ iNaturalist API sync completed: ${syncedCount} synced, ${errorCount} errors`);
+      
+    } catch (error) {
+      console.error('Error during iNaturalist API sync:', error);
+      throw error;
+    }
+  }
 
   // Fetch missing iNaturalist observation photos
   app.post('/api/observations/:id/fetch-photos', async (req, res) => {
