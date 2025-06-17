@@ -1805,8 +1805,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Send explicit completion signal if phase is done
         if (completed) {
           const completedProgress = Math.min(100, Math.round(baseProgress + ((completedPhases + 1) * progressPerPhase)));
-          // phaseDescription already contains "✓", so just add "completed"
-          const completionMessage = `${phaseDescription} completed`;
+          // Add "✓" prefix and "completed" suffix to clean phase description
+          const completionMessage = `✓ ${phaseDescription} completed`;
           
           console.log('[SERVER PHASE DEBUG] Sending completion signal:', {
             uploadId,
@@ -1849,7 +1849,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const contribStart = Date.now();
         await updateContributorStatistics(uploadId, progressTracker);
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
-        updatePostProcessingProgress('✓ Contributor statistics completed', 100, true);
+        updatePostProcessingProgress('Contributor statistics', 100, true);
         completedPhases++;
         
         console.log('Phase 2: Updating species statistics...');
@@ -1864,7 +1864,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const speciesStart = Date.now();
         await updateSpeciesStatisticsScoped(uploadId, progressTracker);
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
-        updatePostProcessingProgress('✓ Species statistics completed', 100, true);
+        updatePostProcessingProgress('Species statistics', 100, true);
         completedPhases++;
         
         console.log('Phase 3: Building GPS index for map performance...');
@@ -1879,7 +1879,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const gpsStart = Date.now();
         await storage.buildGpsIndex();
         console.log(`✓ GPS index completed in ${Date.now() - gpsStart}ms`);
-        updatePostProcessingProgress('✓ GPS index completed', 100, true);
+        updatePostProcessingProgress('GPS index', 100, true);
         completedPhases++;
         
         console.log('✓ All index tables updated successfully');
@@ -1897,7 +1897,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const classificationStart = Date.now();
         await autoPopulateClassificationUpdates(uploadId, progressTracker);
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
-        updatePostProcessingProgress('✓ Classification updates completed', 100, true);
+        updatePostProcessingProgress('Automated classification updates', 100, true);
         completedPhases++;
 
         // Phase 5: Sync iNaturalist API data for all uploaded records
@@ -1913,7 +1913,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const inatSyncStart = Date.now();
         await syncUploadedInaturalistData(uploadId, progressTracker);
         console.log(`✓ iNaturalist API sync completed in ${Date.now() - inatSyncStart}ms`);
-        updatePostProcessingProgress('✓ iNaturalist API sync completed', 100, true);
+        updatePostProcessingProgress('iNaturalist API sync', 100, true);
         completedPhases++;
 
         // Get API call statistics for this upload
