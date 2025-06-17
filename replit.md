@@ -116,6 +116,13 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Fixed Classification Updates API Endpoint
+  - Resolved critical issue where /api/observations/classification-updates returned empty arrays despite 11,405 flagged records
+  - Fixed Drizzle ORM boolean column query issues by implementing raw SQL fallback
+  - API now correctly returns 1000 classification updates from flagged records
+  - Updates page now displays accurate count of records needing classification completion
+  - Classification system functioning properly for Phase 4 upload processing and manual updates
+
 - June 17, 2025: Enhanced Phase 5 Upload Process with Location Data Recovery
   - Added location update functionality to iNaturalist and Mushroom Observer API sync during Phase 5
   - System now checks for missing state and coordinate data in observations and fills from API responses

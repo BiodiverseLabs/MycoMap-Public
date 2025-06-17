@@ -1658,14 +1658,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getObservationsWithClassificationUpdates(): Promise<Observation[]> {
-    const { observations } = schema;
+    // Use raw SQL query since Drizzle ORM is having issues with boolean columns
+    const result = await db.execute(sql`
+      SELECT * FROM observations 
+      WHERE classification_update = true 
+      ORDER BY updated_at DESC 
+      LIMIT 1000
+    `);
     
-    // Simply return records flagged for classification updates
-    return await db.select()
-      .from(observations)
-      .where(eq(observations.classificationUpdate, true))
-      .orderBy(desc(observations.updatedAt))
-      .limit(1000);
+    return result.rows as Observation[];
   }
 
   async getObservationsFromUpload(uploadId: number): Promise<Observation[]> {
