@@ -1454,7 +1454,14 @@ export class DatabaseStorage implements IStorage {
     try {
       let sqlQuery = `
         SELECT 
-          state,
+          CASE 
+            WHEN state IS NULL OR state = '' THEN 
+              CASE 
+                WHEN source = 'Sequences' THEN 'Unassociated Sequence'
+                ELSE 'Unknown Location'
+              END
+            ELSE state
+          END as state,
           COUNT(*) as global_first_count
         FROM observations 
         WHERE is_first_global = true
@@ -1462,12 +1469,26 @@ export class DatabaseStorage implements IStorage {
       
       const params: any[] = [];
       if (filterState) {
-        sqlQuery += ` AND state = $${params.length + 1}`;
-        params.push(filterState);
+        if (filterState === 'Unassociated Sequence') {
+          sqlQuery += ` AND (state IS NULL OR state = '') AND source = 'Sequences'`;
+        } else if (filterState === 'Unknown Location') {
+          sqlQuery += ` AND (state IS NULL OR state = '') AND source != 'Sequences'`;
+        } else {
+          sqlQuery += ` AND state = $${params.length + 1}`;
+          params.push(filterState);
+        }
       }
       
       sqlQuery += `
-        GROUP BY state
+        GROUP BY 
+          CASE 
+            WHEN state IS NULL OR state = '' THEN 
+              CASE 
+                WHEN source = 'Sequences' THEN 'Unassociated Sequence'
+                ELSE 'Unknown Location'
+              END
+            ELSE state
+          END
         ORDER BY COUNT(*) DESC
         LIMIT 20
       `;
