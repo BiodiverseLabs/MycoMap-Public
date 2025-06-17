@@ -1190,17 +1190,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedContributors = 0;
       let unchangedContributors = 0;
       
+      // Get all contributors once to avoid repeated queries
+      const allContributors = await storage.getAllContributors();
+      const contributorLookup = new Map(allContributors.map(c => [c.name, c]));
+      
       // Process each affected contributor
       for (const contributorName of contributorsToUpdate) {
-        // Get current total observation count for this contributor across ALL data
-        const allObservations = await storage.getAllObservations();
-        const currentTotalCount = allObservations.filter(obs => 
-          (obs.collector === contributorName) || (obs.observer === contributorName)
-        ).length;
+        // Count observations for this contributor efficiently
+        const currentTotalCount = await storage.getContributorObservationCount(contributorName);
         
         // Check existing contributor record
-        const allContributors = await storage.getAllContributors();
-        const existingContributor = allContributors.find(c => c.name === contributorName);
+        const existingContributor = contributorLookup.get(contributorName);
         
         const isNew = !existingContributor;
         const storedCount = isNew ? 0 : (existingContributor.observationCount || 0);

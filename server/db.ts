@@ -998,6 +998,16 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(contributors).orderBy(contributors.name);
   }
 
+  async getContributorObservationCount(contributorName: string): Promise<number> {
+    const result = await db.execute(sql`
+      SELECT COUNT(*) as count
+      FROM observations
+      WHERE COALESCE(collector, observer) = ${contributorName}
+    `);
+    
+    return parseInt((result.rows[0] as any)?.count || '0');
+  }
+
   async getStateSummary(dateRange?: string): Promise<Array<{
     state: string;
     count: number;
