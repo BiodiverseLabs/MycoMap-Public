@@ -43,15 +43,19 @@ function SmartThumbnail({ src, alt, observationId, source }: {
     
     const fallbacks: string[] = [];
     
-    if (originalUrl.includes('static.inaturalist.org') || originalUrl.includes('inaturalist-open-data.s3.amazonaws.com')) {
+    if (originalUrl.includes('inaturalist-open-data.s3.amazonaws.com') || originalUrl.includes('static.inaturalist.org')) {
       // Try different size variants for iNaturalist images
       const baseUrl = originalUrl.split('?')[0]; // Remove query params
       const withoutExtension = baseUrl.replace(/\.(jpeg|jpg|png)$/i, '');
       
+      // Convert static.inaturalist.org to working S3 URLs if needed
+      const s3BaseUrl = withoutExtension.replace('static.inaturalist.org', 'inaturalist-open-data.s3.amazonaws.com');
+      
       fallbacks.push(
-        `${withoutExtension}/small.jpeg`,
-        `${withoutExtension}/medium.jpeg`,
-        originalUrl // Original as last resort
+        originalUrl, // Try original first
+        `${s3BaseUrl}/small.jpeg`,
+        `${s3BaseUrl}/large.jpeg`,
+        `${s3BaseUrl}/original.jpeg`
       );
     } else {
       fallbacks.push(originalUrl);
