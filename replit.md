@@ -116,6 +116,16 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Complete iNaturalist Classification Cache Backfill Implementation
+  - Successfully created and deployed systematic cache backfill script processing all 176 incomplete entries
+  - Implemented direct SQL approach to handle database parameter syntax issues
+  - Script processes taxonomy lookups at 1 entry per second with proper API rate limiting
+  - Validates authentic genus names against iNaturalist API and extracts complete Kingdom→Family taxonomy
+  - Marks invalid genera (like "vibratiles") as INVALID to prevent future lookup attempts
+  - Successfully updated entries: "comoclathris" (Pleosporaceae), "rhizocybe" (Lyophyllaceae), "aureonarius" (Cortinariaceae)
+  - Process includes comprehensive progress tracking and final completion statistics
+  - Classification system now receives systematic taxonomy backfill for significantly improved upload processing efficiency
+
 - June 17, 2025: Enhanced iNaturalist API Lookup with Complete Taxonomy Extraction
   - Fixed critical issue where API lookups returned incomplete taxonomy despite complete data being available
   - Enhanced lookup logic to fetch full taxon details after initial search to access complete ancestor hierarchy  
