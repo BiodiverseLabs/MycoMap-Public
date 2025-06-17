@@ -3486,46 +3486,66 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (bestMatch) {
-        const taxon = bestMatch;
+        // The search API doesn't include full ancestors, so we need to fetch the full taxon details
+        console.log(`Fetching full taxonomy details for taxon ID ${bestMatch.id}...`);
         
-        // Extract taxonomy from the taxon ancestry
-        const taxonomy: any = {
-          genus: taxon.name,
-          rank: taxon.rank,
-          subgenus: taxon.rank === 'subgenus' ? taxon.name : null,
-          section: taxon.rank === 'section' ? taxon.name : null
-        };
-        
-        if (taxon.ancestors) {
-          taxon.ancestors.forEach((ancestor: any) => {
-            switch (ancestor.rank) {
-              case 'kingdom':
-                taxonomy.kingdom = ancestor.name;
-                break;
-              case 'phylum':
-                taxonomy.phylum = ancestor.name;
-                break;
-              case 'class':
-                taxonomy.class = ancestor.name;
-                break;
-              case 'order':
-                taxonomy.order = ancestor.name;
-                break;
-              case 'family':
-                taxonomy.family = ancestor.name;
-                break;
-              case 'genus':
-                if (taxon.rank !== 'genus') {
-                  taxonomy.genus = ancestor.name; // Use parent genus for subgenus/section
-                }
-                break;
-              case 'subgenus':
-                if (taxon.rank === 'section') {
-                  taxonomy.subgenus = ancestor.name; // Use parent subgenus for section
-                }
-                break;
-            }
-          });
+        try {
+          const detailResponse = await fetch(`https://api.inaturalist.org/v1/taxa/${bestMatch.id}`);
+          if (!detailResponse.ok) {
+            console.error(`Failed to fetch taxon details: ${detailResponse.status}`);
+            return null;
+          }
+          
+          const detailData = await detailResponse.json();
+          const taxon = detailData.results && detailData.results.length > 0 ? detailData.results[0] : null;
+          
+          if (!taxon) {
+            console.error(`No taxon details found for ID ${bestMatch.id}`);
+            return null;
+          }
+          
+          // Extract taxonomy from the taxon ancestry
+          const taxonomy: any = {
+            genus: taxon.name,
+            rank: taxon.rank,
+            subgenus: taxon.rank === 'subgenus' ? taxon.name : null,
+            section: taxon.rank === 'section' ? taxon.name : null
+          };
+          
+          if (taxon.ancestors) {
+            taxon.ancestors.forEach((ancestor: any) => {
+              switch (ancestor.rank) {
+                case 'kingdom':
+                  taxonomy.kingdom = ancestor.name;
+                  break;
+                case 'phylum':
+                  taxonomy.phylum = ancestor.name;
+                  break;
+                case 'class':
+                  taxonomy.class = ancestor.name;
+                  break;
+                case 'order':
+                  taxonomy.order = ancestor.name;
+                  break;
+                case 'family':
+                  taxonomy.family = ancestor.name;
+                  break;
+                case 'genus':
+                  if (taxon.rank !== 'genus') {
+                    taxonomy.genus = ancestor.name; // Use parent genus for subgenus/section
+                  }
+                  break;
+                case 'subgenus':
+                  if (taxon.rank === 'section') {
+                    taxonomy.subgenus = ancestor.name; // Use parent subgenus for section
+                  }
+                  break;
+              }
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching taxon details: ${error}`);
+          return null;
         }
         
         // Cache the result with enhanced taxonomic detail
