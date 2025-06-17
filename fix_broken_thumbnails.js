@@ -1,8 +1,49 @@
 // Systematically fix broken thumbnails by testing URLs and syncing only failed ones
 import fetch from 'node-fetch';
-import { DatabaseStorage } from './server/db.js';
 
-const storage = new DatabaseStorage();
+const sql = neon(process.env.DATABASE_URL);
+const db = drizzle(sql, { schema });
+
+// Simple API sync function
+async function syncWithInaturalist(observationId) {
+  try {
+    const response = await fetch(`https://api.inaturalist.org/v1/observations/${observationId}`);
+    const data = await response.json();
+    
+    if (data.results && data.results.length > 0) {
+      const obs = data.results[0];
+      const photos = obs.photos ? obs.photos.map(p => p.url.replace('square', 'medium')) : [];
+      
+      if (photos.length > 0) {
+        // Insert/update iNaturalist data
+        await db.insert(schema.inaturalistData).values({
+          observationId: observationId,
+          inatId: obs.id.toString(),
+          scientificName: obs.taxon?.name || null,
+          photos: photos,
+          quality: obs.quality_grade,
+          syncStatus: 'synced',
+          lastSyncedAt: new Date()
+        }).onConflictDoUpdate({
+          target: schema.inaturalistData.observationId,
+          set: {
+            photos: photos,
+            scientificName: obs.taxon?.name || null,
+            quality: obs.quality_grade,
+            syncStatus: 'synced',
+            lastSyncedAt: new Date()
+          }
+        });
+        
+        return { photos, scientificName: obs.taxon?.name };
+      }
+    }
+    return null;
+  } catch (error) {
+    console.log(`API error for ${observationId}: ${error.message}`);
+    return null;
+  }
+}
 
 async function testUrlAccessibility(url) {
   try {
@@ -33,7 +74,7 @@ async function fixBrokenThumbnails() {
       storage.db.isNull(storage.schema.inaturalistData.observationId),
       storage.db.like(storage.schema.observations.imageLink, '%static.inaturalist.org%')
     ))
-    .limit(100); // Test in batches to avoid API overload
+    .limit(20); // Small demo batch to test the approach
 
   console.log(`📊 Testing ${recordsToTest.length} records for URL accessibility...`);
   
