@@ -72,6 +72,7 @@ export interface IStorage {
   }>>;
   
   getTopContributors(limit?: number, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]>;
+  getAllContributors(): Promise<Contributor[]>;
   getTopSpecies(limit?: number, state?: string): Promise<Species[]>;
   getRareSpecies(maxObservations?: number, state?: string): Promise<Species[]>;
   getRecentStateRecords(limit?: number, state?: string): Promise<Observation[]>;
@@ -567,6 +568,10 @@ export class MemoryStorage implements IStorage {
     return this.contributors
       .sort((a, b) => (b.observationCount || 0) - (a.observationCount || 0))
       .slice(0, limit);
+  }
+
+  async getAllContributors(): Promise<Contributor[]> {
+    return this.contributors.slice().sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async getTopSpecies(limit: number = 10): Promise<Species[]> {

@@ -1,0 +1,4 @@
+observation_id,scientific_name,common_name,observed_on,state,latitude,longitude,collector,phylum,class,order,family,genus
+TEST001,Boletus edulis,King Bolete,2024-06-01,California,37.7749,-122.4194,John Smith,Basidiomycota,Agaricomycetes,Boletales,Boletaceae,Boletus
+TEST002,Amanita muscaria,Fly Agaric,2024-06-02,California,37.7849,-122.4094,Jane Doe,Basidiomycota,Agaricomycetes,Agaricales,Amanitaceae,Amanita
+TEST003,Cantharellus cibarius,Golden Chanterelle,2024-06-03,Oregon,45.5152,-122.6784,Bob Wilson,Basidiomycota,Agaricomycetes,Cantharellales,Cantharellaceae,Cantharellus

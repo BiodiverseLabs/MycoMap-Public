@@ -1187,18 +1187,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function updateContributorStatistics() {
     console.log('Rebuilding contributor statistics...');
+    
+    // Get current contributor counts from database
+    const existingContributors = await storage.getAllContributors();
+    const existingContributorMap = new Map(existingContributors.map(c => [c.name, c]));
+    
     // Get all unique contributors from observations
     const contributorStats = await storage.getTopContributors(10000);
-    console.log(`Found ${contributorStats.length} unique contributors to update`);
+    
+    // Analyze what needs updating
+    let newContributors = 0;
+    let updatedContributors = 0;
+    let unchangedContributors = 0;
     
     for (const contributor of contributorStats) {
-      await storage.upsertContributor({
-        name: contributor.name,
-        affiliation: contributor.affiliation || null,
-        observationCount: contributor.observationCount
-      });
+      const existing = existingContributorMap.get(contributor.name);
+      if (!existing) {
+        newContributors++;
+      } else if (existing.observationCount !== contributor.observationCount) {
+        updatedContributors++;
+      } else {
+        unchangedContributors++;
+      }
     }
-    console.log('Contributor statistics updated');
+    
+    console.log(`Contributor Statistics Summary:`);
+    console.log(`  Total contributors: ${contributorStats.length}`);
+    console.log(`  New contributors: ${newContributors}`);
+    console.log(`  Updated contributors: ${updatedContributors}`);
+    console.log(`  Unchanged contributors: ${unchangedContributors}`);
+    
+    // Only process contributors that actually need updates
+    let processed = 0;
+    for (const contributor of contributorStats) {
+      const existing = existingContributorMap.get(contributor.name);
+      if (!existing || existing.observationCount !== contributor.observationCount) {
+        await storage.upsertContributor({
+          name: contributor.name,
+          affiliation: contributor.affiliation || null,
+          observationCount: contributor.observationCount
+        });
+        processed++;
+      }
+    }
+    
+    console.log(`Contributor statistics updated: ${processed} contributors processed`);
   }
 
   async function updateSpeciesStatistics() {

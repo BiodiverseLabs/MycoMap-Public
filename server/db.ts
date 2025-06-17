@@ -994,6 +994,10 @@ export class DatabaseStorage implements IStorage {
     }>;
   }
 
+  async getAllContributors(): Promise<Contributor[]> {
+    return await db.select().from(contributors).orderBy(contributors.name);
+  }
+
   async clearAllData(): Promise<void> {
     await db.execute(sql`DELETE FROM ${observations}`);
     await db.execute(sql`DELETE FROM ${contributors}`);
