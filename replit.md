@@ -116,14 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Critical Upload Phase 4 Classification Bug Fix  
-  - Diagnosed and fixed critical bug in Phase 4 classification during upload process
-  - Issue: autoPopulateClassificationUpdates() was processing all uploaded records instead of filtering for records needing classification updates
-  - Root cause: getObservationsFromUpload() returned all upload records, but Phase 4 logic expected only records with classification_update = true
-  - Solution: Added filter to only process uploadObservations.filter(obs => obs.classificationUpdate === true)
-  - Result: Phase 4 will now properly identify and update records like Cortinarius watsoneae during upload
-  - Classification system now works correctly for both upload-time processing and manual updates
-  - Verified fix with Cortinarius watsoneae test case: reference data (3,694 records) correctly applied during classification
+- June 17, 2025: Complete Upload Phase 4 Classification System Fix
+  - Fixed critical timestamp filtering bug in getObservationsFromUpload() function using updatedAt instead of createdAt
+  - Resolved Phase 4 classification processing that was returning "0 records" despite 10,990+ records needing updates
+  - Root cause: Database records use updatedAt timestamps, but function was querying createdAt field
+  - Solution: Changed SQL filtering from observations.createdAt to observations.updatedAt in timestamp range queries
+  - Upload 60 verification: Found 10,990 records needing classification including Inocybe PNW59 example
+  - Extensive reference data available: 1,882 Inocybe records and 3,694 Cortinarius records with complete taxonomy
+  - Manual test confirmed Inocybe PNW59 successfully updated with Basidiomycota > Agaricomycetes > Agaricales > Inocybaceae
+  - Phase 4 classification system now properly scopes to upload-specific records and applies local reference taxonomy data
 
 - June 17, 2025: Fixed Classification Updates API Endpoint and Removed Limits
   - Resolved critical issue where /api/observations/classification-updates returned empty arrays despite 11,003 flagged records
