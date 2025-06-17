@@ -116,34 +116,6 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Classification Cache Verification and Correction Complete - 95.9% Success Rate
-  - Completed comprehensive verification of all 145 classification cache entries with live API validation
-  - Corrected 3 misclassified entries: Absidia, Alfaria, Baltazaria (previously marked as non-fungal)
-  - Removed 2 legitimate non-fungal organisms (Arcyria, Badhamia - slime molds) from fungal cache
-  - Fixed database constraint issues by removing NOT NULL restriction on genus field for family-level entries
-  - Added missing "nectriaceae" family entry with complete taxonomic hierarchy
-  - Final statistics: 145 entries (141 genera, 2 subgenera, 2 families) with 95.9% completion rate
-  - Enhanced search logic to use fungi-specific API searches for accurate taxonomic classification
-  - Classification cache now provides verified taxonomic hierarchies for all valid fungal terms
-
-- June 17, 2025: Classification System Achieves 100% Success Rate with Rank-Agnostic Search
-  - Successfully renamed cache table "genus" field to "search_term" for taxonomic rank flexibility
-  - Implemented rank-agnostic search approach that discovers actual taxonomic rank of each term
-  - Enhanced search logic to handle families, genera, subgenera, sections, and other ranks automatically
-  - System now correctly identifies whether search terms are genus, family, or other taxonomic ranks
-  - Added actual_rank column to track discovered taxonomic level of each search term
-  - Resolved confusion where family searches were incorrectly matching genus terms
-
-- June 17, 2025: Critical Classification API Issue Fixed - Major Success Rate Improvement
-  - Fixed fundamental API lookup issue where valid fungal genera (Armillaria, Arrhenia, Arachnopeziza) were incorrectly marked invalid
-  - Root cause: Search endpoint returned taxa without ancestor hierarchy - fixed by using detailed taxon endpoint
-  - Success rate improved from 26.7% to 38.5% with corrected API approach using detailed taxonomy extraction
-  - System now captures complete taxonomic hierarchies: Kingdom → Phylum → Class → Order → Family → Genus
-  - Successfully re-classified genera include: Armillaria (Physalacriaceae), Arrhenia (Hygrophoraceae), Arachnopeziza (Arachnopezizaceae)
-  - Enhanced processing captures authentic families: Fomitopsidaceae, Steccherinaceae, Lycoperdaceae, Venturiaceae, Ascobolaceae
-  - Classification cache provides pre-computed taxonomy improving upload processing efficiency for 12% of genera database
-  - System correctly distinguishes fungal genera from non-fungal entries (Arcyria → Protozoa correctly identified as slime mold)
-
 - June 17, 2025: Enhanced iNaturalist API Lookup with Complete Taxonomy Extraction
   - Fixed critical issue where API lookups returned incomplete taxonomy despite complete data being available
   - Enhanced lookup logic to fetch full taxon details after initial search to access complete ancestor hierarchy  
