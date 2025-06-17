@@ -1193,21 +1193,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process each affected contributor
       for (const contributorName of contributorsToUpdate) {
         // Get current total observation count for this contributor across ALL data
-        const contributorData = await storage.db.execute(`
-          SELECT COUNT(*) as observation_count
-          FROM observations 
-          WHERE COALESCE(collector, observer) = $1
-        `, [contributorName]);
+        const allObservations = await storage.getAllObservations();
+        const currentTotalCount = allObservations.filter(obs => 
+          (obs.collector === contributorName) || (obs.observer === contributorName)
+        ).length;
         
-        const currentTotalCount = parseInt(contributorData.rows[0]?.observation_count || '0');
+        // Check existing contributor record
+        const allContributors = await storage.getAllContributors();
+        const existingContributor = allContributors.find(c => c.name === contributorName);
         
-        // Check existing record in contributors table
-        const existingContributor = await storage.db.execute(`
-          SELECT observation_count FROM contributors WHERE name = $1
-        `, [contributorName]);
-        
-        const isNew = existingContributor.rows.length === 0;
-        const storedCount = isNew ? 0 : parseInt(existingContributor.rows[0]?.observation_count || '0');
+        const isNew = !existingContributor;
+        const storedCount = isNew ? 0 : (existingContributor.observationCount || 0);
         const needsUpdate = isNew || storedCount !== currentTotalCount;
         
         if (needsUpdate) {
