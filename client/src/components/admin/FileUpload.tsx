@@ -265,7 +265,8 @@ export function FileUpload() {
             batchInfo: data.batchInfo
           });
           
-          if (data.phase === 'completed' && data.progress >= 100) {
+          // Handle completion signal
+          if (data.phase === 'completed' || data.progress >= 100 || data.message.includes('Successfully processed')) {
             // Add final completion result to phase history
             const finalResult: PhaseResult = {
               phase: 'Upload Complete',
@@ -280,26 +281,23 @@ export function FileUpload() {
             };
             
             setPhaseHistory(prev => [...prev, finalResult]);
+            setProcessingProgress(100);
+            setUploadPhase('idle');
             
             eventSource.close();
             setTimeout(() => {
-              setUploadPhase('idle');
-              setUploadProgress(0);
-              setProcessingProgress(0);
-              setProcessingPhase('');
-              setProcessingMessage('');
               setBatchInfo(null);
               setUploadId(null);
               saveUploadState({ 
                 uploadPhase: 'idle', 
-                uploadProgress: 0, 
-                processingProgress: 0, 
-                processingPhase: '', 
-                processingMessage: '', 
-                batchInfo: null, 
+                uploadProgress: 100, 
+                processingProgress: 100, 
+                processingPhase: 'completed', 
+                processingMessage: data.message, 
+                batchInfo: data.batchInfo, 
                 uploadId: null 
               });
-            }, 3000);
+            }, 2000);
           }
         } catch (error) {
           console.error('Error parsing SSE data:', error);
