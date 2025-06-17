@@ -116,15 +116,16 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Complete Upload Phase 4 & 5 System Fixes for Timestamp Filtering
-  - Fixed critical timestamp filtering bugs in both getObservationsFromUpload() and Phase 5 iNaturalist API sync
+- June 17, 2025: Complete Upload System Scoping Fixes for Phases 1, 4 & 5
+  - Fixed critical timestamp filtering bugs in getObservationsFromUpload() and Phase 5 iNaturalist API sync
+  - Fixed Phase 1 contributor statistics to process only contributors from current upload instead of all 1,798 database contributors
+  - Phase 1 issue: Was processing 1,409 contributors from entire database regardless of upload size (10 vs 70,000 observations)
   - Phase 4 issue: Classification processing returned "0 records" despite 10,990+ records needing updates  
   - Phase 5 issue: iNaturalist API sync found "0 records" despite 61,487 records missing API data from upload 60
-  - Root cause: Multiple functions used createdAt instead of updatedAt for timestamp filtering on upload records
-  - Solutions: Changed SQL filtering from observations.createdAt to observations.updatedAt in both Phase 4 and Phase 5
-  - Upload 60 verification: 10,990 classification updates needed, 61,487 iNaturalist records missing API data
-  - Manual test confirmed Inocybe PNW59 classification: Basidiomycota > Agaricomycetes > Agaricales > Inocybaceae
-  - Phase 5 will now properly sync API data for tens of thousands of records per upload instead of skipping them entirely
+  - Root cause: Multiple functions used createdAt instead of updatedAt for timestamp filtering, and contributor stats not scoped to uploads
+  - Solutions: Changed SQL filtering to updatedAt timestamps and created upload-scoped contributor statistics function
+  - Upload 61 verification: Processing actual upload contributors instead of all database contributors
+  - Phase 1 now shows accurate contributor counts specific to each upload size and provides meaningful progress tracking
 
 - June 17, 2025: Fixed Classification Updates API Endpoint and Removed Limits
   - Resolved critical issue where /api/observations/classification-updates returned empty arrays despite 11,003 flagged records

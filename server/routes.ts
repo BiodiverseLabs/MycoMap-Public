@@ -1159,74 +1159,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  async function updateContributorStatistics(uploadId?: number, progressTracker?: Map<number, any>) {
-    console.log('Rebuilding contributor statistics...');
+  // Upload-scoped contributor statistics - only processes contributors from current upload
+  async function updateContributorStatisticsScoped(uploadId: number, progressTracker?: Map<number, any>) {
+    console.log(`Updating contributor statistics for upload ${uploadId}...`);
     
-    // Get current contributor counts from database
-    const existingContributors = await storage.getAllContributors();
-    const existingContributorMap = new Map(existingContributors.map(c => [c.name, c]));
-    
-    // Get all unique contributors from observations
-    const contributorStats = await storage.getTopContributors(10000);
-    
-    // Analyze what needs updating
-    let newContributors = 0;
-    let updatedContributors = 0;
-    let unchangedContributors = 0;
-    
-    for (const contributor of contributorStats) {
-      const existing = existingContributorMap.get(contributor.name);
-      if (!existing) {
-        newContributors++;
-      } else if (existing.observationCount !== contributor.observationCount) {
-        updatedContributors++;
-      } else {
-        unchangedContributors++;
+    try {
+      const startTime = Date.now();
+      
+      // Get unique contributors from the current upload
+      const uploadObservations = await storage.getObservationsFromUpload(uploadId);
+      const uploadContributorNames = new Set<string>();
+      
+      uploadObservations.forEach(obs => {
+        const contributorName = obs.collector || obs.observer;
+        if (contributorName && contributorName.trim()) {
+          uploadContributorNames.add(contributorName.trim());
+        }
+      });
+      
+      const contributorsFromUpload = Array.from(uploadContributorNames);
+      console.log(`Found ${contributorsFromUpload.length} unique contributors from upload ${uploadId} to update`);
+      
+      if (contributorsFromUpload.length === 0) {
+        console.log('No contributors from upload need statistics updates');
+        return;
       }
-    }
-    
-    console.log(`Contributor Statistics Summary:`);
-    console.log(`  Total contributors: ${contributorStats.length}`);
-    console.log(`  New contributors: ${newContributors}`);
-    console.log(`  Updated contributors: ${updatedContributors}`);
-    console.log(`  Unchanged contributors: ${unchangedContributors}`);
-    
-    // Only process contributors that actually need updates
-    let processed = 0;
-    const totalToProcess = newContributors + updatedContributors;
-    
-    for (const contributor of contributorStats) {
-      const existing = existingContributorMap.get(contributor.name);
-      if (!existing || existing.observationCount !== contributor.observationCount) {
-        await storage.upsertContributor({
-          name: contributor.name,
-          affiliation: contributor.affiliation || null,
-          observationCount: contributor.observationCount
-        });
-        processed++;
+      
+      let processed = 0;
+      let newContributors = 0;
+      let updatedContributors = 0;
+      
+      // Process each contributor from the upload
+      for (const contributorName of contributorsFromUpload) {
+        // Get current observation count for this contributor across all data
+        const contributorData = await storage.db.execute(`
+          SELECT COUNT(*) as observation_count
+          FROM observations 
+          WHERE COALESCE(collector, observer) = $1
+        `, [contributorName]);
         
-        // Send progress update to frontend if uploadId is provided
-        if (uploadId && progressTracker && progressTracker.has(uploadId) && processed % 100 === 0) {
-          const progress = Math.round((processed / totalToProcess) * 100);
-          const phaseProgress = 50 + (progress * 0.1); // Phase 1: 50-60%
-          progressTracker.set(uploadId, {
-            progress: Math.round(phaseProgress),
-            phase: 'post-processing',
-            message: `Updating contributor statistics: ${processed.toLocaleString()}/${totalToProcess.toLocaleString()} contributors processed`,
-            batchInfo: {
-              currentBatch: Math.floor(processed / 100) + 1,
-              totalBatches: Math.ceil(totalToProcess / 100),
-              recordsProcessed: processed,
-              totalRecords: totalToProcess,
-              currentPhase: 1,
-              totalPhases: 5
-            }
+        const observationCount = parseInt(contributorData.rows[0]?.observation_count || '0');
+        
+        // Check if contributor already exists
+        const existingContributor = await storage.db.execute(`
+          SELECT observation_count FROM contributors WHERE name = $1
+        `, [contributorName]);
+        
+        const isNew = existingContributor.rows.length === 0;
+        const needsUpdate = !isNew && parseInt(existingContributor.rows[0]?.observation_count || '0') !== observationCount;
+        
+        if (isNew || needsUpdate) {
+          await storage.upsertContributor({
+            name: contributorName,
+            affiliation: null,
+            observationCount: observationCount
           });
+          
+          if (isNew) newContributors++;
+          else updatedContributors++;
+          processed++;
+          
+          // Send progress update to frontend
+          if (progressTracker && progressTracker.has(uploadId) && processed % 10 === 0) {
+            const progress = Math.round((processed / contributorsFromUpload.length) * 100);
+            const phaseProgress = 50 + (progress * 0.1); // Phase 1: 50-60%
+            progressTracker.set(uploadId, {
+              progress: Math.round(phaseProgress),
+              phase: 'post-processing',
+              message: `Updating contributor statistics: ${processed}/${contributorsFromUpload.length} contributors from upload processed`,
+              batchInfo: {
+                recordsProcessed: processed,
+                totalRecords: contributorsFromUpload.length,
+                currentPhase: 1,
+                totalPhases: 5
+              }
+            });
+          }
         }
       }
+      
+      console.log(`Contributor Statistics Summary for Upload ${uploadId}:`);
+      console.log(`  Contributors from upload: ${contributorsFromUpload.length}`);
+      console.log(`  New contributors: ${newContributors}`);
+      console.log(`  Updated contributors: ${updatedContributors}`);
+      console.log(`  Total processed: ${processed}`);
+      console.log(`✓ Contributor statistics completed in ${Date.now() - startTime}ms`);
+      
+    } catch (error) {
+      console.error(`Error updating contributor statistics for upload ${uploadId}:`, error);
+      throw error;
     }
-    
-    console.log(`Contributor statistics updated: ${processed} contributors processed`);
   }
 
   // Upload-scoped species statistics - only processes species from current upload
@@ -1811,7 +1833,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         updatePostProcessingProgress('Updating contributor statistics', 0);
         const contribStart = Date.now();
-        await updateContributorStatistics(uploadId, progressTracker);
+        await updateContributorStatisticsScoped(uploadId, progressTracker);
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
         updatePostProcessingProgress('Contributor statistics', 100, true);
         completedPhases++;
