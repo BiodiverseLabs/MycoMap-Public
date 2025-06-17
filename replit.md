@@ -116,11 +116,12 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Fixed Classification Updates API Endpoint
-  - Resolved critical issue where /api/observations/classification-updates returned empty arrays despite 11,405 flagged records
+- June 17, 2025: Fixed Classification Updates API Endpoint and Removed Limits
+  - Resolved critical issue where /api/observations/classification-updates returned empty arrays despite 11,003 flagged records
   - Fixed Drizzle ORM boolean column query issues by implementing raw SQL fallback
-  - API now correctly returns 1000 classification updates from flagged records
-  - Updates page now displays accurate count of records needing classification completion
+  - Removed artificial 1000 record limit to display all flagged classification updates
+  - API now correctly returns complete list of records needing classification completion
+  - Updates page displays accurate count of all records needing classification updates
   - Classification system functioning properly for Phase 4 upload processing and manual updates
 
 - June 17, 2025: Enhanced Phase 5 Upload Process with Location Data Recovery

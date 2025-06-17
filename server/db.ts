@@ -1662,8 +1662,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT * FROM observations 
       WHERE classification_update = true 
-      ORDER BY updated_at DESC 
-      LIMIT 1000
+      ORDER BY updated_at DESC
     `);
     
     return result.rows as Observation[];

@@ -924,9 +924,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/observations/classification-updates", async (req, res) => {
     try {
-      console.log("Fetching classification updates...");
       const observations = await storage.getObservationsWithClassificationUpdates();
-      console.log(`Found ${observations.length} classification updates`);
+      console.log(`Classification updates API: returning ${observations.length} records`);
       res.json(observations);
     } catch (error) {
       console.error("Error fetching observations with classification updates:", error);
