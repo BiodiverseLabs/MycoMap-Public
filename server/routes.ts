@@ -1802,19 +1802,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         };
         progressTracker.set(uploadId, progressData);
         
-        // Send completion signal if phase is done
+        // Send explicit completion signal if phase is done
         if (completed) {
           const completedProgress = Math.min(100, Math.round(baseProgress + ((completedPhases + 1) * progressPerPhase)));
           setTimeout(() => {
             progressTracker.set(uploadId, {
               ...progressData,
               progress: completedProgress,
-              message: `✓ Phase ${completedPhases + 1}/5 completed`,
+              message: `✓ ${phaseDescription} completed`,
+              phase: 'post-processing',
               batchInfo: {
-                ...progressData.batchInfo,
                 currentPhase: completedPhases + 1,
                 totalPhases: 5,
-                phaseProgress: 100
+                phaseProgress: 100,
+                phaseCompletedAt: new Date().toISOString()
               }
             });
           }, 100);

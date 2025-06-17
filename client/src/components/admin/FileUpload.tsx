@@ -211,47 +211,42 @@ export function FileUpload() {
             });
           }
 
-          // Special handling for post-processing phase completions
-          if (data.phase === 'post-processing' && data.batchInfo?.currentPhase && data.batchInfo?.totalPhases) {
-            const currentPhase = data.batchInfo.currentPhase;
-            const phaseNames = [
-              'Phase 1: Contributor Statistics',
-              'Phase 2: Species Statistics', 
-              'Phase 3: GPS Index Building',
-              'Phase 4: Classification Updates',
-              'Phase 5: iNaturalist API Sync'
-            ];
-            
-            // Check if this is a completion message (contains checkmark or completed keywords)
-            if (data.message.includes("✓") || data.message.includes("completed") || data.message.includes("successfully")) {
-              const completedPhase = phaseNames[currentPhase - 1];
+          // Phase completion detection - only trigger on explicit completion signals
+          if (data.phase === 'post-processing' && data.message.includes("✓") && data.message.includes("completed")) {
+            const phaseMatch = data.message.match(/✓ (.*?) completed/);
+            if (phaseMatch && data.batchInfo?.currentPhase) {
+              const currentPhase = data.batchInfo.currentPhase;
+              const phaseNames = [
+                'Phase 1: Contributor Statistics',
+                'Phase 2: Species Statistics', 
+                'Phase 3: GPS Index Building',
+                'Phase 4: Classification Updates',
+                'Phase 5: iNaturalist API Sync'
+              ];
               
-              if (completedPhase) {
-                // Create comprehensive metrics that include actual data from the phase
-                const phaseMetrics = {
-                  currentPhase: currentPhase,
-                  totalPhases: 5,
-                  phaseProgress: 100,
-                  ...data.batchInfo
-                };
-                
+              const completedPhaseName = phaseNames[currentPhase - 1];
+              
+              if (completedPhaseName) {
                 const phaseResult: PhaseResult = {
-                  phase: completedPhase,
+                  phase: completedPhaseName,
                   message: data.message,
                   progress: data.progress,
                   timestamp: new Date().toISOString(),
-                  metrics: phaseMetrics
+                  metrics: {
+                    currentPhase: currentPhase,
+                    totalPhases: 5,
+                    phaseProgress: 100,
+                    ...data.batchInfo
+                  }
                 };
                 
+                // Only add if not already exists to prevent duplicates
                 setPhaseHistory(prev => {
-                  const existingIndex = prev.findIndex(p => p.phase === completedPhase);
-                  if (existingIndex >= 0) {
-                    const updated = [...prev];
-                    updated[existingIndex] = phaseResult;
-                    return updated;
-                  } else {
+                  const exists = prev.some(p => p.phase === completedPhaseName);
+                  if (!exists) {
                     return [...prev, phaseResult];
                   }
+                  return prev;
                 });
               }
             }
