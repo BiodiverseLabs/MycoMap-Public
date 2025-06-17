@@ -52,10 +52,10 @@ function SmartThumbnail({ src, alt, observationId, source }: {
       const s3BaseUrl = withoutExtension.replace('static.inaturalist.org', 'inaturalist-open-data.s3.amazonaws.com');
       
       fallbacks.push(
-        originalUrl, // Try original first
+        originalUrl, // Try original first (might be pre-converted S3 URL)
         `${s3BaseUrl}/small.jpeg`,
-        `${s3BaseUrl}/large.jpeg`,
-        `${s3BaseUrl}/original.jpeg`
+        `${s3BaseUrl}/medium.jpeg`,
+        `${s3BaseUrl}/large.jpeg`
       );
     } else {
       fallbacks.push(originalUrl);
