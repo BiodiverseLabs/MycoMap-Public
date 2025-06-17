@@ -26,34 +26,41 @@ async function testComprehensiveClassification() {
         const detailData = await detailResponse.json();
         const fullTaxon = detailData.results[0];
         
-        // Extract taxonomy from ancestors
+        // Extract complete taxonomy from ancestors
         const ancestors = fullTaxon.ancestors || [];
         const allTaxa = [...ancestors, fullTaxon];
         
-        let kingdom = null, phylum = null, taxonClass = null, order = null, family = null;
+        let taxonomyData = {
+          kingdom: null, subkingdom: null, phylum: null, subphylum: null,
+          class: null, subclass: null, order: null, suborder: null,
+          infraorder: null, superfamily: null, family: null, subfamily: null,
+          tribe: null, subtribe: null, genus: null, subgenus: null,
+          section: null, subsection: null, species: null, subspecies: null,
+          variety: null, form: null
+        };
         
         for (const ancestor of allTaxa) {
-          switch (ancestor.rank) {
-            case 'kingdom': kingdom = ancestor.name; break;
-            case 'phylum': phylum = ancestor.name; break;
-            case 'class': taxonClass = ancestor.name; break;
-            case 'order': order = ancestor.name; break;
-            case 'family': family = ancestor.name; break;
+          if (taxonomyData.hasOwnProperty(ancestor.rank)) {
+            taxonomyData[ancestor.rank] = ancestor.name;
           }
         }
         
         console.log(`  ✓ ${fullTaxon.rank}: ${fullTaxon.name}`);
-        console.log(`    Kingdom: ${kingdom}, Family: ${family}`);
+        console.log(`    Kingdom: ${taxonomyData.kingdom}, Family: ${taxonomyData.family}`);
+        console.log(`    Order: ${taxonomyData.order}, Genus: ${taxonomyData.genus}`);
         console.log(`    Observations: ${fullTaxon.observations_count || 0}`);
         
         // Update or insert comprehensive cache entry
         await db.execute(`
           INSERT INTO inaturalist_classification_cache 
           (search_term, taxon_rank, taxon_id, scientific_name, common_name, 
-           parent_id, ancestry, kingdom, phylum, class, "order", family, 
+           parent_id, ancestry, kingdom, subkingdom, phylum, subphylum, 
+           class, subclass, "order", suborder, infraorder, superfamily, 
+           family, subfamily, tribe, subtribe, genus, subgenus, section, 
+           subsection, species, subspecies, variety, form, 
            observations_count, is_active, api_response, lookup_count, 
            created_at, updated_at, last_used_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW(), NOW())
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW(), NOW())
           ON CONFLICT (search_term) 
           DO UPDATE SET
             taxon_rank = EXCLUDED.taxon_rank,
@@ -63,10 +70,27 @@ async function testComprehensiveClassification() {
             parent_id = EXCLUDED.parent_id,
             ancestry = EXCLUDED.ancestry,
             kingdom = EXCLUDED.kingdom,
+            subkingdom = EXCLUDED.subkingdom,
             phylum = EXCLUDED.phylum,
+            subphylum = EXCLUDED.subphylum,
             class = EXCLUDED.class,
+            subclass = EXCLUDED.subclass,
             "order" = EXCLUDED."order",
+            suborder = EXCLUDED.suborder,
+            infraorder = EXCLUDED.infraorder,
+            superfamily = EXCLUDED.superfamily,
             family = EXCLUDED.family,
+            subfamily = EXCLUDED.subfamily,
+            tribe = EXCLUDED.tribe,
+            subtribe = EXCLUDED.subtribe,
+            genus = EXCLUDED.genus,
+            subgenus = EXCLUDED.subgenus,
+            section = EXCLUDED.section,
+            subsection = EXCLUDED.subsection,
+            species = EXCLUDED.species,
+            subspecies = EXCLUDED.subspecies,
+            variety = EXCLUDED.variety,
+            form = EXCLUDED.form,
             observations_count = EXCLUDED.observations_count,
             is_active = EXCLUDED.is_active,
             api_response = EXCLUDED.api_response,
@@ -81,11 +105,28 @@ async function testComprehensiveClassification() {
           fullTaxon.preferred_common_name || null,
           fullTaxon.parent_id || null,
           fullTaxon.ancestry || null,
-          kingdom,
-          phylum,
-          taxonClass,
-          order,
-          family,
+          taxonomyData.kingdom,
+          taxonomyData.subkingdom,
+          taxonomyData.phylum,
+          taxonomyData.subphylum,
+          taxonomyData.class,
+          taxonomyData.subclass,
+          taxonomyData.order,
+          taxonomyData.suborder,
+          taxonomyData.infraorder,
+          taxonomyData.superfamily,
+          taxonomyData.family,
+          taxonomyData.subfamily,
+          taxonomyData.tribe,
+          taxonomyData.subtribe,
+          taxonomyData.genus,
+          taxonomyData.subgenus,
+          taxonomyData.section,
+          taxonomyData.subsection,
+          taxonomyData.species,
+          taxonomyData.subspecies,
+          taxonomyData.variety,
+          taxonomyData.form,
           fullTaxon.observations_count || 0,
           fullTaxon.is_active !== false,
           JSON.stringify(fullTaxon)
