@@ -151,6 +151,20 @@ export interface IStorage {
   getObservationsFromUpload(uploadId: number): Promise<Observation[]>;
   getObservationsWithEncodingIssues(): Promise<Observation[]>;
   
+  // Get unique species from a specific upload (for scoped statistics)
+  getSpeciesFromUpload(uploadId: number): Promise<string[]>;
+  
+  // Get statistics for a specific species
+  getSpeciesStatistics(scientificName: string): Promise<{
+    scientificName: string;
+    commonName: string | null;
+    phylum: string | null;
+    class: string | null;
+    order: string | null;
+    family: string | null;
+    observationCount: number;
+  } | null>;
+  
   // Update observation taxonomy
   updateObservationTaxonomy(id: number, taxonomyData: {
     kingdom?: string;

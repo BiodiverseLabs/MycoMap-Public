@@ -1637,6 +1637,67 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(observations.updatedAt));
   }
 
+  async getSpeciesFromUpload(uploadId: number): Promise<string[]> {
+    const uploadObservations = await this.getObservationsFromUpload(uploadId);
+    const uniqueSpecies = new Set<string>();
+    
+    uploadObservations.forEach(obs => {
+      if (obs.scientificName) {
+        uniqueSpecies.add(obs.scientificName);
+      }
+    });
+    
+    return Array.from(uniqueSpecies);
+  }
+
+  async getSpeciesStatistics(scientificName: string): Promise<{
+    scientificName: string;
+    commonName: string | null;
+    phylum: string | null;
+    class: string | null;
+    order: string | null;
+    family: string | null;
+    observationCount: number;
+  } | null> {
+    const { observations } = schema;
+    
+    const results = await db.select({
+      scientificName: observations.scientificName,
+      commonName: observations.commonName,
+      phylum: observations.phylum,
+      class: observations.class,
+      order: observations.order,
+      family: observations.family,
+      count: sql<number>`count(*)`.as('count')
+    })
+    .from(observations)
+    .where(eq(observations.scientificName, scientificName))
+    .groupBy(
+      observations.scientificName,
+      observations.commonName,
+      observations.phylum,
+      observations.class,
+      observations.order,
+      observations.family
+    )
+    .limit(1);
+    
+    if (results.length === 0) {
+      return null;
+    }
+    
+    const result = results[0];
+    return {
+      scientificName: result.scientificName,
+      commonName: result.commonName,
+      phylum: result.phylum,
+      class: result.class,
+      order: result.order,
+      family: result.family,
+      observationCount: result.count
+    };
+  }
+
   async getObservationsWithEncodingIssues(): Promise<Observation[]> {
     const { observations } = schema;
     return await db.select()

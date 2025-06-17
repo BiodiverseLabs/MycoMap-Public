@@ -222,7 +222,8 @@ export function FileUpload() {
               'Phase 5: iNaturalist API Sync'
             ];
             
-            if (data.message.includes("✓") && currentPhase <= phaseNames.length) {
+            // Check if this is a completion message (contains checkmark or completed keywords)
+            if (data.message.includes("✓") || data.message.includes("completed") || data.message.includes("successfully")) {
               const completedPhase = phaseNames[currentPhase - 1];
               
               // Create corrected metrics that show the actual phase numbers

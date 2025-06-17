@@ -1858,7 +1858,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const gpsStart = Date.now();
         await storage.buildGpsIndex();
         console.log(`✓ GPS index completed in ${Date.now() - gpsStart}ms`);
-        updatePostProcessingProgress('GPS index for map performance', 100, true);
+        updatePostProcessingProgress('✓ GPS index completed', 100, true);
         completedPhases++;
         
         console.log('✓ All index tables updated successfully');
