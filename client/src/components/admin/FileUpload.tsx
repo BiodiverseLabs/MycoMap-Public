@@ -210,6 +210,40 @@ export function FileUpload() {
               }
             });
           }
+
+          // Special handling for post-processing phase completions
+          if (data.phase === 'post-processing' && data.batchInfo?.currentPhase && data.batchInfo?.totalPhases) {
+            const currentPhase = data.batchInfo.currentPhase;
+            const phaseNames = [
+              'Phase 1: Contributor Statistics',
+              'Phase 2: Species Statistics', 
+              'Phase 3: GPS Index Building',
+              'Phase 4: Classification Updates',
+              'Phase 5: iNaturalist API Sync'
+            ];
+            
+            if (data.message.includes("✓") && currentPhase <= phaseNames.length) {
+              const completedPhase = phaseNames[currentPhase - 1];
+              const phaseResult: PhaseResult = {
+                phase: completedPhase,
+                message: data.message,
+                progress: 100,
+                timestamp: new Date().toISOString(),
+                metrics: data.batchInfo
+              };
+              
+              setPhaseHistory(prev => {
+                const existingIndex = prev.findIndex(p => p.phase === completedPhase);
+                if (existingIndex >= 0) {
+                  const updated = [...prev];
+                  updated[existingIndex] = phaseResult;
+                  return updated;
+                } else {
+                  return [...prev, phaseResult];
+                }
+              });
+            }
+          }
           
           // Save progress to localStorage
           saveUploadState({
