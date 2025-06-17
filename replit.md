@@ -116,6 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Enhanced Phase 5 Upload Process with Location Data Recovery
+  - Added location update functionality to iNaturalist and Mushroom Observer API sync during Phase 5
+  - System now checks for missing state and coordinate data in observations and fills from API responses
+  - Enhanced place_ids resolution for iNaturalist observations to determine US states
+  - Added state extraction from Mushroom Observer location strings for missing geographic data
+  - Addresses 645 iNaturalist records and additional MO records missing state information
+  - Location updates occur automatically during upload Phase 5 without user intervention
+  - Prevents need for manual location correction of observations missing geographic data
+
 - June 17, 2025: Complete Upload Phase Tracking and Results Display Implementation
   - Fixed critical phase tracking issues where only 3 of 5 phases appeared in results history
   - Corrected phase numbering from incorrect "Phase 6/5" to proper "Phase 1/5, 2/5, 3/5, 4/5, 5/5" format

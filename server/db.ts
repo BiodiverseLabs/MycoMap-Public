@@ -2323,6 +2323,9 @@ export class DatabaseStorage implements IStorage {
         result = await this.createInaturalistData(inaturalistRecord);
       }
 
+      // Check for location updates and update observations table if missing
+      await this.updateLocationFromInaturalistData(observationId, inatObservation);
+
       // Automatically save API response and download BLAST and trace files if MycoMap URLs are detected
       try {
         // Save the full iNaturalist API response as a text file
@@ -2399,6 +2402,75 @@ export class DatabaseStorage implements IStorage {
         syncError: error instanceof Error ? error.message : 'Unknown error'
       });
       return null;
+    }
+  }
+
+  // Update location data from iNaturalist API if missing in main observations table
+  async updateLocationFromInaturalistData(observationId: string, inatObservation: any): Promise<void> {
+    try {
+      // Get current observation to check for missing location data
+      const [currentObs] = await db.select()
+        .from(observations)
+        .where(eq(observations.observationId, observationId));
+
+      if (!currentObs) return;
+
+      // Check if we're missing key location data
+      const missingState = !currentObs.state || currentObs.state.trim() === '';
+      const missingLocation = !currentObs.scientificName || currentObs.scientificName.trim() === ''; // Use scientificName as location proxy
+      const missingLatLng = !currentObs.latitude || !currentObs.longitude;
+
+      if (!missingState && !missingLocation && !missingLatLng) {
+        // No missing location data
+        return;
+      }
+
+      console.log(`[iNaturalist] Checking for location updates for ${observationId} - missing state: ${missingState}, coordinates: ${missingLatLng}`);
+
+      // Extract location data from iNaturalist response
+      const updates: any = {};
+
+      // Update coordinates if missing
+      if (missingLatLng && inatObservation.location) {
+        const coords = inatObservation.location.split(',');
+        if (coords.length === 2) {
+          const lat = parseFloat(coords[0].trim());
+          const lng = parseFloat(coords[1].trim());
+          if (!isNaN(lat) && !isNaN(lng)) {
+            updates.latitude = lat;
+            updates.longitude = lng;
+            console.log(`[iNaturalist] Found coordinates for ${observationId}: ${lat}, ${lng}`);
+          }
+        }
+      }
+
+      // Update location string if missing (using scientific name field since location field doesn't exist in observations table)
+      if (missingLocation && inatObservation.place_guess) {
+        // Note: observations table doesn't have location field, this would need schema update
+        console.log(`[iNaturalist] Location available but no field to store: ${inatObservation.place_guess}`);
+      }
+
+      // Update state if missing - try to resolve from place_ids
+      if (missingState && inatObservation.place_ids && inatObservation.place_ids.length > 0) {
+        const resolvedState = await this.resolveStateFromPlaceIds(inatObservation.place_ids);
+        if (resolvedState) {
+          updates.state = resolvedState;
+          console.log(`[iNaturalist] Resolved state for ${observationId}: ${resolvedState}`);
+        }
+      }
+
+      // Apply updates if we found any new location data
+      if (Object.keys(updates).length > 0) {
+        await db.update(observations)
+          .set(updates)
+          .where(eq(observations.observationId, observationId));
+        
+        console.log(`[iNaturalist] Updated location data for ${observationId}:`, updates);
+      }
+
+    } catch (error) {
+      console.error(`[iNaturalist] Error updating location for ${observationId}:`, error);
+      // Don't fail the sync if location update fails
     }
   }
 
@@ -2771,6 +2843,9 @@ export class DatabaseStorage implements IStorage {
         console.error(`[MushroomObserver] Failed to save API response for ${observationId}:`, apiError);
       }
 
+      // Check for location updates and update observations table if missing
+      await this.updateLocationFromMushroomObserverData(observationId, observation);
+
       if (existing.length > 0) {
         await this.updateMushroomObserverData(observationId, moRecord);
         const [updated] = await db.select()
@@ -2778,7 +2853,10 @@ export class DatabaseStorage implements IStorage {
           .where(eq(mushroomObserverData.observationId, observationId));
         return updated;
       } else {
-        return await this.createMushroomObserverData(moRecord);
+        const created = await this.createMushroomObserverData(moRecord);
+        // Also check for location updates for new records
+        await this.updateLocationFromMushroomObserverData(observationId, observation);
+        return created;
       }
 
     } catch (error) {
