@@ -249,25 +249,31 @@ export const inaturalistPlaces = pgTable("inaturalist_places", {
   placeTypeIdx: index("inat_place_type_idx").on(table.placeType),
 }));
 
-// iNaturalist classification cache table to avoid duplicate API calls
+// iNaturalist classification cache table for all taxonomic search terms
 export const inaturalistClassificationCache = pgTable("inaturalist_classification_cache", {
   id: serial("id").primaryKey(),
-  genus: text("genus").notNull().unique(), // The genus name used for lookup
+  searchTerm: text("search_term").notNull().unique(), // The term searched (genus, species, etc.)
+  taxonRank: text("taxon_rank"), // The actual rank found (genus, species, family, etc.)
+  taxonId: integer("taxon_id"), // iNaturalist taxon ID
+  scientificName: text("scientific_name"), // Scientific name of the taxon
+  commonName: text("common_name"), // Common name if available
+  parentId: integer("parent_id"), // Parent taxon ID
+  ancestry: text("ancestry"), // Full ancestry path
   kingdom: text("kingdom"),
   phylum: text("phylum"),
   class: text("class"),
   order: text("order"),
   family: text("family"),
-  inatTaxonId: integer("inat_taxon_id"), // iNaturalist taxon ID
-  observationCount: integer("observation_count"), // Number of observations for this taxon on iNat
+  observationsCount: integer("observations_count").default(0), // Number of observations on iNat
   isActive: boolean("is_active").default(true), // Whether the taxon is active on iNat
   apiResponse: text("api_response"), // Full JSON response from iNaturalist API
-  lookupCount: integer("lookup_count").default(1), // How many times this genus has been requested
+  lookupCount: integer("lookup_count").default(1), // How many times this term has been requested
   lastUsedAt: timestamp("last_used_at").defaultNow(), // When this cache entry was last accessed
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  genusIdx: index("inat_classification_genus_idx").on(table.genus),
+  searchTermIdx: index("inat_classification_search_term_idx").on(table.searchTerm),
+  taxonRankIdx: index("inat_classification_taxon_rank_idx").on(table.taxonRank),
   familyIdx: index("inat_classification_family_idx").on(table.family),
   lastUsedIdx: index("inat_classification_last_used_idx").on(table.lastUsedAt),
   lookupCountIdx: index("inat_classification_lookup_count_idx").on(table.lookupCount),
