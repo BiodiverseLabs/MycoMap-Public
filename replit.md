@@ -116,6 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Thumbnail Display Fix and URL Conversion Enhancement
+  - Resolved thumbnail display issues caused by iNaturalist changing image serving policies 
+  - Implemented URL conversion system to transform static.inaturalist.org URLs to working inaturalist-open-data.s3.amazonaws.com format
+  - Enhanced SmartThumbnail component with robust fallback strategies including medium.jpeg sizing
+  - Restored 100% thumbnail coverage for recent records while maintaining data integrity
+  - Fixed overly restrictive data integrity approach that removed working convertible URLs
+  - System now properly handles both authentic iNaturalist API photo data and converted legacy URLs
+
 - June 16, 2025: Enhanced Classification System and Real-time Progress Monitoring
   - Fixed incomplete genus match detection in classification updates to catch genera with missing taxonomy fields
   - Added family-level search to iNaturalist API lookup (genus, subgenus, section, family ranks)
