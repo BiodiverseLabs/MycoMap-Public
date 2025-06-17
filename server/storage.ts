@@ -958,6 +958,11 @@ export class MemoryStorage implements IStorage {
   async resolveStateFromPlaceIds(placeIds: number[]): Promise<string | null> {
     return null;
   }
+
+  async executeRawSQL(query: string): Promise<{ rows: any[] }> {
+    // Memory storage doesn't support raw SQL
+    throw new Error('Raw SQL execution not supported in memory storage');
+  }
 }
 
 // Use database storage instead of memory storage
