@@ -1659,10 +1659,12 @@ export class DatabaseStorage implements IStorage {
 
   async getObservationsWithClassificationUpdates(): Promise<Observation[]> {
     // Use raw SQL query since Drizzle ORM is having issues with boolean columns
+    // Set explicit limit to handle all records (Neon may have default limits)
     const result = await db.execute(sql`
       SELECT * FROM observations 
       WHERE classification_update = true 
       ORDER BY updated_at DESC
+      LIMIT 15000
     `);
     
     return result.rows as Observation[];
