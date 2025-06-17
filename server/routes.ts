@@ -2013,6 +2013,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Mark classification phase as completed
+      progressTracker.set(uploadId, {
+        progress: 100,
+        phase: 'classification-updates',
+        message: `✓ Classification updates completed: ${updatedCount} records updated`,
+        batchInfo: {
+          currentBatch: totalBatches,
+          totalBatches: totalBatches,
+          processedRecords: processedRecords,
+          totalRecords: classificationUpdates.length,
+          updatedCount: updatedCount,
+          inatLookups: inatLookupCount
+        }
+      });
+      
       console.log(`✓ Automated classification updates completed:`);
       console.log(`  - Total records updated: ${updatedCount}`);
       console.log(`  - iNaturalist API lookups: ${inatLookupCount}`);

@@ -28,6 +28,30 @@ interface UploadState {
 
 const UPLOAD_STATE_KEY = 'mycomap_upload_state';
 
+// Convert internal phase names to user-friendly display names
+function getPhaseDisplayName(phase: string): string {
+  switch (phase) {
+    case 'initializing':
+      return 'Phase 1: Initialization';
+    case 'reading':
+      return 'Phase 1: Reading File';
+    case 'processing':
+      return 'Phase 2: Processing Data';
+    case 'inserting':
+      return 'Phase 2: Inserting Records';
+    case 'post-processing':
+      return 'Phase 3: Post-Processing';
+    case 'classification-updates':
+      return 'Phase 4: Classification Updates';
+    case 'inat-sync':
+      return 'Phase 5: iNaturalist Sync';
+    case 'completed':
+      return 'All Phases Complete';
+    default:
+      return phase.charAt(0).toUpperCase() + phase.slice(1).replace('-', ' ');
+  }
+}
+
 export function FileUpload() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -154,15 +178,18 @@ export function FileUpload() {
           setProcessingMessage(data.message);
           setBatchInfo(data.batchInfo);
           
-          // Check if phase is completed (progress = 100 or phase completed message)
-          const isPhaseCompleted = data.progress === 100 || 
-            data.message.includes("completed") || 
-            data.message.includes("Phase") && data.message.includes("completed");
+          // Track phase transitions and completions
+          const previousPhase = processingPhase;
+          const isPhaseTransition = data.phase !== previousPhase && previousPhase !== '';
+          const isPhaseCompleted = data.message.includes("completed") || 
+                                 data.message.includes("✓") ||
+                                 data.progress === 100;
           
-          // Add to phase history if it's a new completed phase
-          if (isPhaseCompleted && data.phase !== 'idle') {
+          // Add to phase history on phase transition or completion
+          if ((isPhaseTransition || isPhaseCompleted) && data.phase !== 'idle' && data.phase !== 'failed') {
+            const phaseDisplayName = getPhaseDisplayName(data.phase);
             const newPhaseResult: PhaseResult = {
-              phase: data.phase,
+              phase: phaseDisplayName,
               message: data.message,
               progress: data.progress,
               timestamp: new Date().toISOString(),
@@ -171,9 +198,9 @@ export function FileUpload() {
             
             setPhaseHistory(prev => {
               // Check if this phase is already in history
-              const existingPhaseIndex = prev.findIndex(p => p.phase === data.phase);
+              const existingPhaseIndex = prev.findIndex(p => p.phase === phaseDisplayName);
               if (existingPhaseIndex >= 0) {
-                // Update existing phase
+                // Update existing phase with latest info
                 const updated = [...prev];
                 updated[existingPhaseIndex] = newPhaseResult;
                 return updated;
