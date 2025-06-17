@@ -3,175 +3,226 @@
 import { pool } from './server/db.ts';
 
 async function correctedBatchProcessing() {
-  console.log('Processing genera with corrected API approach...\n');
+  console.log('Correcting non-fungal classifications and incomplete entries...\n');
   
-  let sessionProcessed = 0;
-  let sessionSuccessful = 0;
+  let corrected = 0;
+  let removed = 0;
+  let verified = 0;
   
   try {
-    // Process 20 batches of 3 genera each
-    for (let batch = 0; batch < 20; batch++) {
-      const result = await pool.query(`
-        SELECT DISTINCT o.genus
-        FROM observations o
-        WHERE o.genus IS NOT NULL 
-          AND o.genus != ''
-          AND o.genus NOT LIKE '%http%'
-          AND o.genus NOT LIKE '%aceae'
-          AND o.genus NOT LIKE '%ales'
-          AND o.genus NOT LIKE '%mycota'
-          AND o.genus NOT LIKE '%ineae'
-          AND o.genus NOT LIKE '% %'
-          AND LENGTH(o.genus) >= 3
-          AND o.genus != 'fungi'
-          AND o.genus NOT IN (
-            SELECT genus FROM inaturalist_classification_cache 
-            WHERE updated_at IS NOT NULL
-          )
-        ORDER BY o.genus ASC
-        LIMIT 3
-      `);
-
-      if (result.rows.length === 0) {
-        console.log('All genera processed!');
-        break;
-      }
-
-      const genera = result.rows.map(r => r.genus);
-      console.log(`[${batch + 1}] ${genera.join(', ')}`);
-
-      for (const genus of genera) {
-        sessionProcessed++;
+    // 1. Handle non-fungal entries that shouldn't be in fungal database
+    console.log('=== Reviewing Non-Fungal Classifications ===');
+    
+    const nonFungalResult = await pool.query(`
+      SELECT search_term, kingdom, matched_taxon_name, family
+      FROM inaturalist_classification_cache 
+      WHERE kingdom != 'Fungi' AND kingdom != 'INVALID'
+      ORDER BY search_term
+    `);
+    
+    console.log(`Found ${nonFungalResult.rows.length} non-fungal entries`);
+    
+    for (const row of nonFungalResult.rows) {
+      const { search_term, kingdom, matched_taxon_name, family } = row;
+      
+      console.log(`\nReviewing "${search_term}" → ${kingdom} (${matched_taxon_name})`);
+      
+      // Check if this might actually be a fungal genus with similar name
+      const fungalSearchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(search_term)}&iconic_taxa=fungi&per_page=5`;
+      const response = await fetch(fungalSearchUrl);
+      
+      if (response.ok) {
+        const data = await response.json();
         
-        try {
-          // Search for exact genus match
-          const searchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(genus)}&rank=genus&per_page=5`;
-          const response = await fetch(searchUrl);
+        if (data.results && data.results.length > 0) {
+          // Look for exact fungal match
+          const fungalMatch = data.results.find(result => 
+            result.name.toLowerCase() === search_term.toLowerCase() && 
+            result.iconic_taxon_name === 'Fungi'
+          );
           
-          if (response.ok) {
-            const data = await response.json();
-            let taxonomyFound = false;
+          if (fungalMatch) {
+            console.log(`  Found fungal version: ${fungalMatch.name} (ID: ${fungalMatch.id})`);
             
-            if (data.results && data.results.length > 0) {
-              // Look for exact genus match
-              for (const searchResult of data.results) {
-                if (searchResult.rank === 'genus' && 
-                    searchResult.name.toLowerCase() === genus.toLowerCase()) {
-                  
-                  // Get detailed taxonomy with ancestors
-                  const detailUrl = `https://api.inaturalist.org/v1/taxa/${searchResult.id}`;
-                  const detailResponse = await fetch(detailUrl);
-                  
-                  if (detailResponse.ok) {
-                    const detailData = await detailResponse.json();
-                    const taxon = detailData.results?.[0];
-                    
-                    if (taxon) {
-                      const taxonomy = {};
-                      
-                      // Add the taxon itself
-                      if (taxon.rank && taxon.name) {
-                        taxonomy[taxon.rank] = taxon.name;
-                      }
-                      
-                      // Add all ancestors
-                      if (taxon.ancestors && taxon.ancestors.length > 0) {
-                        taxon.ancestors.forEach(ancestor => {
-                          if (ancestor.rank && ancestor.name) {
-                            taxonomy[ancestor.rank] = ancestor.name;
-                          }
-                        });
-                      }
-                      
-                      // Check for minimum taxonomy (kingdom + family/order)
-                      if (taxonomy.kingdom && (taxonomy.family || taxonomy.order)) {
-                        await pool.query(`
-                          INSERT INTO inaturalist_classification_cache (
-                            genus, kingdom, phylum, class, "order", family, matched_rank, search_term, matched_taxon_name, genus_from_api, updated_at
-                          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-                          ON CONFLICT (genus) DO UPDATE SET
-                            kingdom = EXCLUDED.kingdom,
-                            phylum = EXCLUDED.phylum,
-                            class = EXCLUDED.class,
-                            "order" = EXCLUDED."order",
-                            family = EXCLUDED.family,
-                            matched_rank = EXCLUDED.matched_rank,
-                            search_term = EXCLUDED.search_term,
-                            matched_taxon_name = EXCLUDED.matched_taxon_name,
-                            genus_from_api = EXCLUDED.genus_from_api,
-                            updated_at = NOW()
-                        `, [
-                          genus,
-                          taxonomy.kingdom || null,
-                          taxonomy.phylum || null,
-                          taxonomy.class || null,
-                          taxonomy.order || null,
-                          taxonomy.family || null,
-                          searchResult.rank || null,
-                          genus,
-                          searchResult.name || null,
-                          taxonomy.genus || null
-                        ]);
-                        
-                        sessionSuccessful++;
-                        taxonomyFound = true;
-                        console.log(`    ✅ ${genus}: ${taxonomy.kingdom} → ${taxonomy.family || taxonomy.order}`);
-                        break;
-                      }
-                    }
+            // Get detailed taxonomy for fungal version
+            const detailUrl = `https://api.inaturalist.org/v1/taxa/${fungalMatch.id}`;
+            const detailResponse = await fetch(detailUrl);
+            
+            if (detailResponse.ok) {
+              const detailData = await detailResponse.json();
+              const taxon = detailData.results?.[0];
+              
+              if (taxon && taxon.ancestors) {
+                const taxonomy = {};
+                
+                if (taxon.rank && taxon.name) {
+                  taxonomy[taxon.rank] = taxon.name;
+                }
+                
+                taxon.ancestors.forEach(ancestor => {
+                  if (ancestor.rank && ancestor.name) {
+                    taxonomy[ancestor.rank] = ancestor.name;
                   }
+                });
+                
+                if (taxonomy.kingdom === 'Fungi' && taxonomy.family) {
+                  // Update with correct fungal classification
+                  await pool.query(`
+                    UPDATE inaturalist_classification_cache 
+                    SET kingdom = $1, phylum = $2, class = $3, "order" = $4, family = $5, 
+                        matched_rank = $6, matched_taxon_name = $7, genus_from_api = $8, 
+                        updated_at = NOW()
+                    WHERE search_term = $9
+                  `, [
+                    taxonomy.kingdom,
+                    taxonomy.phylum || null,
+                    taxonomy.class || null,
+                    taxonomy.order || null,
+                    taxonomy.family,
+                    fungalMatch.rank,
+                    fungalMatch.name,
+                    taxonomy.genus || null,
+                    search_term
+                  ]);
                   
-                  await new Promise(resolve => setTimeout(resolve, 400));
-                  break; // Found exact match, don't check other results
+                  console.log(`  ✅ CORRECTED: Updated to fungal classification → ${taxonomy.family}`);
+                  corrected++;
+                } else {
+                  console.log(`  ❌ Fungal match lacks complete taxonomy`);
                 }
               }
             }
+          } else {
+            console.log(`  ℹ️ No exact fungal match found - likely correct non-fungal classification`);
             
-            if (!taxonomyFound) {
-              await pool.query(`
-                INSERT INTO inaturalist_classification_cache (genus, kingdom, updated_at)
-                VALUES ($1, 'INVALID', NOW())
-                ON CONFLICT (genus) DO UPDATE SET
-                  kingdom = 'INVALID',
-                  updated_at = NOW()
-              `, [genus]);
-              console.log(`    ❌ ${genus}: No valid taxonomy`);
-            }
+            // Remove non-fungal entries from fungal database
+            await pool.query(`
+              DELETE FROM inaturalist_classification_cache 
+              WHERE search_term = $1 AND kingdom != 'Fungi'
+            `, [search_term]);
+            
+            console.log(`  🗑️ REMOVED: Non-fungal entry removed from fungal cache`);
+            removed++;
           }
-        } catch (error) {
-          await pool.query(`
-            INSERT INTO inaturalist_classification_cache (genus, kingdom, updated_at)
-            VALUES ($1, 'INVALID', NOW())
-            ON CONFLICT (genus) DO UPDATE SET
-              kingdom = 'INVALID',
-              updated_at = NOW()
-          `, [genus]);
-          console.log(`    ❌ ${genus}: Error`);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 700));
       }
       
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     
-    // Final progress check
-    const progressResult = await pool.query(`
+    // 2. Handle entries with missing family information
+    console.log('\n=== Reviewing Incomplete Fungal Classifications ===');
+    
+    const incompleteResult = await pool.query(`
+      SELECT search_term, matched_rank, matched_taxon_name, "order"
+      FROM inaturalist_classification_cache 
+      WHERE kingdom = 'Fungi' AND family IS NULL
+      ORDER BY search_term
+    `);
+    
+    console.log(`Found ${incompleteResult.rows.length} incomplete entries`);
+    
+    for (const row of incompleteResult.rows) {
+      const { search_term, matched_rank, matched_taxon_name, order } = row;
+      
+      console.log(`\nRe-checking "${search_term}" for family classification`);
+      
+      // Re-search with broader scope
+      const searchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(search_term)}&iconic_taxa=fungi&per_page=10`;
+      const response = await fetch(searchUrl);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+          // Look for exact match or best match
+          let bestMatch = data.results.find(result => 
+            result.name.toLowerCase() === search_term.toLowerCase()
+          );
+          
+          if (!bestMatch && data.results.length > 0) {
+            bestMatch = data.results[0]; // Take first result as fallback
+          }
+          
+          if (bestMatch) {
+            const detailUrl = `https://api.inaturalist.org/v1/taxa/${bestMatch.id}`;
+            const detailResponse = await fetch(detailUrl);
+            
+            if (detailResponse.ok) {
+              const detailData = await detailResponse.json();
+              const taxon = detailData.results?.[0];
+              
+              if (taxon && taxon.ancestors) {
+                const taxonomy = {};
+                
+                if (taxon.rank && taxon.name) {
+                  taxonomy[taxon.rank] = taxon.name;
+                }
+                
+                taxon.ancestors.forEach(ancestor => {
+                  if (ancestor.rank && ancestor.name) {
+                    taxonomy[ancestor.rank] = ancestor.name;
+                  }
+                });
+                
+                if (taxonomy.family) {
+                  // Update with family information
+                  await pool.query(`
+                    UPDATE inaturalist_classification_cache 
+                    SET family = $1, phylum = $2, class = $3, "order" = $4,
+                        matched_rank = $5, matched_taxon_name = $6, genus_from_api = $7,
+                        updated_at = NOW()
+                    WHERE search_term = $8
+                  `, [
+                    taxonomy.family,
+                    taxonomy.phylum || null,
+                    taxonomy.class || null,
+                    taxonomy.order || null,
+                    bestMatch.rank,
+                    bestMatch.name,
+                    taxonomy.genus || null,
+                    search_term
+                  ]);
+                  
+                  console.log(`  ✅ COMPLETED: Added family ${taxonomy.family}`);
+                  corrected++;
+                } else {
+                  console.log(`  ⚠️ Still no family found - may be valid higher rank`);
+                  verified++;
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // 3. Final verification statistics
+    const finalStats = await pool.query(`
       SELECT 
-        COUNT(CASE WHEN updated_at IS NOT NULL THEN 1 END) as total_processed,
-        COUNT(CASE WHEN kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) as successful,
-        (1087 - COUNT(CASE WHEN updated_at IS NOT NULL THEN 1 END)) as remaining
+        COUNT(*) as total,
+        COUNT(CASE WHEN kingdom = 'Fungi' THEN 1 END) as fungi_entries,
+        COUNT(CASE WHEN kingdom = 'Fungi' AND family IS NOT NULL THEN 1 END) as complete_fungi,
+        COUNT(CASE WHEN kingdom != 'Fungi' AND kingdom != 'INVALID' THEN 1 END) as non_fungi,
+        ROUND(COUNT(CASE WHEN kingdom = 'Fungi' AND family IS NOT NULL THEN 1 END) * 100.0 / 
+              COUNT(CASE WHEN kingdom = 'Fungi' THEN 1 END), 1) as completion_rate
       FROM inaturalist_classification_cache
     `);
     
-    const stats = progressResult.rows[0];
-    const successRate = Math.round(stats.successful / stats.total_processed * 100);
-    const percentComplete = Math.round(stats.total_processed / 1087 * 100);
+    const stats = finalStats.rows[0];
     
-    console.log(`\nSession: ${sessionSuccessful}/${sessionProcessed} successful`);
-    console.log(`Total: ${stats.total_processed}/1087 (${percentComplete}%)`);
-    console.log(`Success Rate: ${stats.successful} (${successRate}%)`);
-    console.log(`Remaining: ${stats.remaining} genera`);
+    console.log(`\n=== CORRECTION SUMMARY ===`);
+    console.log(`🔧 Entries Corrected: ${corrected}`);
+    console.log(`🗑️ Non-fungal Entries Removed: ${removed}`);
+    console.log(`✅ Entries Verified: ${verified}`);
+    console.log(`📊 Final Statistics:`);
+    console.log(`   Total Entries: ${stats.total}`);
+    console.log(`   Fungal Entries: ${stats.fungi_entries}`);
+    console.log(`   Complete Classifications: ${stats.complete_fungi}`);
+    console.log(`   Non-fungal Entries: ${stats.non_fungi}`);
+    console.log(`   Completion Rate: ${stats.completion_rate}%`);
     
   } catch (error) {
     console.error('Processing error:', error.message);
