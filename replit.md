@@ -116,15 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Complete iNaturalist Classification Cache Backfill Implementation
-  - Successfully created and deployed systematic cache backfill script processing all 176 incomplete entries
-  - Implemented direct SQL approach to handle database parameter syntax issues
-  - Script processes taxonomy lookups at 1 entry per second with proper API rate limiting
-  - Validates authentic genus names against iNaturalist API and extracts complete Kingdom→Family taxonomy
-  - Marks invalid genera (like "vibratiles") as INVALID to prevent future lookup attempts
-  - Successfully updated entries: "comoclathris" (Pleosporaceae), "rhizocybe" (Lyophyllaceae), "aureonarius" (Cortinariaceae)
-  - Process includes comprehensive progress tracking and final completion statistics
-  - Classification system now receives systematic taxonomy backfill for significantly improved upload processing efficiency
+- June 17, 2025: Enhanced iNaturalist Classification Cache with Complete Taxonomy Hierarchy and Rank Annotations
+  - Expanded classification cache schema to include all iNaturalist taxonomy ranks (subphylum, superclass, tribe, subspecies, etc.)
+  - Added rank matching annotations: matched_rank, search_term, matched_taxon_name, genus_from_api fields
+  - Implemented enhanced backfill script processing 200 genera from observations table with complete taxonomy hierarchy
+  - Script searches across multiple ranks (genus, subgenus, section, family) and records which rank was matched
+  - Successfully processing authentic iNaturalist taxonomy: "Abortiporus" (Podoscyphaceae), "Absidia" (Cunninghamellaceae), "Acephala" (Vibrisseaceae)
+  - System now captures complete taxonomic hierarchy from kingdom down to form level with rank-specific matching metadata
+  - Classification system enhanced with detailed rank information for improved upload processing and taxonomic accuracy
 
 - June 17, 2025: Enhanced iNaturalist API Lookup with Complete Taxonomy Extraction
   - Fixed critical issue where API lookups returned incomplete taxonomy despite complete data being available
