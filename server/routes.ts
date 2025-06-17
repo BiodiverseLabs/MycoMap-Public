@@ -1616,10 +1616,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const avgTimePerRecord = batchDuration / batch.length;
           const progressPercent = ((insertedCount / observations.length) * 100).toFixed(1);
           
-          // Update progress tracker with real-time batch completion
-          const actualProgress = Math.round((insertedCount / observations.length) * 100);
+          // Update progress tracker with real-time batch completion (0-50% for insertion phase)
+          const insertionProgress = Math.round((insertedCount / observations.length) * 50);
           progressTracker.set(uploadId, {
-            progress: actualProgress,
+            progress: insertionProgress,
             phase: 'inserting',
             message: `Processing records: ${insertedCount.toLocaleString()}/${observations.length.toLocaleString()} (${progressPercent}% complete)`,
             batchInfo: {

@@ -183,7 +183,7 @@ export function FileUpload() {
           const isPhaseTransition = data.phase !== previousPhase && previousPhase !== '';
           const isPhaseCompleted = data.message.includes("completed") || 
                                  data.message.includes("✓") ||
-                                 data.progress === 100;
+                                 (data.phase === 'post-processing' && data.progress >= 100);
           
           // Add to phase history on phase transition or completion
           if ((isPhaseTransition || isPhaseCompleted) && data.phase !== 'idle' && data.phase !== 'failed') {
