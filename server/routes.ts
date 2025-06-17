@@ -775,7 +775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contributors/global-firsts", async (req, res) => {
     try {
       const { state, limit } = req.query;
-      const limitNum = limit ? parseInt(limit as string) : 10;
+      const limitNum = limit ? parseInt(limit as string) : 1000; // Default to high limit for "all records"
       
       // Use optimized database method instead of fetching 50k+ records
       const data = await storage.getContributorsWithMostGlobalFirsts(limitNum, state as string);
@@ -790,7 +790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contributors/state-firsts", async (req, res) => {
     try {
       const { state, limit } = req.query;
-      const limitNum = limit ? parseInt(limit as string) : 10;
+      const limitNum = limit ? parseInt(limit as string) : 1000; // Default to high limit for "all records"
       
       const contributors = await storage.getContributorsWithMostStateFirsts(limitNum, state as string);
       res.json(contributors);

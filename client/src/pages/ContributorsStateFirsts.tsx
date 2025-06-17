@@ -28,7 +28,7 @@ export default function ContributorsStateFirsts() {
               </Link>
               <h1 className="text-3xl font-bold tracking-tight">Contributors with Most State First Records</h1>
               <p className="text-muted-foreground mt-2">
-                Complete ranking of contributors by their first-in-state records in macrofungi observations
+                Complete ranking of contributors by their state first records in macrofungi observations
               </p>
             </div>
 
@@ -36,7 +36,7 @@ export default function ContributorsStateFirsts() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  All Contributors by State First Records
+                  All Contributors State First Records
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -50,30 +50,42 @@ export default function ContributorsStateFirsts() {
                   <div className="space-y-2">
                     {contributorData.map((contributor, index) => {
                       const isTopThree = index < 3;
-                      const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
+                      const badgeColors = ['bg-yellow-500', 'bg-gray-400', 'bg-amber-600'];
                       
                       return (
-                        <div key={contributor.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-3">
+                        <div key={contributor.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                          <div className="flex items-center gap-4">
                             <span className={`flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold ${
                               isTopThree ? badgeColors[index] : 'bg-muted-foreground'
                             }`}>
                               {index + 1}
                             </span>
-                            <div>
-                              <div className={isTopThree ? "font-semibold text-lg" : "font-medium"}>{contributor.name}</div>
+                            <div className="min-w-0">
+                              <div className={`${isTopThree ? "text-lg font-bold" : "text-base font-semibold"} truncate`}>
+                                {contributor.name}
+                              </div>
                               {contributor.affiliation && (
-                                <div className="text-sm text-muted-foreground">{contributor.affiliation}</div>
+                                <div className="text-sm text-muted-foreground truncate">{contributor.affiliation}</div>
                               )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className={isTopThree ? "font-bold text-xl" : "font-semibold text-lg"}>{contributor.stateFirstCount.toLocaleString()}</div>
-                            <div className="text-sm text-muted-foreground">{contributor.percentage.toFixed(1)}% of total</div>
+                          <div className="text-right flex-shrink-0">
+                            <div className={`${isTopThree ? "text-xl font-bold" : "text-lg font-semibold"}`}>
+                              {contributor.stateFirstCount.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {contributor.percentage.toFixed(1)}% of total
+                            </div>
                           </div>
                         </div>
                       );
                     })}
+                  </div>
+                )}
+                
+                {!isLoading && contributorData.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No contributor state first records found
                   </div>
                 )}
               </CardContent>

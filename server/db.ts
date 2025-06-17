@@ -1490,7 +1490,6 @@ export class DatabaseStorage implements IStorage {
             ELSE state
           END
         ORDER BY COUNT(*) DESC
-        LIMIT 20
       `;
 
       const results = await pool.query(sqlQuery, params);
