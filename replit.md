@@ -116,6 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Classification Performance Optimization and Data Validation Enhancement
+  - Implemented comprehensive data validation to filter invalid genus names (URLs, taxonomic ranks, numbered variants)
+  - Added isInvalidGenusName validation function to prevent unnecessary iNaturalist API calls
+  - Enhanced GPS index building with detailed progress logging and record count reporting
+  - Optimized classification updates to skip malformed data like "https://mycomap.com/genetics/blast-search/" URLs
+  - System now processes 11,511 classification records in 116 batches with real-time progress tracking
+  - Improved efficiency: first batch showed 0 iNaturalist API calls (all local database matches)
+  - Enhanced progress reporting shows actual batch completion times and accurate estimates
+
 - June 17, 2025: Complete Phase Tracking System Implementation
   - Fixed progress calculation to show 0-50% during batch insertion, then 50-100% across 5 post-processing phases
   - Enhanced server-side progress reporting with proper completion signals and real-time progress updates

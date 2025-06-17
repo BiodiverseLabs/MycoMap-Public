@@ -1258,10 +1258,29 @@ export class DatabaseStorage implements IStorage {
   async buildGpsIndex(): Promise<void> {
     const { gpsIndex } = schema;
     
+    console.log('[GPS Index] Starting GPS index rebuild...');
+    
     // Clear existing GPS index
+    console.log('[GPS Index] Clearing existing GPS index...');
     await db.delete(gpsIndex);
     
+    // Count records to process for progress tracking
+    const countResult = await db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM observations 
+      WHERE latitude IS NOT NULL 
+        AND longitude IS NOT NULL 
+        AND latitude != '0' 
+        AND longitude != '0'
+        AND CAST(latitude AS DECIMAL) BETWEEN -90 AND 90
+        AND CAST(longitude AS DECIMAL) BETWEEN -180 AND 180
+    `);
+    
+    const totalRecords = Number(countResult.rows[0]?.total || 0);
+    console.log(`[GPS Index] Processing ${totalRecords.toLocaleString()} records with valid coordinates...`);
+    
     // Populate GPS index from observations with valid coordinates
+    const startTime = Date.now();
     await db.execute(sql`
       INSERT INTO gps_index (observation_id, latitude, longitude, state, scientific_name, observed_on)
       SELECT 
@@ -1280,7 +1299,8 @@ export class DatabaseStorage implements IStorage {
         AND CAST(longitude AS DECIMAL) BETWEEN -180 AND 180
     `);
     
-    console.log('[GPS Index] GPS index rebuilt successfully');
+    const duration = Date.now() - startTime;
+    console.log(`[GPS Index] GPS index rebuilt successfully: ${totalRecords.toLocaleString()} records processed in ${duration}ms`);
   }
 
   async getMapDataOptimized(limit: number = 75000, state?: string): Promise<Array<{

@@ -1895,6 +1895,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return await storage.lookupGenusClassificationWithCache(genusName);
   }
 
+  // Helper function to validate genus names and skip invalid ones
+  function isInvalidGenusName(genusCandidate: string): boolean {
+    // Skip empty or too short names
+    if (!genusCandidate || genusCandidate.length < 2) return true;
+    
+    // Skip URLs and paths
+    if (genusCandidate.includes('http') || genusCandidate.includes('www.') || 
+        genusCandidate.includes('.com') || genusCandidate.includes('/') ||
+        genusCandidate.includes('mycomap.com') || genusCandidate.includes('blast-search')) return true;
+    
+    // Skip taxonomic ranks that shouldn't be genus names
+    const invalidRanks = [
+      'fungi', 'basidiomycota', 'ascomycota', 'agaricales', 'boletales', 
+      'polyporales', 'russulales', 'cantharellales', 'helotiales', 'xylariales',
+      'agaricaceae', 'boletaceae', 'polyporaceae', 'russulaceae', 'tricholomataceae',
+      'agaricineae', 'hygrophorineae', 'phalloideae', 'ingratae', 'lyophyllaceae'
+    ];
+    
+    if (invalidRanks.includes(genusCandidate)) return true;
+    
+    // Skip names with numbers at the end (indicates duplicates/variants)
+    if (/\d+$/.test(genusCandidate)) return true;
+    
+    // Skip names that are clearly not genus names
+    if (genusCandidate.includes('sp.') || genusCandidate.includes('spp.') || 
+        genusCandidate === 'unknown' || genusCandidate === 'unidentified') return true;
+    
+    return false;
+  }
+
   async function autoPopulateClassificationUpdates(uploadId: number, progressTracker: Map<number, any>) {
     console.log('Starting automated classification updates by genus matching...');
     
@@ -1977,6 +2007,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (!genusCandidate) {
               continue; // Skip if no genus candidate found
+            }
+            
+            // Data validation - skip invalid genus names
+            if (isInvalidGenusName(genusCandidate)) {
+              console.log(`⚠ Skipping invalid genus name: "${genusCandidate}" in record ${record.id}`);
+              continue;
             }
             
             let taxonomyRef = null;
