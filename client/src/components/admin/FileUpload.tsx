@@ -224,12 +224,21 @@ export function FileUpload() {
             
             if (data.message.includes("✓") && currentPhase <= phaseNames.length) {
               const completedPhase = phaseNames[currentPhase - 1];
+              
+              // Create corrected metrics that show the actual phase numbers
+              const correctedMetrics = {
+                ...data.batchInfo,
+                currentPhase: currentPhase,
+                totalPhases: 5,
+                phaseProgress: 100  // Phase is completed
+              };
+              
               const phaseResult: PhaseResult = {
                 phase: completedPhase,
                 message: data.message,
-                progress: 100,
+                progress: data.progress, // Use the actual progress from server
                 timestamp: new Date().toISOString(),
-                metrics: data.batchInfo
+                metrics: correctedMetrics
               };
               
               setPhaseHistory(prev => {
@@ -688,8 +697,14 @@ export function FileUpload() {
                           </>
                         )}
                         
-                        {/* General metrics */}
-                        {phase.metrics && typeof phase.metrics === 'object' && Object.entries(phase.metrics).map(([key, value]) => (
+                        {/* General metrics - filtered to show relevant information */}
+                        {phase.metrics && typeof phase.metrics === 'object' && Object.entries(phase.metrics)
+                          .filter(([key]) => {
+                            // Filter out confusing metrics that don't match the phase context
+                            const excludeKeys = ['currentPhase', 'totalPhases', 'phaseProgress'];
+                            return !excludeKeys.includes(key);
+                          })
+                          .map(([key, value]) => (
                           <div key={key}>
                             <span className="text-slate-500 capitalize">
                               {key.replace(/([A-Z])/g, ' $1').toLowerCase()}:
