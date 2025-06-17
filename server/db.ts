@@ -3543,45 +3543,45 @@ export class DatabaseStorage implements IStorage {
               }
             });
           }
+          
+          // Cache the result with enhanced taxonomic detail
+          const cacheData = {
+            kingdom: taxonomy.kingdom || undefined,
+            phylum: taxonomy.phylum || undefined,
+            class: taxonomy.class || undefined,
+            order: taxonomy.order || undefined,
+            family: taxonomy.family || undefined,
+            inatTaxonId: taxon.id,
+            observationCount: taxon.observations_count || undefined,
+            isActive: taxon.is_active,
+            apiResponse: JSON.stringify({ 
+              searchTerm: genus, 
+              matchedRank: taxon.rank, 
+              result: taxon 
+            })
+          };
+
+          try {
+            await this.cacheClassificationResult(genus, cacheData);
+          } catch (cacheError) {
+            // Ignore duplicate key errors during successful caching
+            if (!(cacheError as Error).message?.includes('duplicate key')) {
+              console.error(`Failed to cache successful result for "${genus}":`, cacheError);
+            }
+          }
+          
+          // Only return if we have complete taxonomy
+          if (taxonomy.kingdom && taxonomy.phylum && taxonomy.class && 
+              taxonomy.order && taxonomy.family) {
+            const rankInfo = taxon.rank !== 'genus' ? ` (${taxon.rank} level)` : '';
+            console.log(`✓ Found iNaturalist taxonomy for "${genus}": ${taxonomy.family} family${rankInfo} (cached for future use)`);
+            return taxonomy;
+          } else {
+            console.log(`⚠ Incomplete taxonomy from iNaturalist for "${genus}" at ${taxon.rank} level`);
+            return null;
+          }
         } catch (error) {
           console.error(`Error fetching taxon details: ${error}`);
-          return null;
-        }
-        
-        // Cache the result with enhanced taxonomic detail
-        const cacheData = {
-          kingdom: taxonomy.kingdom,
-          phylum: taxonomy.phylum,
-          class: taxonomy.class,
-          order: taxonomy.order,
-          family: taxonomy.family,
-          inatTaxonId: taxon.id,
-          observationCount: taxon.observations_count,
-          isActive: taxon.is_active,
-          apiResponse: JSON.stringify({ 
-            searchTerm: genus, 
-            matchedRank: taxon.rank, 
-            result: taxon 
-          })
-        };
-
-        try {
-          await this.cacheClassificationResult(genus, cacheData);
-        } catch (cacheError) {
-          // Ignore duplicate key errors during successful caching
-          if (!cacheError.message?.includes('duplicate key')) {
-            console.error(`Failed to cache successful result for "${genus}":`, cacheError);
-          }
-        }
-        
-        // Only return if we have complete taxonomy
-        if (taxonomy.kingdom && taxonomy.phylum && taxonomy.class && 
-            taxonomy.order && taxonomy.family) {
-          const rankInfo = taxon.rank !== 'genus' ? ` (${taxon.rank} level)` : '';
-          console.log(`✓ Found iNaturalist taxonomy for "${genus}": ${taxonomy.family} family${rankInfo} (cached for future use)`);
-          return taxonomy;
-        } else {
-          console.log(`⚠ Incomplete taxonomy from iNaturalist for "${genus}" at ${taxon.rank} level`);
           return null;
         }
       } else {
@@ -3589,13 +3589,13 @@ export class DatabaseStorage implements IStorage {
         // Cache the negative result to avoid future API calls
         try {
           await this.cacheClassificationResult(genus, {
-            kingdom: null,
-            phylum: null,
-            class: null,
-            order: null,
-            family: null,
-            inatTaxonId: null,
-            observationCount: null,
+            kingdom: undefined,
+            phylum: undefined,
+            class: undefined,
+            order: undefined,
+            family: undefined,
+            inatTaxonId: undefined,
+            observationCount: undefined,
             isActive: false,
             apiResponse: JSON.stringify({ 
               searchTerm: genus, 
@@ -3605,7 +3605,7 @@ export class DatabaseStorage implements IStorage {
           });
         } catch (cacheError) {
           // Ignore duplicate key errors for negative caching
-          if (!cacheError.message?.includes('duplicate key')) {
+          if (!(cacheError as Error).message?.includes('duplicate key')) {
             console.error(`Failed to cache negative result for "${genus}":`, cacheError);
           }
         }

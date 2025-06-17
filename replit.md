@@ -116,6 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Enhanced iNaturalist API Lookup with Complete Taxonomy Extraction
+  - Fixed critical issue where API lookups returned incomplete taxonomy despite complete data being available
+  - Enhanced lookup logic to fetch full taxon details after initial search to access complete ancestor hierarchy  
+  - Cleared 3 stale cache entries (calonarius, cyanula, candolleomyces) that contained false failures from before capitalization fixes
+  - System now properly extracts kingdom→family taxonomy from iNaturalist API responses
+  - Verified "Calonarius" returns complete taxonomy: Kingdom Fungi, Family Cortinariaceae, etc.
+  - Fixed compilation errors and improved error handling for robust taxonomy caching
+  - API lookup success rate should increase significantly for previously cached failures
+
 - June 17, 2025: Complete Upload System Scoping Fixes for Phases 1, 4 & 5
   - Fixed critical timestamp filtering bugs in getObservationsFromUpload() and Phase 5 iNaturalist API sync
   - Fixed Phase 1 contributor statistics to process only contributors from current upload instead of all 1,798 database contributors
