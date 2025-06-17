@@ -116,15 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Complete Upload Phase 4 Classification System Fix
-  - Fixed critical timestamp filtering bug in getObservationsFromUpload() function using updatedAt instead of createdAt
-  - Resolved Phase 4 classification processing that was returning "0 records" despite 10,990+ records needing updates
-  - Root cause: Database records use updatedAt timestamps, but function was querying createdAt field
-  - Solution: Changed SQL filtering from observations.createdAt to observations.updatedAt in timestamp range queries
-  - Upload 60 verification: Found 10,990 records needing classification including Inocybe PNW59 example
-  - Extensive reference data available: 1,882 Inocybe records and 3,694 Cortinarius records with complete taxonomy
-  - Manual test confirmed Inocybe PNW59 successfully updated with Basidiomycota > Agaricomycetes > Agaricales > Inocybaceae
-  - Phase 4 classification system now properly scopes to upload-specific records and applies local reference taxonomy data
+- June 17, 2025: Complete Upload Phase 4 & 5 System Fixes for Timestamp Filtering
+  - Fixed critical timestamp filtering bugs in both getObservationsFromUpload() and Phase 5 iNaturalist API sync
+  - Phase 4 issue: Classification processing returned "0 records" despite 10,990+ records needing updates  
+  - Phase 5 issue: iNaturalist API sync found "0 records" despite 61,487 records missing API data from upload 60
+  - Root cause: Multiple functions used createdAt instead of updatedAt for timestamp filtering on upload records
+  - Solutions: Changed SQL filtering from observations.createdAt to observations.updatedAt in both Phase 4 and Phase 5
+  - Upload 60 verification: 10,990 classification updates needed, 61,487 iNaturalist records missing API data
+  - Manual test confirmed Inocybe PNW59 classification: Basidiomycota > Agaricomycetes > Agaricales > Inocybaceae
+  - Phase 5 will now properly sync API data for tens of thousands of records per upload instead of skipping them entirely
 
 - June 17, 2025: Fixed Classification Updates API Endpoint and Removed Limits
   - Resolved critical issue where /api/observations/classification-updates returned empty arrays despite 11,003 flagged records

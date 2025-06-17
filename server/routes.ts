@@ -45,8 +45,8 @@ async function syncUploadedInaturalistData(uploadId: number, progressTracker: Ma
       LEFT JOIN inaturalist_data inat ON o.observation_id = inat.observation_id
       WHERE o.source = 'iNaturalist' 
         AND inat.observation_id IS NULL
-        AND o.created_at >= ${oneHourBefore}
-        AND o.created_at <= ${oneHourAfter}
+        AND o.updated_at >= ${oneHourBefore}
+        AND o.updated_at <= ${oneHourAfter}
       ORDER BY o.id DESC
     `);
 
