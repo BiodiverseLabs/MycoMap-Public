@@ -116,6 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Critical Upload Phase 4 Classification Bug Fix  
+  - Diagnosed and fixed critical bug in Phase 4 classification during upload process
+  - Issue: autoPopulateClassificationUpdates() was processing all uploaded records instead of filtering for records needing classification updates
+  - Root cause: getObservationsFromUpload() returned all upload records, but Phase 4 logic expected only records with classification_update = true
+  - Solution: Added filter to only process uploadObservations.filter(obs => obs.classificationUpdate === true)
+  - Result: Phase 4 will now properly identify and update records like Cortinarius watsoneae during upload
+  - Classification system now works correctly for both upload-time processing and manual updates
+  - Verified fix with Cortinarius watsoneae test case: reference data (3,694 records) correctly applied during classification
+
 - June 17, 2025: Fixed Classification Updates API Endpoint and Removed Limits
   - Resolved critical issue where /api/observations/classification-updates returned empty arrays despite 11,003 flagged records
   - Fixed Drizzle ORM boolean column query issues by implementing raw SQL fallback

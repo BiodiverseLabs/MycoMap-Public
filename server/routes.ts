@@ -2004,8 +2004,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     
     try {
       // Get only observations from this upload that need classification updates
-      const classificationUpdates = await storage.getObservationsFromUpload(uploadId);
-      console.log(`Found ${classificationUpdates.length} records from upload ${uploadId} needing classification updates`);
+      const uploadObservations = await storage.getObservationsFromUpload(uploadId);
+      const classificationUpdates = uploadObservations.filter(obs => obs.classificationUpdate === true);
+      console.log(`Found ${classificationUpdates.length} records from upload ${uploadId} needing classification updates (out of ${uploadObservations.length} total uploaded records)`);
       
       if (classificationUpdates.length === 0) {
         console.log('No classification updates needed');
