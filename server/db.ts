@@ -1688,7 +1688,7 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
     
-    // Get observations created within 1 hour of the upload time (to account for processing time)
+    // Get observations updated within 1 hour of the upload time (to account for processing time)
     const oneHourBefore = new Date(uploadTime.getTime() - 60 * 60 * 1000);
     const oneHourAfter = new Date(uploadTime.getTime() + 60 * 60 * 1000);
     
@@ -1696,8 +1696,8 @@ export class DatabaseStorage implements IStorage {
       .from(observations)
       .where(
         and(
-          sql`${observations.createdAt} >= ${oneHourBefore}`,
-          sql`${observations.createdAt} <= ${oneHourAfter}`
+          sql`${observations.updatedAt} >= ${oneHourBefore}`,
+          sql`${observations.updatedAt} <= ${oneHourAfter}`
         )
       )
       .orderBy(desc(observations.updatedAt));
