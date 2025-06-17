@@ -171,11 +171,10 @@ async function enhancedCacheBackfill() {
           WHERE matched_rank IS NOT NULL AND kingdom IS NOT NULL AND family IS NOT NULL AND kingdom != 'INVALID'
         )
       ORDER BY genus ASC
-      LIMIT 200
     `);
     
     const genera = result.rows.map(row => row.genus);
-    console.log(`Found ${genera.length} genera needing classification lookup\n`);
+    console.log(`Found ${genera.length} genera needing classification lookup (processing ALL genera)\n`);
     
     if (genera.length === 0) {
       console.log('All genera in observations already have complete classifications!');
