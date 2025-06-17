@@ -998,11 +998,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(contributors).orderBy(contributors.name);
   }
 
-  async clearAllData(): Promise<void> {
-    await db.execute(sql`DELETE FROM ${observations}`);
-    await db.execute(sql`DELETE FROM ${contributors}`);
-    await db.execute(sql`DELETE FROM ${species}`);
-  }
+
 
   async getStateSummary(dateRange?: string): Promise<Array<{
     state: string;
@@ -1505,23 +1501,21 @@ export class DatabaseStorage implements IStorage {
     try {
       let sqlQuery = `
         SELECT 
-          c.id,
-          c.name,
-          c.affiliation,
+          COALESCE(collector, observer, 'Unknown') as name,
           COUNT(*) as global_first_count
-        FROM observations o
-        INNER JOIN contributors c ON o.contributor_id = c.id
-        WHERE o.is_first_global = true
+        FROM observations 
+        WHERE is_first_global = true 
+        AND (collector IS NOT NULL OR observer IS NOT NULL)
       `;
       
       const params: any[] = [];
       if (filterState) {
-        sqlQuery += ` AND o.state = $${params.length + 1}`;
+        sqlQuery += ` AND state = $${params.length + 1}`;
         params.push(filterState);
       }
       
       sqlQuery += `
-        GROUP BY c.id, c.name, c.affiliation
+        GROUP BY COALESCE(collector, observer, 'Unknown')
         ORDER BY COUNT(*) DESC
         LIMIT $${params.length + 1}
       `;
@@ -1533,15 +1527,64 @@ export class DatabaseStorage implements IStorage {
       // Calculate total global firsts for percentage calculation
       const totalGlobalFirsts = rows.reduce((sum: number, item: any) => sum + parseInt(item.global_first_count), 0);
       
-      return rows.map((item: any) => ({
-        id: item.id.toString(),
+      return rows.map((item: any, index: number) => ({
+        id: `contributor_${index + 1}`,
         name: item.name,
-        affiliation: item.affiliation || undefined,
+        affiliation: undefined,
         globalFirstCount: parseInt(item.global_first_count),
         percentage: totalGlobalFirsts > 0 ? (parseInt(item.global_first_count) / totalGlobalFirsts) * 100 : 0
       }));
     } catch (error) {
       console.error('Error fetching contributors with most global firsts:', error);
+      return [];
+    }
+  }
+
+  async getContributorsWithMostStateFirsts(limit: number = 10, filterState?: string): Promise<Array<{
+    id: string;
+    name: string;
+    affiliation?: string;
+    stateFirstCount: number;
+    percentage: number;
+  }>> {
+    try {
+      let sqlQuery = `
+        SELECT 
+          COALESCE(collector, observer, 'Unknown') as name,
+          COUNT(*) as state_first_count
+        FROM observations 
+        WHERE is_first_state_record = true 
+        AND (collector IS NOT NULL OR observer IS NOT NULL)
+      `;
+      
+      const params: any[] = [];
+      if (filterState) {
+        sqlQuery += ` AND state = $${params.length + 1}`;
+        params.push(filterState);
+      }
+      
+      sqlQuery += `
+        GROUP BY COALESCE(collector, observer, 'Unknown')
+        ORDER BY COUNT(*) DESC
+        LIMIT $${params.length + 1}
+      `;
+      params.push(limit);
+
+      const results = await pool.query(sqlQuery, params);
+      const rows = results.rows;
+      
+      // Calculate total state firsts for percentage calculation
+      const totalStateFirsts = rows.reduce((sum: number, item: any) => sum + parseInt(item.state_first_count), 0);
+      
+      return rows.map((item: any, index: number) => ({
+        id: `contributor_${index + 1}`,
+        name: item.name,
+        affiliation: undefined,
+        stateFirstCount: parseInt(item.state_first_count),
+        percentage: totalStateFirsts > 0 ? (parseInt(item.state_first_count) / totalStateFirsts) * 100 : 0
+      }));
+    } catch (error) {
+      console.error('Error fetching contributors with most state firsts:', error);
       return [];
     }
   }
