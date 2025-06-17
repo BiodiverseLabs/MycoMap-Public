@@ -3,105 +3,63 @@
 import { pool } from './server/db.ts';
 
 async function watchBackfillProgress() {
-  console.log('🔄 Starting continuous backfill monitor...\n');
+  console.log('Watching classification backfill progress...\n');
   
-  let lastEnhancedCount = 0;
-  let startTime = Date.now();
+  const startTime = Date.now();
+  let lastProcessed = 0;
   
-  const monitor = async () => {
+  const checkProgress = async () => {
     try {
-      // Check if process is running
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-      
-      let isRunning = false;
-      try {
-        const { stdout } = await execAsync('ps aux | grep "enhanced_cache_backfill" | grep -v grep');
-        isRunning = stdout.trim().length > 0;
-      } catch (error) {
-        isRunning = false;
-      }
-      
-      // Get current stats
       const result = await pool.query(`
         SELECT 
-          COUNT(CASE WHEN matched_rank IS NOT NULL THEN 1 END) as enhanced_entries,
-          COUNT(CASE WHEN updated_at > NOW() - INTERVAL '2 minutes' THEN 1 END) as very_recent_updates,
-          MAX(updated_at) as last_update
+          COUNT(CASE WHEN updated_at IS NOT NULL THEN 1 END) as total_processed,
+          COUNT(CASE WHEN kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) as successful,
+          COUNT(CASE WHEN kingdom = 'INVALID' THEN 1 END) as invalid_genera,
+          COUNT(CASE WHEN updated_at > NOW() - INTERVAL '2 minutes' THEN 1 END) as recent_activity,
+          (SELECT genus FROM inaturalist_classification_cache WHERE updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 1) as latest_genus,
+          ROUND(COUNT(CASE WHEN kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) * 100.0 / NULLIF(COUNT(CASE WHEN updated_at IS NOT NULL THEN 1 END), 0), 1) as success_rate,
+          (1087 - COUNT(CASE WHEN updated_at IS NOT NULL THEN 1 END)) as remaining
         FROM inaturalist_classification_cache
       `);
       
       const stats = result.rows[0];
-      const currentCount = parseInt(stats.enhanced_entries);
-      const recentActivity = parseInt(stats.very_recent_updates);
-      
-      // Calculate progress
-      const newGenera = currentCount - lastEnhancedCount;
-      const elapsedMinutes = (Date.now() - startTime) / 60000;
-      const avgRate = currentCount / Math.max(elapsedMinutes, 1);
-      
-      // Status update
+      const currentProcessed = parseInt(stats.total_processed);
+      const progress = currentProcessed - lastProcessed;
+      const isActive = parseInt(stats.recent_activity) > 0;
+      const status = isActive ? 'ACTIVE' : 'STOPPED';
       const timestamp = new Date().toLocaleTimeString();
-      const statusIcon = isRunning ? '🟢' : '🔴';
-      const activityIcon = recentActivity > 0 ? '⚡' : '💤';
+      const elapsedMinutes = Math.round((Date.now() - startTime) / 60000);
       
-      console.log(`[${timestamp}] ${statusIcon} Process: ${isRunning ? 'RUNNING' : 'STOPPED'} | ${activityIcon} Enhanced: ${currentCount}/200 (+${newGenera}) | Rate: ${avgRate.toFixed(2)}/min | Recent: ${recentActivity}`);
+      const rate = elapsedMinutes > 0 ? Math.round(currentProcessed / elapsedMinutes * 60) : 0;
+      const eta = rate > 0 ? Math.round(parseInt(stats.remaining) / rate) : 0;
       
-      // Show latest genus if new activity
-      if (newGenera > 0) {
-        const latestResult = await pool.query(`
-          SELECT genus, family, updated_at
-          FROM inaturalist_classification_cache 
-          WHERE matched_rank IS NOT NULL 
-          ORDER BY updated_at DESC 
-          LIMIT 1
-        `);
-        
-        if (latestResult.rows.length > 0) {
-          const latest = latestResult.rows[0];
-          console.log(`   ✓ Latest: ${latest.genus} → ${latest.family}`);
-        }
-      }
+      console.log(`[${timestamp}] ${status} | Progress: ${currentProcessed}/1087 (${Math.round(currentProcessed/1087*100)}%) | +${progress} | Success: ${stats.successful} (${stats.success_rate}%) | Latest: ${stats.latest_genus}`);
+      console.log(`           Rate: ${rate}/hour | ETA: ${eta} hours | Remaining: ${stats.remaining}`);
       
-      // Restart if stopped but should be running
-      if (!isRunning && currentCount < 200) {
-        console.log('   🔄 Restarting stopped process...');
-        try {
-          await execAsync('cd /home/runner/workspace && nohup npx tsx enhanced_cache_backfill.js > backfill.log 2>&1 &');
-          console.log('   ✓ Process restarted');
-        } catch (error) {
-          console.log('   ❌ Restart failed:', error.message);
-        }
-      }
+      lastProcessed = currentProcessed;
       
-      lastEnhancedCount = currentCount;
-      
-      // Check for completion
-      if (currentCount >= 200) {
-        console.log('\n🎉 Backfill batch completed! Processing 200/200 genera.');
-        clearInterval(intervalId);
+      if (currentProcessed >= 1087) {
+        console.log('\n🎉 Classification backfill completed!');
         process.exit(0);
       }
       
     } catch (error) {
-      console.error(`[${new Date().toLocaleTimeString()}] ❌ Monitor error:`, error.message);
+      console.error(`Error: ${error.message}`);
     }
   };
   
-  // Initial check
-  await monitor();
+  // Check immediately
+  await checkProgress();
   
-  // Set up continuous monitoring every 30 seconds
-  const intervalId = setInterval(monitor, 30000);
+  // Then check every 30 seconds
+  const intervalId = setInterval(checkProgress, 30000);
   
   // Graceful shutdown
   process.on('SIGINT', () => {
-    console.log('\n👋 Stopping monitor...');
+    console.log('\nStopping progress monitor...');
     clearInterval(intervalId);
     pool.end().then(() => process.exit(0));
   });
 }
 
-// Start watching
 watchBackfillProgress().catch(console.error);
