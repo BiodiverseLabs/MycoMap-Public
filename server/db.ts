@@ -1659,9 +1659,32 @@ export class DatabaseStorage implements IStorage {
 
   async getObservationsWithClassificationUpdates(): Promise<Observation[]> {
     const { observations } = schema;
+    
+    // Find records that actually need classification updates
+    // Records need updates if they're missing essential taxonomy fields (phylum, class, order, family)
+    // but have a valid genus or scientific name to work with
     return await db.select()
       .from(observations)
-      .where(eq(observations.classificationUpdate, true))
+      .where(
+        and(
+          // Must have a scientific name or genus to extract classification from
+          or(
+            and(isNotNull(observations.scientificName), ne(observations.scientificName, '')),
+            and(isNotNull(observations.genus), ne(observations.genus, ''))
+          ),
+          // Missing essential classification fields
+          or(
+            isNull(observations.phylum),
+            isNull(observations.class),
+            isNull(observations.order),
+            isNull(observations.family),
+            eq(observations.phylum, ''),
+            eq(observations.class, ''),
+            eq(observations.order, ''),
+            eq(observations.family, '')
+          )
+        )
+      )
       .orderBy(desc(observations.updatedAt));
   }
 
