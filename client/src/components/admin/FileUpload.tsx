@@ -239,7 +239,7 @@ export function FileUpload() {
               phaseName = 'Phase 3: GPS Index Building';
               phaseNumber = 3;
               console.log('[PHASE DEBUG] Matched Phase 3: GPS Index Building');
-            } else if (data.message === "✓ Classification updates completed") {
+            } else if (data.message === "✓ Automated classification updates completed") {
               phaseName = 'Phase 4: Classification Updates';
               phaseNumber = 4;
               console.log('[PHASE DEBUG] Matched Phase 4: Classification Updates');

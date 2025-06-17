@@ -1805,7 +1805,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Send explicit completion signal if phase is done
         if (completed) {
           const completedProgress = Math.min(100, Math.round(baseProgress + ((completedPhases + 1) * progressPerPhase)));
-          const completionMessage = `✓ ${phaseDescription} completed`;
+          // phaseDescription already contains "✓", so just add "completed"
+          const completionMessage = `${phaseDescription} completed`;
           
           console.log('[SERVER PHASE DEBUG] Sending completion signal:', {
             uploadId,
