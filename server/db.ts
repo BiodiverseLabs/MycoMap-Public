@@ -3361,7 +3361,7 @@ export class DatabaseStorage implements IStorage {
     const [cached] = await db
       .select()
       .from(inaturalistClassificationCache)
-      .where(eq(inaturalistClassificationCache.genus, genus));
+      .where(eq(inaturalistClassificationCache.searchTerm, genus.toLowerCase()));
 
     if (cached) {
       // Update usage stats
@@ -3371,7 +3371,7 @@ export class DatabaseStorage implements IStorage {
           lookupCount: (cached.lookupCount || 0) + 1,
           lastUsedAt: new Date()
         })
-        .where(eq(inaturalistClassificationCache.genus, genus));
+        .where(eq(inaturalistClassificationCache.searchTerm, genus.toLowerCase()));
 
       this.uploadApiCallStats.totalCalls++;
       this.uploadApiCallStats.cacheHits++;
@@ -3397,14 +3397,19 @@ export class DatabaseStorage implements IStorage {
     }
   ): Promise<InaturalistClassificationCache> {
     const cacheData: InsertInaturalistClassificationCache = {
-      genus,
+      searchTerm: genus.toLowerCase(),
+      taxonRank: taxonomyData.taxonRank || null,
+      taxonId: taxonomyData.taxonId || null,
+      scientificName: taxonomyData.scientificName || null,
+      commonName: taxonomyData.commonName || null,
+      parentId: taxonomyData.parentId || null,
+      ancestry: taxonomyData.ancestry || null,
       kingdom: taxonomyData.kingdom || null,
       phylum: taxonomyData.phylum || null,
       class: taxonomyData.class || null,
       order: taxonomyData.order || null,
       family: taxonomyData.family || null,
-      inatTaxonId: taxonomyData.inatTaxonId || null,
-      observationCount: taxonomyData.observationCount || null,
+      observationsCount: taxonomyData.observationsCount || 0,
       isActive: taxonomyData.isActive ?? true,
       apiResponse: taxonomyData.apiResponse || null,
       lookupCount: 1,
@@ -3415,7 +3420,7 @@ export class DatabaseStorage implements IStorage {
       .insert(inaturalistClassificationCache)
       .values(cacheData)
       .onConflictDoUpdate({
-        target: inaturalistClassificationCache.genus,
+        target: inaturalistClassificationCache.searchTerm,
         set: {
           lookupCount: sql`${inaturalistClassificationCache.lookupCount} + 1`,
           lastUsedAt: new Date(),
@@ -3647,7 +3652,7 @@ export class DatabaseStorage implements IStorage {
 
     const mostUsed = await db
       .select({
-        genus: inaturalistClassificationCache.genus,
+        genus: inaturalistClassificationCache.searchTerm,
         lookupCount: inaturalistClassificationCache.lookupCount,
         family: inaturalistClassificationCache.family
       })
