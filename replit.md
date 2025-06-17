@@ -116,17 +116,6 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Complete Classification Cache System Implementation with Batch API Processing
-  - Restructured iNaturalist classification cache from genus-specific to universal search_term system
-  - Added complete taxonomic hierarchy support: kingdom, subkingdom, phylum, subphylum, class, subclass, order, suborder, infraorder, superfamily, family, subfamily, tribe, subtribe, genus, subgenus, section, subsection, species, subspecies, variety, form
-  - Updated database schema to store complete API response data and taxonomic metadata for all ranks
-  - Enhanced classification system to process any taxonomic rank returned by iNaturalist API searches
-  - Implemented comprehensive batch processing scripts for systematic iNaturalist API lookups
-  - Successfully processed 20+ search terms capturing diverse taxonomic ranks: kingdom, order, family, genus, species, section, complex, suborder
-  - Fixed Kingdom field completion for "Fungi" observations (271 records updated, Kingdom completion now 89.2%)
-  - System now properly classifies observations at appropriate taxonomic levels with complete hierarchies
-  - Cache system demonstrates successful capture of intermediate ranks like suborders (Tricholomatineae), sections (Setulosi), and complexes
-
 - June 17, 2025: Enhanced iNaturalist API Lookup with Complete Taxonomy Extraction
   - Fixed critical issue where API lookups returned incomplete taxonomy despite complete data being available
   - Enhanced lookup logic to fetch full taxon details after initial search to access complete ancestor hierarchy  

@@ -6,68 +6,67 @@ async function comprehensiveCacheBackfill() {
   console.log('Starting comprehensive classification cache backfill...\n');
   
   try {
-    // Get all search terms that need processing (no taxon_rank or invalid data)
-    const searchTermsResult = await db.execute(`
-      SELECT search_term, lookup_count
+    // Get all cache entries that need backfilling
+    const cacheEntries = await db.execute(`
+      SELECT search_term, taxon_rank, taxon_id, scientific_name, 
+             api_response, lookup_count
       FROM inaturalist_classification_cache 
-      WHERE (taxon_rank IS NULL OR kingdom = 'INVALID' OR kingdom IS NULL)
+      WHERE taxon_rank IS NULL OR taxon_rank = ''
       ORDER BY lookup_count DESC
       LIMIT 50
     `);
     
-    const searchTerms = searchTermsResult.rows;
-    console.log(`Found ${searchTerms.length} entries to backfill\n`);
+    console.log(`Found ${cacheEntries.rows.length} entries to backfill\n`);
     
     let processed = 0;
-    let successful = 0;
-    let failed = 0;
+    let updated = 0;
     
-    for (const row of searchTerms) {
-      const searchTerm = row.search_term;
-      const usageCount = row.lookup_count;
-      
-      console.log(`Processing "${searchTerm}" (used ${usageCount} times)...`);
+    for (const entry of cacheEntries.rows) {
+      const searchTerm = entry.search_term;
+      console.log(`Processing "${searchTerm}" (used ${entry.lookup_count} times)...`);
       
       try {
-        // Search iNaturalist API for the term
-        const searchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(searchTerm)}&per_page=1`;
-        const response = await fetch(searchUrl);
-        
-        if (!response.ok) {
-          console.log(`  ✗ API error: ${response.status}\n`);
-          failed++;
-          continue;
+        // Try to parse existing API response first
+        let fullTaxon = null;
+        if (entry.api_response) {
+          try {
+            fullTaxon = JSON.parse(entry.api_response);
+          } catch (e) {
+            console.log(`  ⚠ Cannot parse stored API response`);
+          }
         }
         
-        const data = await response.json();
-        
-        if (!data.results || data.results.length === 0) {
-          console.log(`  ✗ No results found\n`);
-          // Mark as invalid to avoid repeated lookups
-          await db.execute(`
-            UPDATE inaturalist_classification_cache 
-            SET kingdom = 'INVALID', updated_at = NOW()
-            WHERE search_term = $1
-          `, [searchTerm]);
-          failed++;
-          continue;
+        // If no valid stored response, fetch from API
+        if (!fullTaxon) {
+          console.log(`  → Fetching from iNaturalist API...`);
+          
+          const searchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(searchTerm)}&per_page=1`;
+          const response = await fetch(searchUrl);
+          const data = await response.json();
+          
+          if (!data.results || data.results.length === 0) {
+            console.log(`  ✗ No results found\n`);
+            processed++;
+            continue;
+          }
+          
+          const taxon = data.results[0];
+          
+          // Get full details
+          const detailUrl = `https://api.inaturalist.org/v1/taxa/${taxon.id}`;
+          const detailResponse = await fetch(detailUrl);
+          const detailData = await detailResponse.json();
+          fullTaxon = detailData.results[0];
+          
+          // Rate limit
+          await new Promise(resolve => setTimeout(resolve, 1100));
         }
         
-        console.log(`  → Fetching from iNaturalist API...`);
-        const taxon = data.results[0];
-        
-        // Get full details for complete taxonomy
-        const detailUrl = `https://api.inaturalist.org/v1/taxa/${taxon.id}`;
-        const detailResponse = await fetch(detailUrl);
-        
-        if (!detailResponse.ok) {
-          console.log(`  ✗ Detail API error: ${detailResponse.status}\n`);
-          failed++;
+        if (!fullTaxon) {
+          console.log(`  ✗ No taxon data available\n`);
+          processed++;
           continue;
         }
-        
-        const detailData = await detailResponse.json();
-        const fullTaxon = detailData.results[0];
         
         // Extract complete taxonomy from ancestors
         const ancestors = fullTaxon.ancestors || [];
@@ -91,97 +90,110 @@ async function comprehensiveCacheBackfill() {
         console.log(`  ✓ ${fullTaxon.rank}: ${fullTaxon.name}`);
         console.log(`    Kingdom: ${taxonomyData.kingdom}, Family: ${taxonomyData.family}`);
         
-        // Build safe SQL update using direct string interpolation with proper escaping
-        const updateQuery = `
+        // Update the cache entry with comprehensive data
+        await db.execute(`
           UPDATE inaturalist_classification_cache 
           SET 
-            taxon_rank = '${fullTaxon.rank}',
-            taxon_id = ${fullTaxon.id},
-            scientific_name = '${fullTaxon.name.replace(/'/g, "''")}',
-            common_name = ${fullTaxon.preferred_common_name ? `'${fullTaxon.preferred_common_name.replace(/'/g, "''")}'` : 'NULL'},
-            parent_id = ${fullTaxon.parent_id || 'NULL'},
-            ancestry = ${fullTaxon.ancestry ? `'${fullTaxon.ancestry}'` : 'NULL'},
-            kingdom = ${taxonomyData.kingdom ? `'${taxonomyData.kingdom}'` : 'NULL'},
-            subkingdom = ${taxonomyData.subkingdom ? `'${taxonomyData.subkingdom}'` : 'NULL'},
-            phylum = ${taxonomyData.phylum ? `'${taxonomyData.phylum}'` : 'NULL'},
-            subphylum = ${taxonomyData.subphylum ? `'${taxonomyData.subphylum}'` : 'NULL'},
-            class = ${taxonomyData.class ? `'${taxonomyData.class}'` : 'NULL'},
-            subclass = ${taxonomyData.subclass ? `'${taxonomyData.subclass}'` : 'NULL'},
-            "order" = ${taxonomyData.order ? `'${taxonomyData.order}'` : 'NULL'},
-            suborder = ${taxonomyData.suborder ? `'${taxonomyData.suborder}'` : 'NULL'},
-            infraorder = ${taxonomyData.infraorder ? `'${taxonomyData.infraorder}'` : 'NULL'},
-            superfamily = ${taxonomyData.superfamily ? `'${taxonomyData.superfamily}'` : 'NULL'},
-            family = ${taxonomyData.family ? `'${taxonomyData.family}'` : 'NULL'},
-            subfamily = ${taxonomyData.subfamily ? `'${taxonomyData.subfamily}'` : 'NULL'},
-            tribe = ${taxonomyData.tribe ? `'${taxonomyData.tribe}'` : 'NULL'},
-            subtribe = ${taxonomyData.subtribe ? `'${taxonomyData.subtribe}'` : 'NULL'},
-            genus = ${taxonomyData.genus ? `'${taxonomyData.genus}'` : 'NULL'},
-            subgenus = ${taxonomyData.subgenus ? `'${taxonomyData.subgenus}'` : 'NULL'},
-            section = ${taxonomyData.section ? `'${taxonomyData.section}'` : 'NULL'},
-            subsection = ${taxonomyData.subsection ? `'${taxonomyData.subsection}'` : 'NULL'},
-            species = ${taxonomyData.species ? `'${taxonomyData.species}'` : 'NULL'},
-            subspecies = ${taxonomyData.subspecies ? `'${taxonomyData.subspecies}'` : 'NULL'},
-            variety = ${taxonomyData.variety ? `'${taxonomyData.variety}'` : 'NULL'},
-            form = ${taxonomyData.form ? `'${taxonomyData.form}'` : 'NULL'},
-            observations_count = ${fullTaxon.observations_count || 0},
-            is_active = ${fullTaxon.is_active !== false},
-            api_response = '${JSON.stringify(fullTaxon).replace(/'/g, "''")}',
-            lookup_count = lookup_count + 1,
-            updated_at = NOW(),
-            last_used_at = NOW()
-          WHERE search_term = '${searchTerm}'
-        `;
+            taxon_rank = $1,
+            taxon_id = $2,
+            scientific_name = $3,
+            common_name = $4,
+            parent_id = $5,
+            ancestry = $6,
+            kingdom = $7,
+            subkingdom = $8,
+            phylum = $9,
+            subphylum = $10,
+            class = $11,
+            subclass = $12,
+            "order" = $13,
+            suborder = $14,
+            infraorder = $15,
+            superfamily = $16,
+            family = $17,
+            subfamily = $18,
+            tribe = $19,
+            subtribe = $20,
+            genus = $21,
+            subgenus = $22,
+            section = $23,
+            subsection = $24,
+            species = $25,
+            subspecies = $26,
+            variety = $27,
+            form = $28,
+            observations_count = $29,
+            is_active = $30,
+            api_response = $31,
+            updated_at = NOW()
+          WHERE search_term = $32
+        `, [
+          fullTaxon.rank,
+          fullTaxon.id,
+          fullTaxon.name,
+          fullTaxon.preferred_common_name || null,
+          fullTaxon.parent_id || null,
+          fullTaxon.ancestry || null,
+          taxonomyData.kingdom,
+          taxonomyData.subkingdom,
+          taxonomyData.phylum,
+          taxonomyData.subphylum,
+          taxonomyData.class,
+          taxonomyData.subclass,
+          taxonomyData.order,
+          taxonomyData.suborder,
+          taxonomyData.infraorder,
+          taxonomyData.superfamily,
+          taxonomyData.family,
+          taxonomyData.subfamily,
+          taxonomyData.tribe,
+          taxonomyData.subtribe,
+          taxonomyData.genus,
+          taxonomyData.subgenus,
+          taxonomyData.section,
+          taxonomyData.subsection,
+          taxonomyData.species,
+          taxonomyData.subspecies,
+          taxonomyData.variety,
+          taxonomyData.form,
+          fullTaxon.observations_count || 0,
+          fullTaxon.is_active !== false,
+          JSON.stringify(fullTaxon),
+          searchTerm
+        ]);
         
-        await db.execute(updateQuery);
-        console.log(`  ✓ Cached comprehensive data with all ranks\n`);
-        successful++;
+        updated++;
+        console.log(`    ✓ Updated comprehensive data\n`);
         
       } catch (error) {
         console.log(`  ✗ Error: ${error.message}\n`);
-        failed++;
       }
       
       processed++;
-      
-      // Rate limiting - 1.1 second delay between requests
-      await new Promise(resolve => setTimeout(resolve, 1100));
-      
-      // Progress update every 10 items
-      if (processed % 10 === 0) {
-        console.log(`=== Progress: ${processed}/${searchTerms.length} processed (${successful} successful, ${failed} failed) ===\n`);
-      }
     }
     
-    // Final statistics
-    console.log('=== Backfill Complete ===');
-    console.log(`Total processed: ${processed}`);
-    console.log(`Successful: ${successful}`);
-    console.log(`Failed: ${failed}`);
-    
-    // Show updated cache statistics
+    // Show final statistics
     const statsResult = await db.execute(`
       SELECT 
         COUNT(*) as total_entries,
-        COUNT(CASE WHEN taxon_rank IS NOT NULL AND kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) as comprehensive_entries,
-        COUNT(CASE WHEN kingdom = 'INVALID' THEN 1 END) as invalid_entries,
-        SUM(lookup_count) as total_lookups,
-        ROUND(COUNT(CASE WHEN taxon_rank IS NOT NULL AND kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) * 100.0 / COUNT(*), 1) as completion_percentage
+        COUNT(CASE WHEN taxon_rank IS NOT NULL AND kingdom IS NOT NULL THEN 1 END) as comprehensive_entries,
+        SUM(lookup_count) as total_lookups
       FROM inaturalist_classification_cache
     `);
     
     const stats = statsResult.rows[0];
-    console.log('\n=== Updated Cache Statistics ===');
+    console.log('=== Final Cache Statistics ===');
     console.log(`Total entries: ${stats.total_entries}`);
     console.log(`Comprehensive entries: ${stats.comprehensive_entries}`);
-    console.log(`Invalid entries: ${stats.invalid_entries}`);
-    console.log(`Completion percentage: ${stats.completion_percentage}%`);
-    console.log(`Total API lookups: ${stats.total_lookups}`);
+    console.log(`Total lookups: ${stats.total_lookups}`);
+    console.log(`\nProcessed: ${processed} entries`);
+    console.log(`Updated: ${updated} entries`);
     
     // Show rank distribution
     const rankResult = await db.execute(`
       SELECT taxon_rank, COUNT(*) as count
       FROM inaturalist_classification_cache 
-      WHERE taxon_rank IS NOT NULL AND kingdom != 'INVALID'
+      WHERE taxon_rank IS NOT NULL 
       GROUP BY taxon_rank 
       ORDER BY count DESC
     `);
@@ -189,20 +201,6 @@ async function comprehensiveCacheBackfill() {
     console.log('\nRank distribution:');
     for (const row of rankResult.rows) {
       console.log(`  ${row.taxon_rank}: ${row.count} entries`);
-    }
-    
-    // Show examples of complete taxonomies
-    const exampleResult = await db.execute(`
-      SELECT search_term, taxon_rank, kingdom, phylum, class, "order", suborder, family, genus, observations_count
-      FROM inaturalist_classification_cache 
-      WHERE taxon_rank IS NOT NULL AND kingdom IS NOT NULL AND kingdom != 'INVALID'
-      ORDER BY observations_count DESC
-      LIMIT 5
-    `);
-    
-    console.log('\nTop comprehensive taxonomies:');
-    for (const row of exampleResult.rows) {
-      console.log(`  ${row.search_term} (${row.taxon_rank}): ${row.kingdom} → ${row.phylum || 'N/A'} → ${row.class || 'N/A'} → ${row.order || 'N/A'} → ${row.family || 'N/A'} → ${row.genus || 'N/A'} (${row.observations_count} obs)`);
     }
     
   } catch (error) {
