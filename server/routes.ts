@@ -1185,7 +1185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  async function updateContributorStatistics() {
+  async function updateContributorStatistics(uploadId?: number, progressTracker?: Map<number, any>) {
     console.log('Rebuilding contributor statistics...');
     
     // Get current contributor counts from database
@@ -1219,6 +1219,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Only process contributors that actually need updates
     let processed = 0;
+    const totalToProcess = newContributors + updatedContributors;
+    
     for (const contributor of contributorStats) {
       const existing = existingContributorMap.get(contributor.name);
       if (!existing || existing.observationCount !== contributor.observationCount) {
@@ -1228,6 +1230,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           observationCount: contributor.observationCount
         });
         processed++;
+        
+        // Send progress update to frontend if uploadId is provided
+        if (uploadId && progressTracker && progressTracker.has(uploadId) && processed % 100 === 0) {
+          const progress = Math.round((processed / totalToProcess) * 100);
+          const phaseProgress = 50 + (progress * 0.1); // Phase 1: 50-60%
+          progressTracker.set(uploadId, {
+            progress: Math.round(phaseProgress),
+            phase: 'post-processing',
+            message: `Updating contributor statistics: ${processed.toLocaleString()}/${totalToProcess.toLocaleString()} contributors processed`,
+            batchInfo: {
+              currentBatch: Math.floor(processed / 100) + 1,
+              totalBatches: Math.ceil(totalToProcess / 100),
+              recordsProcessed: processed,
+              totalRecords: totalToProcess,
+              currentPhase: 1,
+              totalPhases: 5
+            }
+          });
+        }
       }
     }
     
@@ -1725,7 +1746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         updatePostProcessingProgress('Updating contributor statistics', 0);
         const contribStart = Date.now();
-        await updateContributorStatistics();
+        await updateContributorStatistics(uploadId, progressTracker);
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
         updatePostProcessingProgress('Contributor statistics', 100, true);
         completedPhases++;
