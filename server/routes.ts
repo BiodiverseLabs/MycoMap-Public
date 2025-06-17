@@ -1667,11 +1667,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let completedPhases = 0;
       
       const updatePostProcessingProgress = (phaseDescription: string, phaseProgress: number = 0) => {
-        progressTracker.set(uploadId, {
+        const progressData = {
           progress: phaseProgress,
           phase: 'post-processing',
           message: `${phaseDescription} (Phase ${completedPhases + 1}/${totalPostProcessingPhases})`
-        });
+        };
+        progressTracker.set(uploadId, progressData);
+        // Also update activeUploads for SSE
+        if (typeof activeUploads !== 'undefined') {
+          activeUploads.set(uploadId, progressData);
+        }
       };
       
       try {
@@ -1683,11 +1688,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
-        updatePostProcessingProgress('Updating contributor statistics...', 0);
+        updatePostProcessingProgress('Updating contributor statistics... (Phase 1/5)', 0);
         const contribStart = Date.now();
         await updateContributorStatistics();
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
-        updatePostProcessingProgress('Contributor statistics completed', 100);
+        updatePostProcessingProgress('Phase 1 completed: Contributor statistics updated', 20);
         completedPhases++;
         
         console.log('Phase 2: Updating species statistics...');
