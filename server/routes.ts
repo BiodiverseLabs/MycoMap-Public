@@ -505,6 +505,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get thumbnail from iNaturalist API for missing images
+  app.get("/api/thumbnail/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      
+      // First check if we already have thumbnail data
+      const existingRecord = await storage.getObservationByObservationId(observationId);
+      if (!existingRecord) {
+        return res.status(404).json({ error: "Observation not found" });
+      }
+
+      // Try to get from iNaturalist API
+      const apiUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        return res.status(404).json({ error: "Observation not found on iNaturalist" });
+      }
+
+      const data = await response.json();
+      const observation = data.results?.[0];
+      
+      if (!observation?.photos?.length) {
+        return res.status(404).json({ error: "No photos found for this observation" });
+      }
+
+      // Get the best available thumbnail URL
+      const photo = observation.photos[0];
+      const thumbnailUrl = photo.url_square || photo.url_small || photo.url_medium || photo.url;
+      
+      // Update the observation with the thumbnail URL
+      if (thumbnailUrl) {
+        await storage.updateObservationImageLink(observationId, thumbnailUrl);
+      }
+
+      res.json({ thumbnailUrl });
+    } catch (error) {
+      console.error("Error fetching thumbnail:", error);
+      res.status(500).json({ error: "Failed to fetch thumbnail" });
+    }
+  });
+
   app.get("/api/observation-sources", async (req, res) => {
     try {
       const { dateRange } = req.query;

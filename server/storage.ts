@@ -15,8 +15,10 @@ export interface IStorage {
   getAllObservations(): Promise<Observation[]>;
   getObservationsByDateRange(startDate: string, endDate: string): Promise<Observation[]>;
   getObservationsByState(state: string): Promise<Observation[]>;
+  getObservationByObservationId(observationId: string): Promise<Observation | undefined>;
   createObservation(observation: InsertObservation): Promise<Observation>;
   createObservations(observations: InsertObservation[]): Promise<Observation[]>;
+  updateObservationImageLink(observationId: string, imageLink: string): Promise<void>;
   
   // Analytics
   getObservationMetrics(startDate?: string, endDate?: string, state?: string): Promise<{

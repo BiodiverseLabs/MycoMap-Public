@@ -68,6 +68,18 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(observations.observedOn));
   }
 
+  async getObservationByObservationId(observationId: string): Promise<Observation | undefined> {
+    const [observation] = await db.select().from(observations)
+      .where(eq(observations.observationId, observationId));
+    return observation || undefined;
+  }
+
+  async updateObservationImageLink(observationId: string, imageLink: string): Promise<void> {
+    await db.update(observations)
+      .set({ imageLink })
+      .where(eq(observations.observationId, observationId));
+  }
+
   async createObservation(observation: InsertObservation): Promise<Observation> {
     const [newObs] = await db.insert(observations).values(observation).returning();
     return newObs;
@@ -913,7 +925,11 @@ export class DatabaseStorage implements IStorage {
             WHEN inat.photos IS NOT NULL AND array_length(inat.photos, 1) > 0 
             THEN inat.photos[1]
             WHEN o.image_link IS NOT NULL AND o.image_link != ''
-            THEN o.image_link
+            THEN CASE 
+              WHEN o.image_link LIKE '%static.inaturalist.org%' OR o.image_link LIKE '%inaturalist-open-data.s3.amazonaws.com%'
+              THEN REPLACE(REPLACE(o.image_link, '/large.jpeg', '/square.jpg'), '/large.jpg', '/square.jpg')
+              ELSE o.image_link
+            END
             ELSE NULL 
           END as thumbnail_url,
           ROW_NUMBER() OVER (
