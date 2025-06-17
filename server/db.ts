@@ -912,6 +912,8 @@ export class DatabaseStorage implements IStorage {
           CASE 
             WHEN inat.photos IS NOT NULL AND array_length(inat.photos, 1) > 0 
             THEN inat.photos[1]
+            WHEN o.image_link IS NOT NULL AND o.image_link != ''
+            THEN o.image_link
             ELSE NULL 
           END as thumbnail_url,
           ROW_NUMBER() OVER (
