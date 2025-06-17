@@ -2,20 +2,39 @@
 
 import { pool } from './server/db.ts';
 
-async function fetchTaxonomyFromAPI(searchTerm) {
-  try {
-    // Search for the term across multiple ranks
-    const ranks = ['genus', 'subgenus', 'section', 'family', 'subfamily', 'tribe'];
-    
-    for (const rank of ranks) {
-      const searchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(searchTerm)}&rank=${rank}&per_page=1`;
-      const searchResponse = await fetch(searchUrl);
+async function fetchTaxonomyFromAPI(searchTerm, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Search for the term across multiple ranks
+      const ranks = ['genus', 'subgenus', 'section', 'family', 'subfamily', 'tribe'];
       
-      if (!searchResponse.ok) {
-        continue; // Try next rank
-      }
-      
-      const searchData = await searchResponse.json();
+      for (const rank of ranks) {
+        const searchUrl = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(searchTerm)}&rank=${rank}&per_page=1`;
+        
+        // Add retry logic for each API call
+        let searchResponse;
+        for (let apiAttempt = 1; apiAttempt <= 3; apiAttempt++) {
+          try {
+            searchResponse = await fetch(searchUrl, {
+              timeout: 10000, // 10 second timeout
+              headers: {
+                'User-Agent': 'MycoMap-Research/1.0 (contact@mycomap.com)'
+              }
+            });
+            
+            if (searchResponse.ok) break;
+            if (apiAttempt < 3) await new Promise(resolve => setTimeout(resolve, 2000)); // 2s delay before retry
+          } catch (fetchError) {
+            if (apiAttempt === 3) throw fetchError;
+            await new Promise(resolve => setTimeout(resolve, 2000)); // 2s delay before retry
+          }
+        }
+        
+        if (!searchResponse || !searchResponse.ok) {
+          continue; // Try next rank
+        }
+        
+        const searchData = await searchResponse.json();
       
       if (!searchData.results || searchData.results.length === 0) {
         continue; // Try next rank
@@ -23,11 +42,27 @@ async function fetchTaxonomyFromAPI(searchTerm) {
       
       const taxon = searchData.results[0];
       
-      // Get full taxon details for complete taxonomy
+      // Get full taxon details for complete taxonomy with retry logic
       const detailUrl = `https://api.inaturalist.org/v1/taxa/${taxon.id}`;
-      const detailResponse = await fetch(detailUrl);
+      let detailResponse;
+      for (let detailAttempt = 1; detailAttempt <= 3; detailAttempt++) {
+        try {
+          detailResponse = await fetch(detailUrl, {
+            timeout: 10000,
+            headers: {
+              'User-Agent': 'MycoMap-Research/1.0 (contact@mycomap.com)'
+            }
+          });
+          
+          if (detailResponse.ok) break;
+          if (detailAttempt < 3) await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (fetchError) {
+          if (detailAttempt === 3) throw fetchError;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
       
-      if (!detailResponse.ok) {
+      if (!detailResponse || !detailResponse.ok) {
         continue; // Try next rank
       }
       
@@ -91,11 +126,18 @@ async function fetchTaxonomyFromAPI(searchTerm) {
       };
     }
     
-    return { error: 'No results found' };
-    
-  } catch (error) {
-    return { error: error.message };
+      return { error: 'No results found' };
+      
+    } catch (error) {
+      if (attempt === maxRetries) {
+        return { error: `Failed after ${maxRetries} attempts: ${error.message}` };
+      }
+      console.log(`  → Attempt ${attempt} failed: ${error.message}, retrying in 5 seconds...`);
+      await new Promise(resolve => setTimeout(resolve, 5000)); // 5s delay before full retry
+    }
   }
+  
+  return { error: 'Max retries exceeded' };
 }
 
 function escapeSqlString(str) {
@@ -107,22 +149,8 @@ async function enhancedCacheBackfill() {
   console.log('Starting enhanced cache backfill with complete taxonomy and rank matching...\n');
   
   try {
-    // Clear existing incomplete entries and start fresh
-    await pool.query(`
-      DELETE FROM inaturalist_classification_cache 
-      WHERE (family IS NULL OR kingdom IS NULL OR kingdom = '' OR kingdom = 'INVALID')
-        AND genus IS NOT NULL 
-        AND genus NOT LIKE '%http%'
-        AND genus NOT LIKE '%aceae'
-        AND genus NOT LIKE '%ales'
-        AND genus NOT LIKE '%mycota'
-        AND genus NOT LIKE '%ineae'
-        AND genus NOT LIKE '% %'
-        AND LENGTH(genus) >= 3
-        AND genus != 'fungi'
-    `);
-    
-    console.log('Cleared incomplete cache entries. Starting fresh lookups...\n');
+    // Don't clear existing entries, just identify what needs processing
+    console.log('Identifying genera that need enhanced processing...\n');
     
     // Get ALL distinct genera that need classification from observations
     const result = await pool.query(`
@@ -140,7 +168,7 @@ async function enhancedCacheBackfill() {
         AND genus != 'fungi'
         AND genus NOT IN (
           SELECT genus FROM inaturalist_classification_cache 
-          WHERE kingdom IS NOT NULL AND family IS NOT NULL AND kingdom != 'INVALID'
+          WHERE matched_rank IS NOT NULL AND kingdom IS NOT NULL AND family IS NOT NULL AND kingdom != 'INVALID'
         )
       ORDER BY genus ASC
       LIMIT 200
@@ -263,8 +291,8 @@ async function enhancedCacheBackfill() {
         failCount++;
       }
       
-      // Rate limit to respect API limits (1 request per second)
-      await new Promise(resolve => setTimeout(resolve, 1100));
+      // Rate limit to respect API limits (1.5 seconds between genera to account for multiple API calls per genus)
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Progress update every 25 entries
       if ((i + 1) % 25 === 0) {
