@@ -2,21 +2,21 @@
 
 import { db } from './server/db.ts';
 
-async function comprehensiveCacheBackfill() {
-  console.log('Starting comprehensive classification cache backfill...\n');
+async function runClassificationBatch() {
+  console.log('Running smaller classification batch (20 entries)...\n');
   
   try {
-    // Get all search terms that need processing (no taxon_rank or invalid data)
+    // Get next 20 search terms that need processing
     const searchTermsResult = await db.execute(`
       SELECT search_term, lookup_count
       FROM inaturalist_classification_cache 
       WHERE (taxon_rank IS NULL OR kingdom = 'INVALID' OR kingdom IS NULL)
       ORDER BY lookup_count DESC
-      LIMIT 50
+      LIMIT 20
     `);
     
     const searchTerms = searchTermsResult.rows;
-    console.log(`Found ${searchTerms.length} entries to backfill\n`);
+    console.log(`Processing ${searchTerms.length} entries...\n`);
     
     let processed = 0;
     let successful = 0;
@@ -26,7 +26,7 @@ async function comprehensiveCacheBackfill() {
       const searchTerm = row.search_term;
       const usageCount = row.lookup_count;
       
-      console.log(`Processing "${searchTerm}" (used ${usageCount} times)...`);
+      console.log(`[${processed + 1}/${searchTerms.length}] Processing "${searchTerm}" (used ${usageCount} times)...`);
       
       try {
         // Search iNaturalist API for the term
@@ -34,15 +34,16 @@ async function comprehensiveCacheBackfill() {
         const response = await fetch(searchUrl);
         
         if (!response.ok) {
-          console.log(`  ✗ API error: ${response.status}\n`);
+          console.log(`  ✗ API error: ${response.status}`);
           failed++;
+          processed++;
           continue;
         }
         
         const data = await response.json();
         
         if (!data.results || data.results.length === 0) {
-          console.log(`  ✗ No results found\n`);
+          console.log(`  ✗ No results found`);
           // Mark as invalid to avoid repeated lookups
           await db.execute(`
             UPDATE inaturalist_classification_cache 
@@ -50,10 +51,10 @@ async function comprehensiveCacheBackfill() {
             WHERE search_term = $1
           `, [searchTerm]);
           failed++;
+          processed++;
           continue;
         }
         
-        console.log(`  → Fetching from iNaturalist API...`);
         const taxon = data.results[0];
         
         // Get full details for complete taxonomy
@@ -61,8 +62,9 @@ async function comprehensiveCacheBackfill() {
         const detailResponse = await fetch(detailUrl);
         
         if (!detailResponse.ok) {
-          console.log(`  ✗ Detail API error: ${detailResponse.status}\n`);
+          console.log(`  ✗ Detail API error: ${detailResponse.status}`);
           failed++;
+          processed++;
           continue;
         }
         
@@ -88,8 +90,7 @@ async function comprehensiveCacheBackfill() {
           }
         }
         
-        console.log(`  ✓ ${fullTaxon.rank}: ${fullTaxon.name}`);
-        console.log(`    Kingdom: ${taxonomyData.kingdom}, Family: ${taxonomyData.family}`);
+        console.log(`  ✓ ${fullTaxon.rank}: ${fullTaxon.name} (${taxonomyData.kingdom})`);
         
         // Build safe SQL update using direct string interpolation with proper escaping
         const updateQuery = `
@@ -133,11 +134,10 @@ async function comprehensiveCacheBackfill() {
         `;
         
         await db.execute(updateQuery);
-        console.log(`  ✓ Cached comprehensive data with all ranks\n`);
         successful++;
         
       } catch (error) {
-        console.log(`  ✗ Error: ${error.message}\n`);
+        console.log(`  ✗ Error: ${error.message}`);
         failed++;
       }
       
@@ -145,72 +145,30 @@ async function comprehensiveCacheBackfill() {
       
       // Rate limiting - 1.1 second delay between requests
       await new Promise(resolve => setTimeout(resolve, 1100));
-      
-      // Progress update every 10 items
-      if (processed % 10 === 0) {
-        console.log(`=== Progress: ${processed}/${searchTerms.length} processed (${successful} successful, ${failed} failed) ===\n`);
-      }
     }
     
     // Final statistics
-    console.log('=== Backfill Complete ===');
-    console.log(`Total processed: ${processed}`);
-    console.log(`Successful: ${successful}`);
-    console.log(`Failed: ${failed}`);
+    console.log(`\n=== Batch Complete ===`);
+    console.log(`Processed: ${processed}, Successful: ${successful}, Failed: ${failed}`);
     
     // Show updated cache statistics
     const statsResult = await db.execute(`
       SELECT 
         COUNT(*) as total_entries,
         COUNT(CASE WHEN taxon_rank IS NOT NULL AND kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) as comprehensive_entries,
-        COUNT(CASE WHEN kingdom = 'INVALID' THEN 1 END) as invalid_entries,
-        SUM(lookup_count) as total_lookups,
         ROUND(COUNT(CASE WHEN taxon_rank IS NOT NULL AND kingdom IS NOT NULL AND kingdom != 'INVALID' THEN 1 END) * 100.0 / COUNT(*), 1) as completion_percentage
       FROM inaturalist_classification_cache
     `);
     
     const stats = statsResult.rows[0];
-    console.log('\n=== Updated Cache Statistics ===');
-    console.log(`Total entries: ${stats.total_entries}`);
-    console.log(`Comprehensive entries: ${stats.comprehensive_entries}`);
-    console.log(`Invalid entries: ${stats.invalid_entries}`);
-    console.log(`Completion percentage: ${stats.completion_percentage}%`);
-    console.log(`Total API lookups: ${stats.total_lookups}`);
-    
-    // Show rank distribution
-    const rankResult = await db.execute(`
-      SELECT taxon_rank, COUNT(*) as count
-      FROM inaturalist_classification_cache 
-      WHERE taxon_rank IS NOT NULL AND kingdom != 'INVALID'
-      GROUP BY taxon_rank 
-      ORDER BY count DESC
-    `);
-    
-    console.log('\nRank distribution:');
-    for (const row of rankResult.rows) {
-      console.log(`  ${row.taxon_rank}: ${row.count} entries`);
-    }
-    
-    // Show examples of complete taxonomies
-    const exampleResult = await db.execute(`
-      SELECT search_term, taxon_rank, kingdom, phylum, class, "order", suborder, family, genus, observations_count
-      FROM inaturalist_classification_cache 
-      WHERE taxon_rank IS NOT NULL AND kingdom IS NOT NULL AND kingdom != 'INVALID'
-      ORDER BY observations_count DESC
-      LIMIT 5
-    `);
-    
-    console.log('\nTop comprehensive taxonomies:');
-    for (const row of exampleResult.rows) {
-      console.log(`  ${row.search_term} (${row.taxon_rank}): ${row.kingdom} → ${row.phylum || 'N/A'} → ${row.class || 'N/A'} → ${row.order || 'N/A'} → ${row.family || 'N/A'} → ${row.genus || 'N/A'} (${row.observations_count} obs)`);
-    }
+    console.log(`\nCache status: ${stats.comprehensive_entries}/${stats.total_entries} comprehensive (${stats.completion_percentage}%)`);
     
   } catch (error) {
-    console.error('Backfill error:', error.message);
+    console.error('Batch error:', error.message);
     process.exit(1);
   }
   
   process.exit(0);
 }
 
-comprehensiveCacheBackfill();
+runClassificationBatch();
