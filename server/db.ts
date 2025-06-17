@@ -998,8 +998,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(contributors).orderBy(contributors.name);
   }
 
-
-
   async getStateSummary(dateRange?: string): Promise<Array<{
     state: string;
     count: number;
