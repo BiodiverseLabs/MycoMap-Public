@@ -530,16 +530,32 @@ export function FileUpload() {
                     {/* Detailed batch information */}
                     {batchInfo && (
                       <div className="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Current Batch:</span>
-                          <span className="font-medium">{batchInfo.currentBatch} / {batchInfo.totalBatches}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">Records Processed:</span>
-                          <span className="font-medium">
-                            {(batchInfo.insertedCount || batchInfo.processedRecords || 0).toLocaleString()} / {batchInfo.totalRecords?.toLocaleString()}
-                          </span>
-                        </div>
+                        {/* Show batch info during insertion phase */}
+                        {(batchInfo.currentBatch && batchInfo.totalBatches) && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Current Batch:</span>
+                            <span className="font-medium">{batchInfo.currentBatch} / {batchInfo.totalBatches}</span>
+                          </div>
+                        )}
+                        
+                        {/* Show records processed for all phases */}
+                        {(batchInfo.insertedCount || batchInfo.processedRecords || batchInfo.totalRecords) && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Records Processed:</span>
+                            <span className="font-medium">
+                              {(batchInfo.insertedCount || batchInfo.processedRecords || 0).toLocaleString()} 
+                              {batchInfo.totalRecords && ` / ${batchInfo.totalRecords.toLocaleString()}`}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Show current phase info during post-processing */}
+                        {(batchInfo.currentPhase && batchInfo.totalPhases) && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Current Phase:</span>
+                            <span className="font-medium">{batchInfo.currentPhase} / {batchInfo.totalPhases}</span>
+                          </div>
+                        )}
                         {batchInfo.avgTimePerRecord && (
                           <div className="flex justify-between">
                             <span className="text-slate-600">Processing Speed:</span>

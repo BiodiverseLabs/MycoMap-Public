@@ -116,6 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 17, 2025: Complete Upload Progress Display Fixes
+  - Fixed progress bar exceeding 100% by capping server calculations at maximum value
+  - Corrected phase numbering in completion messages to show accurate phase numbers (1/5, 2/5, etc.)
+  - Enhanced batch information display to show current phase progress during post-processing
+  - Filtered confusing phase metrics from upload history results panel
+  - Improved frontend batch information logic to handle both insertion and post-processing phases
+  - Upload interface now provides accurate visual feedback with correct progress percentages and phase tracking
+
 - June 17, 2025: Critical Upload Scope Fixes for Phase 4 and Phase 5
   - Fixed critical bug where Phase 4 (classification updates) processed entire database (11,511 records) instead of upload-specific records (~160)
   - Fixed critical bug where Phase 5 (iNaturalist API sync) processed all 1,000+ records missing API data instead of upload-specific records

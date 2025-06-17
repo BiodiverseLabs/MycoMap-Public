@@ -1720,10 +1720,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatePostProcessingProgress = (phaseDescription: string, phaseProgress: number = 0, completed: boolean = false) => {
         const baseProgress = 50; // Post-processing starts at 50%
         const progressPerPhase = 10; // Each phase gets 10% (50-100%)
-        const actualProgress = baseProgress + (completedPhases * progressPerPhase) + (phaseProgress * progressPerPhase / 100);
+        
+        // Calculate current progress within the current phase
+        const currentPhaseProgress = phaseProgress * progressPerPhase / 100;
+        const actualProgress = baseProgress + (completedPhases * progressPerPhase) + currentPhaseProgress;
+        
+        // Ensure progress doesn't exceed 100%
+        const cappedProgress = Math.min(100, Math.round(actualProgress));
         
         const progressData = {
-          progress: Math.round(actualProgress),
+          progress: cappedProgress,
           phase: 'post-processing',
           message: completed ? `✓ ${phaseDescription} completed` : `${phaseDescription}`,
           batchInfo: {
@@ -1736,10 +1742,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Send completion signal if phase is done
         if (completed) {
+          const completedProgress = Math.min(100, Math.round(baseProgress + ((completedPhases + 1) * progressPerPhase)));
           setTimeout(() => {
             progressTracker.set(uploadId, {
               ...progressData,
-              progress: Math.round(baseProgress + ((completedPhases + 1) * progressPerPhase)),
+              progress: completedProgress,
               message: `✓ Phase ${completedPhases + 1}/${totalPostProcessingPhases} completed`,
             });
           }, 100);
