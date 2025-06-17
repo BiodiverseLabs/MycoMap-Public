@@ -116,13 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
-- June 17, 2025: Critical Classification Scope Fix and Performance Optimization
-  - Fixed critical bug where classification updates processed entire database (11,511 records) instead of upload-specific records (~160)
+- June 17, 2025: Critical Upload Scope Fixes for Phase 4 and Phase 5
+  - Fixed critical bug where Phase 4 (classification updates) processed entire database (11,511 records) instead of upload-specific records (~160)
+  - Fixed critical bug where Phase 5 (iNaturalist API sync) processed all 1,000+ records missing API data instead of upload-specific records
   - Implemented getObservationsFromUpload() method using timestamp-based filtering to scope processing to current upload
+  - Enhanced both classification updates and API sync to only process newly uploaded observations
   - Added comprehensive data validation to filter invalid genus names (URLs, taxonomic ranks, numbered variants)
-  - Enhanced classification updates to only process newly uploaded observations, reducing processing time from hours to minutes
-  - System now correctly shows "Found X records from upload Y needing classification updates" for accurate scope tracking
-  - Improved efficiency with targeted processing preventing unnecessary work on existing database records
+  - Reduced processing time from hours to minutes with targeted record processing preventing unnecessary work on existing database records
+  - System now correctly shows "Found X records from upload Y needing classification/API sync" for accurate scope tracking
 
 - June 17, 2025: Complete Phase Tracking System Implementation
   - Fixed progress calculation to show 0-50% during batch insertion, then 50-100% across 5 post-processing phases

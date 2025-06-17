@@ -28,22 +28,33 @@ async function syncUploadedInaturalistData(uploadId: number, progressTracker: Ma
   console.log(`Starting iNaturalist API sync for upload ${uploadId}...`);
   
   try {
-    // Get all iNaturalist observations from this upload that don't have API data
+    // Get the upload timestamp to filter observations from this upload only
+    const upload = await storage.getUploads().then(uploads => uploads.find(u => u.id === uploadId));
+    if (!upload || !upload.uploadedAt) {
+      console.log(`No upload found with ID ${uploadId} or missing timestamp`);
+      return;
+    }
+    
+    const oneHourBefore = new Date(upload.uploadedAt.getTime() - 60 * 60 * 1000);
+    const oneHourAfter = new Date(upload.uploadedAt.getTime() + 60 * 60 * 1000);
+    
+    // Get only iNaturalist observations from THIS upload that don't have API data
     const missingApiData = await db.execute(sql`
       SELECT o.observation_id, o.scientific_name
       FROM observations o
       LEFT JOIN inaturalist_data inat ON o.observation_id = inat.observation_id
       WHERE o.source = 'iNaturalist' 
         AND inat.observation_id IS NULL
+        AND o.created_at >= ${oneHourBefore}
+        AND o.created_at <= ${oneHourAfter}
       ORDER BY o.id DESC
-      LIMIT 1000
     `);
 
     const recordsToSync = missingApiData.rows as Array<{ observation_id: string; scientific_name: string }>;
-    console.log(`Found ${recordsToSync.length} iNaturalist records missing API data`);
+    console.log(`Found ${recordsToSync.length} iNaturalist records from upload ${uploadId} missing API data`);
 
     if (recordsToSync.length === 0) {
-      console.log('No iNaturalist records need API sync');
+      console.log(`No iNaturalist records from upload ${uploadId} need API sync`);
       return;
     }
 
