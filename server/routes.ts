@@ -1809,7 +1809,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             progressTracker.set(uploadId, {
               ...progressData,
               progress: completedProgress,
-              message: `✓ Phase ${completedPhases + 1}/${totalPostProcessingPhases} completed`,
+              message: `✓ Phase ${completedPhases + 1}/5 completed`,
             });
           }, 100);
         }
@@ -1828,7 +1828,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const contribStart = Date.now();
         await updateContributorStatistics(uploadId, progressTracker);
         console.log(`✓ Contributor statistics completed in ${Date.now() - contribStart}ms`);
-        updatePostProcessingProgress('Contributor statistics', 100, true);
+        updatePostProcessingProgress('✓ Contributor statistics completed', 100, true);
         completedPhases++;
         
         console.log('Phase 2: Updating species statistics...');
@@ -1843,7 +1843,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const speciesStart = Date.now();
         await updateSpeciesStatisticsScoped(uploadId, progressTracker);
         console.log(`✓ Species statistics completed in ${Date.now() - speciesStart}ms`);
-        updatePostProcessingProgress('Species statistics', 100, true);
+        updatePostProcessingProgress('✓ Species statistics completed', 100, true);
         completedPhases++;
         
         console.log('Phase 3: Building GPS index for map performance...');
@@ -1876,7 +1876,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const classificationStart = Date.now();
         await autoPopulateClassificationUpdates(uploadId, progressTracker);
         console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
-        updatePostProcessingProgress('Automated classification updates', 100, true);
+        updatePostProcessingProgress('✓ Classification updates completed', 100, true);
         completedPhases++;
 
         // Phase 5: Sync iNaturalist API data for all uploaded records
@@ -1892,7 +1892,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const inatSyncStart = Date.now();
         await syncUploadedInaturalistData(uploadId, progressTracker);
         console.log(`✓ iNaturalist API sync completed in ${Date.now() - inatSyncStart}ms`);
-        updatePostProcessingProgress('iNaturalist API sync', 100, true);
+        updatePostProcessingProgress('✓ iNaturalist API sync completed', 100, true);
         completedPhases++;
 
         // Get API call statistics for this upload
