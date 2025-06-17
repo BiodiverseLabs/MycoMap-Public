@@ -23,10 +23,11 @@ async function comprehensiveBackfillFinal() {
     let failed = 0;
     const batchSize = 10;
     
-    // Process in batches with rate limiting
-    for (let i = 0; i < cacheEntries.rows.length; i += batchSize) {
-      const batch = cacheEntries.rows.slice(i, i + batchSize);
-      console.log(`\n=== Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(cacheEntries.rows.length/batchSize)} (${batch.length} entries) ===`);
+    // Process in smaller batches with rate limiting (5 entries per batch for stability)
+    const smallBatchSize = 5;
+    for (let i = 0; i < cacheEntries.rows.length; i += smallBatchSize) {
+      const batch = cacheEntries.rows.slice(i, i + smallBatchSize);
+      console.log(`\n=== Processing batch ${Math.floor(i/smallBatchSize) + 1}/${Math.ceil(cacheEntries.rows.length/smallBatchSize)} (${batch.length} entries) ===`);
       
       for (const entry of batch) {
         const searchTerm = entry.search_term;
@@ -164,9 +165,9 @@ async function comprehensiveBackfillFinal() {
       }
       
       // Longer delay between batches
-      if (i + batchSize < cacheEntries.rows.length) {
-        console.log('Waiting 3 seconds before next batch...\n');
-        await new Promise(resolve => setTimeout(resolve, 3000));
+      if (i + smallBatchSize < cacheEntries.rows.length) {
+        console.log('Waiting 2 seconds before next batch...\n');
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     
