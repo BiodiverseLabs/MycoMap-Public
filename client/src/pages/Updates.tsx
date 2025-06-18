@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Download, ExternalLink } from "lucide-react";
+import { AlertTriangle, Download, ExternalLink, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -410,6 +410,109 @@ export default function Updates() {
             )}
           </CardContent>
           </Card>
+
+          {/* Missing GPS Coordinates Section */}
+          <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-red-500" />
+                Missing GPS Coordinates
+                <Badge variant="destructive" className="ml-2">
+                  {gpsLoading ? "..." : missingGPS.length}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Observations without valid latitude/longitude coordinates
+              </CardDescription>
+            </div>
+            <Button
+              onClick={() => downloadRecords(missingGPS, 'missing_gps')}
+              variant="outline"
+              size="sm"
+              disabled={gpsLoading || missingGPS.length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download CSV
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {gpsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-sm text-slate-500">Loading missing GPS records...</div>
+              </div>
+            ) : missingGPS.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-sm text-slate-500">No records missing GPS coordinates found</div>
+              </div>
+            ) : (
+              <ScrollArea className="h-96">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Observation ID</TableHead>
+                      <TableHead>Species</TableHead>
+                      <TableHead>Collector</TableHead>
+                      <TableHead>State</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>GPS Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {missingGPS.slice(0, 100).map((record) => {
+                      const hasLat = record.latitude && record.latitude !== '0' && record.latitude !== '';
+                      const hasLon = record.longitude && record.longitude !== '0' && record.longitude !== '';
+                      
+                      return (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-mono text-sm">
+                            {record.observationId}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{record.scientificName}</div>
+                            {record.commonName && (
+                              <div className="text-sm text-slate-500">{record.commonName}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{record.collector || 'Unknown'}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{record.state || 'Unknown'}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {record.source || 'Unknown'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {!hasLat && (
+                                <Badge variant="destructive" className="text-xs">
+                                  No Latitude
+                                </Badge>
+                              )}
+                              {!hasLon && (
+                                <Badge variant="destructive" className="text-xs">
+                                  No Longitude
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                {missingGPS.length > 100 && (
+                  <div className="mt-4 text-center text-sm text-slate-500">
+                    Showing first 100 of {missingGPS.length} records. Download for complete list.
+                  </div>
+                )}
+              </ScrollArea>
+            )}
+          </CardContent>
+          </Card>
         </div>
 
         {/* Summary Statistics */}
@@ -419,7 +522,7 @@ export default function Updates() {
             <CardDescription>Overview of records requiring taxonomic updates</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-amber-600">
                 {nameLoading ? "..." : nameUpdates.length}
@@ -440,7 +543,13 @@ export default function Updates() {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">
-                {nameLoading || classificationLoading || encodingLoading ? "..." : nameUpdates.length + classificationUpdates.length + encodingIssues.length}
+                {gpsLoading ? "..." : missingGPS.length}
+              </div>
+              <div className="text-sm text-slate-500">Missing GPS</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-600">
+                {nameLoading || classificationLoading || encodingLoading || gpsLoading ? "..." : nameUpdates.length + classificationUpdates.length + encodingIssues.length + missingGPS.length}
               </div>
               <div className="text-sm text-slate-500">Total Updates Needed</div>
             </div>
