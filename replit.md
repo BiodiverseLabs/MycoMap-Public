@@ -116,6 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 18, 2025: Optimized Upload Phase Ordering for Better Data Processing
+  - Reordered upload phases to run classification updates before contributor/species statistics
+  - New phase sequence: Data insertion (0-50%), Classification updates (50-60%), Contributor statistics (60-70%), Species statistics (70-80%), GPS indexing (80-90%), iNaturalist API sync (90-100%)
+  - Classification updates now happen in Phase 1 instead of Phase 4, ensuring taxonomy improvements are included in summary statistics
+  - Updated progress percentages and frontend descriptions to match new phase ordering
+  - This prevents classification improvements from being excluded from contributor and species summary calculations
+  - More logical data flow: classify first, then calculate statistics with complete taxonomic information
+
 - June 18, 2025: Enhanced Classification Update Routine with Order-Level API Searches
   - Added order-level searches to iNaturalist API lookup routine for comprehensive taxonomic coverage
   - Enhanced classification system to search across 5 taxonomic ranks: genus, subgenus, section, family, and order
@@ -218,7 +226,7 @@ This is a comprehensive taxonomic observation database application focused on ma
   - Added specialized phase completion handling for post-processing phases with dedicated completion flags
   - Fixed all phase update calls to use consistent completion tracking with proper progress percentages
   - Enhanced frontend phase detection to recognize completion signals and add phases to results panel
-  - System now properly tracks progress through all phases: Data insertion (0-50%), Contributor statistics (50-60%), Species statistics (60-70%), GPS index building (70-80%), Classification updates (80-90%), iNaturalist API sync (90-100%)
+  - System now properly tracks progress through all phases: Data insertion (0-50%), Classification updates (50-60%), Contributor statistics (60-70%), Species statistics (70-80%), GPS index building (80-90%), iNaturalist API sync (90-100%)
   - Upload system now provides clear visual feedback with completed phases appearing in results panel
 
 - June 17, 2025: Enhanced Phase 1 Summary Metrics for Contributor Statistics

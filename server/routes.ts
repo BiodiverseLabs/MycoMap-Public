@@ -1904,7 +1904,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       };
       
       try {
-        console.log('Phase 1: Updating contributor statistics...');
+        // Phase 1: Classification updates FIRST (before statistics)
+        console.log('Phase 1: Starting automated classification updates...');
+        
+        // Check for cancellation before classification updates
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled before classification updates`);
+          return;
+        }
+        
+        updatePostProcessingProgress('Running automated classification updates', 0);
+        const classificationStart = Date.now();
+        await autoPopulateClassificationUpdates(uploadId, progressTracker);
+        console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
+        updatePostProcessingProgress('Automated classification updates', 100, true);
+        completedPhases++;
+
+        // Phase 2: Contributor statistics (after classification)
+        console.log('Phase 2: Updating contributor statistics...');
         
         // Check for cancellation before contributor stats
         if (cancelledUploads.has(uploadId)) {
@@ -1919,7 +1936,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Contributor statistics', 100, true);
         completedPhases++;
         
-        console.log('Phase 2: Updating species statistics...');
+        // Phase 3: Species statistics (after classification)
+        console.log('Phase 3: Updating species statistics...');
         
         // Check for cancellation before species stats
         if (cancelledUploads.has(uploadId)) {
@@ -1934,7 +1952,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Species statistics', 100, true);
         completedPhases++;
         
-        console.log('Phase 3: Building GPS index for map performance...');
+        // Phase 4: GPS index building
+        console.log('Phase 4: Building GPS index for map performance...');
         
         // Check for cancellation before GPS index
         if (cancelledUploads.has(uploadId)) {
@@ -1951,23 +1970,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         console.log('✓ All index tables updated successfully');
 
-        // Auto-populate classification updates by matching genus
-        console.log('Phase 4: Starting automated classification updates...');
-        
-        // Check for cancellation before classification updates
-        if (cancelledUploads.has(uploadId)) {
-          console.log(`Upload ${uploadId} cancelled before classification updates`);
-          return;
-        }
-        
-        updatePostProcessingProgress('Running automated classification updates', 0);
-        const classificationStart = Date.now();
-        await autoPopulateClassificationUpdates(uploadId, progressTracker);
-        console.log(`✓ Automated classification updates completed in ${Date.now() - classificationStart}ms`);
-        updatePostProcessingProgress('Automated classification updates', 100, true);
-        completedPhases++;
-
-        // Phase 5: Sync iNaturalist API data for all uploaded records
+        // Phase 5: iNaturalist API sync
         console.log('Phase 5: Syncing iNaturalist API data for thumbnail and validation support...');
         
         // Check for cancellation before iNat sync
@@ -2156,8 +2159,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         console.log(`Processing batch ${currentBatch} of ${totalBatches}`);
         
-        // Update progress tracker for classification phase
-        const progressPercent = Math.round(85 + ((processedRecords / classificationUpdates.length) * 15)); // 85-100% for classification
+        // Update progress tracker for classification phase (now Phase 1: 50-60%)
+        const progressPercent = Math.round(50 + ((processedRecords / classificationUpdates.length) * 10)); // 50-60% for classification
         progressTracker.set(uploadId, {
           progress: progressPercent,
           phase: 'classification-updates',
@@ -2270,7 +2273,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         console.log(`  Estimated time remaining: ${estimatedTimeRemaining.toFixed(1)} seconds`);
         
         // Final progress update for this batch
-        const finalProgressPercent = Math.round(85 + ((processedRecords / classificationUpdates.length) * 15));
+        const finalProgressPercent = Math.round(50 + ((processedRecords / classificationUpdates.length) * 10));
         progressTracker.set(uploadId, {
           progress: finalProgressPercent,
           phase: 'classification-updates',
@@ -2289,8 +2292,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Mark classification phase as completed
       progressTracker.set(uploadId, {
-        progress: 100,
-        phase: 'classification-updates',
+        progress: 60,
+        phase: 'classification-updates', 
         message: `✓ Classification updates completed: ${updatedCount} records updated`,
         batchInfo: {
           currentBatch: totalBatches,
