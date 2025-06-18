@@ -116,6 +116,15 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 18, 2025: Enhanced Classification Update Routine with Order-Level API Searches
+  - Added order-level searches to iNaturalist API lookup routine for comprehensive taxonomic coverage
+  - Enhanced classification system to search across 5 taxonomic ranks: genus, subgenus, section, family, and order
+  - Fixed Helotiales sp. 'CA14' classification issue where order-level names weren't being caught
+  - System now properly handles cases where scientific names represent orders rather than genera
+  - Classification routine successfully identified Helotiales as order with complete lineage: Kingdom=Fungi, Order=Helotiales
+  - Updated taxonomy extraction to properly cache order-level matches and their ancestor hierarchies
+  - 601 records still flagged for classification updates will benefit from expanded taxonomic rank coverage
+
 - June 17, 2025: Upload System Connection Timeout Fixes - Phase 1 Contributor Statistics Processing
   - Successfully resolved critical database connection timeout issues during Phase 1 contributor statistics processing
   - Implemented smaller batch processing (25 contributors per batch) replacing previous 50-contributor batches for better stability

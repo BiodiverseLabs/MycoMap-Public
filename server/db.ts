@@ -3468,9 +3468,9 @@ export class DatabaseStorage implements IStorage {
       // Rate limiting
       await this.rateLimitedDelay();
       
-      // Try genus first, then subgenus, then section, then family in order of specificity
+      // Try genus first, then subgenus, then section, then family, then order in order of specificity
       let bestMatch = null;
-      const searchRanks = ['genus', 'subgenus', 'section', 'family'];
+      const searchRanks = ['genus', 'subgenus', 'section', 'family', 'order'];
       
       for (const rank of searchRanks) {
         console.log(`Searching iNaturalist for "${genus}" at ${rank} level...`);
@@ -3521,10 +3521,12 @@ export class DatabaseStorage implements IStorage {
           
           // Extract taxonomy from the taxon ancestry
           const taxonomy: any = {
-            genus: taxon.name,
+            genus: taxon.rank === 'genus' ? taxon.name : null,
             rank: taxon.rank,
             subgenus: taxon.rank === 'subgenus' ? taxon.name : null,
-            section: taxon.rank === 'section' ? taxon.name : null
+            section: taxon.rank === 'section' ? taxon.name : null,
+            family: taxon.rank === 'family' ? taxon.name : null,
+            order: taxon.rank === 'order' ? taxon.name : null
           };
           
           if (taxon.ancestors) {
