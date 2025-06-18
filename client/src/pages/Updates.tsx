@@ -20,6 +20,10 @@ export default function Updates() {
     queryKey: ["/api/observations/encoding-issues"]
   });
 
+  const { data: missingGPS = [], isLoading: gpsLoading } = useQuery<Observation[]>({
+    queryKey: ["/api/observations/missing-gps"]
+  });
+
   const downloadRecords = (records: Observation[], type: string) => {
     const csv = convertToCSV(records);
     const blob = new Blob([csv], { type: 'text/csv' });

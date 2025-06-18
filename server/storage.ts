@@ -151,6 +151,7 @@ export interface IStorage {
   getObservationsWithClassificationUpdates(): Promise<Observation[]>;
   getObservationsFromUpload(uploadId: number): Promise<Observation[]>;
   getObservationsWithEncodingIssues(): Promise<Observation[]>;
+  getObservationsWithoutGPS(): Promise<Observation[]>;
   
   // Get unique species from a specific upload (for scoped statistics)
   getSpeciesFromUpload(uploadId: number): Promise<string[]>;

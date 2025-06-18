@@ -275,6 +275,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get observations without GPS coordinates
+  app.get("/api/observations/missing-gps", async (req, res) => {
+    try {
+      const observations = await storage.getObservationsWithoutGPS();
+      res.json(observations);
+    } catch (error) {
+      console.error("Error fetching observations without GPS:", error);
+      res.status(500).json({ error: "Failed to fetch observations without GPS" });
+    }
+  });
+
   app.get("/api/observations/summary", async (req, res) => {
     try {
       const { dateRange, aggregate } = req.query;

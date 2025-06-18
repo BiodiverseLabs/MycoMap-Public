@@ -3710,4 +3710,24 @@ export class DatabaseStorage implements IStorage {
       }))
     };
   }
+
+  async getObservationsWithoutGPS(): Promise<Observation[]> {
+    const result = await db
+      .select()
+      .from(observations)
+      .where(
+        or(
+          sql`${observations.latitude} IS NULL`,
+          sql`${observations.longitude} IS NULL`,
+          sql`${observations.latitude} = '0'`,
+          sql`${observations.longitude} = '0'`,
+          sql`${observations.latitude} = ''`,
+          sql`${observations.longitude} = ''`
+        )
+      )
+      .orderBy(desc(observations.id))
+      .limit(5000); // Limit to prevent performance issues
+
+    return result;
+  }
 }
