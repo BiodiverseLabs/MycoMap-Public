@@ -45,7 +45,7 @@ export default function Updates() {
     
     const csvData = records.map(record => [
       record.id,
-      record.observationId,
+      record.observationId || (record as any).observation_id,
       record.scientificName,
       record.commonName || '',
       record.kingdom || '',
@@ -236,7 +236,7 @@ export default function Updates() {
                       return (
                         <TableRow key={record.id}>
                           <TableCell className="font-mono text-sm">
-                            {record.observationId}
+                            {record.observationId || (record as any).observation_id}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{record.species || record.scientificName}</div>

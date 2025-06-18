@@ -1671,7 +1671,35 @@ export class DatabaseStorage implements IStorage {
     // Use raw SQL query since Drizzle ORM is having issues with boolean columns
     // Set explicit limit to handle all records (Neon may have default limits)
     const result = await db.execute(sql`
-      SELECT * FROM observations 
+      SELECT 
+        id,
+        observation_id as "observationId",
+        scientific_name as "scientificName",
+        common_name as "commonName",
+        phylum,
+        class,
+        "order",
+        family,
+        genus,
+        species,
+        infraspecies,
+        observer,
+        collector,
+        observed_on as "observedOn",
+        latitude,
+        longitude,
+        place_guess as "placeGuess",
+        state,
+        country,
+        genbank_accession as "genbankAccession",
+        is_first_state_record as "isFirstStateRecord",
+        has_multiple_genotypes as "hasMultipleGenotypes",
+        source,
+        source_url as "sourceUrl",
+        created_at as "createdAt",
+        updated_at as "updatedAt",
+        kingdom
+      FROM observations 
       WHERE classification_update = true 
       ORDER BY updated_at DESC
       LIMIT 15000
