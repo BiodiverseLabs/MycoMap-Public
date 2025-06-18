@@ -971,6 +971,35 @@ export class MemoryStorage implements IStorage {
     // Memory storage doesn't support raw SQL
     throw new Error('Raw SQL execution not supported in memory storage');
   }
+
+  async getObservationsWithEncodingIssues(): Promise<Observation[]> {
+    return this.observations.filter(obs => {
+      // Check for common encoding issues in key text fields
+      const checkString = (str: string | null | undefined): boolean => {
+        if (!str) return false;
+        return str.includes('â€œ') || str.includes('â€') || str.includes('â€™') ||
+               str.includes('Ã¡') || str.includes('Ã©') || str.includes('Ã­') ||
+               str.includes('Ã³') || str.includes('Ãº') || str.includes('Ã±') ||
+               str.includes('Ã§') || str.includes('Ã¼') || str.includes('Ã¨') ||
+               str.includes('Ã ');
+      };
+
+      return checkString(obs.scientificName) || 
+             checkString(obs.commonName) || 
+             checkString(obs.collector) || 
+             checkString(obs.state) || 
+             checkString(obs.placeGuess) || 
+             checkString(obs.country);
+    });
+  }
+
+  async getObservationsWithoutGPS(): Promise<Observation[]> {
+    return this.observations.filter(obs => 
+      !obs.latitude || !obs.longitude || 
+      obs.latitude === '0' || obs.longitude === '0' ||
+      obs.latitude === '' || obs.longitude === ''
+    );
+  }
 }
 
 // Use database storage instead of memory storage
