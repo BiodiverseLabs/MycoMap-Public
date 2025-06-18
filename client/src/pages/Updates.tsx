@@ -482,12 +482,12 @@ export default function Updates() {
                         return (
                           <TableRow key={record.id}>
                             <TableCell className="font-mono text-sm">
-                              {record.observationId}
+                              {record.observation_id || record.observationId}
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium">{record.scientificName}</div>
-                              {record.commonName && (
-                                <div className="text-sm text-slate-500">{record.commonName}</div>
+                              <div className="font-medium">{record.scientific_name || record.scientificName}</div>
+                              {(record.common_name || record.commonName) && (
+                                <div className="text-sm text-slate-500">{record.common_name || record.commonName}</div>
                               )}
                             </TableCell>
                             <TableCell>
