@@ -421,9 +421,21 @@ export default function Updates() {
                 <Badge variant="destructive" className="ml-2">
                   {gpsLoading ? "..." : missingGPS.length}
                 </Badge>
+                {!gpsLoading && (() => {
+                  const sequenceCount = missingGPS.filter(record => record.source === 'Sequences').length;
+                  return sequenceCount > 0 ? (
+                    <Badge variant="secondary" className="ml-1 text-xs">
+                      +{sequenceCount} sequences
+                    </Badge>
+                  ) : null;
+                })()}
               </CardTitle>
               <CardDescription>
                 Observations without valid latitude/longitude coordinates
+                {!gpsLoading && (() => {
+                  const sequenceCount = missingGPS.filter(record => record.source === 'Sequences').length;
+                  return sequenceCount > 0 ? ` (${sequenceCount} sequence records included in CSV only)` : '';
+                })()}
               </CardDescription>
             </div>
             <Button
@@ -445,72 +457,85 @@ export default function Updates() {
               <div className="flex items-center justify-center py-8">
                 <div className="text-sm text-slate-500">No records missing GPS coordinates found</div>
               </div>
-            ) : (
-              <ScrollArea className="h-96">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Observation ID</TableHead>
-                      <TableHead>Species</TableHead>
-                      <TableHead>Collector</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>GPS Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {missingGPS.slice(0, 100).map((record) => {
-                      const hasLat = record.latitude && record.latitude !== '0' && record.latitude !== '';
-                      const hasLon = record.longitude && record.longitude !== '0' && record.longitude !== '';
-                      
-                      return (
-                        <TableRow key={record.id}>
-                          <TableCell className="font-mono text-sm">
-                            {record.observationId}
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-medium">{record.scientificName}</div>
-                            {record.commonName && (
-                              <div className="text-sm text-slate-500">{record.commonName}</div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">{record.collector || 'Unknown'}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">{record.state || 'Unknown'}</div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {record.source || 'Unknown'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {!hasLat && (
-                                <Badge variant="destructive" className="text-xs">
-                                  No Latitude
-                                </Badge>
+            ) : (() => {
+              // Filter out "Sequences" source for frontend display only
+              const filteredGPS = missingGPS.filter(record => record.source !== 'Sequences');
+              
+              return (
+                <ScrollArea className="h-96">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Observation ID</TableHead>
+                        <TableHead>Species</TableHead>
+                        <TableHead>Collector</TableHead>
+                        <TableHead>State</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>GPS Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredGPS.slice(0, 100).map((record) => {
+                        const hasLat = record.latitude && record.latitude !== '0' && record.latitude !== '';
+                        const hasLon = record.longitude && record.longitude !== '0' && record.longitude !== '';
+                        
+                        return (
+                          <TableRow key={record.id}>
+                            <TableCell className="font-mono text-sm">
+                              {record.observationId}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{record.scientificName}</div>
+                              {record.commonName && (
+                                <div className="text-sm text-slate-500">{record.commonName}</div>
                               )}
-                              {!hasLon && (
-                                <Badge variant="destructive" className="text-xs">
-                                  No Longitude
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                {missingGPS.length > 100 && (
-                  <div className="mt-4 text-center text-sm text-slate-500">
-                    Showing first 100 of {missingGPS.length} records. Download for complete list.
-                  </div>
-                )}
-              </ScrollArea>
-            )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">{record.collector || 'Unknown'}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">{record.state || 'Unknown'}</div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {record.source || 'Unknown'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {!hasLat && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    No Latitude
+                                  </Badge>
+                                )}
+                                {!hasLon && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    No Longitude
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  {filteredGPS.length > 100 ? (
+                    <div className="mt-4 text-center text-sm text-slate-500">
+                      Showing first 100 of {filteredGPS.length} records (excluding sequences). Download for complete list.
+                    </div>
+                  ) : filteredGPS.length === 0 ? (
+                    <div className="mt-4 text-center text-sm text-slate-500">
+                      All missing GPS records are sequence data. Download CSV for complete list.
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-center text-sm text-slate-500">
+                      Showing {filteredGPS.length} records (excluding sequences). Download for complete list including sequences.
+                    </div>
+                  )}
+                </ScrollArea>
+              );
+            })()}
           </CardContent>
           </Card>
         </div>
