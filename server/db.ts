@@ -3712,22 +3712,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getObservationsWithoutGPS(): Promise<Observation[]> {
-    const result = await db
-      .select()
-      .from(observations)
-      .where(
-        or(
-          sql`${observations.latitude} IS NULL`,
-          sql`${observations.longitude} IS NULL`,
-          sql`${observations.latitude} = '0'`,
-          sql`${observations.longitude} = '0'`,
-          sql`${observations.latitude} = ''`,
-          sql`${observations.longitude} = ''`
-        )
-      )
-      .orderBy(desc(observations.id))
-      .limit(5000); // Limit to prevent performance issues
+    // Use raw SQL to handle numeric field edge cases properly
+    const result = await db.execute(sql`
+      SELECT * FROM observations 
+      WHERE latitude IS NULL 
+         OR longitude IS NULL 
+         OR latitude = 0 
+         OR longitude = 0
+         OR (latitude IS NOT NULL AND latitude::text = '')
+         OR (longitude IS NOT NULL AND longitude::text = '')
+      ORDER BY id DESC 
+      LIMIT 5000
+    `);
 
-    return result;
+    return result.rows as Observation[];
   }
 }

@@ -116,6 +116,14 @@ This is a comprehensive taxonomic observation database application focused on ma
 
 ## Recent Changes
 
+- June 18, 2025: Missing GPS Coordinates Tracking Feature Implementation
+  - Added comprehensive "Missing GPS Coordinates" section to Updates page with backend API endpoint
+  - Fixed PostgreSQL numeric type handling for GPS coordinate queries with proper CAST operations
+  - Implemented frontend component with table display, CSV download, and GPS status indicators
+  - Updated summary statistics to include missing GPS count in 5-column layout
+  - System now identifies and tracks observations with NULL, zero, or empty latitude/longitude values
+  - Enhanced data quality monitoring with dedicated GPS validation tracking
+
 - June 18, 2025: Verified Upload Phase Ordering and GPS Index Performance
   - Confirmed optimized upload phase sequence working correctly with 97% GPS coverage (68,635 of 70,787 observations)
   - GPS indexing system successfully processing coordinates during Phase 4 (80-90%) of upload workflow
