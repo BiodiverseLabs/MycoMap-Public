@@ -835,7 +835,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) as south_count,
           SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) as east_count,
           SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) as west_count,
-          -- Within 10 degree counts
           SUM(CASE 
             WHEN o.latitude > ${centerLat} 
             AND o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
@@ -865,11 +864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
             AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
             THEN 1 ELSE 0 
-          END) as nearby_total,
-          ${neighbors.length > 0 ? 
-            `SUM(CASE WHEN o.state IN ('${neighbors.join("','")}') THEN 1 ELSE 0 END)` :
-            '0'
-          } as neighboring_states_count
+          END) as nearby_total
         FROM observations o
         WHERE o.state != ${targetState}
           AND o.latitude IS NOT NULL 
@@ -881,21 +876,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AND o.scientific_name NOT IN (SELECT scientific_name FROM target_species)
         GROUP BY o.scientific_name, o.common_name
         HAVING (
-          (SUM(CASE 
-              WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
-              AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
-              THEN 1 ELSE 0 
-            END) > 0
-            AND (
-              (SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) > 0)
-              OR
-              (SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) > 0)
-            )
+          SUM(CASE 
+            WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+            THEN 1 ELSE 0 
+          END) > 0
+          AND (
+            (SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) > 0)
+            OR
+            (SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) > 0)
           )
-          ${neighbors.length > 0 ? 
-            `OR SUM(CASE WHEN o.state IN ('${neighbors.join("','")}') THEN 1 ELSE 0 END) > 0` :
-            ''
-          }
         )
         ORDER BY SUM(CASE 
           WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
@@ -905,7 +895,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT 100
       `;
 
+      // Separate query for neighboring states count
+      const neighboringQuery = neighbors.length > 0 ? sql`
+        SELECT 
+          o.scientific_name,
+          COUNT(*) as neighboring_count
+        FROM observations o
+        WHERE o.scientific_name IS NOT NULL
+          AND o.scientific_name != ''
+          AND o.state IN (${sql.join(neighbors.map(state => sql`${state}`), sql`, `)})
+        GROUP BY o.scientific_name
+      ` : null;
+
       const prospects = await db.execute(prospectsQuery);
+      
+      // Get neighboring states counts if applicable
+      let neighboringCounts: { [key: string]: number } = {};
+      if (neighboringQuery) {
+        const neighboringResults = await db.execute(neighboringQuery);
+        neighboringCounts = neighboringResults.rows.reduce((acc: any, row: any) => {
+          acc[row.scientific_name] = parseInt(row.neighboring_count) || 0;
+          return acc;
+        }, {});
+      }
       
       const speciesData = prospects.rows.map((row: any) => ({
         scientificName: row.scientific_name,
@@ -920,7 +932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         westNearbyCount: parseInt(row.west_nearby_count) || 0,
         totalRecords: parseInt(row.total_records) || 0,
         nearbyTotal: parseInt(row.nearby_total) || 0,
-        neighboringStatesCount: parseInt(row.neighboring_states_count) || 0
+        neighboringStatesCount: neighboringCounts[row.scientific_name] || 0
       }));
 
       const response = {
