@@ -839,14 +839,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           o.latitude,
           o.longitude,
           o.state,
-          o.locality,
-          o.date_collected,
+          o.place_guess,
+          o.location_name,
+          o.observed_on,
           o.collector
         FROM observations o
         WHERE o.scientific_name = ${scientificName}
           AND o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
-        ORDER BY o.date_collected DESC
+        ORDER BY o.observed_on DESC
         LIMIT 1000
       `);
 
@@ -855,8 +856,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         latitude: parseFloat(row.latitude),
         longitude: parseFloat(row.longitude),
         state: row.state || 'Unknown',
-        locality: row.locality || 'Unknown location',
-        dateCollected: row.date_collected || 'Unknown date',
+        locality: row.place_guess || row.location_name || 'Unknown location',
+        dateCollected: row.observed_on || 'Unknown date',
         collector: row.collector || 'Unknown collector'
       }));
 
