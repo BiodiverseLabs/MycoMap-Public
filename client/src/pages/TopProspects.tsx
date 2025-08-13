@@ -18,7 +18,12 @@ interface TopProspectSpecies {
   southCount: number;
   eastCount: number;
   westCount: number;
+  northNearbyCount: number;
+  southNearbyCount: number;
+  eastNearbyCount: number;
+  westNearbyCount: number;
   totalRecords: number;
+  nearbyTotal: number;
 }
 
 interface TopProspectsData {
@@ -73,15 +78,20 @@ export default function TopProspects() {
   const handleDownloadCsv = () => {
     if (!prospectsData?.species) return;
 
-    const headers = ['Scientific Name', 'Common Name', 'North Count', 'South Count', 'East Count', 'West Count', 'Total Records'];
+    const headers = ['Scientific Name', 'Common Name', 'North All', 'North 10°', 'South All', 'South 10°', 'East All', 'East 10°', 'West All', 'West 10°', 'Total Records', 'Nearby Total'];
     const csvData = prospectsData.species.map(species => [
       species.scientificName,
       species.commonName || '',
       species.northCount.toString(),
+      species.northNearbyCount.toString(),
       species.southCount.toString(),
+      species.southNearbyCount.toString(),
       species.eastCount.toString(),
+      species.eastNearbyCount.toString(),
       species.westCount.toString(),
-      species.totalRecords.toString()
+      species.westNearbyCount.toString(),
+      species.totalRecords.toString(),
+      species.nearbyTotal.toString()
     ]);
 
     const csvContent = [headers, ...csvData]
@@ -364,11 +374,31 @@ export default function TopProspects() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[300px]">Species</TableHead>
-                        <TableHead className="text-center">North</TableHead>
-                        <TableHead className="text-center">South</TableHead>
-                        <TableHead className="text-center">East</TableHead>
-                        <TableHead className="text-center">West</TableHead>
-                        <TableHead className="text-center">Total</TableHead>
+                        <TableHead className="text-center">
+                          <div className="text-center">
+                            <div>North</div>
+                            <div className="text-xs text-gray-500">(All) (10°)</div>
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <div className="text-center">
+                            <div>South</div>
+                            <div className="text-xs text-gray-500">(All) (10°)</div>
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <div className="text-center">
+                            <div>East</div>
+                            <div className="text-xs text-gray-500">(All) (10°)</div>
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <div className="text-center">
+                            <div>West</div>
+                            <div className="text-xs text-gray-500">(All) (10°)</div>
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-center">Weighted Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -390,43 +420,46 @@ export default function TopProspects() {
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            {species.northCount > 0 ? (
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                                N ({species.northCount})
-                              </Badge>
+                            {species.northCount > 0 || species.northNearbyCount > 0 ? (
+                              <div className="text-sm">
+                                <span className="font-medium">N ({species.northCount}) ({species.northNearbyCount})</span>
+                              </div>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {species.southCount > 0 ? (
-                              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                S ({species.southCount})
-                              </Badge>
+                            {species.southCount > 0 || species.southNearbyCount > 0 ? (
+                              <div className="text-sm">
+                                <span className="font-medium">S ({species.southCount}) ({species.southNearbyCount})</span>
+                              </div>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {species.eastCount > 0 ? (
-                              <Badge variant="secondary" className="bg-orange-100 text-orange-800">
-                                E ({species.eastCount})
-                              </Badge>
+                            {species.eastCount > 0 || species.eastNearbyCount > 0 ? (
+                              <div className="text-sm">
+                                <span className="font-medium">E ({species.eastCount}) ({species.eastNearbyCount})</span>
+                              </div>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {species.westCount > 0 ? (
-                              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                                W ({species.westCount})
-                              </Badge>
+                            {species.westCount > 0 || species.westNearbyCount > 0 ? (
+                              <div className="text-sm">
+                                <span className="font-medium">W ({species.westCount}) ({species.westNearbyCount})</span>
+                              </div>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
                           </TableCell>
                           <TableCell className="text-center font-medium">
-                            {species.totalRecords}
+                            <div className="text-sm">
+                              <div className="font-bold text-blue-600">{species.nearbyTotal}</div>
+                              <div className="text-xs text-gray-500">({species.totalRecords} total)</div>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

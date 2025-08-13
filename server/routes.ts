@@ -780,12 +780,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) as south_count,
           SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) as east_count,
           SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) as west_count,
+          -- Within 10 degree counts
+          SUM(CASE 
+            WHEN o.latitude > ${centerLat} 
+            AND o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+            THEN 1 ELSE 0 
+          END) as north_nearby_count,
+          SUM(CASE 
+            WHEN o.latitude < ${centerLat}
+            AND o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+            THEN 1 ELSE 0 
+          END) as south_nearby_count,
+          SUM(CASE 
+            WHEN o.longitude > ${centerLon}
+            AND o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+            THEN 1 ELSE 0 
+          END) as east_nearby_count,
+          SUM(CASE 
+            WHEN o.longitude < ${centerLon}
+            AND o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+            THEN 1 ELSE 0 
+          END) as west_nearby_count,
           COUNT(*) as total_records,
           SUM(CASE 
             WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
             AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
             THEN 1 ELSE 0 
-          END) as nearby_records
+          END) as nearby_total
         FROM observations o
         WHERE o.state != ${targetState}
           AND o.latitude IS NOT NULL 
@@ -807,7 +832,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             OR
             (SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) > 0)
           )
-        ORDER BY COUNT(*) DESC, o.scientific_name
+        ORDER BY SUM(CASE 
+          WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+          AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+          THEN 1 ELSE 0 
+        END) DESC, COUNT(*) DESC, o.scientific_name
         LIMIT 100
       `;
 
@@ -820,7 +849,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         southCount: parseInt(row.south_count) || 0,
         eastCount: parseInt(row.east_count) || 0,
         westCount: parseInt(row.west_count) || 0,
-        totalRecords: parseInt(row.total_records) || 0
+        northNearbyCount: parseInt(row.north_nearby_count) || 0,
+        southNearbyCount: parseInt(row.south_nearby_count) || 0,
+        eastNearbyCount: parseInt(row.east_nearby_count) || 0,
+        westNearbyCount: parseInt(row.west_nearby_count) || 0,
+        totalRecords: parseInt(row.total_records) || 0,
+        nearbyTotal: parseInt(row.nearby_total) || 0
       }));
 
       const response = {
