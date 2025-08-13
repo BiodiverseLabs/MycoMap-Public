@@ -791,8 +791,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AND o.scientific_name NOT IN (SELECT scientific_name FROM target_species)
         GROUP BY o.scientific_name, o.common_name
         HAVING COUNT(*) >= 2
-          AND (SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) > 0)
-          AND (SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) > 0)
+          AND (
+            (SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) > 0)
+            OR
+            (SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) > 0)
+          )
         ORDER BY COUNT(*) DESC, o.scientific_name
         LIMIT 100
       `;
