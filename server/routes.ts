@@ -867,7 +867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             THEN 1 ELSE 0 
           END) as nearby_total,
           ${neighbors.length > 0 ? 
-            `SUM(CASE WHEN o.state IN (${neighbors.map(state => `'${state}'`).join(',')}) THEN 1 ELSE 0 END)` :
+            `SUM(CASE WHEN o.state IN ('${neighbors.join("','")}') THEN 1 ELSE 0 END)` :
             '0'
           } as neighboring_states_count
         FROM observations o
@@ -880,20 +880,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AND o.scientific_name != ''
           AND o.scientific_name NOT IN (SELECT scientific_name FROM target_species)
         GROUP BY o.scientific_name, o.common_name
-        HAVING (SUM(CASE 
-            WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
-            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
-            THEN 1 ELSE 0 
-          END) > 0
-          AND (
-            (SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) > 0)
-            OR
-            (SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) > 0)
-          ))
-          OR ${neighbors.length > 0 ? 
-            `SUM(CASE WHEN o.state IN (${neighbors.map(state => `'${state}'`).join(',')}) THEN 1 ELSE 0 END) > 0` :
-            'FALSE'
+        HAVING (
+          (SUM(CASE 
+              WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+              AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+              THEN 1 ELSE 0 
+            END) > 0
+            AND (
+              (SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) > 0)
+              OR
+              (SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) > 0)
+            )
+          )
+          ${neighbors.length > 0 ? 
+            `OR SUM(CASE WHEN o.state IN ('${neighbors.join("','")}') THEN 1 ELSE 0 END) > 0` :
+            ''
           }
+        )
         ORDER BY SUM(CASE 
           WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
           AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
