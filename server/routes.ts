@@ -761,8 +761,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const centerLon = parseFloat(stateInfo.rows[0].center_longitude);
 
       // Find species that occur in surrounding regions but not in the target state
-      // Using North America continent-wide range for directional analysis, but requiring at least one close record
-      const proximityRange = 35; // degrees (continent-wide search for North America)
+      // Using expanded range for directional analysis, but requiring at least one close record
+      const proximityRange = 60; // degrees (expanded search for directional analysis)
       const nearbyRange = 10; // degrees (at least one record must be within this range)
 
       const prospectsQuery = sql`
