@@ -8,6 +8,7 @@ import { useState } from "react";
 import Dashboard from "@/pages/Dashboard";
 import ActivityFeed from "@/pages/ActivityFeed";
 import Geospatial from "@/pages/Geospatial";
+import TopProspects from "@/pages/TopProspects";
 import Temporal from "@/pages/Temporal";
 import Taxonomic from "@/pages/Taxonomic";
 import Contributors from "@/pages/Contributors";
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/activity" component={ActivityFeed} />
       <Route path="/activity-feed" component={ActivityFeed} />
       <Route path="/geospatial" component={Geospatial} />
+      <Route path="/geospatial/top-prospects" component={TopProspects} />
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
       <Route path="/taxonomic/phylum" component={PhylumDetail} />

@@ -736,6 +736,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Top Prospects - Species occurring in adjacent regions
+  app.get("/api/geospatial/top-prospects/:state", async (req, res) => {
+    try {
+      const targetState = req.params.state;
+      console.log(`[API] GET /api/geospatial/top-prospects/${targetState}`);
+
+      // Get the approximate center coordinates of the target state
+      const stateInfo = await db.execute(sql`
+        SELECT 
+          AVG(latitude) as center_latitude,
+          AVG(longitude) as center_longitude
+        FROM observations 
+        WHERE state = ${targetState}
+          AND latitude IS NOT NULL 
+          AND longitude IS NOT NULL
+      `);
+
+      if (!stateInfo.rows.length || !stateInfo.rows[0].center_latitude) {
+        return res.status(404).json({ error: "State not found or no coordinates available" });
+      }
+
+      const centerLat = parseFloat(stateInfo.rows[0].center_latitude);
+      const centerLon = parseFloat(stateInfo.rows[0].center_longitude);
+
+      // Find species that occur in surrounding regions but not in the target state
+      // Using a rough geographic proximity (within ~5-10 degrees lat/lon of state center)
+      const proximityRange = 8; // degrees (roughly 500-600 miles)
+
+      const prospectsQuery = sql`
+        WITH target_species AS (
+          SELECT DISTINCT scientific_name
+          FROM observations 
+          WHERE state = ${targetState}
+            AND scientific_name IS NOT NULL
+            AND scientific_name != ''
+        ),
+        nearby_species AS (
+          SELECT 
+            scientific_name,
+            common_name,
+            state,
+            latitude,
+            longitude,
+            COUNT(*) as record_count
+          FROM observations 
+          WHERE state != ${targetState}
+            AND latitude IS NOT NULL 
+            AND longitude IS NOT NULL
+            AND latitude BETWEEN ${centerLat - proximityRange} AND ${centerLat + proximityRange}
+            AND longitude BETWEEN ${centerLon - proximityRange} AND ${centerLon + proximityRange}
+            AND scientific_name IS NOT NULL
+            AND scientific_name != ''
+            AND scientific_name NOT IN (SELECT scientific_name FROM target_species)
+          GROUP BY scientific_name, common_name, state, latitude, longitude
+        )
+        SELECT 
+          ns.scientific_name,
+          ns.common_name,
+          COUNT(CASE WHEN ns.latitude > ${centerLat} THEN 1 END) as north_count,
+          COUNT(CASE WHEN ns.latitude < ${centerLat} THEN 1 END) as south_count,
+          COUNT(CASE WHEN ns.longitude > ${centerLon} THEN 1 END) as east_count,
+          COUNT(CASE WHEN ns.longitude < ${centerLon} THEN 1 END) as west_count,
+          SUM(ns.record_count) as total_records
+        FROM nearby_species ns
+        GROUP BY ns.scientific_name, ns.common_name
+        HAVING SUM(ns.record_count) >= 2
+        ORDER BY SUM(ns.record_count) DESC, ns.scientific_name
+        LIMIT 100
+      `;
+
+      const prospects = await db.execute(prospectsQuery);
+      
+      const speciesData = prospects.rows.map((row: any) => ({
+        scientificName: row.scientific_name,
+        commonName: row.common_name || null,
+        northCount: parseInt(row.north_count) || 0,
+        southCount: parseInt(row.south_count) || 0,
+        eastCount: parseInt(row.east_count) || 0,
+        westCount: parseInt(row.west_count) || 0,
+        totalRecords: parseInt(row.total_records) || 0
+      }));
+
+      const response = {
+        species: speciesData,
+        stateInfo: {
+          name: targetState,
+          centerLatitude: centerLat,
+          centerLongitude: centerLon
+        }
+      };
+
+      console.log(`[API] Returning ${speciesData.length} prospect species for ${targetState}`);
+      res.json(response);
+
+    } catch (error) {
+      console.error("Error fetching top prospects:", error);
+      res.status(500).json({ error: "Failed to fetch top prospects data" });
+    }
+  });
+
   // Cache for collector names to improve performance
   let collectorCache: string[] | null = null;
   let collectorCacheTime = 0;

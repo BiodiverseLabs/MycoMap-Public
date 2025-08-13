@@ -10,7 +10,8 @@ import { SpeciesFrequency } from "@/components/dashboard/SpeciesFrequency";
 import { RegionalAnalysis } from "@/components/dashboard/RegionalAnalysis";
 import { MostRecords } from "@/components/dashboard/MostRecords";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Calendar, X } from "lucide-react";
+import { Search, MapPin, Calendar, X, Target } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Geospatial() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -40,11 +41,21 @@ export default function Geospatial() {
   return (
     <div className="flex flex-col h-full">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Geospatial Analysis</h2>
-          <p className="text-slate-600 mt-1">
-            Geographic distribution and biodiversity hotspots
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900">Geospatial Analysis</h2>
+            <p className="text-slate-600 mt-1">
+              Geographic distribution and biodiversity hotspots
+            </p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Link href="/geospatial/top-prospects">
+              <Button variant="outline" size="sm">
+                <Target className="w-4 h-4 mr-2" />
+                Top Prospects
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
