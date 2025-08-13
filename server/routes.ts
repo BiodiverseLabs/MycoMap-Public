@@ -827,6 +827,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get species records for map display
+  app.get("/api/species/:scientificName/records", async (req, res) => {
+    try {
+      const scientificName = req.params.scientificName;
+      console.log(`[API] GET /api/species/${scientificName}/records`);
+
+      const records = await db.execute(sql`
+        SELECT 
+          o.id,
+          o.latitude,
+          o.longitude,
+          o.state,
+          o.locality,
+          o.date_collected,
+          o.collector
+        FROM observations o
+        WHERE o.scientific_name = ${scientificName}
+          AND o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+        ORDER BY o.date_collected DESC
+        LIMIT 1000
+      `);
+
+      const recordsData = records.rows.map((row: any) => ({
+        id: row.id,
+        latitude: parseFloat(row.latitude),
+        longitude: parseFloat(row.longitude),
+        state: row.state || 'Unknown',
+        locality: row.locality || 'Unknown location',
+        dateCollected: row.date_collected || 'Unknown date',
+        collector: row.collector || 'Unknown collector'
+      }));
+
+      console.log(`[API] Returning ${recordsData.length} records for ${scientificName}`);
+      res.json(recordsData);
+
+    } catch (error) {
+      console.error("Error fetching species records:", error);
+      res.status(500).json({ error: "Failed to fetch species records" });
+    }
+  });
+
   // Cache for collector names to improve performance
   let collectorCache: string[] | null = null;
   let collectorCacheTime = 0;

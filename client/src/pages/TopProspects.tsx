@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, MapPin, TrendingUp } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowLeft, Download, MapPin, TrendingUp, Map } from "lucide-react";
 import { Link } from "wouter";
 
 interface TopProspectSpecies {
@@ -27,8 +28,20 @@ interface TopProspectsData {
   };
 }
 
+interface SpeciesRecord {
+  id: number;
+  latitude: number;
+  longitude: number;
+  state: string;
+  locality: string;
+  dateCollected: string;
+  collector: string;
+}
+
 export default function TopProspects() {
   const [selectedState, setSelectedState] = useState<string>("");
+  const [selectedSpecies, setSelectedSpecies] = useState<string | null>(null);
+  const [mapDialogOpen, setMapDialogOpen] = useState(false);
 
   // Fetch available states
   const { data: states = [] } = useQuery<string[]>({
@@ -44,6 +57,15 @@ export default function TopProspects() {
   } = useQuery<TopProspectsData>({
     queryKey: [`/api/geospatial/top-prospects/${selectedState}`],
     enabled: !!selectedState
+  });
+
+  // Fetch species records for map display
+  const { 
+    data: speciesRecords = [], 
+    isLoading: isRecordsLoading 
+  } = useQuery<SpeciesRecord[]>({
+    queryKey: [`/api/species/${selectedSpecies}/records`],
+    enabled: !!selectedSpecies && mapDialogOpen
   });
 
   const handleDownloadCsv = () => {
@@ -73,6 +95,104 @@ export default function TopProspects() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleSpeciesClick = (scientificName: string) => {
+    setSelectedSpecies(scientificName);
+    setMapDialogOpen(true);
+  };
+
+  const SpeciesRecordsDialog = () => {
+    if (!selectedSpecies) return null;
+
+    return (
+      <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Map className="w-5 h-5 mr-2" />
+              {selectedSpecies} Distribution
+            </DialogTitle>
+          </DialogHeader>
+          
+          {isRecordsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">Loading records...</div>
+            </div>
+          ) : speciesRecords.length > 0 ? (
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                Showing {speciesRecords.length} records for {selectedSpecies}
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Location</TableHead>
+                      <TableHead>State</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Collector</TableHead>
+                      <TableHead>Coordinates</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {speciesRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">{record.locality}</TableCell>
+                        <TableCell>{record.state}</TableCell>
+                        <TableCell>{record.dateCollected}</TableCell>
+                        <TableCell>{record.collector}</TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {record.latitude.toFixed(4)}, {record.longitude.toFixed(4)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  Geographic range: 
+                  {Math.min(...speciesRecords.map(r => r.latitude)).toFixed(2)}° to {Math.max(...speciesRecords.map(r => r.latitude)).toFixed(2)}° N, 
+                  {Math.min(...speciesRecords.map(r => r.longitude)).toFixed(2)}° to {Math.max(...speciesRecords.map(r => r.longitude)).toFixed(2)}° W
+                </div>
+                <Button
+                  onClick={() => {
+                    const csv = [
+                      ['Location', 'State', 'Date', 'Collector', 'Latitude', 'Longitude'],
+                      ...speciesRecords.map(r => [
+                        r.locality, r.state, r.dateCollected, r.collector, r.latitude, r.longitude
+                      ])
+                    ].map(row => row.join(',')).join('\n');
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${selectedSpecies.replace(/\s+/g, '_')}_records.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-600">No location records found for {selectedSpecies}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   return (
@@ -189,9 +309,12 @@ export default function TopProspects() {
                         <TableRow key={index}>
                           <TableCell>
                             <div>
-                              <div className="font-medium text-gray-900 italic">
+                              <button
+                                onClick={() => handleSpeciesClick(species.scientificName)}
+                                className="font-medium text-blue-600 hover:text-blue-800 italic text-left hover:underline cursor-pointer"
+                              >
                                 {species.scientificName}
-                              </div>
+                              </button>
                               {species.commonName && (
                                 <div className="text-sm text-gray-600">
                                   {species.commonName}
@@ -254,6 +377,8 @@ export default function TopProspects() {
           </CardContent>
         </Card>
       )}
+
+      <SpeciesRecordsDialog />
     </div>
   );
 }
