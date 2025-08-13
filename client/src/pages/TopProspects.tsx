@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Download, MapPin, TrendingUp, Map } from "lucide-react";
 import { Link } from "wouter";
+import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 interface TopProspectSpecies {
   scientificName: string;
@@ -105,9 +107,16 @@ export default function TopProspects() {
   const SpeciesRecordsDialog = () => {
     if (!selectedSpecies) return null;
 
+    const centerLat = speciesRecords.length > 0 
+      ? speciesRecords.reduce((sum, record) => sum + record.latitude, 0) / speciesRecords.length 
+      : 39.8283;
+    const centerLon = speciesRecords.length > 0 
+      ? speciesRecords.reduce((sum, record) => sum + record.longitude, 0) / speciesRecords.length 
+      : -98.5795;
+
     return (
       <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Map className="w-5 h-5 mr-2" />
@@ -125,7 +134,45 @@ export default function TopProspects() {
                 Showing {speciesRecords.length} records for {selectedSpecies}
               </div>
               
-              <div className="max-h-96 overflow-y-auto">
+              {/* Map Display */}
+              <div className="h-80 w-full border rounded-lg overflow-hidden">
+                <MapContainer
+                  center={[centerLat, centerLon]}
+                  zoom={5}
+                  className="h-full w-full"
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  {speciesRecords.map((record) => (
+                    <CircleMarker
+                      key={record.id}
+                      center={[record.latitude, record.longitude]}
+                      radius={6}
+                      fillColor="#ef4444"
+                      color="#dc2626"
+                      weight={2}
+                      fillOpacity={0.7}
+                    >
+                      <Popup>
+                        <div className="text-sm">
+                          <p className="font-medium italic">{selectedSpecies}</p>
+                          <p><strong>Location:</strong> {record.locality}</p>
+                          <p><strong>State:</strong> {record.state}</p>
+                          <p><strong>Date:</strong> {record.dateCollected}</p>
+                          <p><strong>Collector:</strong> {record.collector}</p>
+                          <p><strong>Coordinates:</strong> {record.latitude.toFixed(4)}, {record.longitude.toFixed(4)}</p>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  ))}
+                </MapContainer>
+              </div>
+              
+              {/* Records Table */}
+              <div className="max-h-60 overflow-y-auto border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
