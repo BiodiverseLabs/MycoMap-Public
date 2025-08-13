@@ -114,6 +114,26 @@ export default function TopProspects() {
       ? speciesRecords.reduce((sum, record) => sum + record.longitude, 0) / speciesRecords.length 
       : -98.5795;
 
+    // Calculate zoom level based on data spread
+    const getInitialZoom = () => {
+      if (speciesRecords.length === 0) return 4;
+      
+      const lats = speciesRecords.map(r => r.latitude);
+      const lons = speciesRecords.map(r => r.longitude);
+      
+      const latSpread = Math.max(...lats) - Math.min(...lats);
+      const lonSpread = Math.max(...lons) - Math.min(...lons);
+      const maxSpread = Math.max(latSpread, lonSpread);
+      
+      // Adjust zoom based on geographic spread
+      if (maxSpread > 30) return 3;      // Continental scale
+      if (maxSpread > 15) return 4;      // Multi-state scale  
+      if (maxSpread > 8) return 5;       // Regional scale
+      if (maxSpread > 4) return 6;       // State scale
+      if (maxSpread > 2) return 7;       // Local scale
+      return 8;                          // City scale
+    };
+
     return (
       <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
@@ -138,7 +158,7 @@ export default function TopProspects() {
               <div className="h-80 w-full border rounded-lg overflow-hidden">
                 <MapContainer
                   center={[centerLat, centerLon]}
-                  zoom={5}
+                  zoom={getInitialZoom()}
                   className="h-full w-full"
                   style={{ height: '100%', width: '100%' }}
                 >
