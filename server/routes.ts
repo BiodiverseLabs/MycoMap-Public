@@ -765,6 +765,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const proximityRange = 60; // degrees (expanded search for directional analysis)
       const nearbyRange = 10; // degrees (at least one record must be within this range)
 
+      // Define neighboring states mapping
+      const neighboringStates: { [key: string]: string[] } = {
+        'Alabama': ['Florida', 'Georgia', 'Mississippi', 'Tennessee'],
+        'Alaska': [], // No bordering states
+        'Arizona': ['California', 'Colorado', 'Nevada', 'New Mexico', 'Utah'],
+        'Arkansas': ['Louisiana', 'Mississippi', 'Missouri', 'Oklahoma', 'Tennessee', 'Texas'],
+        'California': ['Arizona', 'Nevada', 'Oregon'],
+        'Colorado': ['Arizona', 'Kansas', 'Nebraska', 'New Mexico', 'Oklahoma', 'Utah', 'Wyoming'],
+        'Connecticut': ['Massachusetts', 'New York', 'Rhode Island'],
+        'Delaware': ['Maryland', 'New Jersey', 'Pennsylvania'],
+        'Florida': ['Alabama', 'Georgia'],
+        'Georgia': ['Alabama', 'Florida', 'North Carolina', 'South Carolina', 'Tennessee'],
+        'Idaho': ['Montana', 'Nevada', 'Oregon', 'Utah', 'Washington', 'Wyoming'],
+        'Illinois': ['Indiana', 'Iowa', 'Kentucky', 'Michigan', 'Missouri', 'Wisconsin'],
+        'Indiana': ['Illinois', 'Kentucky', 'Michigan', 'Ohio'],
+        'Iowa': ['Illinois', 'Minnesota', 'Missouri', 'Nebraska', 'South Dakota', 'Wisconsin'],
+        'Kansas': ['Colorado', 'Missouri', 'Nebraska', 'Oklahoma'],
+        'Kentucky': ['Illinois', 'Indiana', 'Missouri', 'Ohio', 'Tennessee', 'Virginia', 'West Virginia'],
+        'Louisiana': ['Arkansas', 'Mississippi', 'Texas'],
+        'Maine': ['New Hampshire'],
+        'Maryland': ['Delaware', 'Pennsylvania', 'Virginia', 'West Virginia'],
+        'Massachusetts': ['Connecticut', 'New Hampshire', 'New York', 'Rhode Island', 'Vermont'],
+        'Michigan': ['Indiana', 'Ohio', 'Wisconsin'],
+        'Minnesota': ['Iowa', 'North Dakota', 'South Dakota', 'Wisconsin'],
+        'Mississippi': ['Alabama', 'Arkansas', 'Louisiana', 'Tennessee'],
+        'Missouri': ['Arkansas', 'Illinois', 'Iowa', 'Kansas', 'Kentucky', 'Nebraska', 'Oklahoma', 'Tennessee'],
+        'Montana': ['Idaho', 'North Dakota', 'South Dakota', 'Wyoming'],
+        'Nebraska': ['Colorado', 'Iowa', 'Kansas', 'Missouri', 'South Dakota', 'Wyoming'],
+        'Nevada': ['Arizona', 'California', 'Idaho', 'Oregon', 'Utah'],
+        'New Hampshire': ['Maine', 'Massachusetts', 'Vermont'],
+        'New Jersey': ['Delaware', 'New York', 'Pennsylvania'],
+        'New Mexico': ['Arizona', 'Colorado', 'Oklahoma', 'Texas', 'Utah'],
+        'New York': ['Connecticut', 'Massachusetts', 'New Jersey', 'Pennsylvania', 'Vermont'],
+        'North Carolina': ['Georgia', 'South Carolina', 'Tennessee', 'Virginia'],
+        'North Dakota': ['Minnesota', 'Montana', 'South Dakota'],
+        'Ohio': ['Indiana', 'Kentucky', 'Michigan', 'Pennsylvania', 'West Virginia'],
+        'Oklahoma': ['Arkansas', 'Colorado', 'Kansas', 'Missouri', 'New Mexico', 'Texas'],
+        'Oregon': ['California', 'Idaho', 'Nevada', 'Washington'],
+        'Pennsylvania': ['Delaware', 'Maryland', 'New Jersey', 'New York', 'Ohio', 'West Virginia'],
+        'Rhode Island': ['Connecticut', 'Massachusetts'],
+        'South Carolina': ['Georgia', 'North Carolina'],
+        'South Dakota': ['Iowa', 'Minnesota', 'Montana', 'Nebraska', 'North Dakota', 'Wyoming'],
+        'Tennessee': ['Alabama', 'Arkansas', 'Georgia', 'Kentucky', 'Mississippi', 'Missouri', 'North Carolina', 'Virginia'],
+        'Texas': ['Arkansas', 'Louisiana', 'New Mexico', 'Oklahoma'],
+        'Utah': ['Arizona', 'Colorado', 'Idaho', 'Nevada', 'New Mexico', 'Wyoming'],
+        'Vermont': ['Massachusetts', 'New Hampshire', 'New York'],
+        'Virginia': ['Kentucky', 'Maryland', 'North Carolina', 'Tennessee', 'West Virginia'],
+        'Washington': ['Idaho', 'Oregon'],
+        'West Virginia': ['Kentucky', 'Maryland', 'Ohio', 'Pennsylvania', 'Virginia'],
+        'Wisconsin': ['Illinois', 'Iowa', 'Michigan', 'Minnesota'],
+        'Wyoming': ['Colorado', 'Idaho', 'Montana', 'Nebraska', 'South Dakota', 'Utah']
+      };
+
+      const neighbors = neighboringStates[targetState] || [];
+
       const prospectsQuery = sql`
         WITH target_species AS (
           SELECT DISTINCT scientific_name
@@ -810,7 +865,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
             AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
             THEN 1 ELSE 0 
-          END) as nearby_total
+          END) as nearby_total,
+          ${neighbors.length > 0 ? 
+            `SUM(CASE WHEN o.state IN (${neighbors.map(state => `'${state}'`).join(',')}) THEN 1 ELSE 0 END)` :
+            '0'
+          } as neighboring_states_count
         FROM observations o
         WHERE o.state != ${targetState}
           AND o.latitude IS NOT NULL 
@@ -854,7 +913,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         eastNearbyCount: parseInt(row.east_nearby_count) || 0,
         westNearbyCount: parseInt(row.west_nearby_count) || 0,
         totalRecords: parseInt(row.total_records) || 0,
-        nearbyTotal: parseInt(row.nearby_total) || 0
+        nearbyTotal: parseInt(row.nearby_total) || 0,
+        neighboringStatesCount: parseInt(row.neighboring_states_count) || 0
       }));
 
       const response = {

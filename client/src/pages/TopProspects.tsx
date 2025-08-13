@@ -24,6 +24,7 @@ interface TopProspectSpecies {
   westNearbyCount: number;
   totalRecords: number;
   nearbyTotal: number;
+  neighboringStatesCount: number;
 }
 
 interface TopProspectsData {
@@ -78,7 +79,7 @@ export default function TopProspects() {
   const handleDownloadCsv = () => {
     if (!prospectsData?.species) return;
 
-    const headers = ['Scientific Name', 'Common Name', 'North All', 'North 10°', 'South All', 'South 10°', 'East All', 'East 10°', 'West All', 'West 10°', 'Total Records', 'Nearby Total'];
+    const headers = ['Scientific Name', 'Common Name', 'North All', 'North 10°', 'South All', 'South 10°', 'East All', 'East 10°', 'West All', 'West 10°', 'Neighboring States', 'Total Records', 'Nearby Total'];
     const csvData = prospectsData.species.map(species => [
       species.scientificName,
       species.commonName || '',
@@ -90,6 +91,7 @@ export default function TopProspects() {
       species.eastNearbyCount.toString(),
       species.westCount.toString(),
       species.westNearbyCount.toString(),
+      species.neighboringStatesCount.toString(),
       species.totalRecords.toString(),
       species.nearbyTotal.toString()
     ]);
@@ -398,6 +400,7 @@ export default function TopProspects() {
                             <div className="text-xs text-gray-500">(All) (10°)</div>
                           </div>
                         </TableHead>
+                        <TableHead className="text-center">Neighboring States</TableHead>
                         <TableHead className="text-center">Weighted Total</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -454,6 +457,17 @@ export default function TopProspects() {
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="text-sm font-medium">
+                              {species.neighboringStatesCount > 0 ? (
+                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                                  {species.neighboringStatesCount}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">0</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-center font-medium">
                             <div className="text-sm">
