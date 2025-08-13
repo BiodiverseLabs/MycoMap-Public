@@ -42,7 +42,7 @@ export default function TopProspects() {
     isLoading: isProspectsLoading,
     error: prospectsError 
   } = useQuery<TopProspectsData>({
-    queryKey: ['/api/geospatial/top-prospects', selectedState],
+    queryKey: [`/api/geospatial/top-prospects/${selectedState}`],
     enabled: !!selectedState
   });
 
