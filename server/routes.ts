@@ -919,21 +919,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }, {});
       }
       
-      const speciesData = prospects.rows.map((row: any) => ({
-        scientificName: row.scientific_name,
-        commonName: row.common_name || null,
-        northCount: parseInt(row.north_count) || 0,
-        southCount: parseInt(row.south_count) || 0,
-        eastCount: parseInt(row.east_count) || 0,
-        westCount: parseInt(row.west_count) || 0,
-        northNearbyCount: parseInt(row.north_nearby_count) || 0,
-        southNearbyCount: parseInt(row.south_nearby_count) || 0,
-        eastNearbyCount: parseInt(row.east_nearby_count) || 0,
-        westNearbyCount: parseInt(row.west_nearby_count) || 0,
-        totalRecords: parseInt(row.total_records) || 0,
-        nearbyTotal: parseInt(row.nearby_total) || 0,
-        neighboringStatesCount: neighboringCounts[row.scientific_name] || 0
-      }));
+      const speciesData = prospects.rows.map((row: any) => {
+        const neighboringCount = neighboringCounts[row.scientific_name] || 0;
+        const nearbyTotal = parseInt(row.nearby_total) || 0;
+        return {
+          scientificName: row.scientific_name,
+          commonName: row.common_name || null,
+          northCount: parseInt(row.north_count) || 0,
+          southCount: parseInt(row.south_count) || 0,
+          eastCount: parseInt(row.east_count) || 0,
+          westCount: parseInt(row.west_count) || 0,
+          northNearbyCount: parseInt(row.north_nearby_count) || 0,
+          southNearbyCount: parseInt(row.south_nearby_count) || 0,
+          eastNearbyCount: parseInt(row.east_nearby_count) || 0,
+          westNearbyCount: parseInt(row.west_nearby_count) || 0,
+          totalRecords: parseInt(row.total_records) || 0,
+          nearbyTotal: nearbyTotal,
+          neighboringStatesCount: neighboringCount,
+          weightedTotal: nearbyTotal + neighboringCount
+        };
+      }).sort((a, b) => b.weightedTotal - a.weightedTotal);
 
       const response = {
         species: speciesData,

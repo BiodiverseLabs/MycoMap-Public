@@ -25,6 +25,7 @@ interface TopProspectSpecies {
   totalRecords: number;
   nearbyTotal: number;
   neighboringStatesCount: number;
+  weightedTotal: number;
 }
 
 interface TopProspectsData {
@@ -79,7 +80,7 @@ export default function TopProspects() {
   const handleDownloadCsv = () => {
     if (!prospectsData?.species) return;
 
-    const headers = ['Scientific Name', 'Common Name', 'North All', 'North 10°', 'South All', 'South 10°', 'East All', 'East 10°', 'West All', 'West 10°', 'Neighboring States', 'Total Records', 'Nearby Total'];
+    const headers = ['Scientific Name', 'Common Name', 'North All', 'North 10°', 'South All', 'South 10°', 'East All', 'East 10°', 'West All', 'West 10°', 'Neighboring States', 'Total Records', 'Nearby Total', 'Weighted Total'];
     const csvData = prospectsData.species.map(species => [
       species.scientificName,
       species.commonName || '',
@@ -93,7 +94,8 @@ export default function TopProspects() {
       species.westNearbyCount.toString(),
       species.neighboringStatesCount.toString(),
       species.totalRecords.toString(),
-      species.nearbyTotal.toString()
+      species.nearbyTotal.toString(),
+      species.weightedTotal.toString()
     ]);
 
     const csvContent = [headers, ...csvData]
@@ -471,8 +473,8 @@ export default function TopProspects() {
                           </TableCell>
                           <TableCell className="text-center font-medium">
                             <div className="text-sm">
-                              <div className="font-bold text-blue-600">{species.nearbyTotal}</div>
-                              <div className="text-xs text-gray-500">({species.totalRecords} total)</div>
+                              <div className="font-bold text-blue-600">{species.weightedTotal}</div>
+                              <div className="text-xs text-gray-500">({species.nearbyTotal} nearby + {species.neighboringStatesCount} neighbors)</div>
                             </div>
                           </TableCell>
                         </TableRow>
