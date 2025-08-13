@@ -775,10 +775,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT 
           o.scientific_name,
           o.common_name,
-          SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) as north_count,
-          SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) as south_count,
-          SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) as east_count,
-          SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) as west_count,
+          SUM(CASE WHEN o.latitude > ${centerLat} AND o.longitude != ${centerLon} THEN 1 ELSE 0 END) as north_count,
+          SUM(CASE WHEN o.latitude < ${centerLat} AND o.longitude != ${centerLon} THEN 1 ELSE 0 END) as south_count,
+          SUM(CASE WHEN o.longitude > ${centerLon} AND o.latitude != ${centerLat} THEN 1 ELSE 0 END) as east_count,
+          SUM(CASE WHEN o.longitude < ${centerLon} AND o.latitude != ${centerLat} THEN 1 ELSE 0 END) as west_count,
           COUNT(*) as total_records
         FROM observations o
         WHERE o.state != ${targetState}
