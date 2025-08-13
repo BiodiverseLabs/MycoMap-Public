@@ -771,38 +771,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           WHERE state = ${targetState}
             AND scientific_name IS NOT NULL
             AND scientific_name != ''
-        ),
-        nearby_species AS (
-          SELECT 
-            scientific_name,
-            common_name,
-            state,
-            latitude,
-            longitude,
-            COUNT(*) as record_count
-          FROM observations 
-          WHERE state != ${targetState}
-            AND latitude IS NOT NULL 
-            AND longitude IS NOT NULL
-            AND latitude BETWEEN ${centerLat - proximityRange} AND ${centerLat + proximityRange}
-            AND longitude BETWEEN ${centerLon - proximityRange} AND ${centerLon + proximityRange}
-            AND scientific_name IS NOT NULL
-            AND scientific_name != ''
-            AND scientific_name NOT IN (SELECT scientific_name FROM target_species)
-          GROUP BY scientific_name, common_name, state, latitude, longitude
         )
         SELECT 
-          ns.scientific_name,
-          ns.common_name,
-          COUNT(CASE WHEN ns.latitude > ${centerLat} THEN 1 END) as north_count,
-          COUNT(CASE WHEN ns.latitude < ${centerLat} THEN 1 END) as south_count,
-          COUNT(CASE WHEN ns.longitude > ${centerLon} THEN 1 END) as east_count,
-          COUNT(CASE WHEN ns.longitude < ${centerLon} THEN 1 END) as west_count,
-          SUM(ns.record_count) as total_records
-        FROM nearby_species ns
-        GROUP BY ns.scientific_name, ns.common_name
-        HAVING SUM(ns.record_count) >= 2
-        ORDER BY SUM(ns.record_count) DESC, ns.scientific_name
+          o.scientific_name,
+          o.common_name,
+          SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) as north_count,
+          SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) as south_count,
+          SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) as east_count,
+          SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) as west_count,
+          COUNT(*) as total_records
+        FROM observations o
+        WHERE o.state != ${targetState}
+          AND o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND o.latitude BETWEEN ${centerLat - proximityRange} AND ${centerLat + proximityRange}
+          AND o.longitude BETWEEN ${centerLon - proximityRange} AND ${centerLon + proximityRange}
+          AND o.scientific_name IS NOT NULL
+          AND o.scientific_name != ''
+          AND o.scientific_name NOT IN (SELECT scientific_name FROM target_species)
+        GROUP BY o.scientific_name, o.common_name
+        HAVING COUNT(*) >= 2
+        ORDER BY COUNT(*) DESC, o.scientific_name
         LIMIT 100
       `;
 
