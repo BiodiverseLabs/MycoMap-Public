@@ -761,8 +761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const centerLon = parseFloat(stateInfo.rows[0].center_longitude);
 
       // Find species that occur in surrounding regions but not in the target state
-      // Using North America continent-wide range to find all potential species
+      // Using North America continent-wide range for directional analysis, but requiring at least one close record
       const proximityRange = 35; // degrees (continent-wide search for North America)
+      const nearbyRange = 10; // degrees (at least one record must be within this range)
 
       const prospectsQuery = sql`
         WITH target_species AS (
@@ -779,7 +780,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) as south_count,
           SUM(CASE WHEN o.longitude > ${centerLon} THEN 1 ELSE 0 END) as east_count,
           SUM(CASE WHEN o.longitude < ${centerLon} THEN 1 ELSE 0 END) as west_count,
-          COUNT(*) as total_records
+          COUNT(*) as total_records,
+          SUM(CASE 
+            WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+            THEN 1 ELSE 0 
+          END) as nearby_records
         FROM observations o
         WHERE o.state != ${targetState}
           AND o.latitude IS NOT NULL 
@@ -791,6 +797,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AND o.scientific_name NOT IN (SELECT scientific_name FROM target_species)
         GROUP BY o.scientific_name, o.common_name
         HAVING COUNT(*) >= 2
+          AND SUM(CASE 
+            WHEN o.latitude BETWEEN ${centerLat - nearbyRange} AND ${centerLat + nearbyRange}
+            AND o.longitude BETWEEN ${centerLon - nearbyRange} AND ${centerLon + nearbyRange}
+            THEN 1 ELSE 0 
+          END) > 0
           AND (
             (SUM(CASE WHEN o.latitude > ${centerLat} THEN 1 ELSE 0 END) > 0 AND SUM(CASE WHEN o.latitude < ${centerLat} THEN 1 ELSE 0 END) > 0)
             OR
