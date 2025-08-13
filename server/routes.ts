@@ -761,8 +761,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const centerLon = parseFloat(stateInfo.rows[0].center_longitude);
 
       // Find species that occur in surrounding regions but not in the target state
-      // Using a rough geographic proximity (within ~5-10 degrees lat/lon of state center)
-      const proximityRange = 8; // degrees (roughly 500-600 miles)
+      // Using North America continent-wide range to find all potential species
+      const proximityRange = 35; // degrees (continent-wide search for North America)
 
       const prospectsQuery = sql`
         WITH target_species AS (
