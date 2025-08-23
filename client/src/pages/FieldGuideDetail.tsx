@@ -187,8 +187,17 @@ export default function FieldGuideDetail() {
             <div className="flex items-center gap-2">
               <Dna className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-2xl font-bold">{fieldGuide.speciesCount}</p>
-                <p className="text-sm text-slate-600">Species</p>
+                <p className="text-2xl font-bold">
+                  {species.length}
+                  {searchFilter && species.length !== allSpecies.length && (
+                    <span className="text-lg text-slate-500 ml-1">
+                      / {allSpecies.length}
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {searchFilter && species.length !== allSpecies.length ? 'Filtered Species' : 'Species'}
+                </p>
               </div>
             </div>
           </CardContent>
