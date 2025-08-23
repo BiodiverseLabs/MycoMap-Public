@@ -4120,7 +4120,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .where(sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`)
         .limit(1);
       
-      const selectedImageId = selectedSpecies[0]?.selectedObservationId || null;
+      const selectedImageUrl = selectedSpecies[0]?.selectedImageUrl || null;
 
       // Find all observations for this species within the bounding box
       const observationsInBox = await db.execute(sql`
@@ -4171,18 +4171,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
 
           // Get all photos for this observation
-          return observation.photos.map((photo: any) => ({
-            observationId: obs.observation_id,
-            imageUrl: photo.url.replace('square', 'medium'), // Get medium size image
-            imageId: photo.id,
-            observer: obs.observer,
-            observedOn: obs.observed_on,
-            state: obs.state,
-            placeGuess: obs.place_guess,
-            source: obs.source,
-            scientificName: obs.scientific_name,
-            isSelected: obs.observation_id === selectedImageId
-          }));
+          return observation.photos.map((photo: any) => {
+            const imageUrl = photo.url.replace('square', 'medium');
+            return {
+              observationId: obs.observation_id,
+              imageUrl,
+              imageId: photo.id,
+              observer: obs.observer,
+              observedOn: obs.observed_on,
+              state: obs.state,
+              placeGuess: obs.place_guess,
+              source: obs.source,
+              scientificName: obs.scientific_name,
+              isSelected: imageUrl === selectedImageUrl
+            };
+          });
         } catch (error) {
           console.error(`Error fetching images for observation ${obs.observation_id}:`, error);
           return null;
@@ -4210,7 +4213,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .set({
           selectedImageUrl: imageUrl,
           selectedImageSource: source,
-          selectedObservationId: observationId
+          selectedObservationId: observationId,
+          selectedImageId: req.body.imageId
         })
         .where(
           sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`
@@ -4233,7 +4237,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .set({
           selectedImageUrl: null,
           selectedImageSource: null,
-          selectedObservationId: null
+          selectedObservationId: null,
+          selectedImageId: null
         })
         .where(
           sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`

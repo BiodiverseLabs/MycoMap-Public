@@ -52,7 +52,8 @@ export default function SpeciesImageGallery() {
         body: JSON.stringify({
           imageUrl: image.imageUrl,
           observationId: image.observationId,
-          source: image.source
+          source: image.source,
+          imageId: image.imageId
         })
       });
       
