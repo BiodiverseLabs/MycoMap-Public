@@ -4109,6 +4109,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
           const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
           console.log(`[iNat API] Calling: ${inatUrl}`);
+          console.log(`[iNat API] Bounding box: SW(${expandedSouth}, ${expandedWest}) to NE(${expandedNorth}, ${expandedEast})`);
           
           const inatResponse = await fetch(inatUrl, {
             headers: {
@@ -4116,9 +4117,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             }
           });
 
+          console.log(`[iNat API] Response status: ${inatResponse.status}`);
           if (inatResponse.ok) {
             const inatData = await inatResponse.json();
             console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
+            console.log(`[iNat API] Total available: ${inatData.total_results || 0}`);
+            if (inatData.results && inatData.results.length > 0) {
+              console.log(`[iNat API] Sample observation:`, {
+                id: inatData.results[0].id,
+                taxon: inatData.results[0].taxon?.name,
+                location: `${inatData.results[0].location}`,
+                user: inatData.results[0].user?.login
+              });
+            }
             
             if (inatData.results && inatData.results.length > 0) {
               // Group observations by species
