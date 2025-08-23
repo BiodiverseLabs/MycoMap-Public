@@ -8,7 +8,6 @@ import { ArrowLeft, Check, ExternalLink, MapPin, Calendar, User, X, Edit } from 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { Checkbox } from "@/components/ui/checkbox";
 
 interface ObservationImage {
   observationId: string;
@@ -29,16 +28,33 @@ export default function SpeciesImageGallery() {
   const { toast } = useToast();
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [includeInat, setIncludeInat] = useState(false);
 
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
   const scientificName = params?.scientificName ? decodeURIComponent(params.scientificName) : null;
 
   const { data: images = [], isLoading, error } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'species', scientificName, 'images', includeInat],
+    queryKey: ['/api/field-guides', fieldGuideId, 'species', scientificName, 'images'],
     queryFn: async () => {
       if (!fieldGuideId || !scientificName) throw new Error('Missing parameters');
-      const url = `/api/field-guides/${fieldGuideId}/species/${encodeURIComponent(scientificName)}/images${includeInat ? '?includeInat=true' : ''}`;
+      
+      // Get the same filter parameters that were used on the main page
+      const urlParams = new URLSearchParams(window.location.search);
+      const expansion = urlParams.get('expansion') || '0';
+      const monthStart = urlParams.get('monthStart');
+      const monthEnd = urlParams.get('monthEnd');
+      const mainPageIncludeInat = urlParams.get('includeInat');
+      
+      // Use includeInat from main page URL parameters
+      const finalIncludeInat = mainPageIncludeInat === 'true';
+      
+      const params = new URLSearchParams({
+        expansion,
+        ...(monthStart && { monthStart }),
+        ...(monthEnd && { monthEnd }),
+        ...(finalIncludeInat && { includeInat: 'true' })
+      });
+      
+      const url = `/api/field-guides/${fieldGuideId}/species/${encodeURIComponent(scientificName)}/images?${params}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch images');
       return response.json() as Promise<ObservationImage[]>;
@@ -195,27 +211,6 @@ export default function SpeciesImageGallery() {
         </div>
       </div>
 
-      {/* Filter Controls */}
-      <Card className="mb-6">
-        <CardContent className="pt-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="include-inat"
-              checked={includeInat}
-              onCheckedChange={(checked) => setIncludeInat(checked as boolean)}
-            />
-            <label 
-              htmlFor="include-inat" 
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Include iNaturalist observations (research grade only)
-            </label>
-          </div>
-          <p className="text-xs text-slate-600 mt-1">
-            When enabled, includes additional observations from iNaturalist that meet research quality standards
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Images Grid */}
       {images.length === 0 ? (

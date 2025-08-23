@@ -4602,11 +4602,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const fieldGuideId = parseInt(id);
       const scientificName = decodeURIComponent(name);
-      const expansionMiles = parseInt(expansion as string) || 0;
+      const expansionMiles = expansion ? parseFloat(expansion as string) : 0;
       const includeInatBool = includeInat === 'true';
       
-      console.log(`[Images API] Query params: { expansion: '${expansion}', includeInat: '${includeInat}' }`);
-      console.log(`[Images API] Parsed values: { fieldGuideId: ${fieldGuideId}, expansionMiles: ${expansionMiles}, includeInatBool: ${includeInatBool} }`);
+      console.log(`[Images API] Query params:`, { expansion, monthStart, monthEnd, includeInat });
+      console.log(`[Images API] Parsed values:`, { fieldGuideId, expansionMiles, includeInatBool });
       
       // Get the field guide to get bounding box coordinates
       const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
@@ -4617,18 +4617,42 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
       
-      // Calculate bounding box with expansion
-      const latDelta = expansionMiles * 0.014483;
-      const avgLat = (parseFloat(boundingBoxNorth) + parseFloat(boundingBoxSouth)) / 2;
-      const lngDelta = expansionMiles * 0.014483 / Math.cos(avgLat * Math.PI / 180);
+      // Calculate final bounding box (EXACT same logic as main species list)
+      let queryNorth, querySouth, queryEast, queryWest;
       
-      const expandedNorth = parseFloat(boundingBoxNorth) + latDelta;
-      const expandedSouth = parseFloat(boundingBoxSouth) - latDelta;
-      const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
-      const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
+      if (expansionMiles > 0) {
+        const latDelta = expansionMiles * 0.014483;
+        const avgLat = (parseFloat(boundingBoxNorth) + parseFloat(boundingBoxSouth)) / 2;
+        const lngDelta = expansionMiles * 0.014483 / Math.cos(avgLat * Math.PI / 180);
+        
+        queryNorth = parseFloat(boundingBoxNorth) + latDelta;
+        querySouth = parseFloat(boundingBoxSouth) - latDelta;
+        queryEast = parseFloat(boundingBoxEast) + lngDelta;
+        queryWest = parseFloat(boundingBoxWest) - lngDelta;
+      } else {
+        queryNorth = parseFloat(boundingBoxNorth);
+        querySouth = parseFloat(boundingBoxSouth);
+        queryEast = parseFloat(boundingBoxEast);
+        queryWest = parseFloat(boundingBoxWest);
+      }
       
-      // Get database observations for this species with images, filtered by bounding box
-      // For iNaturalist observations, prefer cached data which has complete photo arrays
+      // Build month filter conditions (EXACT same logic as main species list)
+      let monthCondition = '';
+      if (monthStart && monthEnd) {
+        const startMonth = parseInt(monthStart as string);
+        const endMonth = parseInt(monthEnd as string);
+        if (startMonth <= endMonth) {
+          monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+        } else {
+          monthCondition = `AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})`;
+        }
+      } else if (monthStart) {
+        monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) >= ${parseInt(monthStart as string)}`;
+      } else if (monthEnd) {
+        monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) <= ${parseInt(monthEnd as string)}`;
+      }
+
+      // Get database observations with images (EXACT same filtering as main species list)
       const speciesObservations = await db.execute(sql`
         SELECT 
           o.observation_id,
@@ -4646,25 +4670,39 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             ELSE 'Database'
           END as source
         FROM observations o
-        WHERE o.scientific_name = ${scientificName}
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
+          AND o.scientific_name = ${scientificName}
           AND o.image_link IS NOT NULL
           AND o.image_link != ''
-          AND o.latitude IS NOT NULL 
-          AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${expandedNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${expandedSouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${expandedEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
-          AND o.source != 'iNaturalist'  -- Exclude iNaturalist, we'll get those from cache
+          ${monthCondition}
         ORDER BY o.observed_on DESC
       `);
 
-      let allObservations = [...speciesObservations.rows];
+      let allImages = [...speciesObservations.rows];
 
-      // Only include iNaturalist observations from cache when includeInat is true
-      let inatCachedObservations: any[] = [];
+      // Include iNaturalist cache observations if includeInat is true (EXACT same logic)
       if (includeInatBool) {
-        const cachedObservations = await db.execute(sql`
+        let inatMonthCondition = '';
+        if (monthStart && monthEnd) {
+          const startMonth = parseInt(monthStart as string);
+          const endMonth = parseInt(monthEnd as string);
+          if (startMonth <= endMonth) {
+            inatMonthCondition = `AND EXTRACT(MONTH FROM observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+          } else {
+            inatMonthCondition = `AND (EXTRACT(MONTH FROM observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM observed_on) <= ${endMonth})`;
+          }
+        } else if (monthStart) {
+          inatMonthCondition = `AND EXTRACT(MONTH FROM observed_on) >= ${parseInt(monthStart as string)}`;
+        } else if (monthEnd) {
+          inatMonthCondition = `AND EXTRACT(MONTH FROM observed_on) <= ${parseInt(monthEnd as string)}`;
+        }
+
+        const inatObservations = await db.execute(sql`
           SELECT 
             'iNat-' || inat_id || '-' || photo_index as observation_id,
             inat_id,
@@ -4690,82 +4728,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             FROM inat_observations_cache
             WHERE latitude IS NOT NULL 
               AND longitude IS NOT NULL
-              AND CAST(latitude AS DECIMAL) <= ${expandedNorth}
-              AND CAST(latitude AS DECIMAL) >= ${expandedSouth}
-              AND CAST(longitude AS DECIMAL) <= ${expandedEast}
-              AND CAST(longitude AS DECIMAL) >= ${expandedWest}
+              AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+              AND CAST(latitude AS DECIMAL) >= ${querySouth}
+              AND CAST(longitude AS DECIMAL) <= ${queryEast}
+              AND CAST(longitude AS DECIMAL) >= ${queryWest}
               AND scientific_name = ${scientificName}
               AND photos IS NOT NULL
               AND array_length(photos, 1) > 0
-              AND quality_grade = 'research'  -- Only research grade observations
-          ) t
-          ORDER BY observed_on DESC, photo_index
-        `);
-        inatCachedObservations = cachedObservations.rows;
-        allObservations.push(...inatCachedObservations);
-      }
-
-      // Include additional iNaturalist observations if includeInat is true with expanded area
-      if (includeInatBool) {
-        // Use expanded bounding box (25 miles additional) for comprehensive iNat coverage
-        const inatLatDelta = (expansionMiles + 25) * 0.014483;
-        const inatLngDelta = (expansionMiles + 25) * 0.014483 / Math.cos(avgLat * Math.PI / 180);
-        
-        const inatExpandedNorth = parseFloat(boundingBoxNorth) + inatLatDelta;
-        const inatExpandedSouth = parseFloat(boundingBoxSouth) - inatLatDelta;
-        const inatExpandedEast = parseFloat(boundingBoxEast) + inatLngDelta;
-        const inatExpandedWest = parseFloat(boundingBoxWest) - inatLngDelta;
-
-        // Get additional iNaturalist observations from the expanded area
-        const expandedInatObservations = await db.execute(sql`
-          SELECT 
-            'iNat-' || inat_id || '-' || photo_index as observation_id,
-            inat_id,
-            scientific_name,
-            common_name,
-            user_name as observer,
-            observed_on,
-            place_guess as state,
-            place_guess,
-            photo_url as image_link,
-            'iNaturalist' as source,
-            photo_index
-          FROM (
-            SELECT 
-              inat_id,
-              scientific_name,
-              common_name,
-              user_name,
-              observed_on,
-              place_guess,
-              unnest(photos) as photo_url,
-              generate_subscripts(photos, 1) as photo_index
-            FROM inat_observations_cache
-            WHERE latitude IS NOT NULL 
-              AND longitude IS NOT NULL
-              AND CAST(latitude AS DECIMAL) <= ${inatExpandedNorth}
-              AND CAST(latitude AS DECIMAL) >= ${inatExpandedSouth}
-              AND CAST(longitude AS DECIMAL) <= ${inatExpandedEast}
-              AND CAST(longitude AS DECIMAL) >= ${inatExpandedWest}
-              AND scientific_name = ${scientificName}
-              AND photos IS NOT NULL
-              AND array_length(photos, 1) > 0
-              -- Exclude observations already included in the base area
-              AND NOT (
-                CAST(latitude AS DECIMAL) <= ${expandedNorth}
-                AND CAST(latitude AS DECIMAL) >= ${expandedSouth}
-                AND CAST(longitude AS DECIMAL) <= ${expandedEast}
-                AND CAST(longitude AS DECIMAL) >= ${expandedWest}
-              )
+              AND quality_grade = 'research'
+              ${inatMonthCondition}
           ) t
           ORDER BY observed_on DESC, photo_index
         `);
         
-        allObservations.push(...expandedInatObservations.rows);
+        allImages.push(...inatObservations.rows);
       }
       
-      // Format the response to match ObservationImage interface
-      const images = allObservations.map((row: any) => ({
+      // Format response
+      const images = allImages.map((row: any) => ({
         observationId: row.observation_id,
         imageUrl: row.image_link,
         imageId: row.observation_id,
@@ -4776,9 +4756,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         source: row.source,
         scientificName: row.scientific_name,
         isSelected: false
-      })).filter(img => img.imageUrl); // Filter out any without images
+      })).filter(img => img.imageUrl);
       
-      console.log(`[Images API] Returning ${images.length} images for ${scientificName} (includeInat: ${includeInatBool})`);
+      console.log(`[Images API] Returning ${images.length} images for ${scientificName} (expansion: ${expansionMiles}, includeInat: ${includeInatBool}, months: ${monthStart}-${monthEnd})`);
       res.json(images);
     } catch (error) {
       console.error("Error fetching species images:", error);
