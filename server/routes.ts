@@ -4454,11 +4454,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             
             const inatSpecies = Array.from(inatSpeciesMap.values());
             
-            // Merge with database species
+            // Merge with database species (combine counts for overlapping species)
             const allSpeciesMap = new Map();
             finalSpecies.forEach(species => allSpeciesMap.set(species.scientificName, species));
             inatSpecies.forEach(species => {
-              if (!allSpeciesMap.has(species.scientificName)) {
+              if (allSpeciesMap.has(species.scientificName)) {
+                // Species exists in both - combine observation counts
+                const existingSpecies = allSpeciesMap.get(species.scientificName);
+                existingSpecies.observationCount += species.observationCount;
+                existingSpecies.source = 'Database + iNaturalist';
+                // Update other fields if they're missing from database
+                if (!existingSpecies.commonName && species.commonName) {
+                  existingSpecies.commonName = species.commonName;
+                }
+                if (!existingSpecies.family && species.family) {
+                  existingSpecies.family = species.family;
+                }
+              } else {
+                // Species only exists in iNaturalist - add it
                 allSpeciesMap.set(species.scientificName, species);
               }
             });
