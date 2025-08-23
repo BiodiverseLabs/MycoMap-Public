@@ -325,7 +325,7 @@ async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: numbe
         rank: obs.taxon?.rank || null,
         latitude: obs.location ? obs.location.split(',')[0] : null,
         longitude: obs.location ? obs.location.split(',')[1] : null,
-        observedOn: obs.observed_on ? new Date(obs.observed_on) : null,
+        observedOn: obs.observed_on || null,
         placeGuess: obs.place_guess || null,
         qualityGrade: obs.quality_grade || null,
         userName: obs.user?.name || null,

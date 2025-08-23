@@ -283,10 +283,59 @@ export class MemoryStorage implements IStorage {
       state: observation.state || null,
       country: observation.country || null,
       genbankAccession: observation.genbankAccession || null,
+      mycoportalNumber: observation.mycoportalNumber || null,
+      dnaSequence: observation.dnaSequence || null,
+      sequence: observation.sequence || null,
+      collectionNumber: observation.collectionNumber || null,
+      creationDate: observation.creationDate || null,
+      verified: observation.verified || null,
+      kingdom: observation.kingdom || null,
+      authority: observation.authority || null,
+      abbreviatedAuthority: observation.abbreviatedAuthority || null,
+      mycobankNumber: observation.mycobankNumber || null,
+      fungariumSpecimen: observation.fungariumSpecimen || null,
+      images: observation.images || null,
+      flags: observation.flags || null,
+      forwardPrimer: observation.forwardPrimer || null,
+      reversePrimer: observation.reversePrimer || null,
+      runName: observation.runName || null,
+      sequence2: observation.sequence2 || null,
+      forwardPrimer2: observation.forwardPrimer2 || null,
+      reversePrimer2: observation.reversePrimer2 || null,
+      sequenceOwner2: observation.sequenceOwner2 || null,
+      runName2: observation.runName2 || null,
+      locationName: observation.locationName || null,
+      notes: observation.notes || null,
+      moNotes: observation.moNotes || null,
+      reportLink: observation.reportLink || null,
+      imageLink: observation.imageLink || null,
+      firstGenbankRecord: observation.firstGenbankRecord || false,
       isFirstStateRecord: observation.isFirstStateRecord || false,
       hasMultipleGenotypes: observation.hasMultipleGenotypes || false,
       source: observation.source || null,
       sourceUrl: observation.sourceUrl || null,
+      nameUpdate: observation.nameUpdate || false,
+      classificationUpdate: observation.classificationUpdate || false,
+      mycoMapBlastUrl: observation.mycoMapBlastUrl || null,
+      ncbiBlastFile: observation.ncbiBlastFile || null,
+      localBlastFile: observation.localBlastFile || null,
+      blastFilesDownloaded: observation.blastFilesDownloaded || false,
+      blastDownloadDate: observation.blastDownloadDate || null,
+      mycoMapTraceUrl: observation.mycoMapTraceUrl || null,
+      fastqFile: observation.fastqFile || null,
+      traceFilesDownloaded: observation.traceFilesDownloaded || false,
+      traceDownloadDate: observation.traceDownloadDate || null,
+      inatApiFile: observation.inatApiFile || null,
+      inatApiSaved: observation.inatApiSaved || false,
+      inatApiSaveDate: observation.inatApiSaveDate || null,
+      ipfsUploaded: observation.ipfsUploaded || false,
+      ipfsUploadDate: observation.ipfsUploadDate || null,
+      ipfsFolderCid: observation.ipfsFolderCid || null,
+      ipfsFolderUrl: observation.ipfsFolderUrl || null,
+      ipfsNcbiBlastUrl: observation.ipfsNcbiBlastUrl || null,
+      ipfsLocalBlastUrl: observation.ipfsLocalBlastUrl || null,
+      ipfsFastqUrl: observation.ipfsFastqUrl || null,
+      ipfsInatApiUrl: observation.ipfsInatApiUrl || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -687,7 +736,7 @@ export class MemoryStorage implements IStorage {
     }
   }
 
-  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false, startDate?: string, endDate?: string, species?: string): Promise<Array<{
+  async getRecordIndex(limit: number = 50, offset: number = 0, stateFirstsOnly: boolean = false, recent: boolean = false, state?: string, globalFirstsOnly: boolean = false, startDate?: string, endDate?: string, species?: string, collector?: string): Promise<Array<{
     id: number;
     species: string;
     state: string;
@@ -698,6 +747,8 @@ export class MemoryStorage implements IStorage {
     stateRecordNumber: number;
     isFirstGlobal: boolean;
     isFirstInState: boolean;
+    collector: string;
+    thumbnailUrl?: string;
   }>> {
     // Memory storage implementation - apply filters and sort by newest first
     let filteredObs = this.observations.filter(obs => obs.species && obs.observedOn);
@@ -752,7 +803,9 @@ export class MemoryStorage implements IStorage {
         datasetRecordNumber: globalIndex,
         stateRecordNumber: stateSpeciesIndex,
         isFirstGlobal: firstGlobalForSpecies?.id === obs.id,
-        isFirstInState: firstStateForSpecies?.id === obs.id
+        isFirstInState: firstStateForSpecies?.id === obs.id,
+        collector: obs.collector || 'Unknown',
+        thumbnailUrl: obs.imageLink || undefined
       };
     });
 
@@ -912,7 +965,9 @@ export class MemoryStorage implements IStorage {
     
     // Sort by observed date, then by id for consistent ordering
     filteredObs.sort((a, b) => {
-      const dateCompare = new Date(a.observedOn).getTime() - new Date(b.observedOn).getTime();
+      const dateA = a.observedOn ? new Date(a.observedOn) : new Date(0);
+      const dateB = b.observedOn ? new Date(b.observedOn) : new Date(0);
+      const dateCompare = dateA.getTime() - dateB.getTime();
       return dateCompare !== 0 ? dateCompare : a.id - b.id;
     });
     
