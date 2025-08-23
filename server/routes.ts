@@ -4406,31 +4406,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         source: string;
       }>;
 
-      console.log(`[DEBUG] Found ${observations.length} observations for ${scientificName}:`, observations.map(o => o.observation_id));
-
       // Fetch images from iNaturalist API for each observation
       const imagePromises = observations.map(async (obs) => {
         try {
           const apiUrl = `https://api.inaturalist.org/v1/observations/${obs.observation_id}`;
-          console.log(`[DEBUG] Fetching images from: ${apiUrl}`);
           const response = await fetch(apiUrl);
           
-          if (!response.ok) {
-            console.log(`[DEBUG] API response not OK for ${obs.observation_id}: ${response.status}`);
-            return null;
-          }
+          if (!response.ok) return null;
           
           const data = await response.json();
           const observation = data.results?.[0];
           
-          console.log(`[DEBUG] API response for ${obs.observation_id}:`, {
-            hasObservation: !!observation,
-            hasPhotos: !!observation?.photos,
-            photoCount: observation?.photos?.length || 0
-          });
-          
           if (!observation || !observation.photos || observation.photos.length === 0) {
-            console.log(`[DEBUG] No photos found for observation ${obs.observation_id}`);
             return null;
           }
 
@@ -4458,8 +4445,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       const imageResults = await Promise.all(imagePromises);
       const allImages = imageResults.filter(result => result !== null).flat();
-      
-      console.log(`[DEBUG] Final image count for ${scientificName}: ${allImages.length}`);
 
       res.json(allImages);
     } catch (error) {
