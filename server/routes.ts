@@ -113,12 +113,12 @@ async function checkMoCacheForArea(fieldGuideId: number, expansionMiles: number,
   // Check if we have cached data that covers this area
   const existingCache = await db.select().from(moCacheMetadata)
     .where(sql`
-      field_guide_id = ${fieldGuideId} 
-      AND max_radius_miles >= ${expansionMiles}
-      AND bounding_box_north >= ${boundingBox.north}
-      AND bounding_box_south <= ${boundingBox.south}
-      AND bounding_box_east >= ${boundingBox.east}
-      AND bounding_box_west <= ${boundingBox.west}
+      "fieldGuideId" = ${fieldGuideId} 
+      AND "maxRadiusMiles" >= ${expansionMiles}
+      AND "boundingBoxNorth" >= ${boundingBox.north}
+      AND "boundingBoxSouth" <= ${boundingBox.south}
+      AND "boundingBoxEast" >= ${boundingBox.east}
+      AND "boundingBoxWest" <= ${boundingBox.west}
     `)
     .orderBy(desc(moCacheMetadata.lastFetchedAt))
     .limit(1);
@@ -143,11 +143,11 @@ async function getCachedMoObservations(boundingBox: {north: number, south: numbe
   
   let monthCondition = '';
   if (monthStart && monthEnd) {
-    monthCondition = `AND observed_on BETWEEN '${monthStart}' AND '${monthEnd}'`;
+    monthCondition = `AND "observedOn" BETWEEN '${monthStart}' AND '${monthEnd}'`;
   } else if (monthStart) {
-    monthCondition = `AND observed_on >= '${monthStart}'`;
+    monthCondition = `AND "observedOn" >= '${monthStart}'`;
   } else if (monthEnd) {
-    monthCondition = `AND observed_on <= '${monthEnd}'`;
+    monthCondition = `AND "observedOn" <= '${monthEnd}'`;
   }
 
   const cachedObs = await db.execute(sql`
@@ -157,7 +157,7 @@ async function getCachedMoObservations(boundingBox: {north: number, south: numbe
       AND longitude >= ${boundingBox.west}
       AND longitude <= ${boundingBox.east}
       ${sql.raw(monthCondition)}
-    ORDER BY observed_on DESC
+    ORDER BY "observedOn" DESC
   `);
   
   // Transform cached data to match API format expected by filtering logic
