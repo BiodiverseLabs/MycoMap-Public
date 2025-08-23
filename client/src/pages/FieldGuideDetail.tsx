@@ -48,7 +48,7 @@ export default function FieldGuideDetail() {
   const [, setLocation] = useLocation();
   const [searchFilter, setSearchFilter] = useState('');
   const [showContributorsModal, setShowContributorsModal] = useState(false);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
@@ -100,23 +100,24 @@ export default function FieldGuideDetail() {
     enabled: !!fieldGuideId && showContributorsModal
   });
 
-  // Filter and sort species based on search term and sort order
+  // Filter and sort species based on search term and sort configuration
   const species = allSpecies
     .filter(s => 
       searchFilter === '' || 
       s.scientificName.toLowerCase().includes(searchFilter.toLowerCase())
     )
     .sort((a, b) => {
-      if (sortOrder === null) {
+      if (sortConfig.column === null) {
         // Default: alphabetical by scientific name
         return a.scientificName.localeCompare(b.scientificName);
-      } else if (sortOrder === 'desc') {
-        // Highest observations first
-        return b.observationCount - a.observationCount;
-      } else {
-        // Lowest observations first
-        return a.observationCount - b.observationCount;
+      } else if (sortConfig.column === 'scientificName') {
+        const comparison = a.scientificName.localeCompare(b.scientificName);
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      } else if (sortConfig.column === 'observations') {
+        const comparison = a.observationCount - b.observationCount;
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
       }
+      return 0;
     });
 
   // Calculate unique genera count from filtered species
@@ -357,26 +358,48 @@ export default function FieldGuideDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Scientific Name</TableHead>
+                    <TableHead>
+                      <button
+                        onClick={() => {
+                          if (sortConfig.column === 'scientificName') {
+                            if (sortConfig.direction === 'asc') {
+                              setSortConfig({column: 'scientificName', direction: 'desc'});
+                            } else {
+                              setSortConfig({column: null, direction: 'asc'});
+                            }
+                          } else {
+                            setSortConfig({column: 'scientificName', direction: 'asc'});
+                          }
+                        }}
+                        className="flex items-center gap-1 hover:text-primary transition-colors"
+                      >
+                        Scientific Name
+                        {sortConfig.column === 'scientificName' && sortConfig.direction === 'desc' && <ChevronDown className="w-4 h-4" />}
+                        {sortConfig.column === 'scientificName' && sortConfig.direction === 'asc' && <ChevronUp className="w-4 h-4" />}
+                        {sortConfig.column !== 'scientificName' && <ArrowUpDown className="w-4 h-4" />}
+                      </button>
+                    </TableHead>
                     <TableHead>Family</TableHead>
                     <TableHead className="text-center">Image</TableHead>
                     <TableHead className="text-right">
                       <button
                         onClick={() => {
-                          if (sortOrder === null) {
-                            setSortOrder('desc');
-                          } else if (sortOrder === 'desc') {
-                            setSortOrder('asc');
+                          if (sortConfig.column === 'observations') {
+                            if (sortConfig.direction === 'desc') {
+                              setSortConfig({column: 'observations', direction: 'asc'});
+                            } else {
+                              setSortConfig({column: null, direction: 'asc'});
+                            }
                           } else {
-                            setSortOrder(null);
+                            setSortConfig({column: 'observations', direction: 'desc'});
                           }
                         }}
                         className="flex items-center gap-1 ml-auto hover:text-primary transition-colors"
                       >
                         Observations
-                        {sortOrder === 'desc' && <ChevronDown className="w-4 h-4" />}
-                        {sortOrder === 'asc' && <ChevronUp className="w-4 h-4" />}
-                        {sortOrder === null && <ArrowUpDown className="w-4 h-4" />}
+                        {sortConfig.column === 'observations' && sortConfig.direction === 'desc' && <ChevronDown className="w-4 h-4" />}
+                        {sortConfig.column === 'observations' && sortConfig.direction === 'asc' && <ChevronUp className="w-4 h-4" />}
+                        {sortConfig.column !== 'observations' && <ArrowUpDown className="w-4 h-4" />}
                       </button>
                     </TableHead>
                   </TableRow>
