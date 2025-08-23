@@ -31,14 +31,14 @@ async function checkCacheForArea(fieldGuideId: number, expansionMiles: number, b
   // Check if we have cached data that covers this area
   const existingCache = await db.select().from(inatCacheMetadata)
     .where(sql`
-      "fieldGuideId" = ${fieldGuideId} 
-      AND "maxRadiusMiles" >= ${expansionMiles}
-      AND "boundingBoxNorth" >= ${boundingBox.north}
-      AND "boundingBoxSouth" <= ${boundingBox.south} 
-      AND "boundingBoxEast" >= ${boundingBox.east}
-      AND "boundingBoxWest" <= ${boundingBox.west}
+      field_guide_id = ${fieldGuideId} 
+      AND max_radius_miles >= ${expansionMiles}
+      AND bounding_box_north >= ${boundingBox.north}
+      AND bounding_box_south <= ${boundingBox.south} 
+      AND bounding_box_east >= ${boundingBox.east}
+      AND bounding_box_west <= ${boundingBox.west}
     `)
-    .orderBy(sql`"lastFetchedAt" DESC`)
+    .orderBy(sql`last_fetched_at DESC`)
     .limit(1);
     
   if (existingCache.length > 0) {
@@ -534,11 +534,11 @@ async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: numbe
       }).onConflictDoUpdate({
         target: inatCacheMetadata.fieldGuideId,
         set: {
-          maxRadiusMiles: sql`GREATEST(inat_cache_metadata."maxRadiusMiles", ${expansionMiles})`,
-          boundingBoxNorth: sql`GREATEST(inat_cache_metadata."boundingBoxNorth", ${boundingBox.north})`,
-          boundingBoxSouth: sql`LEAST(inat_cache_metadata."boundingBoxSouth", ${boundingBox.south})`,
-          boundingBoxEast: sql`GREATEST(inat_cache_metadata."boundingBoxEast", ${boundingBox.east})`,
-          boundingBoxWest: sql`LEAST(inat_cache_metadata."boundingBoxWest", ${boundingBox.west})`,
+          maxRadiusMiles: sql`GREATEST(inat_cache_metadata.max_radius_miles, ${expansionMiles})`,
+          boundingBoxNorth: sql`GREATEST(inat_cache_metadata.bounding_box_north, ${boundingBox.north})`,
+          boundingBoxSouth: sql`LEAST(inat_cache_metadata.bounding_box_south, ${boundingBox.south})`,
+          boundingBoxEast: sql`GREATEST(inat_cache_metadata.bounding_box_east, ${boundingBox.east})`,
+          boundingBoxWest: sql`LEAST(inat_cache_metadata.bounding_box_west, ${boundingBox.west})`,
           observationsCount: allInatObservations.length,
           lastFetchedAt: new Date(),
         },
