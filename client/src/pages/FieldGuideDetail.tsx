@@ -52,6 +52,7 @@ export default function FieldGuideDetail() {
   const [isReadingFromUrl, setIsReadingFromUrl] = useState(false);
   const [expansionRadius, setExpansionRadius] = useState(0);
   const [monthRange, setMonthRange] = useState<{start: string, end: string}>({start: '', end: ''});
+  const [includeInat, setIncludeInat] = useState(false);
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   // Initialize state from URL parameters whenever the component mounts or navigation occurs
@@ -65,9 +66,11 @@ export default function FieldGuideDetail() {
       const expansion = urlParams.get('expansion');
       const monthStart = urlParams.get('monthStart') || '';
       const monthEnd = urlParams.get('monthEnd') || '';
+      const includeInatParam = urlParams.get('includeInat') === 'true';
       
       setSearchFilter(search);
       setMonthRange({start: monthStart, end: monthEnd});
+      setIncludeInat(includeInatParam);
       if (expansion) {
         const expansionNum = parseInt(expansion);
         if (!isNaN(expansionNum) && expansionNum >= 0) {
@@ -116,10 +119,13 @@ export default function FieldGuideDetail() {
       urlParams.set('sortColumn', sortConfig.column);
       urlParams.set('sortDirection', sortConfig.direction);
     }
+    if (includeInat) {
+      urlParams.set('includeInat', 'true');
+    }
     
     const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newUrl);
-  }, [searchFilter, sortConfig, expansionRadius, monthRange, isReadingFromUrl]);
+  }, [searchFilter, sortConfig, expansionRadius, monthRange, includeInat, isReadingFromUrl]);
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
     queryKey: ['/api/field-guides', fieldGuideId],
@@ -138,7 +144,7 @@ export default function FieldGuideDetail() {
   });
 
   const { data: allSpecies = [], isLoading: isLoadingSpecies, error: speciesError } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'species', expansionRadius, monthRange.start, monthRange.end],
+    queryKey: ['/api/field-guides', fieldGuideId, 'species', expansionRadius, monthRange.start, monthRange.end, includeInat],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
       const params = new URLSearchParams({
@@ -146,6 +152,7 @@ export default function FieldGuideDetail() {
       });
       if (monthRange.start) params.set('monthStart', monthRange.start);
       if (monthRange.end) params.set('monthEnd', monthRange.end);
+      if (includeInat) params.set('includeInat', 'true');
       
       const url = `/api/field-guides/${fieldGuideId}/species?${params.toString()}`;
       const response = await fetch(url);
@@ -156,11 +163,12 @@ export default function FieldGuideDetail() {
   });
 
   const { data: contributorsData } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'contributors', expansionRadius],
+    queryKey: ['/api/field-guides', fieldGuideId, 'contributors', expansionRadius, includeInat],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
       const params = new URLSearchParams();
       if (expansionRadius > 0) params.set('expansion', expansionRadius.toString());
+      if (includeInat) params.set('includeInat', 'true');
       
       const url = `/api/field-guides/${fieldGuideId}/contributors?${params.toString()}`;
       const response = await fetch(url);
@@ -509,6 +517,20 @@ export default function FieldGuideDetail() {
               />
               <span className="text-sm text-slate-600">miles</span>
             </div>
+            
+            {/* Include iNaturalist Checkbox */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="includeInat"
+                checked={includeInat}
+                onChange={(e) => setIncludeInat(e.target.checked)}
+                className="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0"
+              />
+              <label htmlFor="includeInat" className="text-sm text-slate-600 whitespace-nowrap cursor-pointer">
+                Include non-DNA iNat
+              </label>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -591,6 +613,7 @@ export default function FieldGuideDetail() {
                             if (monthRange.start) urlParams.set('monthStart', monthRange.start);
                             if (monthRange.end) urlParams.set('monthEnd', monthRange.end);
                             if (expansionRadius > 0) urlParams.set('expansion', expansionRadius.toString());
+                            if (includeInat) urlParams.set('includeInat', 'true');
                             const queryString = urlParams.toString() ? `?${urlParams.toString()}` : '';
                             setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}${queryString}`);
                           }}

@@ -4079,22 +4079,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           source: 'Database'
         }));
 
-        // Add iNaturalist API supplementation
-        try {
-          console.log(`[iNat API] Fetching fungal observations for expanded area (${expansionMiles} miles)`);
-          
-          // Build iNaturalist API URL with expanded bounding box
-          const inatParams = new URLSearchParams({
-            swlat: expandedSouth.toString(),
-            swlng: expandedWest.toString(), 
-            nelat: expandedNorth.toString(),
-            nelng: expandedEast.toString(),
-            iconic_taxa: 'Fungi',
-            quality_grade: 'research',
-            per_page: '200',
-            order_by: 'species_guess',
-            order: 'asc'
-          });
+        // Add iNaturalist API supplementation (only if includeInat is true)
+        const includeInat = req.query.includeInat === 'true';
+        if (includeInat) {
+          try {
+            console.log(`[iNat API] Fetching fungal observations for expanded area (${expansionMiles} miles)`);
+            
+            // Build iNaturalist API URL with expanded bounding box
+            const inatParams = new URLSearchParams({
+              swlat: expandedSouth.toString(),
+              swlng: expandedWest.toString(), 
+              nelat: expandedNorth.toString(),
+              nelng: expandedEast.toString(),
+              iconic_taxa: 'Fungi',
+              quality_grade: 'research',
+              per_page: '200',
+              order_by: 'species_guess',
+              order: 'asc'
+            });
           
           // Add month filter if specified
           if (monthStart && monthEnd) {
@@ -4175,8 +4177,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           } else {
             console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
           }
-        } catch (error) {
-          console.error(`[iNat API] Error supplementing species list:`, error);
+          } catch (error) {
+            console.error(`[iNat API] Error supplementing species list:`, error);
+          }
         }
         
         // Return database species if iNaturalist API fails
@@ -4410,9 +4413,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       let dbContributorsCount = parseInt((contributorsResult.rows[0] as any)?.unique_contributors?.toString() || '0');
 
-      // Add iNaturalist contributors if expansion is enabled
+      // Add iNaturalist contributors if expansion is enabled and includeInat is true
       let inatContributorsCount = 0;
-      if (expansionMiles > 0) {
+      const includeInatContributors = req.query.includeInat === 'true';
+      if (expansionMiles > 0 && includeInatContributors) {
         try {
           console.log(`[iNat API] Fetching contributors for expanded area (${expansionMiles} miles)`);
           
