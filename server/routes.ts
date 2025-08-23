@@ -160,8 +160,40 @@ async function getCachedMoObservations(boundingBox: {north: number, south: numbe
     ORDER BY observed_on DESC
   `);
   
-  console.log(`[MO Cache] Retrieved ${cachedObs.rows.length} cached observations`);
-  return cachedObs.rows;
+  // Transform cached data to match API format expected by filtering logic
+  const transformedObs = cachedObs.rows.map((row: any) => ({
+    mo_id: row.mo_id,
+    scientific_name: row.scientific_name || row.scientificName,
+    common_name: row.common_name || row.commonName,
+    family: row.family,
+    rank: 'species',
+    latitude: row.latitude ? parseFloat(row.latitude) : null,
+    longitude: row.longitude ? parseFloat(row.longitude) : null,
+    observed_on: row.observed_on || row.observedOn ? new Date(row.observed_on || row.observedOn) : null,
+    location: null,
+    place_guess: row.place_name || row.placeName,
+    user_name: row.user_name || row.userName,
+    user_login: row.user_login || row.userLogin,
+    photos: [], // Will be parsed from API response if needed
+    confidence: null,
+    notes: row.notes,
+    api_response: row.api_response || row.apiResponse
+  }));
+  
+  // Parse photos from API response if available
+  transformedObs.forEach(obs => {
+    try {
+      if (obs.api_response) {
+        const apiData = JSON.parse(obs.api_response);
+        obs.photos = apiData.images?.map((img: any) => img.url) || [];
+      }
+    } catch (e) {
+      obs.photos = [];
+    }
+  });
+  
+  console.log(`[MO Cache] Retrieved ${transformedObs.length} cached observations`);
+  return transformedObs;
 }
 
 // MO API Functions
@@ -5517,13 +5549,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         allImages.push(...inatObservations.rows);
       }
 
-      // Include MO observations if includeInat is true (using direct API call)
+      // Include MO observations if includeInat is true (using cache-first approach)
       if (includeInatBool) {
         try {
-          console.log(`[MO Images API] Fetching MO images for ${scientificName}`);
+          console.log(`[MO Images API] Getting MO images for ${scientificName}`);
           
           const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
-          const moObservations = await fetchMoObservations(boundingBox, monthStart as string, monthEnd as string);
+          
+          // Check cache first
+          const moCache = await checkMoCacheForArea(fieldGuideId, expansionMiles, boundingBox);
+          let moObservations = [];
+          
+          if (moCache) {
+            console.log(`[MO Images Cache] Using cached data for ${scientificName}`);
+            moObservations = await getCachedMoObservations(boundingBox, monthStart as string, monthEnd as string);
+          } else {
+            console.log(`[MO Images Cache] No cache found, fetching from API for ${scientificName}`);
+            moObservations = await fetchMoObservations(boundingBox, monthStart as string, monthEnd as string);
+            
+            // Store in cache for future use
+            if (moObservations.length > 0) {
+              await storeMoObservationsInCache(fieldGuideId, expansionMiles, boundingBox, moObservations);
+            }
+          }
           
           // Filter MO observations for this specific species and with photos
           const moSpeciesObservations = moObservations.filter((obs: any) => 
