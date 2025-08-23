@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
 import { db, pool } from "./db";
-import { sql, eq, desc } from "drizzle-orm";
+import { sql, eq, desc, and, gte, lte } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { WebSocketServer } from "ws";
@@ -112,14 +112,14 @@ async function checkMoCacheForArea(fieldGuideId: number, expansionMiles: number,
   
   // Check if we have cached data that covers this area
   const existingCache = await db.select().from(moCacheMetadata)
-    .where(sql`
-      "fieldGuideId" = ${fieldGuideId} 
-      AND "maxRadiusMiles" >= ${expansionMiles}
-      AND "boundingBoxNorth" >= ${boundingBox.north}
-      AND "boundingBoxSouth" <= ${boundingBox.south}
-      AND "boundingBoxEast" >= ${boundingBox.east}
-      AND "boundingBoxWest" <= ${boundingBox.west}
-    `)
+    .where(and(
+      eq(moCacheMetadata.fieldGuideId, fieldGuideId),
+      gte(moCacheMetadata.maxRadiusMiles, expansionMiles.toString()),
+      gte(moCacheMetadata.boundingBoxNorth, boundingBox.north.toString()),
+      lte(moCacheMetadata.boundingBoxSouth, boundingBox.south.toString()),
+      gte(moCacheMetadata.boundingBoxEast, boundingBox.east.toString()),
+      lte(moCacheMetadata.boundingBoxWest, boundingBox.west.toString())
+    ))
     .orderBy(desc(moCacheMetadata.lastFetchedAt))
     .limit(1);
 
