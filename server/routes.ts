@@ -4083,14 +4083,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const includeInat = req.query.includeInat === 'true';
         if (includeInat) {
           try {
-            console.log(`[iNat API] Fetching fungal observations for expanded area (${expansionMiles} miles)`);
+            // Use expanded box if expansion > 0, otherwise use original bounding box
+            const queryNorth = expansionMiles > 0 ? expandedNorth : boundingBoxNorth;
+            const querySouth = expansionMiles > 0 ? expandedSouth : boundingBoxSouth;
+            const queryEast = expansionMiles > 0 ? expandedEast : boundingBoxEast;
+            const queryWest = expansionMiles > 0 ? expandedWest : boundingBoxWest;
             
-            // Build iNaturalist API URL with expanded bounding box
+            const areaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
+            console.log(`[iNat API] Fetching fungal observations for ${areaDescription}`);
+            
+            // Build iNaturalist API URL with appropriate bounding box
             const inatParams = new URLSearchParams({
-              swlat: expandedSouth.toString(),
-              swlng: expandedWest.toString(), 
-              nelat: expandedNorth.toString(),
-              nelng: expandedEast.toString(),
+              swlat: querySouth.toString(),
+              swlng: queryWest.toString(), 
+              nelat: queryNorth.toString(),
+              nelng: queryEast.toString(),
               iconic_taxa: 'Fungi',
               quality_grade: 'research',
               per_page: '200',
@@ -4109,7 +4116,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
           const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
           console.log(`[iNat API] Calling: ${inatUrl}`);
-          console.log(`[iNat API] Bounding box: SW(${expandedSouth}, ${expandedWest}) to NE(${expandedNorth}, ${expandedEast})`);
+          console.log(`[iNat API] Bounding box: SW(${querySouth}, ${queryWest}) to NE(${queryNorth}, ${queryEast})`);
           
           const inatResponse = await fetch(inatUrl, {
             headers: {
@@ -4424,18 +4431,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       let dbContributorsCount = parseInt((contributorsResult.rows[0] as any)?.unique_contributors?.toString() || '0');
 
-      // Add iNaturalist contributors if expansion is enabled and includeInat is true
+      // Add iNaturalist contributors if includeInat is true
       let inatContributorsCount = 0;
       const includeInatContributors = req.query.includeInat === 'true';
-      if (expansionMiles > 0 && includeInatContributors) {
+      if (includeInatContributors) {
         try {
-          console.log(`[iNat API] Fetching contributors for expanded area (${expansionMiles} miles)`);
+          // Use expanded box if expansion > 0, otherwise use original bounding box
+          const contribQueryNorth = expansionMiles > 0 ? expandedNorth : boundingBoxNorth;
+          const contribQuerySouth = expansionMiles > 0 ? expandedSouth : boundingBoxSouth;
+          const contribQueryEast = expansionMiles > 0 ? expandedEast : boundingBoxEast;
+          const contribQueryWest = expansionMiles > 0 ? expandedWest : boundingBoxWest;
+          
+          const contribAreaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
+          console.log(`[iNat API] Fetching contributors for ${contribAreaDescription}`);
           
           const inatParams = new URLSearchParams({
-            swlat: expandedSouth.toString(),
-            swlng: expandedWest.toString(), 
-            nelat: expandedNorth.toString(),
-            nelng: expandedEast.toString(),
+            swlat: contribQuerySouth.toString(),
+            swlng: contribQueryWest.toString(), 
+            nelat: contribQueryNorth.toString(),
+            nelng: contribQueryEast.toString(),
             iconic_taxa: 'Fungi',
             quality_grade: 'research',
             per_page: '200'
