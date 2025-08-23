@@ -459,18 +459,18 @@ export default function FieldGuideDetail() {
                   className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
                 >
                   <option value="">To</option>
-                  <option value="1">Jan</option>
-                  <option value="2">Feb</option>
-                  <option value="3">Mar</option>
-                  <option value="4">Apr</option>
-                  <option value="5">May</option>
-                  <option value="6">Jun</option>
-                  <option value="7">Jul</option>
-                  <option value="8">Aug</option>
-                  <option value="9">Sep</option>
-                  <option value="10">Oct</option>
-                  <option value="11">Nov</option>
-                  <option value="12">Dec</option>
+                  {(!monthRange.start || parseInt(monthRange.start) <= 1) && <option value="1">Jan</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 2) && <option value="2">Feb</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 3) && <option value="3">Mar</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 4) && <option value="4">Apr</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 5) && <option value="5">May</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 6) && <option value="6">Jun</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 7) && <option value="7">Jul</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 8) && <option value="8">Aug</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 9) && <option value="9">Sep</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 10) && <option value="10">Oct</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 11) && <option value="11">Nov</option>}
+                  {(!monthRange.start || parseInt(monthRange.start) <= 12) && <option value="12">Dec</option>}
                 </select>
                 {(monthRange.start || monthRange.end) && (
                   <button
