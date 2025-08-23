@@ -343,7 +343,6 @@ export default function FieldGuideDetail() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Scientific Name</TableHead>
-                    <TableHead>Common Name</TableHead>
                     <TableHead>Family</TableHead>
                     <TableHead className="text-center">Image</TableHead>
                     <TableHead className="text-right">Observations</TableHead>
@@ -359,11 +358,6 @@ export default function FieldGuideDetail() {
                         >
                           {species.scientificName}
                         </button>
-                      </TableCell>
-                      <TableCell>
-                        {species.commonName || (
-                          <span className="text-slate-400">No common name</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         {species.family || (
