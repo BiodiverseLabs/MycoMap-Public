@@ -4141,8 +4141,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 allInatObservations.push(...inatData.results);
                 page++;
                 
-                // Safety limit
-                if (allInatObservations.length >= 5000 || page > 25) {
+                // Safety limit - reduce for faster loading
+                if (allInatObservations.length >= 1000 || page > 5) {
                   console.log(`[iNat API] Reached limit of ${allInatObservations.length} observations, stopping pagination`);
                   break;
                 }
@@ -4153,7 +4153,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               console.log(`[iNat API] Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
               break;
             }
-          } while (allInatObservations.length < totalResults && page <= 25);
+          } while (allInatObservations.length < totalResults && page <= 5);
           
           console.log(`[iNat API] Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
           
@@ -4217,7 +4217,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Get guide to determine base contributor count
       const dbContributors = await db.execute(sql`
-        SELECT DISTINCT o.contributor_name as name
+        SELECT DISTINCT o.observer as name
         FROM observations o
         JOIN field_guides fg ON fg.id = ${fieldGuideId}
         WHERE o.latitude IS NOT NULL 
@@ -4226,7 +4226,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.latitude AS DECIMAL) >= CAST(fg.bounding_box_south AS DECIMAL)
           AND CAST(o.longitude AS DECIMAL) <= CAST(fg.bounding_box_east AS DECIMAL)
           AND CAST(o.longitude AS DECIMAL) >= CAST(fg.bounding_box_west AS DECIMAL)
-          AND o.contributor_name IS NOT NULL
+          AND o.observer IS NOT NULL
       `);
       
       let totalContributors = dbContributors.rows.length;
