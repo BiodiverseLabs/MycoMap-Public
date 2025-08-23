@@ -4120,7 +4120,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .where(sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`)
         .limit(1);
       
-      const selectedImageUrl = selectedSpecies[0]?.selectedImageUrl || null;
+      const selectedImageId = selectedSpecies[0]?.selectedImageId || null;
 
       // Find all observations for this species within the bounding box
       const observationsInBox = await db.execute(sql`
@@ -4183,7 +4183,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               placeGuess: obs.place_guess,
               source: obs.source,
               scientificName: obs.scientific_name,
-              isSelected: imageUrl === selectedImageUrl
+              isSelected: photo.id.toString() === selectedImageId
             };
           });
         } catch (error) {
