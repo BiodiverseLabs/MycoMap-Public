@@ -3998,7 +3998,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/species", async (req, res) => {
     try {
       const { id } = req.params;
-      const { expansion } = req.query;
+      const { expansion, dateStart, dateEnd } = req.query;
       const fieldGuideId = parseInt(id);
       const expansionMiles = expansion ? parseFloat(expansion as string) : 0;
       
@@ -4025,6 +4025,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
         const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
         
+        // Build date filter conditions
+        let dateCondition = '';
+        if (dateStart && dateEnd) {
+          dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') BETWEEN '${dateStart}' AND '${dateEnd}'`;
+        } else if (dateStart) {
+          dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') >= '${dateStart}'`;
+        } else if (dateEnd) {
+          dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') <= '${dateEnd}'`;
+        }
+
         // Generate species from expanded area
         const speciesInBoxResult = await db.execute(sql`
           SELECT 
@@ -4041,6 +4051,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
             AND o.scientific_name IS NOT NULL
             AND o.scientific_name != ''
+            AND o.observed_on IS NOT NULL
+            ${sql.raw(dateCondition)}
           GROUP BY o.scientific_name, o.common_name, o.family
           ORDER BY o.scientific_name
         `);
@@ -4062,11 +4074,69 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         return res.json(expandedSpecies);
       } else {
         // Normal query without expansion
-        const species = await db.select().from(fieldGuideSpecies)
-          .where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId))
-          .orderBy(fieldGuideSpecies.scientificName);
-        
-        res.json(species);
+        if (dateStart || dateEnd) {
+          // Apply date filter to existing species
+          const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+          
+          if (guide.length === 0) {
+            return res.status(404).json({ error: "Field guide not found" });
+          }
+          
+          const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+          
+          // Build date filter conditions
+          let dateCondition = '';
+          if (dateStart && dateEnd) {
+            dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') BETWEEN '${dateStart}' AND '${dateEnd}'`;
+          } else if (dateStart) {
+            dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') >= '${dateStart}'`;
+          } else if (dateEnd) {
+            dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') <= '${dateEnd}'`;
+          }
+
+          const speciesInBoxResult = await db.execute(sql`
+            SELECT 
+              o.scientific_name,
+              o.common_name,
+              o.family,
+              COUNT(*) as observation_count
+            FROM observations o
+            WHERE o.latitude IS NOT NULL 
+              AND o.longitude IS NOT NULL
+              AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
+              AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
+              AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
+              AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
+              AND o.scientific_name IS NOT NULL
+              AND o.scientific_name != ''
+              AND o.observed_on IS NOT NULL
+              ${sql.raw(dateCondition)}
+            GROUP BY o.scientific_name, o.common_name, o.family
+            ORDER BY o.scientific_name
+          `);
+          
+          // Convert to species format
+          const filteredSpecies = speciesInBoxResult.rows.map((row: any) => ({
+            id: null,
+            fieldGuideId: fieldGuideId,
+            scientificName: row.scientific_name,
+            commonName: row.common_name,
+            family: row.family,
+            observationCount: parseInt(row.observation_count),
+            selectedImageUrl: null,
+            selectedImageSource: null,
+            selectedObservationId: null,
+            selectedImageId: null
+          }));
+          
+          return res.json(filteredSpecies);
+        } else {
+          const species = await db.select().from(fieldGuideSpecies)
+            .where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId))
+            .orderBy(fieldGuideSpecies.scientificName);
+          
+          res.json(species);
+        }
       }
     } catch (error) {
       console.error("Error fetching field guide species:", error);

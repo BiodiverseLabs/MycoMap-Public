@@ -51,6 +51,7 @@ export default function FieldGuideDetail() {
   const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
   const [isReadingFromUrl, setIsReadingFromUrl] = useState(false);
   const [expansionRadius, setExpansionRadius] = useState(25);
+  const [dateRange, setDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   // Initialize state from URL parameters whenever the component mounts or navigation occurs
@@ -62,9 +63,11 @@ export default function FieldGuideDetail() {
       const sortColumn = urlParams.get('sortColumn') as 'scientificName' | 'observations' | null;
       const sortDirection = urlParams.get('sortDirection') as 'asc' | 'desc';
       const expansion = urlParams.get('expansion');
-      
+      const dateStart = urlParams.get('dateStart') || '';
+      const dateEnd = urlParams.get('dateEnd') || '';
       
       setSearchFilter(search);
+      setDateRange({start: dateStart, end: dateEnd});
       if (expansion) {
         const expansionNum = parseInt(expansion);
         if (!isNaN(expansionNum) && expansionNum >= 0) {
@@ -103,6 +106,12 @@ export default function FieldGuideDetail() {
     if (expansionRadius !== 25) {
       urlParams.set('expansion', expansionRadius.toString());
     }
+    if (dateRange.start) {
+      urlParams.set('dateStart', dateRange.start);
+    }
+    if (dateRange.end) {
+      urlParams.set('dateEnd', dateRange.end);
+    }
     if (sortConfig.column) {
       urlParams.set('sortColumn', sortConfig.column);
       urlParams.set('sortDirection', sortConfig.direction);
@@ -110,7 +119,7 @@ export default function FieldGuideDetail() {
     
     const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newUrl);
-  }, [searchFilter, sortConfig, expansionRadius, isReadingFromUrl]);
+  }, [searchFilter, sortConfig, expansionRadius, dateRange, isReadingFromUrl]);
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
     queryKey: ['/api/field-guides', fieldGuideId],
@@ -129,10 +138,16 @@ export default function FieldGuideDetail() {
   });
 
   const { data: allSpecies = [], isLoading: isLoadingSpecies, error: speciesError } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'species', expansionRadius],
+    queryKey: ['/api/field-guides', fieldGuideId, 'species', expansionRadius, dateRange.start, dateRange.end],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
-      const url = `/api/field-guides/${fieldGuideId}/species?expansion=${expansionRadius}`;
+      const params = new URLSearchParams({
+        expansion: expansionRadius.toString()
+      });
+      if (dateRange.start) params.set('dateStart', dateRange.start);
+      if (dateRange.end) params.set('dateEnd', dateRange.end);
+      
+      const url = `/api/field-guides/${fieldGuideId}/species?${params.toString()}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json() as Promise<FieldGuideSpecies[]>;
@@ -432,6 +447,50 @@ export default function FieldGuideDetail() {
               />
               <span className="text-sm text-slate-600">miles</span>
             </div>
+            
+            {/* Date Range Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-600 whitespace-nowrap">
+                Season:
+              </label>
+              <Input
+                type="text"
+                placeholder="MM-DD"
+                value={dateRange.start}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9-]/g, '');
+                  if (value === '' || /^\d{1,2}(-\d{0,2})?$/.test(value)) {
+                    setDateRange(prev => ({...prev, start: value}));
+                  }
+                }}
+                className="w-20 text-center text-xs"
+                maxLength={5}
+              />
+              <span className="text-xs text-slate-400">to</span>
+              <Input
+                type="text"
+                placeholder="MM-DD"
+                value={dateRange.end}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9-]/g, '');
+                  if (value === '' || /^\d{1,2}(-\d{0,2})?$/.test(value)) {
+                    setDateRange(prev => ({...prev, end: value}));
+                  }
+                }}
+                className="w-20 text-center text-xs"
+                maxLength={5}
+              />
+              {(dateRange.start || dateRange.end) && (
+                <button
+                  onClick={() => setDateRange({start: '', end: ''})}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  type="button"
+                  aria-label="Clear date filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -500,8 +559,8 @@ export default function FieldGuideDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {species.map((species) => (
-                    <TableRow key={species.id}>
+                  {species.map((species, index) => (
+                    <TableRow key={species.id || `species-${index}`}>
                       <TableCell className="font-medium">
                         <button
                           onClick={() => {
