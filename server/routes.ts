@@ -4598,8 +4598,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/species/:name/images", async (req, res) => {
     try {
       const { id, name } = req.params;
+      const { expansion, monthStart, monthEnd, includeInat } = req.query;
+      
       const fieldGuideId = parseInt(id);
       const scientificName = decodeURIComponent(name);
+      const expansionMiles = parseInt(expansion as string) || 0;
+      const includeInatBool = includeInat === 'true';
+      
+      console.log(`[Images API] Query params: { expansion: '${expansion}', includeInat: '${includeInat}' }`);
+      console.log(`[Images API] Parsed values: { fieldGuideId: ${fieldGuideId}, expansionMiles: ${expansionMiles}, includeInatBool: ${includeInatBool} }`);
       
       // Get the field guide to get bounding box coordinates
       const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
@@ -4609,6 +4616,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+      
+      // Calculate bounding box with expansion
+      const latDelta = expansionMiles * 0.014483;
+      const avgLat = (parseFloat(boundingBoxNorth) + parseFloat(boundingBoxSouth)) / 2;
+      const lngDelta = expansionMiles * 0.014483 / Math.cos(avgLat * Math.PI / 180);
+      
+      const expandedNorth = parseFloat(boundingBoxNorth) + latDelta;
+      const expandedSouth = parseFloat(boundingBoxSouth) - latDelta;
+      const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
+      const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
       
       // Get database observations for this species within the bounding box
       const speciesObservations = await db.execute(sql`
@@ -4625,56 +4642,55 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         FROM observations o
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${parseFloat(boundingBoxNorth)}
-          AND CAST(o.latitude AS DECIMAL) >= ${parseFloat(boundingBoxSouth)}
-          AND CAST(o.longitude AS DECIMAL) <= ${parseFloat(boundingBoxEast)}
-          AND CAST(o.longitude AS DECIMAL) >= ${parseFloat(boundingBoxWest)}
+          AND CAST(o.latitude AS DECIMAL) <= ${expandedNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${expandedSouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${expandedEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
           AND o.scientific_name = ${scientificName}
           AND o.image_link IS NOT NULL
           AND o.image_link != ''
         ORDER BY o.observed_on DESC
       `);
 
-      // Also get cached iNaturalist observations for this species
-      // Use expanded bounding box (25 miles) for comprehensive coverage
-      const latDelta = 25 * 0.014483;
-      const avgLat = (parseFloat(boundingBoxNorth) + parseFloat(boundingBoxSouth)) / 2;
-      const lngDelta = 25 * 0.014483 / Math.cos(avgLat * Math.PI / 180);
-      
-      const expandedNorth = parseFloat(boundingBoxNorth) + latDelta;
-      const expandedSouth = parseFloat(boundingBoxSouth) - latDelta;
-      const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
-      const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
+      let allObservations = [...speciesObservations.rows];
 
-      const cachedObservations = await db.execute(sql`
-        SELECT 
-          'iNat-' || inat_id as observation_id,
-          scientific_name,
-          common_name,
-          user_name as observer,
-          observed_on,
-          place_guess as state,
-          place_guess,
-          photos[1] as image_link,
-          'iNaturalist' as source
-        FROM inat_observations_cache
-        WHERE latitude IS NOT NULL 
-          AND longitude IS NOT NULL
-          AND CAST(latitude AS DECIMAL) <= ${expandedNorth}
-          AND CAST(latitude AS DECIMAL) >= ${expandedSouth}
-          AND CAST(longitude AS DECIMAL) <= ${expandedEast}
-          AND CAST(longitude AS DECIMAL) >= ${expandedWest}
-          AND scientific_name = ${scientificName}
-          AND photos IS NOT NULL
-          AND array_length(photos, 1) > 0
-        ORDER BY observed_on DESC
-      `);
-      
-      // Combine database and cached observations
-      const allObservations = [
-        ...speciesObservations.rows,
-        ...cachedObservations.rows
-      ];
+      // Only include cached iNaturalist observations if includeInat is true
+      if (includeInatBool) {
+        // Use expanded bounding box (25 miles additional) for comprehensive iNat coverage
+        const inatLatDelta = (expansionMiles + 25) * 0.014483;
+        const inatLngDelta = (expansionMiles + 25) * 0.014483 / Math.cos(avgLat * Math.PI / 180);
+        
+        const inatExpandedNorth = parseFloat(boundingBoxNorth) + inatLatDelta;
+        const inatExpandedSouth = parseFloat(boundingBoxSouth) - inatLatDelta;
+        const inatExpandedEast = parseFloat(boundingBoxEast) + inatLngDelta;
+        const inatExpandedWest = parseFloat(boundingBoxWest) - inatLngDelta;
+
+        const cachedObservations = await db.execute(sql`
+          SELECT 
+            'iNat-' || inat_id as observation_id,
+            scientific_name,
+            common_name,
+            user_name as observer,
+            observed_on,
+            place_guess as state,
+            place_guess,
+            photos[1] as image_link,
+            'iNaturalist' as source
+          FROM inat_observations_cache
+          WHERE latitude IS NOT NULL 
+            AND longitude IS NOT NULL
+            AND CAST(latitude AS DECIMAL) <= ${inatExpandedNorth}
+            AND CAST(latitude AS DECIMAL) >= ${inatExpandedSouth}
+            AND CAST(longitude AS DECIMAL) <= ${inatExpandedEast}
+            AND CAST(longitude AS DECIMAL) >= ${inatExpandedWest}
+            AND scientific_name = ${scientificName}
+            AND photos IS NOT NULL
+            AND array_length(photos, 1) > 0
+          ORDER BY observed_on DESC
+        `);
+        
+        allObservations.push(...cachedObservations.rows);
+      }
       
       // Format the response to match ObservationImage interface
       const images = allObservations.map((row: any) => ({
@@ -4690,6 +4706,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         isSelected: false
       })).filter(img => img.imageUrl); // Filter out any without images
       
+      console.log(`[Images API] Returning ${images.length} images for ${scientificName} (includeInat: ${includeInatBool})`);
       res.json(images);
     } catch (error) {
       console.error("Error fetching species images:", error);
