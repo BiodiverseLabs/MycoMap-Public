@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -22,6 +22,242 @@ const uploadMemory = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for CSV files
 });
+
+// iNaturalist Cache Management Functions
+async function checkCacheForArea(fieldGuideId: number, expansionMiles: number, boundingBox: {north: number, south: number, east: number, west: number}) {
+  console.log(`[iNat Cache] Checking cache for field guide ${fieldGuideId}, expansion: ${expansionMiles} miles`);
+  
+  // Check if we have cached data that covers this area
+  const existingCache = await db.select().from(inatCacheMetadata)
+    .where(sql`
+      field_guide_id = ${fieldGuideId} 
+      AND max_radius_miles >= ${expansionMiles}
+      AND bounding_box_north >= ${boundingBox.north}
+      AND bounding_box_south <= ${boundingBox.south} 
+      AND bounding_box_east >= ${boundingBox.east}
+      AND bounding_box_west <= ${boundingBox.west}
+    `)
+    .orderBy(sql`last_fetched_at DESC`)
+    .limit(1);
+    
+  if (existingCache.length > 0) {
+    const cache = existingCache[0];
+    const cacheAge = Date.now() - new Date(cache.lastFetchedAt).getTime();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    
+    if (cacheAge < maxAge) {
+      console.log(`[iNat Cache] Found valid cache (${cache.observationsCount} observations, ${Math.round(cacheAge / (60 * 60 * 1000))}h old)`);
+      return cache;
+    }
+  }
+  
+  console.log(`[iNat Cache] No valid cache found, will fetch from API`);
+  return null;
+}
+
+async function getCachedObservations(boundingBox: {north: number, south: number, east: number, west: number}, monthStart?: string, monthEnd?: string) {
+  console.log(`[iNat Cache] Retrieving cached observations for area`);
+  
+  let monthCondition = '';
+  if (monthStart && monthEnd) {
+    const startMonth = parseInt(monthStart);
+    const endMonth = parseInt(monthEnd);
+    if (startMonth <= endMonth) {
+      monthCondition = `AND EXTRACT(MONTH FROM observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+    } else {
+      monthCondition = `AND (EXTRACT(MONTH FROM observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM observed_on) <= ${endMonth})`;
+    }
+  } else if (monthStart) {
+    monthCondition = `AND EXTRACT(MONTH FROM observed_on) >= ${parseInt(monthStart)}`;
+  } else if (monthEnd) {
+    monthCondition = `AND EXTRACT(MONTH FROM observed_on) <= ${parseInt(monthEnd)}`;
+  }
+  
+  const cachedObs = await db.execute(sql`
+    SELECT 
+      inat_id,
+      scientific_name,
+      common_name, 
+      family,
+      rank,
+      latitude,
+      longitude,
+      observed_on,
+      place_guess,
+      quality_grade,
+      user_name,
+      photos,
+      taxon_data,
+      user_data
+    FROM inat_observations_cache
+    WHERE latitude IS NOT NULL 
+      AND longitude IS NOT NULL
+      AND CAST(latitude AS DECIMAL) <= ${boundingBox.north}
+      AND CAST(latitude AS DECIMAL) >= ${boundingBox.south}
+      AND CAST(longitude AS DECIMAL) <= ${boundingBox.east}
+      AND CAST(longitude AS DECIMAL) >= ${boundingBox.west}
+      AND rank = 'species'
+      ${sql.raw(monthCondition)}
+    ORDER BY observed_on DESC
+  `);
+  
+  console.log(`[iNat Cache] Retrieved ${cachedObs.rows.length} cached observations`);
+  return cachedObs.rows;
+}
+
+async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: number, boundingBox: {north: number, south: number, east: number, west: number}, monthStart?: string, monthEnd?: string) {
+  console.log(`[iNat Cache] Fetching fresh data from API for ${expansionMiles} mile expansion`);
+  
+  const inatParams = new URLSearchParams({
+    swlat: boundingBox.south.toString(),
+    swlng: boundingBox.west.toString(), 
+    nelat: boundingBox.north.toString(),
+    nelng: boundingBox.east.toString(),
+    iconic_taxa: 'Fungi',
+    quality_grade: 'research',
+    per_page: '200',
+    page: '1'
+  });
+
+  // Add month filters if specified
+  if (monthStart && monthEnd) {
+    if (monthStart === monthEnd) {
+      inatParams.set('month', monthStart);
+    }
+  } else if (monthStart) {
+    inatParams.set('month', monthStart);
+  } else if (monthEnd) {
+    inatParams.set('month', monthEnd);
+  }
+
+  const allInatObservations = [];
+  let page = 1;
+  let totalResults = 0;
+
+  do {
+    inatParams.set('page', page.toString());
+    const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations?${inatParams}`);
+    
+    if (inatResponse.ok) {
+      const inatData = await inatResponse.json();
+      
+      if (page === 1) {
+        totalResults = inatData.total_results || 0;
+        console.log(`[iNat Cache] API Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
+      } else {
+        console.log(`[iNat Cache] API Page ${page}: Found ${inatData.results?.length || 0} observations`);
+      }
+
+      if (inatData.results && inatData.results.length > 0) {
+        allInatObservations.push(...inatData.results);
+        page++;
+        
+        if (allInatObservations.length >= 10000 || page > 50) {
+          console.log(`[iNat Cache] Reached limit of ${allInatObservations.length} observations, stopping`);
+          break;
+        }
+      } else {
+        break;
+      }
+    } else {
+      console.log(`[iNat Cache] API Page ${page} failed: ${inatResponse.status}`);
+      break;
+    }
+  } while (allInatObservations.length < totalResults && page <= 50);
+
+  console.log(`[iNat Cache] Fetched ${allInatObservations.length} observations from API across ${page-1} pages`);
+
+  // Cache the observations in batches
+  if (allInatObservations.length > 0) {
+    console.log(`[iNat Cache] Caching ${allInatObservations.length} observations...`);
+    
+    const batchSize = 100;
+    for (let i = 0; i < allInatObservations.length; i += batchSize) {
+      const batch = allInatObservations.slice(i, i + batchSize);
+      const cacheData = batch.map(obs => ({
+        inatId: obs.id,
+        scientificName: obs.taxon?.name || null,
+        commonName: obs.taxon?.preferred_common_name || null,
+        family: obs.taxon?.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
+        rank: obs.taxon?.rank || null,
+        latitude: obs.location ? obs.location.split(',')[0] : null,
+        longitude: obs.location ? obs.location.split(',')[1] : null,
+        observedOn: obs.observed_on ? new Date(obs.observed_on) : null,
+        placeGuess: obs.place_guess || null,
+        qualityGrade: obs.quality_grade || null,
+        userName: obs.user?.name || null,
+        userLogin: obs.user?.login || null,
+        photos: obs.photos?.map((p: any) => p.url?.replace('square', 'medium')).filter(Boolean) || [],
+        taxonData: obs.taxon ? JSON.stringify(obs.taxon) : null,
+        userData: obs.user ? JSON.stringify(obs.user) : null,
+      }));
+
+      try {
+        // Use Drizzle's proper insertion methods for better reliability
+        await db.insert(inatObservationsCache).values(cacheData).onConflictDoUpdate({
+          target: inatObservationsCache.inatId,
+          set: {
+            scientificName: sql`EXCLUDED.scientific_name`,
+            commonName: sql`EXCLUDED.common_name`,
+            family: sql`EXCLUDED.family`,
+            rank: sql`EXCLUDED.rank`,
+            latitude: sql`EXCLUDED.latitude`,
+            longitude: sql`EXCLUDED.longitude`,
+            observedOn: sql`EXCLUDED.observed_on`,
+            placeGuess: sql`EXCLUDED.place_guess`,
+            qualityGrade: sql`EXCLUDED.quality_grade`,
+            userName: sql`EXCLUDED.user_name`,
+            userLogin: sql`EXCLUDED.user_login`,
+            photos: sql`EXCLUDED.photos`,
+            taxonData: sql`EXCLUDED.taxon_data`,
+            userData: sql`EXCLUDED.user_data`,
+            updatedAt: sql`NOW()`,
+          },
+        });
+        console.log(`[iNat Cache] Successfully cached batch of ${cacheData.length} observations`);
+      } catch (error) {
+        console.error(`[iNat Cache] Error caching batch:`, error);
+      }
+    }
+
+    // Update metadata using proper Drizzle methods
+    const centerLat = (boundingBox.north + boundingBox.south) / 2;
+    const centerLng = (boundingBox.east + boundingBox.west) / 2;
+    
+    try {
+      await db.insert(inatCacheMetadata).values({
+        fieldGuideId: fieldGuideId,
+        centerLat: centerLat.toString(),
+        centerLng: centerLng.toString(),
+        maxRadiusMiles: expansionMiles.toString(),
+        boundingBoxNorth: boundingBox.north.toString(),
+        boundingBoxSouth: boundingBox.south.toString(),
+        boundingBoxEast: boundingBox.east.toString(),
+        boundingBoxWest: boundingBox.west.toString(),
+        observationsCount: allInatObservations.length,
+        lastFetchedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: inatCacheMetadata.fieldGuideId,
+        set: {
+          maxRadiusMiles: sql`GREATEST(inat_cache_metadata.max_radius_miles, ${expansionMiles})`,
+          boundingBoxNorth: sql`GREATEST(inat_cache_metadata.bounding_box_north, ${boundingBox.north})`,
+          boundingBoxSouth: sql`LEAST(inat_cache_metadata.bounding_box_south, ${boundingBox.south})`,
+          boundingBoxEast: sql`GREATEST(inat_cache_metadata.bounding_box_east, ${boundingBox.east})`,
+          boundingBoxWest: sql`LEAST(inat_cache_metadata.bounding_box_west, ${boundingBox.west})`,
+          observationsCount: allInatObservations.length,
+          lastFetchedAt: new Date(),
+        },
+      });
+      console.log(`[iNat Cache] Metadata updated for field guide ${fieldGuideId}, ${expansionMiles} mile radius`);
+    } catch (error) {
+      console.error(`[iNat Cache] Error updating metadata:`, error);
+    }
+
+    console.log(`[iNat Cache] Successfully cached ${allInatObservations.length} observations`);
+  }
+
+  return allInatObservations;
+}
 
 // Sync iNaturalist API data for newly uploaded records
 async function syncUploadedInaturalistData(uploadId: number, progressTracker: Map<number, any>) {
@@ -4088,87 +4324,41 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         source: 'Database'
       }));
       
-      // Add iNaturalist supplementation if requested
+      // Add iNaturalist supplementation using smart caching
       if (includeInat === 'true') {
         try {
           const areaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
-          console.log(`[iNat API] Fetching fungal observations for ${areaDescription}`);
+          console.log(`[iNat Cache] Getting observations for ${areaDescription}`);
           
-          const inatParams = new URLSearchParams({
-            swlat: querySouth.toString(),
-            swlng: queryWest.toString(), 
-            nelat: queryNorth.toString(),
-            nelng: queryEast.toString(),
-            iconic_taxa: 'Fungi',
-            quality_grade: 'research',
-            per_page: '200',
-            order_by: 'species_guess',
-            order: 'asc'
-          });
+          const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
           
-          // Add month filter if specified
-          if (monthStart && monthEnd) {
-            inatParams.set('month', `${monthStart},${monthEnd}`);
-          } else if (monthStart) {
-            inatParams.set('month', monthStart as string);
-          } else if (monthEnd) {
-            inatParams.set('month', monthEnd as string);
+          // Check if we have cached data
+          const cachedMetadata = await checkCacheForArea(fieldGuideId, expansionMiles, boundingBox);
+          
+          let inatObservations = [];
+          if (cachedMetadata) {
+            // Use cached data
+            inatObservations = await getCachedObservations(boundingBox, monthStart as string, monthEnd as string);
+            console.log(`[iNat Cache] Using ${inatObservations.length} cached observations`);
+          } else {
+            // Fetch fresh data and cache it
+            const freshObs = await fetchAndCacheInatData(fieldGuideId, expansionMiles, boundingBox, monthStart as string, monthEnd as string);
+            inatObservations = await getCachedObservations(boundingBox, monthStart as string, monthEnd as string);
+            console.log(`[iNat Cache] Fetched fresh data, now have ${inatObservations.length} observations`);
           }
-
-          // Fetch all pages of iNaturalist data with pagination
-          const allInatObservations = [];
-          let page = 1;
-          let totalResults = 0;
           
-          do {
-            inatParams.set('page', page.toString());
-            const pagedUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
-            
-            const inatResponse = await fetch(pagedUrl, {
-              headers: {
-                'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
-              }
-            });
-
-            console.log(`[iNat API] Page ${page} - Response status: ${inatResponse.status}`);
-            if (inatResponse.ok) {
-              const inatData = await inatResponse.json();
-              totalResults = inatData.total_results || 0;
-              
-              console.log(`[iNat API] Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
-              
-              if (inatData.results && inatData.results.length > 0) {
-                allInatObservations.push(...inatData.results);
-                page++;
-                
-                // Safety limit to prevent runaway requests
-                if (allInatObservations.length >= 10000 || page > 50) {
-                  console.log(`[iNat API] Reached safety limit of ${allInatObservations.length} observations, stopping pagination`);
-                  break;
-                }
-              } else {
-                break; // No more results
-              }
-            } else {
-              console.log(`[iNat API] Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
-              break;
-            }
-          } while (allInatObservations.length < totalResults && page <= 50);
-          
-          console.log(`[iNat API] Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
-          
-          if (allInatObservations.length > 0) {
-            // Process iNaturalist observations into species format
+          if (inatObservations.length > 0) {
+            // Process cached observations into species format
             const inatSpeciesMap = new Map();
-            allInatObservations.forEach((obs: any) => {
-              if (obs.taxon && obs.taxon.name && obs.taxon.rank === 'species') {
-                if (!inatSpeciesMap.has(obs.taxon.name)) {
-                  inatSpeciesMap.set(obs.taxon.name, {
+            inatObservations.forEach((obs: any) => {
+              if (obs.scientific_name && obs.rank === 'species') {
+                if (!inatSpeciesMap.has(obs.scientific_name)) {
+                  inatSpeciesMap.set(obs.scientific_name, {
                     id: null,
                     fieldGuideId: fieldGuideId,
-                    scientificName: obs.taxon.name,
-                    commonName: obs.taxon.preferred_common_name || null,
-                    family: obs.taxon.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
+                    scientificName: obs.scientific_name,
+                    commonName: obs.common_name || null,
+                    family: obs.family || null,
                     observationCount: 0,
                     selectedImageUrl: null,
                     selectedImageSource: null,
@@ -4177,7 +4367,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     source: 'iNaturalist'
                   });
                 }
-                inatSpeciesMap.get(obs.taxon.name).observationCount++;
+                inatSpeciesMap.get(obs.scientific_name).observationCount++;
               }
             });
             
@@ -4195,10 +4385,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             finalSpecies = Array.from(allSpeciesMap.values())
               .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
             
-            console.log(`[iNat API] Final merged list: ${finalSpecies.length} species (${speciesInBoxResult.rows.length} from DB, ${inatSpecies.length} from iNat)`);
+            console.log(`[iNat Cache] Final merged list: ${finalSpecies.length} species (${speciesInBoxResult.rows.length} from DB, ${inatSpecies.length} from iNat)`);
           }
         } catch (error) {
-          console.error(`[iNat API] Error supplementing species list:`, error);
+          console.error(`[iNat Cache] Error supplementing species list:`, error);
         }
       }
       
@@ -4241,70 +4431,42 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       let totalContributors = dbContributors.rows.length;
       console.log(`[Contributors] DB: ${totalContributors}`);
       
-      // Add iNaturalist contributors if requested
+      // Add iNaturalist contributors using smart caching
       if (includeInat === 'true') {
         try {
-          console.log(`[Contributors] Fetching iNaturalist contributors...`);
+          console.log(`[Contributors Cache] Getting iNaturalist contributors...`);
           
-          const inatParams = new URLSearchParams({
-            swlat: boundingBoxSouth,
-            swlng: boundingBoxWest, 
-            nelat: boundingBoxNorth,
-            nelng: boundingBoxEast,
-            iconic_taxa: 'Fungi',
-            quality_grade: 'research',
-            per_page: '200',
-            page: '1'
-          });
+          const boundingBox = { 
+            north: parseFloat(boundingBoxNorth), 
+            south: parseFloat(boundingBoxSouth), 
+            east: parseFloat(boundingBoxEast), 
+            west: parseFloat(boundingBoxWest) 
+          };
+          
+          // Check if we have cached data (use 0 miles expansion for original bounding box)
+          const cachedMetadata = await checkCacheForArea(fieldGuideId, 0, boundingBox);
+          
+          let inatObservations = [];
+          if (cachedMetadata) {
+            // Use cached data
+            inatObservations = await getCachedObservations(boundingBox);
+            console.log(`[Contributors Cache] Using ${inatObservations.length} cached observations`);
+          } else {
+            // Fetch fresh data and cache it
+            const freshObs = await fetchAndCacheInatData(fieldGuideId, 0, boundingBox);
+            inatObservations = await getCachedObservations(boundingBox);
+            console.log(`[Contributors Cache] Fetched fresh data, now have ${inatObservations.length} observations`);
+          }
 
-          let allInatObservations = [];
-          let page = 1;
-          let totalResults = 0;
-
-          do {
-            inatParams.set('page', page.toString());
-            const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations?${inatParams}`);
-            
-            if (inatResponse.ok) {
-              const inatData = await inatResponse.json();
-              console.log(`[Contributors] iNat Page ${page} - Response status: ${inatResponse.status}`);
-              
-              if (page === 1) {
-                totalResults = inatData.total_results;
-                console.log(`[Contributors] iNat Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
-              } else {
-                console.log(`[Contributors] iNat Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
-              }
-
-              if (inatData.results && inatData.results.length > 0) {
-                allInatObservations.push(...inatData.results);
-                page++;
-                
-                // Safety limit to prevent runaway requests
-                if (allInatObservations.length >= 10000 || page > 50) {
-                  console.log(`[Contributors] iNat: Reached safety limit of ${allInatObservations.length} observations, stopping pagination`);
-                  break;
-                }
-              } else {
-                break; // No more results
-              }
-            } else {
-              console.log(`[Contributors] iNat Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
-              break;
-            }
-          } while (allInatObservations.length < totalResults && page <= 50);
-
-          console.log(`[Contributors] iNat: Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
-
-          // Extract unique iNaturalist contributors
+          // Extract unique iNaturalist contributors from cached data
           const inatContributors = new Set();
-          allInatObservations.forEach(obs => {
-            if (obs.user && obs.user.name) {
-              inatContributors.add(obs.user.name);
+          inatObservations.forEach((obs: any) => {
+            if (obs.user_name) {
+              inatContributors.add(obs.user_name);
             }
           });
 
-          console.log(`[Contributors] iNat: ${inatContributors.size} unique contributors`);
+          console.log(`[Contributors Cache] iNat: ${inatContributors.size} unique contributors`);
 
           // Combine database and iNaturalist contributors (removing duplicates)
           const allContributors = new Set();
@@ -4314,10 +4476,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           inatContributors.forEach(name => allContributors.add(name));
 
           totalContributors = allContributors.size;
-          console.log(`[Contributors] Combined: ${totalContributors} total unique contributors`);
+          console.log(`[Contributors Cache] Combined: ${totalContributors} total unique contributors`);
 
         } catch (inatError) {
-          console.error("[Contributors] iNaturalist API error:", inatError);
+          console.error("[Contributors Cache] Error:", inatError);
           // Fall back to database contributors only
         }
       }

@@ -758,3 +758,75 @@ export type FieldGuide = typeof fieldGuides.$inferSelect;
 
 export type InsertFieldGuideSpecies = z.infer<typeof insertFieldGuideSpeciesSchema>;
 export type FieldGuideSpecies = typeof fieldGuideSpecies.$inferSelect;
+
+// iNaturalist Cache Tables
+export const inatObservationsCache = pgTable("inat_observations_cache", {
+  id: serial("id").primaryKey(),
+  inatId: integer("inat_id").notNull().unique(), // iNaturalist observation ID
+  scientificName: text("scientific_name"),
+  commonName: text("common_name"),
+  family: text("family"),
+  rank: text("rank"),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  observedOn: date("observed_on"),
+  placeGuess: text("place_guess"),
+  qualityGrade: text("quality_grade"),
+  userName: text("user_name"), // iNaturalist contributor
+  userLogin: text("user_login"),
+  photos: text("photos").array(), // Array of photo URLs
+  taxonData: text("taxon_data"), // JSON string of full taxon object
+  userData: text("user_data"), // JSON string of full user object
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  latLngIdx: index("inat_cache_lat_lng_idx").on(table.latitude, table.longitude),
+  scientificNameIdx: index("inat_cache_scientific_name_idx").on(table.scientificName),
+  observedOnIdx: index("inat_cache_observed_on_idx").on(table.observedOn),
+  userNameIdx: index("inat_cache_user_name_idx").on(table.userName),
+}));
+
+export const inatCacheMetadata = pgTable("inat_cache_metadata", {
+  id: serial("id").primaryKey(),
+  fieldGuideId: integer("field_guide_id").references(() => fieldGuides.id),
+  centerLat: decimal("center_lat", { precision: 10, scale: 7 }).notNull(),
+  centerLng: decimal("center_lng", { precision: 10, scale: 7 }).notNull(),
+  maxRadiusMiles: decimal("max_radius_miles", { precision: 8, scale: 2 }).notNull(),
+  boundingBoxNorth: decimal("bounding_box_north", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxSouth: decimal("bounding_box_south", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxEast: decimal("bounding_box_east", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxWest: decimal("bounding_box_west", { precision: 10, scale: 7 }).notNull(),
+  observationsCount: integer("observations_count").default(0),
+  lastFetchedAt: timestamp("last_fetched_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  fieldGuideIdx: index("inat_cache_metadata_field_guide_idx").on(table.fieldGuideId),
+  radiusIdx: index("inat_cache_metadata_radius_idx").on(table.maxRadiusMiles),
+}));
+
+// Relations for iNaturalist cache
+export const inatCacheMetadataRelations = relations(inatCacheMetadata, ({ one }) => ({
+  fieldGuide: one(fieldGuides, {
+    fields: [inatCacheMetadata.fieldGuideId],
+    references: [fieldGuides.id],
+  }),
+}));
+
+// Insert schemas for iNaturalist cache
+export const insertInatObservationsCacheSchema = createInsertSchema(inatObservationsCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInatCacheMetadataSchema = createInsertSchema(inatCacheMetadata).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for iNaturalist cache
+export type InsertInatObservationsCache = z.infer<typeof insertInatObservationsCacheSchema>;
+export type InatObservationsCache = typeof inatObservationsCache.$inferSelect;
+
+export type InsertInatCacheMetadata = z.infer<typeof insertInatCacheMetadataSchema>;
+export type InatCacheMetadata = typeof inatCacheMetadata.$inferSelect;
