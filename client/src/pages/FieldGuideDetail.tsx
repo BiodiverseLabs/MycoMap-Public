@@ -386,8 +386,18 @@ export default function FieldGuideDetail() {
               placeholder="Filter by scientific name..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="pl-10"
+              className="pl-10 pr-10"
             />
+            {searchFilter && (
+              <button
+                onClick={() => setSearchFilter('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                type="button"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
