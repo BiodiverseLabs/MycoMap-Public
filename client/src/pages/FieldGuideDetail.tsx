@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -82,6 +82,10 @@ export default function FieldGuideDetail() {
       .filter(genus => genus && genus.length > 0)
   );
   const generaCount = uniqueGenera.size;
+
+  // Calculate total observations count
+  const totalObservations = species.reduce((sum, s) => sum + s.observationCount, 0);
+  const allObservationsTotal = allSpecies.reduce((sum, s) => sum + s.observationCount, 0);
 
   const downloadCSV = () => {
     if (!fieldGuide || !species.length) return;
@@ -235,11 +239,18 @@ export default function FieldGuideDetail() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-primary" />
+              <Activity className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-sm font-medium">Created</p>
-                <p className="text-xs text-slate-600">
-                  {format(new Date(fieldGuide.createdAt), 'MMM d, yyyy')}
+                <p className="text-2xl font-bold">
+                  {totalObservations.toLocaleString()}
+                  {searchFilter && totalObservations !== allObservationsTotal && (
+                    <span className="text-lg text-slate-500 ml-1">
+                      / {allObservationsTotal.toLocaleString()}
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {searchFilter && totalObservations !== allObservationsTotal ? 'Filtered Observations' : 'Total Observations'}
                 </p>
               </div>
             </div>
