@@ -4121,31 +4121,62 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           console.log(`[iNat API] Calling: ${inatUrl}`);
           console.log(`[iNat API] Bounding box: SW(${querySouth}, ${queryWest}) to NE(${queryNorth}, ${queryEast})`);
           
-          const inatResponse = await fetch(inatUrl, {
-            headers: {
-              'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
-            }
-          });
+          // Fetch all pages of iNaturalist data
+          const allInatObservations = [];
+          let page = 1;
+          let totalResults = 0;
+          
+          do {
+            inatParams.set('page', page.toString());
+            const pagedUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
+            
+            const inatResponse = await fetch(pagedUrl, {
+              headers: {
+                'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
+              }
+            });
 
-          console.log(`[iNat API] Response status: ${inatResponse.status}`);
-          if (inatResponse.ok) {
-            const inatData = await inatResponse.json();
-            console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
-            console.log(`[iNat API] Total available: ${inatData.total_results || 0}`);
-            if (inatData.results && inatData.results.length > 0) {
+            console.log(`[iNat API] Page ${page} - Response status: ${inatResponse.status}`);
+            if (inatResponse.ok) {
+              const inatData = await inatResponse.json();
+              totalResults = inatData.total_results || 0;
+              
+              console.log(`[iNat API] Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
+              
+              if (inatData.results && inatData.results.length > 0) {
+                allInatObservations.push(...inatData.results);
+                page++;
+                
+                // Safety limit to prevent infinite loops (max 10,000 observations)
+                if (allInatObservations.length >= 10000) {
+                  console.log(`[iNat API] Reached safety limit of 10,000 observations, stopping pagination`);
+                  break;
+                }
+              } else {
+                break; // No more results
+              }
+            } else {
+              console.log(`[iNat API] Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
+              break;
+            }
+          } while (allInatObservations.length < totalResults && page <= 50); // Max 50 pages for safety
+          
+          console.log(`[iNat API] Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
+          
+          if (allInatObservations.length > 0) {
               console.log(`[iNat API] Sample observation:`, {
-                id: inatData.results[0].id,
-                taxon: inatData.results[0].taxon?.name,
-                location: `${inatData.results[0].location}`,
-                user: inatData.results[0].user?.login
+                id: allInatObservations[0].id,
+                taxon: allInatObservations[0].taxon?.name,
+                location: `${allInatObservations[0].location}`,
+                user: allInatObservations[0].user?.login
               });
             }
             
-            if (inatData.results && inatData.results.length > 0) {
+            if (allInatObservations.length > 0) {
               // Group observations by species
               const speciesMap = new Map();
               
-              inatData.results.forEach((obs: any) => {
+              allInatObservations.forEach((obs: any) => {
                 const scientificName = obs.taxon?.name;
                 const commonName = obs.taxon?.preferred_common_name;
                 
@@ -4196,9 +4227,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               return res.json(mergedSpecies);
             }
           } else {
-            console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
-            const errorText = await inatResponse.text();
-            console.log(`[iNat API] Error response:`, errorText.substring(0, 200));
+            console.log(`[iNat API] Pagination complete: No more data to fetch`);
           }
           } catch (error) {
             console.error(`[iNat API] Error supplementing species list:`, error);
