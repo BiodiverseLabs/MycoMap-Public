@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
 import { db, pool } from "./db";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, desc } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { WebSocketServer } from "ws";
@@ -103,6 +103,64 @@ async function getCachedObservations(boundingBox: {north: number, south: number,
   `);
   
   console.log(`[iNat Cache] Retrieved ${cachedObs.rows.length} cached observations`);
+  return cachedObs.rows;
+}
+
+// MO Cache Management Functions
+async function checkMoCacheForArea(fieldGuideId: number, expansionMiles: number, boundingBox: {north: number, south: number, east: number, west: number}) {
+  console.log(`[MO Cache] Checking cache for field guide ${fieldGuideId}, expansion: ${expansionMiles} miles`);
+  
+  // Check if we have cached data that covers this area
+  const existingCache = await db.select().from(moCacheMetadata)
+    .where(sql`
+      field_guide_id = ${fieldGuideId} 
+      AND max_radius_miles >= ${expansionMiles}
+      AND bounding_box_north >= ${boundingBox.north}
+      AND bounding_box_south <= ${boundingBox.south}
+      AND bounding_box_east >= ${boundingBox.east}
+      AND bounding_box_west <= ${boundingBox.west}
+    `)
+    .orderBy(desc(moCacheMetadata.lastFetchedAt))
+    .limit(1);
+
+  if (existingCache.length > 0) {
+    const cache = existingCache[0];
+    const cacheAge = Date.now() - new Date(cache.lastFetchedAt!).getTime();
+    const maxCacheAge = 4 * 60 * 60 * 1000; // 4 hours
+    
+    if (cacheAge < maxCacheAge) {
+      console.log(`[MO Cache] Found valid cache (${cache.observationsCount} observations, ${Math.round(cacheAge / (60 * 60 * 1000))}h old)`);
+      return cache;
+    }
+  }
+  
+  console.log(`[MO Cache] No valid cache found, will fetch from API`);
+  return null;
+}
+
+async function getCachedMoObservations(boundingBox: {north: number, south: number, east: number, west: number}, monthStart?: string, monthEnd?: string) {
+  console.log(`[MO Cache] Retrieving cached observations for area`);
+  
+  let monthCondition = '';
+  if (monthStart && monthEnd) {
+    monthCondition = `AND observed_on BETWEEN '${monthStart}' AND '${monthEnd}'`;
+  } else if (monthStart) {
+    monthCondition = `AND observed_on >= '${monthStart}'`;
+  } else if (monthEnd) {
+    monthCondition = `AND observed_on <= '${monthEnd}'`;
+  }
+
+  const cachedObs = await db.execute(sql`
+    SELECT * FROM mo_observations_cache
+    WHERE latitude >= ${boundingBox.south}
+      AND latitude <= ${boundingBox.north}
+      AND longitude >= ${boundingBox.west}
+      AND longitude <= ${boundingBox.east}
+      ${sql.raw(monthCondition)}
+    ORDER BY observed_on DESC
+  `);
+  
+  console.log(`[MO Cache] Retrieved ${cachedObs.rows.length} cached observations`);
   return cachedObs.rows;
 }
 
@@ -213,6 +271,53 @@ async function fetchMoObservations(boundingBox: {north: number, south: number, e
   } catch (error) {
     console.error(`[MO API] Error fetching observations:`, error);
     return [];
+  }
+}
+
+async function storeMoObservationsInCache(fieldGuideId: number, expansionMiles: number, boundingBox: {north: number, south: number, east: number, west: number}, observations: any[]) {
+  console.log(`[MO Cache] Storing ${observations.length} observations in cache`);
+  
+  try {
+    // Store cache metadata
+    const [metadata] = await db.insert(moCacheMetadata).values({
+      fieldGuideId,
+      centerLat: ((boundingBox.north + boundingBox.south) / 2).toString(),
+      centerLng: ((boundingBox.east + boundingBox.west) / 2).toString(),
+      maxRadiusMiles: expansionMiles.toString(),
+      boundingBoxNorth: boundingBox.north.toString(),
+      boundingBoxSouth: boundingBox.south.toString(),
+      boundingBoxEast: boundingBox.east.toString(),
+      boundingBoxWest: boundingBox.west.toString(),
+      observationsCount: observations.length,
+      lastFetchedAt: new Date()
+    }).returning();
+
+    // Store observations in batches to avoid memory issues
+    const batchSize = 100;
+    for (let i = 0; i < observations.length; i += batchSize) {
+      const batch = observations.slice(i, i + batchSize);
+      
+      const cacheEntries = batch.map(obs => ({
+        moId: parseInt(obs.mo_id),
+        scientificName: obs.scientific_name,
+        commonName: obs.common_name,
+        family: obs.family,
+        latitude: obs.latitude ? obs.latitude.toString() : null,
+        longitude: obs.longitude ? obs.longitude.toString() : null,
+        observedOn: obs.observed_on ? obs.observed_on.toISOString().split('T')[0] : null,
+        userName: obs.user_name,
+        userLogin: obs.user_login,
+        placeName: obs.place_guess,
+        notes: obs.notes,
+        apiResponse: obs.api_response
+      }));
+      
+      await db.insert(moObservationsCache).values(cacheEntries).onConflictDoNothing();
+    }
+    
+    console.log(`[MO Cache] Successfully cached ${observations.length} observations`);
+  } catch (error) {
+    console.error(`[MO Cache] Error storing cache:`, error);
   }
 }
 
@@ -4604,9 +4709,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
           
-          // Get MO observations using coordinate search
-          const moObservations = await fetchMoObservations(boundingBox, monthStart as string, monthEnd as string);
-          console.log(`[MO API] Fetched ${moObservations.length} MO observations`);
+          // Check cache first
+          const moCache = await checkMoCacheForArea(parseInt(fieldGuideId), expansionMiles, boundingBox);
+          let moObservations = [];
+          
+          if (moCache) {
+            console.log(`[MO Cache] Using cached data`);
+            moObservations = await getCachedMoObservations(boundingBox, monthStart as string, monthEnd as string);
+          } else {
+            console.log(`[MO Cache] No cache found, fetching from API`);
+            moObservations = await fetchMoObservations(boundingBox, monthStart as string, monthEnd as string);
+            
+            // Store in cache for future use
+            if (moObservations.length > 0) {
+              await storeMoObservationsInCache(parseInt(fieldGuideId), expansionMiles, boundingBox, moObservations);
+            }
+          }
+          
+          console.log(`[MO API] Using ${moObservations.length} MO observations`);
           
           if (moObservations.length > 0) {
             // Process MO observations into species format
