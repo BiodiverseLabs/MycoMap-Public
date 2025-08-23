@@ -4329,5 +4329,67 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get images for a specific species in a field guide
+  app.get("/api/field-guides/:id/species/:name/images", async (req, res) => {
+    try {
+      const { id, name } = req.params;
+      const fieldGuideId = parseInt(id);
+      const scientificName = decodeURIComponent(name);
+      
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+      
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+      
+      // Get all observations for this species within the bounding box
+      const speciesObservations = await db.execute(sql`
+        SELECT 
+          o.observation_id,
+          o.scientific_name,
+          o.common_name,
+          o.collector as observer,
+          o.observed_on,
+          o.state,
+          o.place_guess,
+          o.image_link,
+          'Database' as source
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${parseFloat(boundingBoxNorth)}
+          AND CAST(o.latitude AS DECIMAL) >= ${parseFloat(boundingBoxSouth)}
+          AND CAST(o.longitude AS DECIMAL) <= ${parseFloat(boundingBoxEast)}
+          AND CAST(o.longitude AS DECIMAL) >= ${parseFloat(boundingBoxWest)}
+          AND o.scientific_name = ${scientificName}
+          AND o.image_link IS NOT NULL
+          AND o.image_link != ''
+        ORDER BY o.observed_on DESC
+      `);
+      
+      // Format the response to match ObservationImage interface
+      const images = speciesObservations.rows.map((row: any) => ({
+        observationId: row.observation_id,
+        imageUrl: row.image_link,
+        imageId: row.observation_id, // Use observation_id as imageId for now
+        observer: row.observer,
+        observedOn: row.observed_on,
+        state: row.state,
+        placeGuess: row.place_guess,
+        source: row.source,
+        scientificName: row.scientific_name,
+        isSelected: false // Could be enhanced to check if this is the selected image
+      }));
+      
+      res.json(images);
+    } catch (error) {
+      console.error("Error fetching species images:", error);
+      res.status(500).json({ error: "Failed to fetch species images" });
+    }
+  });
+
   return app;
 }
