@@ -118,7 +118,8 @@ async function fetchMoObservations(boundingBox: {north: number, south: number, e
     south: roundToTenth(boundingBox.south).toString(),
     east: roundToTenth(boundingBox.east).toString(),
     west: roundToTenth(boundingBox.west).toString(),
-    format: 'json'
+    format: 'json',
+    detail: 'high'
   });
 
   // Add month filters if specified (MO uses different month format)
@@ -150,7 +151,8 @@ async function fetchMoObservations(boundingBox: {north: number, south: number, e
       
       const moResponse = await fetch(moUrl, {
         headers: {
-          'User-Agent': 'MycoMap Field Guide - Species Discovery Tool'
+          'User-Agent': 'MycoMap Field Guide - Species Discovery Tool',
+          'Accept': 'application/json'
         }
       });
 
@@ -162,10 +164,11 @@ async function fetchMoObservations(boundingBox: {north: number, south: number, e
         }
 
         if (moData.results && moData.results.length > 0) {
+          
           // Transform MO data to our standard format
           const transformedObs = moData.results.map((obs: any) => ({
             mo_id: obs.id,
-            scientific_name: obs.consensus?.name || obs.name || null,
+            scientific_name: obs.consensus?.name || obs.name?.text_name || obs.name || null,
             common_name: null, // MO doesn't typically provide common names in this endpoint
             family: null, // Would need separate taxonomy lookup
             rank: 'species', // Assume species for now
