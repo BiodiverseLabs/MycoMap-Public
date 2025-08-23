@@ -272,13 +272,21 @@ export default function SpeciesImageGallery() {
                       <ExternalLink className="w-3 h-3 text-slate-500" />
                       {image.source === 'iNaturalist' ? (
                         <a 
-                          href={`https://www.inaturalist.org/observations/${image.observationId}`}
+                          href={`https://www.inaturalist.org/observations/${
+                            image.observationId.startsWith('iNat-') 
+                              ? image.observationId.split('-')[1] 
+                              : image.observationId
+                          }`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-blue-600 hover:underline"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          iNat #{image.observationId}
+                          iNat #{
+                            image.observationId.startsWith('iNat-') 
+                              ? image.observationId.split('-')[1] 
+                              : image.observationId
+                          }
                         </a>
                       ) : image.source === 'Mushroom Observer' ? (
                         <a 
