@@ -267,18 +267,38 @@ export default function SpeciesImageGallery() {
                   </div>
                   
                   <div className="p-3 space-y-2">
-                    {/* iNaturalist ID */}
+                    {/* Platform ID and Link */}
                     <div className="flex items-center gap-2">
                       <ExternalLink className="w-3 h-3 text-slate-500" />
-                      <a 
-                        href={`https://www.inaturalist.org/observations/${image.observationId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        iNat #{image.observationId}
-                      </a>
+                      {image.source === 'iNaturalist' ? (
+                        <a 
+                          href={`https://www.inaturalist.org/observations/${image.observationId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          iNat #{image.observationId}
+                        </a>
+                      ) : image.source === 'MO Observations' ? (
+                        <a 
+                          href={`https://mushroomobserver.org/observations/${image.observationId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          MO #{image.observationId}
+                        </a>
+                      ) : image.source === 'MycoPortal' ? (
+                        <span className="text-xs text-slate-600">
+                          MycoPortal #{image.observationId}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-600">
+                          {image.source} #{image.observationId}
+                        </span>
+                      )}
                     </div>
 
                     {/* Observer */}
