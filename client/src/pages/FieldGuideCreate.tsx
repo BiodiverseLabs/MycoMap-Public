@@ -40,11 +40,11 @@ export default function FieldGuideCreate() {
   
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Fetch map data for observation locations
+  // Fetch map data for observation locations (optimized for performance)
   const { data: observations = [], isLoading } = useQuery<MapData[]>({
     queryKey: ["/api/map-data"],
     queryFn: async () => {
-      const response = await fetch('/api/map-data?limit=10000');
+      const response = await fetch('/api/map-data?limit=2000');
       if (!response.ok) throw new Error('Failed to fetch map data');
       return response.json();
     }
@@ -62,17 +62,29 @@ export default function FieldGuideCreate() {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Add observation points
-    observations.forEach(obs => {
-      L.circleMarker([obs.latitude, obs.longitude], {
-        radius: 2,
+    // Add observation points using clustering for better performance
+    const sampleSize = Math.min(observations.length, 1500); // Limit to 1500 points max
+    const step = Math.max(1, Math.floor(observations.length / sampleSize));
+    
+    // Sample observations for display (every nth point)
+    const sampledObservations = observations.filter((_, index) => index % step === 0);
+    
+    // Create a feature group for better performance
+    const pointsGroup = L.featureGroup();
+    
+    sampledObservations.forEach(obs => {
+      const marker = L.circleMarker([obs.latitude, obs.longitude], {
+        radius: 3,
         fillColor: '#3b82f6',
-        color: '#3b82f6',
+        color: '#1e40af',
         weight: 1,
-        opacity: 0.6,
-        fillOpacity: 0.4
-      }).addTo(map);
+        opacity: 0.7,
+        fillOpacity: 0.5
+      });
+      pointsGroup.addLayer(marker);
     });
+    
+    pointsGroup.addTo(map);
 
     // Add drawing functionality
     let startLatLng: L.LatLng | null = null;
@@ -330,7 +342,7 @@ export default function FieldGuideCreate() {
                 style={{ minHeight: '400px' }}
               />
               <p className="text-sm text-slate-500 mt-2">
-                Blue dots show observation locations. Hold Shift and drag to select an area.
+                Blue dots show a sample of observation locations ({observations.length > 1500 ? '~1,500 of ' + observations.length.toLocaleString() : observations.length.toLocaleString()} total). Hold Shift and drag to select an area.
               </p>
             </CardContent>
           </Card>
