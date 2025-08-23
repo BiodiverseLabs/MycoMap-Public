@@ -45,28 +45,33 @@ interface Contributor {
 
 export default function FieldGuideDetail() {
   const [, params] = useRoute('/field-guides/:id');
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [searchFilter, setSearchFilter] = useState('');
   const [showContributorsModal, setShowContributorsModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
+  const [isReadingFromUrl, setIsReadingFromUrl] = useState(false);
 
-  // Initialize state from URL parameters
+  // Initialize state from URL parameters whenever location changes
   useEffect(() => {
+    setIsReadingFromUrl(true);
     const urlParams = new URLSearchParams(window.location.search);
-    const search = urlParams.get('search');
+    const search = urlParams.get('search') || '';
     const sortColumn = urlParams.get('sortColumn') as 'scientificName' | 'observations' | null;
     const sortDirection = urlParams.get('sortDirection') as 'asc' | 'desc';
     
-    if (search) {
-      setSearchFilter(search);
-    }
+    setSearchFilter(search);
     if (sortColumn && sortDirection) {
       setSortConfig({column: sortColumn, direction: sortDirection});
+    } else {
+      setSortConfig({column: null, direction: 'asc'});
     }
-  }, []);
+    setIsReadingFromUrl(false);
+  }, [location]);
 
-  // Update URL when state changes
+  // Update URL when state changes (but not when reading from URL)
   useEffect(() => {
+    if (isReadingFromUrl) return;
+    
     const urlParams = new URLSearchParams();
     
     if (searchFilter) {
@@ -79,7 +84,7 @@ export default function FieldGuideDetail() {
     
     const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newUrl);
-  }, [searchFilter, sortConfig]);
+  }, [searchFilter, sortConfig, isReadingFromUrl]);
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
