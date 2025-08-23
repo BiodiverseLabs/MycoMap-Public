@@ -229,7 +229,19 @@ export default function SpeciesImageGallery() {
         <>
           <div className="flex items-center justify-between">
             <Badge variant="secondary" className="text-sm">
-              {images.length} images from {new Set(images.map(img => img.observationId)).size} observations
+              {images.length} images from {new Set(images.map(img => {
+                // Extract base observation ID from different formats:
+                // "130418033" -> "130418033"
+                // "iNat-130418033-1" -> "130418033"  
+                // "MO-12345-0" -> "12345"
+                const id = img.observationId;
+                if (id.startsWith('iNat-')) {
+                  return id.split('-')[1]; // Extract middle part from iNat-ID-photoIndex
+                } else if (id.startsWith('MO-')) {
+                  return `MO-${id.split('-')[1]}`; // Keep MO- prefix with ID
+                }
+                return id; // Plain ID from main DB
+              })).size} observations
             </Badge>
             <Button
               variant="outline"
@@ -245,7 +257,7 @@ export default function SpeciesImageGallery() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {images.map((image) => (
               <Card 
-                key={`${image.observationId}-${image.imageId}`}
+                key={`${image.observationId}-${image.imageUrl.substring(image.imageUrl.lastIndexOf('/'))}`}
                 className={`transition-all hover:shadow-lg ${
                   image.isSelected ? 'ring-2 ring-primary' : ''
                 } ${
