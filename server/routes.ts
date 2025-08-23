@@ -4655,7 +4655,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           observed_on,
           place_guess as state,
           place_guess,
-          (photos::json->>0)::json->>'url' as image_link,
+          photos[1] as image_link,
           'iNaturalist' as source
         FROM inat_observations_cache
         WHERE latitude IS NOT NULL 
