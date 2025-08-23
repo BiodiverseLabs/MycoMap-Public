@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
+import { INaturalistProgressBar } from "@/components/ui/progress-bar";
 
 interface FieldGuide {
   id: number;
@@ -711,6 +712,9 @@ export default function FieldGuideDetail() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Progress Bar for iNaturalist caching */}
+      <INaturalistProgressBar />
     </div>
   );
 }

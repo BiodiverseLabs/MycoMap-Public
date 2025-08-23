@@ -12,6 +12,7 @@ import { db, pool } from "./db";
 import { sql, eq } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
+import { WebSocketServer } from "ws";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -105,7 +106,7 @@ async function getCachedObservations(boundingBox: {north: number, south: number,
   return cachedObs.rows;
 }
 
-async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: number, boundingBox: {north: number, south: number, east: number, west: number}, monthStart?: string, monthEnd?: string) {
+async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: number, boundingBox: {north: number, south: number, east: number, west: number}, monthStart?: string, monthEnd?: string, progressCallback?: (data: any) => void) {
   console.log(`[iNat Cache] Fetching fresh data from API for ${expansionMiles} mile expansion`);
   
   const inatParams = new URLSearchParams({
@@ -144,12 +145,36 @@ async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: numbe
       if (page === 1) {
         totalResults = inatData.total_results || 0;
         console.log(`[iNat Cache] API Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
+        
+        // Broadcast initial progress
+        if (progressCallback) {
+          progressCallback({
+            type: 'inat-caching-progress',
+            stage: 'fetching',
+            current: 0,
+            total: Math.min(totalResults, 10000),
+            message: `Starting to fetch ${totalResults} observations from iNaturalist...`
+          });
+        }
       } else {
         console.log(`[iNat Cache] API Page ${page}: Found ${inatData.results?.length || 0} observations`);
       }
 
       if (inatData.results && inatData.results.length > 0) {
         allInatObservations.push(...inatData.results);
+        
+        // Broadcast fetch progress
+        if (progressCallback) {
+          const fetchProgress = Math.min(allInatObservations.length, Math.min(totalResults, 10000));
+          progressCallback({
+            type: 'inat-caching-progress',
+            stage: 'fetching',
+            current: fetchProgress,
+            total: Math.min(totalResults, 10000),
+            message: `Fetched ${allInatObservations.length} of ${totalResults} observations (Page ${page})...`
+          });
+        }
+        
         page++;
         
         if (allInatObservations.length >= 10000 || page > 50) {
@@ -170,6 +195,17 @@ async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: numbe
   // Cache the observations in batches
   if (allInatObservations.length > 0) {
     console.log(`[iNat Cache] Caching ${allInatObservations.length} observations...`);
+    
+    // Broadcast caching start
+    if (progressCallback) {
+      progressCallback({
+        type: 'inat-caching-progress',
+        stage: 'caching',
+        current: 0,
+        total: allInatObservations.length,
+        message: `Starting to cache ${allInatObservations.length} observations to database...`
+      });
+    }
     
     const batchSize = 100;
     for (let i = 0; i < allInatObservations.length; i += batchSize) {
@@ -215,6 +251,18 @@ async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: numbe
           },
         });
         console.log(`[iNat Cache] Successfully cached batch of ${cacheData.length} observations`);
+        
+        // Broadcast caching progress
+        if (progressCallback) {
+          const currentCached = Math.min(i + batchSize, allInatObservations.length);
+          progressCallback({
+            type: 'inat-caching-progress',
+            stage: 'caching',
+            current: currentCached,
+            total: allInatObservations.length,
+            message: `Cached ${currentCached} of ${allInatObservations.length} observations...`
+          });
+        }
       } catch (error) {
         console.error(`[iNat Cache] Error caching batch:`, error);
       }
@@ -4034,6 +4082,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   });
 
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server for progress updates on a specific path
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws/progress' 
+  });
+  
+  wss.on('connection', (ws) => {
+    console.log('[WebSocket] Client connected');
+    ws.on('close', () => {
+      console.log('[WebSocket] Client disconnected');
+    });
+  });
+
+  // Global progress tracking
+  const progressBroadcast = (data: any) => {
+    const message = JSON.stringify(data);
+    wss.clients.forEach(client => {
+      if (client.readyState === 1) { // OPEN state
+        client.send(message);
+      }
+    });
+  };
+
   // Biorecords Management API endpoints
   app.get("/api/biorecords", async (req, res) => {
     try {
@@ -4342,9 +4414,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             console.log(`[iNat Cache] Using ${inatObservations.length} cached observations`);
           } else {
             // Fetch fresh data and cache it
-            const freshObs = await fetchAndCacheInatData(fieldGuideId, expansionMiles, boundingBox, monthStart as string, monthEnd as string);
+            const freshObs = await fetchAndCacheInatData(fieldGuideId, expansionMiles, boundingBox, monthStart as string, monthEnd as string, progressBroadcast);
             inatObservations = await getCachedObservations(boundingBox, monthStart as string, monthEnd as string);
             console.log(`[iNat Cache] Fetched fresh data, now have ${inatObservations.length} observations`);
+            
+            // Broadcast completion
+            progressBroadcast({
+              type: 'inat-caching-progress',
+              stage: 'completed',
+              current: inatObservations.length,
+              total: inatObservations.length,
+              message: `Successfully cached ${inatObservations.length} observations! Processing species list...`
+            });
           }
           
           if (inatObservations.length > 0) {
@@ -4453,9 +4534,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             console.log(`[Contributors Cache] Using ${inatObservations.length} cached observations`);
           } else {
             // Fetch fresh data and cache it
-            const freshObs = await fetchAndCacheInatData(fieldGuideId, 0, boundingBox);
+            const freshObs = await fetchAndCacheInatData(fieldGuideId, 0, boundingBox, undefined, undefined, progressBroadcast);
             inatObservations = await getCachedObservations(boundingBox);
             console.log(`[Contributors Cache] Fetched fresh data, now have ${inatObservations.length} observations`);
+            
+            // Broadcast completion
+            progressBroadcast({
+              type: 'inat-caching-progress',
+              stage: 'completed',
+              current: inatObservations.length,
+              total: inatObservations.length,
+              message: `Successfully cached ${inatObservations.length} observations! Processing contributors...`
+            });
           }
 
           // Extract unique iNaturalist contributors from cached data
@@ -4553,5 +4643,5 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  return app;
+  return httpServer;
 }
