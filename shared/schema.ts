@@ -715,6 +715,9 @@ export const fieldGuideSpecies = pgTable("field_guide_species", {
   scientificName: text("scientific_name").notNull(),
   commonName: text("common_name"),
   observationCount: integer("observation_count").default(0),
+  selectedImageUrl: text("selected_image_url"), // URL of the selected representative image
+  selectedImageSource: text("selected_image_source"), // "iNaturalist" or "MushroomObserver"
+  selectedObservationId: text("selected_observation_id"), // ID of the observation the image comes from
   addedAt: timestamp("added_at").defaultNow(),
 }, (table) => ({
   fieldGuideIdx: index("field_guide_species_guide_idx").on(table.fieldGuideId),

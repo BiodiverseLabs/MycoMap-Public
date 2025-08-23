@@ -4100,6 +4100,121 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get observation images for a species in a field guide
+  app.get("/api/field-guides/:id/species/:scientificName/images", async (req, res) => {
+    try {
+      const { id, scientificName } = req.params;
+      const fieldGuideId = parseInt(id);
+      
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+
+      // Find all observations for this species within the bounding box
+      const observationsInBox = await db.execute(sql`
+        SELECT DISTINCT 
+          o.observation_id,
+          o.scientific_name,
+          o.observer,
+          o.observed_on,
+          o.state,
+          o.place_guess,
+          o.source
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
+          AND o.scientific_name = ${scientificName}
+          AND o.source = 'iNaturalist'
+        ORDER BY o.observed_on DESC
+        LIMIT 50
+      `);
+
+      const observations = observationsInBox.rows as Array<{
+        observation_id: string;
+        scientific_name: string;
+        observer: string | null;
+        observed_on: string | null;
+        state: string | null;
+        place_guess: string | null;
+        source: string;
+      }>;
+
+      // Fetch images from iNaturalist API for each observation
+      const imagePromises = observations.map(async (obs) => {
+        try {
+          const apiUrl = `https://api.inaturalist.org/v1/observations/${obs.observation_id}`;
+          const response = await fetch(apiUrl);
+          
+          if (!response.ok) return null;
+          
+          const data = await response.json();
+          const observation = data.results?.[0];
+          
+          if (!observation || !observation.photos || observation.photos.length === 0) {
+            return null;
+          }
+
+          // Get all photos for this observation
+          return observation.photos.map((photo: any) => ({
+            observationId: obs.observation_id,
+            imageUrl: photo.url.replace('square', 'medium'), // Get medium size image
+            imageId: photo.id,
+            observer: obs.observer,
+            observedOn: obs.observed_on,
+            state: obs.state,
+            placeGuess: obs.place_guess,
+            source: obs.source,
+            scientificName: obs.scientific_name
+          }));
+        } catch (error) {
+          console.error(`Error fetching images for observation ${obs.observation_id}:`, error);
+          return null;
+        }
+      });
+
+      const imageResults = await Promise.all(imagePromises);
+      const allImages = imageResults.filter(result => result !== null).flat();
+
+      res.json(allImages);
+    } catch (error) {
+      console.error("Error fetching species images:", error);
+      res.status(500).json({ error: "Failed to fetch species images" });
+    }
+  });
+
+  // Update selected image for a field guide species
+  app.put("/api/field-guides/:id/species/:scientificName/select-image", async (req, res) => {
+    try {
+      const { id, scientificName } = req.params;
+      const { imageUrl, observationId, source } = req.body;
+      const fieldGuideId = parseInt(id);
+
+      await db.update(fieldGuideSpecies)
+        .set({
+          selectedImageUrl: imageUrl,
+          selectedImageSource: source,
+          selectedObservationId: observationId
+        })
+        .where(
+          sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`
+        );
+
+      res.json({ message: "Selected image updated successfully" });
+    } catch (error) {
+      console.error("Error updating selected image:", error);
+      res.status(500).json({ error: "Failed to update selected image" });
+    }
+  });
+
   // Delete field guide
   app.delete("/api/field-guides/:id", async (req, res) => {
     try {

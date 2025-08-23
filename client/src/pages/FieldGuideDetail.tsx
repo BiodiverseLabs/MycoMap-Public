@@ -255,7 +255,12 @@ export default function FieldGuideDetail() {
                   {species.map((species) => (
                     <TableRow key={species.id}>
                       <TableCell className="font-medium">
-                        <span className="italic">{species.scientificName}</span>
+                        <button
+                          onClick={() => setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}`)}
+                          className="text-left italic text-primary hover:text-primary/80 hover:underline"
+                        >
+                          {species.scientificName}
+                        </button>
                       </TableCell>
                       <TableCell>
                         {species.commonName || (

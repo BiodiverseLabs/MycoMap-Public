@@ -36,6 +36,7 @@ import AdminSettings from "@/pages/admin/AdminSettings";
 import FieldGuides from "@/pages/FieldGuides";
 import FieldGuideCreate from "@/pages/FieldGuideCreate";
 import FieldGuideDetail from "@/pages/FieldGuideDetail";
+import SpeciesImageGallery from "@/pages/SpeciesImageGallery";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/geospatial/top-prospects" component={TopProspects} />
       <Route path="/field-guides" component={FieldGuides} />
       <Route path="/field-guides/create" component={FieldGuideCreate} />
+      <Route path="/field-guides/:id/species/:scientificName" component={SpeciesImageGallery} />
       <Route path="/field-guides/:id" component={FieldGuideDetail} />
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
