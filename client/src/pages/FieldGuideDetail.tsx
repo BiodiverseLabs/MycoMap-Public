@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity, Users, X } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity, Users, X, ChevronUp, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ export default function FieldGuideDetail() {
   const [, setLocation] = useLocation();
   const [searchFilter, setSearchFilter] = useState('');
   const [showContributorsModal, setShowContributorsModal] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
@@ -99,11 +100,24 @@ export default function FieldGuideDetail() {
     enabled: !!fieldGuideId && showContributorsModal
   });
 
-  // Filter species based on search term
-  const species = allSpecies.filter(s => 
-    searchFilter === '' || 
-    s.scientificName.toLowerCase().includes(searchFilter.toLowerCase())
-  );
+  // Filter and sort species based on search term and sort order
+  const species = allSpecies
+    .filter(s => 
+      searchFilter === '' || 
+      s.scientificName.toLowerCase().includes(searchFilter.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortOrder === null) {
+        // Default: alphabetical by scientific name
+        return a.scientificName.localeCompare(b.scientificName);
+      } else if (sortOrder === 'desc') {
+        // Highest observations first
+        return b.observationCount - a.observationCount;
+      } else {
+        // Lowest observations first
+        return a.observationCount - b.observationCount;
+      }
+    });
 
   // Calculate unique genera count from filtered species
   const uniqueGenera = new Set(
@@ -346,7 +360,25 @@ export default function FieldGuideDetail() {
                     <TableHead>Scientific Name</TableHead>
                     <TableHead>Family</TableHead>
                     <TableHead className="text-center">Image</TableHead>
-                    <TableHead className="text-right">Observations</TableHead>
+                    <TableHead className="text-right">
+                      <button
+                        onClick={() => {
+                          if (sortOrder === null) {
+                            setSortOrder('desc');
+                          } else if (sortOrder === 'desc') {
+                            setSortOrder('asc');
+                          } else {
+                            setSortOrder(null);
+                          }
+                        }}
+                        className="flex items-center gap-1 ml-auto hover:text-primary transition-colors"
+                      >
+                        Observations
+                        {sortOrder === 'desc' && <ChevronDown className="w-4 h-4" />}
+                        {sortOrder === 'asc' && <ChevronUp className="w-4 h-4" />}
+                        {sortOrder === null && <div className="w-4 h-4" />}
+                      </button>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
