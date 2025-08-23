@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar, Check } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 interface FieldGuide {
   id: number;
@@ -36,6 +38,7 @@ interface FieldGuideSpecies {
 export default function FieldGuideDetail() {
   const [, params] = useRoute('/field-guides/:id');
   const [, setLocation] = useLocation();
+  const [searchFilter, setSearchFilter] = useState('');
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
@@ -54,7 +57,7 @@ export default function FieldGuideDetail() {
     enabled: !!fieldGuideId
   });
 
-  const { data: species = [], isLoading: isLoadingSpecies, error: speciesError } = useQuery({
+  const { data: allSpecies = [], isLoading: isLoadingSpecies, error: speciesError } = useQuery({
     queryKey: ['/api/field-guides', fieldGuideId, 'species'],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
@@ -64,6 +67,12 @@ export default function FieldGuideDetail() {
     },
     enabled: !!fieldGuideId
   });
+
+  // Filter species based on search term
+  const species = allSpecies.filter(s => 
+    searchFilter === '' || 
+    s.scientificName.toLowerCase().includes(searchFilter.toLowerCase())
+  );
 
   const downloadCSV = () => {
     if (!fieldGuide || !species.length) return;
@@ -232,16 +241,32 @@ export default function FieldGuideDetail() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Dna className="w-5 h-5" />
-            Species List ({species.length})
+            Species List ({species.length}{searchFilter ? ` of ${allSpecies.length}` : ''})
           </CardTitle>
+          
+          {/* Search Filter */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Input
+              placeholder="Filter by scientific name..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {species.length === 0 ? (
             <div className="text-center py-8">
               <Dna className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No species found</h3>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                {searchFilter ? 'No matching species' : 'No species found'}
+              </h3>
               <p className="text-slate-600">
-                No species were found in the selected bounding box area.
+                {searchFilter 
+                  ? `No species found matching "${searchFilter}". Try a different search term.`
+                  : 'No species were found in the selected bounding box area.'
+                }
               </p>
             </div>
           ) : (
