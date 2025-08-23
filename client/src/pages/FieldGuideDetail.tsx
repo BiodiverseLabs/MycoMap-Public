@@ -50,7 +50,7 @@ export default function FieldGuideDetail() {
   const [showContributorsModal, setShowContributorsModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
   const [isReadingFromUrl, setIsReadingFromUrl] = useState(false);
-  const [expansionRadius, setExpansionRadius] = useState(25);
+  const [expansionRadius, setExpansionRadius] = useState(0);
   const [dateRange, setDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
@@ -103,7 +103,7 @@ export default function FieldGuideDetail() {
     if (searchFilter) {
       urlParams.set('search', searchFilter);
     }
-    if (expansionRadius !== 25) {
+    if (expansionRadius !== 0) {
       urlParams.set('expansion', expansionRadius.toString());
     }
     if (dateRange.start) {
