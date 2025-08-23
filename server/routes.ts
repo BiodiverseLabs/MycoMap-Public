@@ -4213,24 +4213,114 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/contributors", async (req, res) => {
     try {
       const { id } = req.params;
+      const { includeInat } = req.query;
       const fieldGuideId = parseInt(id);
       
-      // Get guide to determine base contributor count
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+      
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+      
+      // Get database contributors
       const dbContributors = await db.execute(sql`
         SELECT DISTINCT o.collector as name
         FROM observations o
-        JOIN field_guides fg ON fg.id = ${fieldGuideId}
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= CAST(fg.bounding_box_north AS DECIMAL)
-          AND CAST(o.latitude AS DECIMAL) >= CAST(fg.bounding_box_south AS DECIMAL)
-          AND CAST(o.longitude AS DECIMAL) <= CAST(fg.bounding_box_east AS DECIMAL)
-          AND CAST(o.longitude AS DECIMAL) >= CAST(fg.bounding_box_west AS DECIMAL)
+          AND CAST(o.latitude AS DECIMAL) <= ${parseFloat(boundingBoxNorth)}
+          AND CAST(o.latitude AS DECIMAL) >= ${parseFloat(boundingBoxSouth)}
+          AND CAST(o.longitude AS DECIMAL) <= ${parseFloat(boundingBoxEast)}
+          AND CAST(o.longitude AS DECIMAL) >= ${parseFloat(boundingBoxWest)}
           AND o.collector IS NOT NULL
       `);
       
       let totalContributors = dbContributors.rows.length;
       console.log(`[Contributors] DB: ${totalContributors}`);
+      
+      // Add iNaturalist contributors if requested
+      if (includeInat === 'true') {
+        try {
+          console.log(`[Contributors] Fetching iNaturalist contributors...`);
+          
+          const inatParams = new URLSearchParams({
+            swlat: boundingBoxSouth,
+            swlng: boundingBoxWest, 
+            nelat: boundingBoxNorth,
+            nelng: boundingBoxEast,
+            iconic_taxa: 'Fungi',
+            quality_grade: 'research',
+            per_page: '200',
+            page: '1'
+          });
+
+          let allInatObservations = [];
+          let page = 1;
+          let totalResults = 0;
+
+          do {
+            inatParams.set('page', page.toString());
+            const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations?${inatParams}`);
+            
+            if (inatResponse.ok) {
+              const inatData = await inatResponse.json();
+              console.log(`[Contributors] iNat Page ${page} - Response status: ${inatResponse.status}`);
+              
+              if (page === 1) {
+                totalResults = inatData.total_results;
+                console.log(`[Contributors] iNat Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
+              } else {
+                console.log(`[Contributors] iNat Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
+              }
+
+              if (inatData.results && inatData.results.length > 0) {
+                allInatObservations.push(...inatData.results);
+                page++;
+                
+                // Safety limit to prevent runaway requests
+                if (allInatObservations.length >= 10000 || page > 50) {
+                  console.log(`[Contributors] iNat: Reached safety limit of ${allInatObservations.length} observations, stopping pagination`);
+                  break;
+                }
+              } else {
+                break; // No more results
+              }
+            } else {
+              console.log(`[Contributors] iNat Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
+              break;
+            }
+          } while (allInatObservations.length < totalResults && page <= 50);
+
+          console.log(`[Contributors] iNat: Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
+
+          // Extract unique iNaturalist contributors
+          const inatContributors = new Set();
+          allInatObservations.forEach(obs => {
+            if (obs.user && obs.user.name) {
+              inatContributors.add(obs.user.name);
+            }
+          });
+
+          console.log(`[Contributors] iNat: ${inatContributors.size} unique contributors`);
+
+          // Combine database and iNaturalist contributors (removing duplicates)
+          const allContributors = new Set();
+          dbContributors.rows.forEach(row => {
+            if (row.name) allContributors.add(row.name);
+          });
+          inatContributors.forEach(name => allContributors.add(name));
+
+          totalContributors = allContributors.size;
+          console.log(`[Contributors] Combined: ${totalContributors} total unique contributors`);
+
+        } catch (inatError) {
+          console.error("[Contributors] iNaturalist API error:", inatError);
+          // Fall back to database contributors only
+        }
+      }
       
       return res.json({ contributorsCount: totalContributors });
     } catch (error) {
