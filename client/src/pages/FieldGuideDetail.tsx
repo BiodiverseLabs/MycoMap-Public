@@ -584,6 +584,9 @@ export default function FieldGuideDetail() {
                               urlParams.set('sortColumn', sortConfig.column);
                               urlParams.set('sortDirection', sortConfig.direction);
                             }
+                            if (monthRange.start) urlParams.set('monthStart', monthRange.start);
+                            if (monthRange.end) urlParams.set('monthEnd', monthRange.end);
+                            if (expansionRadius > 0) urlParams.set('expansion', expansionRadius.toString());
                             const queryString = urlParams.toString() ? `?${urlParams.toString()}` : '';
                             setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}${queryString}`);
                           }}
