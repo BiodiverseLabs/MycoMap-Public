@@ -51,7 +51,7 @@ export default function FieldGuideDetail() {
   const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
   const [isReadingFromUrl, setIsReadingFromUrl] = useState(false);
   const [expansionRadius, setExpansionRadius] = useState(0);
-  const [dateRange, setDateRange] = useState<{start: string, end: string}>({start: '', end: ''});
+  const [monthRange, setMonthRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   // Initialize state from URL parameters whenever the component mounts or navigation occurs
@@ -63,11 +63,11 @@ export default function FieldGuideDetail() {
       const sortColumn = urlParams.get('sortColumn') as 'scientificName' | 'observations' | null;
       const sortDirection = urlParams.get('sortDirection') as 'asc' | 'desc';
       const expansion = urlParams.get('expansion');
-      const dateStart = urlParams.get('dateStart') || '';
-      const dateEnd = urlParams.get('dateEnd') || '';
+      const monthStart = urlParams.get('monthStart') || '';
+      const monthEnd = urlParams.get('monthEnd') || '';
       
       setSearchFilter(search);
-      setDateRange({start: dateStart, end: dateEnd});
+      setMonthRange({start: monthStart, end: monthEnd});
       if (expansion) {
         const expansionNum = parseInt(expansion);
         if (!isNaN(expansionNum) && expansionNum >= 0) {
@@ -106,11 +106,11 @@ export default function FieldGuideDetail() {
     if (expansionRadius !== 0) {
       urlParams.set('expansion', expansionRadius.toString());
     }
-    if (dateRange.start) {
-      urlParams.set('dateStart', dateRange.start);
+    if (monthRange.start) {
+      urlParams.set('monthStart', monthRange.start);
     }
-    if (dateRange.end) {
-      urlParams.set('dateEnd', dateRange.end);
+    if (monthRange.end) {
+      urlParams.set('monthEnd', monthRange.end);
     }
     if (sortConfig.column) {
       urlParams.set('sortColumn', sortConfig.column);
@@ -119,7 +119,7 @@ export default function FieldGuideDetail() {
     
     const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newUrl);
-  }, [searchFilter, sortConfig, expansionRadius, dateRange, isReadingFromUrl]);
+  }, [searchFilter, sortConfig, expansionRadius, monthRange, isReadingFromUrl]);
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
     queryKey: ['/api/field-guides', fieldGuideId],
@@ -138,14 +138,14 @@ export default function FieldGuideDetail() {
   });
 
   const { data: allSpecies = [], isLoading: isLoadingSpecies, error: speciesError } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'species', expansionRadius, dateRange.start, dateRange.end],
+    queryKey: ['/api/field-guides', fieldGuideId, 'species', expansionRadius, monthRange.start, monthRange.end],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
       const params = new URLSearchParams({
         expansion: expansionRadius.toString()
       });
-      if (dateRange.start) params.set('dateStart', dateRange.start);
-      if (dateRange.end) params.set('dateEnd', dateRange.end);
+      if (monthRange.start) params.set('monthStart', monthRange.start);
+      if (monthRange.end) params.set('monthEnd', monthRange.end);
       
       const url = `/api/field-guides/${fieldGuideId}/species?${params.toString()}`;
       const response = await fetch(url);
@@ -448,44 +448,56 @@ export default function FieldGuideDetail() {
               <span className="text-sm text-slate-600">miles</span>
             </div>
             
-            {/* Date Range Filter */}
+            {/* Month Range Filter */}
             <div className="flex items-center gap-2">
               <label className="text-sm text-slate-600 whitespace-nowrap">
                 Season:
               </label>
-              <Input
-                type="text"
-                placeholder="MM-DD"
-                value={dateRange.start}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9-]/g, '');
-                  if (value === '' || /^\d{1,2}(-\d{0,2})?$/.test(value)) {
-                    setDateRange(prev => ({...prev, start: value}));
-                  }
-                }}
-                className="w-20 text-center text-xs"
-                maxLength={5}
-              />
+              <select
+                value={monthRange.start}
+                onChange={(e) => setMonthRange(prev => ({...prev, start: e.target.value}))}
+                className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
+              >
+                <option value="">From</option>
+                <option value="1">Jan</option>
+                <option value="2">Feb</option>
+                <option value="3">Mar</option>
+                <option value="4">Apr</option>
+                <option value="5">May</option>
+                <option value="6">Jun</option>
+                <option value="7">Jul</option>
+                <option value="8">Aug</option>
+                <option value="9">Sep</option>
+                <option value="10">Oct</option>
+                <option value="11">Nov</option>
+                <option value="12">Dec</option>
+              </select>
               <span className="text-xs text-slate-400">to</span>
-              <Input
-                type="text"
-                placeholder="MM-DD"
-                value={dateRange.end}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9-]/g, '');
-                  if (value === '' || /^\d{1,2}(-\d{0,2})?$/.test(value)) {
-                    setDateRange(prev => ({...prev, end: value}));
-                  }
-                }}
-                className="w-20 text-center text-xs"
-                maxLength={5}
-              />
-              {(dateRange.start || dateRange.end) && (
+              <select
+                value={monthRange.end}
+                onChange={(e) => setMonthRange(prev => ({...prev, end: e.target.value}))}
+                className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
+              >
+                <option value="">To</option>
+                <option value="1">Jan</option>
+                <option value="2">Feb</option>
+                <option value="3">Mar</option>
+                <option value="4">Apr</option>
+                <option value="5">May</option>
+                <option value="6">Jun</option>
+                <option value="7">Jul</option>
+                <option value="8">Aug</option>
+                <option value="9">Sep</option>
+                <option value="10">Oct</option>
+                <option value="11">Nov</option>
+                <option value="12">Dec</option>
+              </select>
+              {(monthRange.start || monthRange.end) && (
                 <button
-                  onClick={() => setDateRange({start: '', end: ''})}
+                  onClick={() => setMonthRange({start: '', end: ''})}
                   className="text-slate-400 hover:text-slate-600 transition-colors"
                   type="button"
-                  aria-label="Clear date filter"
+                  aria-label="Clear month filter"
                 >
                   <X className="w-3 h-3" />
                 </button>

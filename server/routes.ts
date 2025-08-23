@@ -3998,7 +3998,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/species", async (req, res) => {
     try {
       const { id } = req.params;
-      const { expansion, dateStart, dateEnd } = req.query;
+      const { expansion, monthStart, monthEnd } = req.query;
       const fieldGuideId = parseInt(id);
       const expansionMiles = expansion ? parseFloat(expansion as string) : 0;
       
@@ -4025,14 +4025,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
         const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
         
-        // Build date filter conditions
-        let dateCondition = '';
-        if (dateStart && dateEnd) {
-          dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') BETWEEN '${dateStart}' AND '${dateEnd}'`;
-        } else if (dateStart) {
-          dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') >= '${dateStart}'`;
-        } else if (dateEnd) {
-          dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') <= '${dateEnd}'`;
+        // Build month filter conditions
+        let monthCondition = '';
+        if (monthStart && monthEnd) {
+          const startMonth = parseInt(monthStart as string);
+          const endMonth = parseInt(monthEnd as string);
+          if (startMonth <= endMonth) {
+            monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+          } else {
+            // Handle wrap-around case (e.g., Nov to Feb)
+            monthCondition = `AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})`;
+          }
+        } else if (monthStart) {
+          monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) >= ${parseInt(monthStart as string)}`;
+        } else if (monthEnd) {
+          monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) <= ${parseInt(monthEnd as string)}`;
         }
 
         // Generate species from expanded area
@@ -4052,7 +4059,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             AND o.scientific_name IS NOT NULL
             AND o.scientific_name != ''
             AND o.observed_on IS NOT NULL
-            ${sql.raw(dateCondition)}
+            ${sql.raw(monthCondition)}
           GROUP BY o.scientific_name, o.common_name, o.family
           ORDER BY o.scientific_name
         `);
@@ -4074,7 +4081,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         return res.json(expandedSpecies);
       } else {
         // Normal query without expansion
-        if (dateStart || dateEnd) {
+        if (monthStart || monthEnd) {
           // Apply date filter to existing species
           const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
           
@@ -4084,14 +4091,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
           
-          // Build date filter conditions
-          let dateCondition = '';
-          if (dateStart && dateEnd) {
-            dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') BETWEEN '${dateStart}' AND '${dateEnd}'`;
-          } else if (dateStart) {
-            dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') >= '${dateStart}'`;
-          } else if (dateEnd) {
-            dateCondition = `AND EXTRACT(MONTH FROM o.observed_on) || '-' || LPAD(EXTRACT(DAY FROM o.observed_on)::text, 2, '0') <= '${dateEnd}'`;
+          // Build month filter conditions
+          let monthCondition = '';
+          if (monthStart && monthEnd) {
+            const startMonth = parseInt(monthStart as string);
+            const endMonth = parseInt(monthEnd as string);
+            if (startMonth <= endMonth) {
+              monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+            } else {
+              // Handle wrap-around case (e.g., Nov to Feb)
+              monthCondition = `AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})`;
+            }
+          } else if (monthStart) {
+            monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) >= ${parseInt(monthStart as string)}`;
+          } else if (monthEnd) {
+            monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) <= ${parseInt(monthEnd as string)}`;
           }
 
           const speciesInBoxResult = await db.execute(sql`
@@ -4110,7 +4124,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               AND o.scientific_name IS NOT NULL
               AND o.scientific_name != ''
               AND o.observed_on IS NOT NULL
-              ${sql.raw(dateCondition)}
+              ${sql.raw(monthCondition)}
             GROUP BY o.scientific_name, o.common_name, o.family
             ORDER BY o.scientific_name
           `);
