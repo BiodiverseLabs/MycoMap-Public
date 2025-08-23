@@ -4141,9 +4141,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 allInatObservations.push(...inatData.results);
                 page++;
                 
-                // Safety limit - reduce for faster loading
-                if (allInatObservations.length >= 1000 || page > 5) {
-                  console.log(`[iNat API] Reached limit of ${allInatObservations.length} observations, stopping pagination`);
+                // Safety limit to prevent runaway requests
+                if (allInatObservations.length >= 10000 || page > 50) {
+                  console.log(`[iNat API] Reached safety limit of ${allInatObservations.length} observations, stopping pagination`);
                   break;
                 }
               } else {
@@ -4153,7 +4153,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               console.log(`[iNat API] Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
               break;
             }
-          } while (allInatObservations.length < totalResults && page <= 5);
+          } while (allInatObservations.length < totalResults && page <= 50);
           
           console.log(`[iNat API] Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
           
