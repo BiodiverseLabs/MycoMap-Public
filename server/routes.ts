@@ -4628,6 +4628,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
       
       // Get database observations for this species with images, filtered by bounding box
+      // For iNaturalist observations, prefer cached data which has complete photo arrays
       const speciesObservations = await db.execute(sql`
         SELECT 
           o.observation_id,
@@ -4654,12 +4655,51 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.latitude AS DECIMAL) >= ${expandedSouth}
           AND CAST(o.longitude AS DECIMAL) <= ${expandedEast}
           AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
+          AND o.source != 'iNaturalist'  -- Exclude iNaturalist, we'll get those from cache
         ORDER BY o.observed_on DESC
       `);
 
-      let allObservations = [...speciesObservations.rows];
+      // Always include iNaturalist observations from cache (they have complete photo arrays)
+      const inatCachedObservations = await db.execute(sql`
+        SELECT 
+          'iNat-' || inat_id || '-' || photo_index as observation_id,
+          inat_id,
+          scientific_name,
+          common_name,
+          user_name as observer,
+          observed_on,
+          place_guess as state,
+          place_guess,
+          photo_url as image_link,
+          'iNaturalist' as source,
+          photo_index
+        FROM (
+          SELECT 
+            inat_id,
+            scientific_name,
+            common_name,
+            user_name,
+            observed_on,
+            place_guess,
+            unnest(photos) as photo_url,
+            generate_subscripts(photos, 1) as photo_index
+          FROM inat_observations_cache
+          WHERE latitude IS NOT NULL 
+            AND longitude IS NOT NULL
+            AND CAST(latitude AS DECIMAL) <= ${expandedNorth}
+            AND CAST(latitude AS DECIMAL) >= ${expandedSouth}
+            AND CAST(longitude AS DECIMAL) <= ${expandedEast}
+            AND CAST(longitude AS DECIMAL) >= ${expandedWest}
+            AND scientific_name = ${scientificName}
+            AND photos IS NOT NULL
+            AND array_length(photos, 1) > 0
+        ) t
+        ORDER BY observed_on DESC, photo_index
+      `);
 
-      // Only include cached iNaturalist observations if includeInat is true
+      let allObservations = [...speciesObservations.rows, ...inatCachedObservations.rows];
+
+      // Include additional iNaturalist observations if includeInat is true with expanded area
       if (includeInatBool) {
         // Use expanded bounding box (25 miles additional) for comprehensive iNat coverage
         const inatLatDelta = (expansionMiles + 25) * 0.014483;
@@ -4670,8 +4710,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const inatExpandedEast = parseFloat(boundingBoxEast) + inatLngDelta;
         const inatExpandedWest = parseFloat(boundingBoxWest) - inatLngDelta;
 
-        // Get all photos from cached iNaturalist observations, creating separate records for each image
-        const cachedObservations = await db.execute(sql`
+        // Get additional iNaturalist observations from the expanded area
+        const expandedInatObservations = await db.execute(sql`
           SELECT 
             'iNat-' || inat_id || '-' || photo_index as observation_id,
             inat_id,
@@ -4704,11 +4744,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               AND scientific_name = ${scientificName}
               AND photos IS NOT NULL
               AND array_length(photos, 1) > 0
+              -- Exclude observations already included in the base area
+              AND NOT (
+                CAST(latitude AS DECIMAL) <= ${expandedNorth}
+                AND CAST(latitude AS DECIMAL) >= ${expandedSouth}
+                AND CAST(longitude AS DECIMAL) <= ${expandedEast}
+                AND CAST(longitude AS DECIMAL) >= ${expandedWest}
+              )
           ) t
           ORDER BY observed_on DESC, photo_index
         `);
         
-        allObservations.push(...cachedObservations.rows);
+        allObservations.push(...expandedInatObservations.rows);
       }
       
       // Format the response to match ObservationImage interface
