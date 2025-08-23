@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,14 @@ export default function FieldGuideDetail() {
     searchFilter === '' || 
     s.scientificName.toLowerCase().includes(searchFilter.toLowerCase())
   );
+
+  // Calculate unique genera count from filtered species
+  const uniqueGenera = new Set(
+    species
+      .map(s => s.scientificName.split(' ')[0])
+      .filter(genus => genus && genus.length > 0)
+  );
+  const generaCount = uniqueGenera.size;
 
   const downloadCSV = () => {
     if (!fieldGuide || !species.length) return;
@@ -206,11 +214,18 @@ export default function FieldGuideDetail() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-primary" />
+              <GitBranch className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-sm font-medium">Bounding Box</p>
-                <p className="text-xs text-slate-600">
-                  {Math.abs(Number(fieldGuide.boundingBoxNorth) - Number(fieldGuide.boundingBoxSouth)).toFixed(3)}° × {Math.abs(Number(fieldGuide.boundingBoxEast) - Number(fieldGuide.boundingBoxWest)).toFixed(3)}°
+                <p className="text-2xl font-bold">
+                  {generaCount}
+                  {searchFilter && generaCount !== new Set(allSpecies.map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size && (
+                    <span className="text-lg text-slate-500 ml-1">
+                      / {new Set(allSpecies.map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size}
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {searchFilter && generaCount !== new Set(allSpecies.map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size ? 'Filtered Genera' : 'Genera'}
                 </p>
               </div>
             </div>
