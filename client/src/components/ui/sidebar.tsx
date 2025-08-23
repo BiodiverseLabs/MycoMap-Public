@@ -17,7 +17,8 @@ import {
   Database,
   Upload,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  BookOpen
 } from "lucide-react";
 import { Button } from "./button";
 import { useState, useEffect } from "react";
@@ -31,6 +32,7 @@ export function Sidebar() {
     { href: "/", label: "Dashboard", icon: BarChart3 },
     { href: "/activity", label: "Activity Feed", icon: Activity },
     { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
+    { href: "/field-guides", label: "Field Guides", icon: BookOpen },
     { href: "/species", label: "Species Analysis", icon: Dna },
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },

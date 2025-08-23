@@ -33,6 +33,9 @@ import BioRecordManagement from "@/pages/admin/BioRecordManagement";
 import AdminUpload from "@/pages/admin/AdminUpload";
 import AdminRedList from "@/pages/admin/AdminRedList";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import FieldGuides from "@/pages/FieldGuides";
+import FieldGuideCreate from "@/pages/FieldGuideCreate";
+import FieldGuideDetail from "@/pages/FieldGuideDetail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -44,6 +47,9 @@ function Router() {
       <Route path="/activity-feed" component={ActivityFeed} />
       <Route path="/geospatial" component={Geospatial} />
       <Route path="/geospatial/top-prospects" component={TopProspects} />
+      <Route path="/field-guides" component={FieldGuides} />
+      <Route path="/field-guides/create" component={FieldGuideCreate} />
+      <Route path="/field-guides/:id" component={FieldGuideDetail} />
       <Route path="/temporal" component={Temporal} />
       <Route path="/taxonomic" component={Taxonomic} />
       <Route path="/taxonomic/phylum" component={PhylumDetail} />

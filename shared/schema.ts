@@ -689,3 +689,67 @@ export const insertBiorecordSchema = createInsertSchema(biorecords).omit({
 
 export type InsertBiorecord = z.infer<typeof insertBiorecordSchema>;
 export type Biorecord = typeof biorecords.$inferSelect;
+
+// Field Guides table - User-created regional species guides
+export const fieldGuides = pgTable("field_guides", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  // Bounding box coordinates
+  boundingBoxNorth: decimal("bounding_box_north", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxSouth: decimal("bounding_box_south", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxEast: decimal("bounding_box_east", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxWest: decimal("bounding_box_west", { precision: 10, scale: 7 }).notNull(),
+  speciesCount: integer("species_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  nameIdx: index("field_guide_name_idx").on(table.name),
+  createdAtIdx: index("field_guide_created_at_idx").on(table.createdAt),
+}));
+
+// Junction table for field guide species
+export const fieldGuideSpecies = pgTable("field_guide_species", {
+  id: serial("id").primaryKey(),
+  fieldGuideId: integer("field_guide_id").notNull().references(() => fieldGuides.id, { onDelete: 'cascade' }),
+  scientificName: text("scientific_name").notNull(),
+  commonName: text("common_name"),
+  observationCount: integer("observation_count").default(0),
+  addedAt: timestamp("added_at").defaultNow(),
+}, (table) => ({
+  fieldGuideIdx: index("field_guide_species_guide_idx").on(table.fieldGuideId),
+  scientificNameIdx: index("field_guide_species_name_idx").on(table.scientificName),
+  fieldGuideSpeciesUnique: unique("field_guide_species_unique").on(table.fieldGuideId, table.scientificName),
+}));
+
+// Relations for field guides
+export const fieldGuidesRelations = relations(fieldGuides, ({ many }) => ({
+  species: many(fieldGuideSpecies),
+}));
+
+export const fieldGuideSpeciesRelations = relations(fieldGuideSpecies, ({ one }) => ({
+  fieldGuide: one(fieldGuides, {
+    fields: [fieldGuideSpecies.fieldGuideId],
+    references: [fieldGuides.id],
+  }),
+}));
+
+// Insert schemas for field guides
+export const insertFieldGuideSchema = createInsertSchema(fieldGuides).omit({
+  id: true,
+  speciesCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFieldGuideSpeciesSchema = createInsertSchema(fieldGuideSpecies).omit({
+  id: true,
+  addedAt: true,
+});
+
+// Types for field guides
+export type InsertFieldGuide = z.infer<typeof insertFieldGuideSchema>;
+export type FieldGuide = typeof fieldGuides.$inferSelect;
+
+export type InsertFieldGuideSpecies = z.infer<typeof insertFieldGuideSpeciesSchema>;
+export type FieldGuideSpecies = typeof fieldGuideSpecies.$inferSelect;

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -3962,6 +3962,164 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error mock minting NFT:", error);
       res.status(500).json({ error: "Failed to mock mint NFT" });
+    }
+  });
+
+  // Field Guide API routes
+  // Get all field guides
+  app.get("/api/field-guides", async (req, res) => {
+    try {
+      const guides = await db.select().from(fieldGuides).orderBy(sql`created_at DESC`);
+      res.json(guides);
+    } catch (error) {
+      console.error("Error fetching field guides:", error);
+      res.status(500).json({ error: "Failed to fetch field guides" });
+    }
+  });
+
+  // Get field guide by ID
+  app.get("/api/field-guides/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, parseInt(id))).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+
+      res.json(guide[0]);
+    } catch (error) {
+      console.error("Error fetching field guide:", error);
+      res.status(500).json({ error: "Failed to fetch field guide" });
+    }
+  });
+
+  // Get species for a field guide
+  app.get("/api/field-guides/:id/species", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const species = await db.select().from(fieldGuideSpecies)
+        .where(eq(fieldGuideSpecies.fieldGuideId, parseInt(id)))
+        .orderBy(fieldGuideSpecies.scientificName);
+      
+      res.json(species);
+    } catch (error) {
+      console.error("Error fetching field guide species:", error);
+      res.status(500).json({ error: "Failed to fetch field guide species" });
+    }
+  });
+
+  // Create a new field guide
+  app.post("/api/field-guides", async (req, res) => {
+    try {
+      const validatedData = insertFieldGuideSchema.parse(req.body);
+      
+      const [newGuide] = await db.insert(fieldGuides).values(validatedData).returning();
+      
+      res.status(201).json(newGuide);
+    } catch (error) {
+      console.error("Error creating field guide:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid field guide data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create field guide" });
+    }
+  });
+
+  // Generate species list for a field guide based on bounding box
+  app.post("/api/field-guides/:id/generate-species", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const fieldGuideId = parseInt(id);
+      
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+
+      // Find all unique species within the bounding box
+      const speciesInBox = await db.execute(sql`
+        SELECT DISTINCT 
+          o.scientific_name,
+          o.common_name,
+          COUNT(*) as observation_count
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
+          AND o.scientific_name IS NOT NULL
+          AND o.scientific_name != ''
+        GROUP BY o.scientific_name, o.common_name
+        ORDER BY o.scientific_name
+      `);
+
+      const species = speciesInBox.rows as Array<{
+        scientific_name: string;
+        common_name: string | null;
+        observation_count: number;
+      }>;
+
+      // Clear existing species for this field guide
+      await db.delete(fieldGuideSpecies).where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId));
+
+      // Insert new species
+      if (species.length > 0) {
+        const speciesToInsert = species.map(s => ({
+          fieldGuideId,
+          scientificName: s.scientific_name,
+          commonName: s.common_name,
+          observationCount: parseInt(s.observation_count.toString())
+        }));
+
+        await db.insert(fieldGuideSpecies).values(speciesToInsert);
+      }
+
+      // Update species count in the field guide
+      await db.update(fieldGuides)
+        .set({ 
+          speciesCount: species.length,
+          updatedAt: new Date()
+        })
+        .where(eq(fieldGuides.id, fieldGuideId));
+
+      res.json({ 
+        message: `Generated field guide with ${species.length} species`,
+        speciesCount: species.length,
+        species: species
+      });
+    } catch (error) {
+      console.error("Error generating field guide species:", error);
+      res.status(500).json({ error: "Failed to generate species list" });
+    }
+  });
+
+  // Delete field guide
+  app.delete("/api/field-guides/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const fieldGuideId = parseInt(id);
+      
+      // Delete species first (cascade should handle this, but being explicit)
+      await db.delete(fieldGuideSpecies).where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId));
+      
+      // Delete the field guide
+      const deleted = await db.delete(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).returning();
+      
+      if (deleted.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+
+      res.json({ message: "Field guide deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting field guide:", error);
+      res.status(500).json({ error: "Failed to delete field guide" });
     }
   });
 
