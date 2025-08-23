@@ -156,12 +156,16 @@ export default function FieldGuideDetail() {
   });
 
   const { data: contributorsData } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'contributors'],
+    queryKey: ['/api/field-guides', fieldGuideId, 'contributors', expansionRadius],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
-      const response = await fetch(`/api/field-guides/${fieldGuideId}/contributors`);
+      const params = new URLSearchParams();
+      if (expansionRadius > 0) params.set('expansion', expansionRadius.toString());
+      
+      const url = `/api/field-guides/${fieldGuideId}/contributors?${params.toString()}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch contributors count');
-      return response.json() as Promise<{ contributorsCount: number }>;
+      return response.json() as Promise<{ contributorsCount: number; dbContributors?: number; inatContributors?: number }>;
     },
     enabled: !!fieldGuideId
   });

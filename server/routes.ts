@@ -4075,9 +4075,111 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           selectedImageUrl: null,
           selectedImageSource: null,
           selectedObservationId: null,
-          selectedImageId: null
+          selectedImageId: null,
+          source: 'Database'
         }));
+
+        // Add iNaturalist API supplementation
+        try {
+          console.log(`[iNat API] Fetching fungal observations for expanded area (${expansionMiles} miles)`);
+          
+          // Build iNaturalist API URL with expanded bounding box
+          const inatParams = new URLSearchParams({
+            swlat: expandedSouth.toString(),
+            swlng: expandedWest.toString(), 
+            nelat: expandedNorth.toString(),
+            nelng: expandedEast.toString(),
+            iconic_taxa: 'Fungi',
+            quality_grade: 'research',
+            per_page: '200',
+            order_by: 'species_guess',
+            order: 'asc'
+          });
+          
+          // Add month filter if specified
+          if (monthStart && monthEnd) {
+            inatParams.set('month', `${monthStart},${monthEnd}`);
+          } else if (monthStart) {
+            inatParams.set('month', monthStart);
+          } else if (monthEnd) {
+            inatParams.set('month', monthEnd);
+          }
+
+          const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
+          console.log(`[iNat API] Calling: ${inatUrl}`);
+          
+          const inatResponse = await fetch(inatUrl, {
+            headers: {
+              'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
+            }
+          });
+
+          if (inatResponse.ok) {
+            const inatData = await inatResponse.json();
+            console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
+            
+            if (inatData.results && inatData.results.length > 0) {
+              // Group observations by species
+              const speciesMap = new Map();
+              
+              inatData.results.forEach((obs: any) => {
+                const scientificName = obs.taxon?.name;
+                const commonName = obs.taxon?.preferred_common_name;
+                
+                if (scientificName) {
+                  if (speciesMap.has(scientificName)) {
+                    speciesMap.get(scientificName).observationCount++;
+                  } else {
+                    speciesMap.set(scientificName, {
+                      id: null,
+                      fieldGuideId: fieldGuideId,
+                      scientificName: scientificName,
+                      commonName: commonName || null,
+                      family: obs.taxon?.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
+                      observationCount: 1,
+                      selectedImageUrl: obs.photos?.[0]?.url || null,
+                      selectedImageSource: 'iNaturalist (Live)',
+                      selectedObservationId: obs.id?.toString(),
+                      selectedImageId: obs.photos?.[0]?.id?.toString() || null,
+                      source: 'iNaturalist (Live)'
+                    });
+                  }
+                }
+              });
+
+              // Convert to array and merge with database species
+              const inatSpecies = Array.from(speciesMap.values());
+              console.log(`[iNat API] Processed ${inatSpecies.length} unique species`);
+              
+              // Merge and deduplicate by scientific name
+              const allSpeciesMap = new Map();
+              
+              // Add database species first
+              expandedSpecies.forEach(species => {
+                allSpeciesMap.set(species.scientificName, species);
+              });
+              
+              // Add iNaturalist species (only if not already in database)
+              inatSpecies.forEach(species => {
+                if (!allSpeciesMap.has(species.scientificName)) {
+                  allSpeciesMap.set(species.scientificName, species);
+                }
+              });
+              
+              const mergedSpecies = Array.from(allSpeciesMap.values())
+                .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
+              
+              console.log(`[iNat API] Final merged list: ${mergedSpecies.length} species (${expandedSpecies.length} from DB, ${inatSpecies.length} from iNat)`);
+              return res.json(mergedSpecies);
+            }
+          } else {
+            console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
+          }
+        } catch (error) {
+          console.error(`[iNat API] Error supplementing species list:`, error);
+        }
         
+        // Return database species if iNaturalist API fails
         return res.json(expandedSpecies);
       } else {
         // Normal query without expansion
@@ -4266,7 +4368,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/contributors", async (req, res) => {
     try {
       const { id } = req.params;
+      const { expansion } = req.query;
       const fieldGuideId = parseInt(id);
+      const expansionMiles = parseInt(expansion as string) || 0;
       
       // Get the field guide to get bounding box coordinates
       const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
@@ -4277,24 +4381,84 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
 
+      // Calculate expanded bounding box if expansion is specified
+      const expansionDegrees = expansionMiles * 0.0144927536231884; // 1 mile ≈ 0.0144927536231884 degrees
+      const expandedNorth = boundingBoxNorth + expansionDegrees;
+      const expandedSouth = boundingBoxSouth - expansionDegrees;
+      const expandedEast = boundingBoxEast + expansionDegrees;
+      const expandedWest = boundingBoxWest - expansionDegrees;
+
+      // Use expanded coordinates if expansion > 0, otherwise use original
+      const queryNorth = expansionMiles > 0 ? expandedNorth : boundingBoxNorth;
+      const querySouth = expansionMiles > 0 ? expandedSouth : boundingBoxSouth;
+      const queryEast = expansionMiles > 0 ? expandedEast : boundingBoxEast;
+      const queryWest = expansionMiles > 0 ? expandedWest : boundingBoxWest;
+
       // Count unique contributors within the bounding box
       const contributorsResult = await db.execute(sql`
         SELECT COUNT(DISTINCT collector) as unique_contributors
         FROM observations o
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
+          AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
           AND o.collector IS NOT NULL
           AND o.collector != ''
       `);
 
-      const contributorsCount = (contributorsResult.rows[0] as any)?.unique_contributors || 0;
+      let dbContributorsCount = parseInt((contributorsResult.rows[0] as any)?.unique_contributors?.toString() || '0');
+
+      // Add iNaturalist contributors if expansion is enabled
+      let inatContributorsCount = 0;
+      if (expansionMiles > 0) {
+        try {
+          console.log(`[iNat API] Fetching contributors for expanded area (${expansionMiles} miles)`);
+          
+          const inatParams = new URLSearchParams({
+            swlat: expandedSouth.toString(),
+            swlng: expandedWest.toString(), 
+            nelat: expandedNorth.toString(),
+            nelng: expandedEast.toString(),
+            iconic_taxa: 'Fungi',
+            quality_grade: 'research',
+            per_page: '200'
+          });
+
+          const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
+          const inatResponse = await fetch(inatUrl, {
+            headers: {
+              'User-Agent': 'MycoMap Field Guide - Contributor Count Supplementation'
+            }
+          });
+
+          if (inatResponse.ok) {
+            const inatData = await inatResponse.json();
+            if (inatData.results && inatData.results.length > 0) {
+              // Get unique observers from iNaturalist
+              const inatObservers = new Set();
+              inatData.results.forEach((obs: any) => {
+                if (obs.user?.login) {
+                  inatObservers.add(obs.user.login);
+                }
+              });
+              inatContributorsCount = inatObservers.size;
+              console.log(`[iNat API] Found ${inatContributorsCount} unique iNaturalist contributors`);
+            }
+          }
+        } catch (error) {
+          console.error(`[iNat API] Error fetching contributors:`, error);
+        }
+      }
+
+      const totalContributors = dbContributorsCount + inatContributorsCount;
+      console.log(`[Contributors] DB: ${dbContributorsCount}, iNat: ${inatContributorsCount}, Total: ${totalContributors}`);
 
       res.json({ 
-        contributorsCount: parseInt(contributorsCount.toString())
+        contributorsCount: totalContributors,
+        dbContributors: dbContributorsCount,
+        inatContributors: inatContributorsCount
       });
     } catch (error) {
       console.error("Error fetching contributors count:", error);
