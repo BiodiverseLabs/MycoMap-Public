@@ -4043,7 +4043,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       // Find all unique species within the bounding box
       const speciesInBox = await db.execute(sql`
-        SELECT DISTINCT 
+        SELECT 
           o.scientific_name,
           o.common_name,
           o.family,
@@ -4071,17 +4071,27 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Clear existing species for this field guide
       await db.delete(fieldGuideSpecies).where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId));
 
-      // Insert new species
+      // Insert new species with upsert to handle any duplicates
       if (species.length > 0) {
-        const speciesToInsert = species.map(s => ({
-          fieldGuideId,
-          scientificName: s.scientific_name,
-          commonName: s.common_name,
-          family: s.family,
-          observationCount: parseInt(s.observation_count.toString())
-        }));
-
-        await db.insert(fieldGuideSpecies).values(speciesToInsert);
+        for (const s of species) {
+          await db.insert(fieldGuideSpecies)
+            .values({
+              fieldGuideId,
+              scientificName: s.scientific_name,
+              commonName: s.common_name,
+              family: s.family,
+              observationCount: parseInt(s.observation_count.toString())
+            })
+            .onConflictDoUpdate({
+              target: [fieldGuideSpecies.fieldGuideId, fieldGuideSpecies.scientificName],
+              set: {
+                commonName: s.common_name,
+                family: s.family,
+                observationCount: parseInt(s.observation_count.toString()),
+                updatedAt: new Date()
+              }
+            });
+        }
       }
 
       // Update species count in the field guide
