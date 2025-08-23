@@ -50,23 +50,39 @@ export default function FieldGuideDetail() {
   const [showContributorsModal, setShowContributorsModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
   const [isReadingFromUrl, setIsReadingFromUrl] = useState(false);
+  const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
-  // Initialize state from URL parameters whenever location changes
+  // Initialize state from URL parameters whenever the component mounts or navigation occurs
   useEffect(() => {
-    setIsReadingFromUrl(true);
-    const urlParams = new URLSearchParams(window.location.search);
-    const search = urlParams.get('search') || '';
-    const sortColumn = urlParams.get('sortColumn') as 'scientificName' | 'observations' | null;
-    const sortDirection = urlParams.get('sortDirection') as 'asc' | 'desc';
+    const readUrlParams = () => {
+      setIsReadingFromUrl(true);
+      const urlParams = new URLSearchParams(window.location.search);
+      const search = urlParams.get('search') || '';
+      const sortColumn = urlParams.get('sortColumn') as 'scientificName' | 'observations' | null;
+      const sortDirection = urlParams.get('sortDirection') as 'asc' | 'desc';
+      
+      console.log('Reading URL params:', { search, sortColumn, sortDirection }); // Debug log
+      
+      setSearchFilter(search);
+      if (sortColumn && sortDirection) {
+        setSortConfig({column: sortColumn, direction: sortDirection});
+      } else {
+        setSortConfig({column: null, direction: 'asc'});
+      }
+      setIsReadingFromUrl(false);
+    };
+
+    // Read params on mount
+    readUrlParams();
     
-    setSearchFilter(search);
-    if (sortColumn && sortDirection) {
-      setSortConfig({column: sortColumn, direction: sortDirection});
-    } else {
-      setSortConfig({column: null, direction: 'asc'});
-    }
-    setIsReadingFromUrl(false);
-  }, [location]);
+    // Listen for browser navigation (back/forward buttons)
+    const handlePopState = () => {
+      readUrlParams();
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [fieldGuideId]); // Depend on fieldGuideId instead of location
 
   // Update URL when state changes (but not when reading from URL)
   useEffect(() => {
@@ -85,7 +101,6 @@ export default function FieldGuideDetail() {
     const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newUrl);
   }, [searchFilter, sortConfig, isReadingFromUrl]);
-  const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
     queryKey: ['/api/field-guides', fieldGuideId],
