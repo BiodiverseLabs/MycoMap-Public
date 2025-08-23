@@ -4411,22 +4411,122 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Process images based on source
       const imagePromises = observations.map(async (obs) => {
         try {
-          // Handle Mushroom Observer records
+          // Handle Mushroom Observer records with API calls
           if (obs.source === 'MO Observations') {
-            if (!obs.image_link) return null;
-            
-            return [{
-              observationId: obs.observation_id,
-              imageUrl: obs.image_link,
-              imageId: obs.observation_id,
-              observer: obs.observer,
-              observedOn: obs.observed_on,
-              state: obs.state,
-              placeGuess: obs.place_guess,
-              source: obs.source,
-              scientificName: obs.scientific_name,
-              isSelected: obs.observation_id === selectedImageId
-            }];
+            try {
+              const apiKey = process.env.MUSHROOM_OBSERVER_API_KEY;
+              if (!apiKey) {
+                console.warn('[MO API] No API key available, using stored image');
+                if (obs.image_link) {
+                  return [{
+                    observationId: obs.observation_id,
+                    imageUrl: obs.image_link,
+                    imageId: obs.observation_id,
+                    observer: obs.observer,
+                    observedOn: obs.observed_on,
+                    state: obs.state,
+                    placeGuess: obs.place_guess,
+                    source: obs.source,
+                    scientificName: obs.scientific_name,
+                    isSelected: obs.observation_id === selectedImageId
+                  }];
+                }
+                return null;
+              }
+
+              const apiUrl = `https://mushroomobserver.org/api2/observations/${obs.observation_id}?detail=high`;
+              console.log(`[DEBUG] Fetching MO images from: ${apiUrl}`);
+              
+              const response = await fetch(apiUrl, {
+                headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                  'Accept': 'application/json',
+                  'User-Agent': 'MycoMap Field Guide'
+                }
+              });
+
+              if (!response.ok) {
+                console.log(`[DEBUG] MO API call failed for ${obs.observation_id}: ${response.status}`);
+                // Fallback to stored image
+                if (obs.image_link) {
+                  return [{
+                    observationId: obs.observation_id,
+                    imageUrl: obs.image_link,
+                    imageId: obs.observation_id,
+                    observer: obs.observer,
+                    observedOn: obs.observed_on,
+                    state: obs.state,
+                    placeGuess: obs.place_guess,
+                    source: obs.source,
+                    scientificName: obs.scientific_name,
+                    isSelected: obs.observation_id === selectedImageId
+                  }];
+                }
+                return null;
+              }
+
+              const data = await response.json();
+              const observation = data.results?.[0];
+
+              console.log(`[DEBUG] MO API response for ${obs.observation_id}:`, {
+                hasResults: !!data.results,
+                hasObservation: !!observation,
+                hasImages: !!observation?.images,
+                imageCount: observation?.images?.length || 0
+              });
+
+              if (observation?.images && observation.images.length > 0) {
+                // Use images from API response
+                return observation.images.map((image: any) => ({
+                  observationId: obs.observation_id,
+                  imageUrl: image.original_url || image.medium_url || image.small_url,
+                  imageId: image.id || obs.observation_id,
+                  observer: obs.observer,
+                  observedOn: obs.observed_on,
+                  state: obs.state,
+                  placeGuess: obs.place_guess,
+                  source: obs.source,
+                  scientificName: obs.scientific_name,
+                  isSelected: obs.observation_id === selectedImageId
+                }));
+              } else {
+                console.log(`[DEBUG] No images in MO API response for ${obs.observation_id}, using fallback`);
+                // Fallback to stored image
+                if (obs.image_link) {
+                  return [{
+                    observationId: obs.observation_id,
+                    imageUrl: obs.image_link,
+                    imageId: obs.observation_id,
+                    observer: obs.observer,
+                    observedOn: obs.observed_on,
+                    state: obs.state,
+                    placeGuess: obs.place_guess,
+                    source: obs.source,
+                    scientificName: obs.scientific_name,
+                    isSelected: obs.observation_id === selectedImageId
+                  }];
+                }
+                return null;
+              }
+            } catch (error) {
+              console.error(`[MO API] Error fetching images for ${obs.observation_id}:`, error);
+              // Fallback to stored image
+              if (obs.image_link) {
+                return [{
+                  observationId: obs.observation_id,
+                  imageUrl: obs.image_link,
+                  imageId: obs.observation_id,
+                  observer: obs.observer,
+                  observedOn: obs.observed_on,
+                  state: obs.state,
+                  placeGuess: obs.place_guess,
+                  source: obs.source,
+                  scientificName: obs.scientific_name,
+                  isSelected: obs.observation_id === selectedImageId
+                }];
+              }
+              return null;
+            }
           }
           
           // Handle MycoPortal records (no images expected)
