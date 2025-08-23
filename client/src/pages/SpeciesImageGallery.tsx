@@ -171,7 +171,12 @@ export default function SpeciesImageGallery() {
       <div className="flex items-center gap-4">
         <Button 
           variant="ghost" 
-          onClick={() => setLocation(`/field-guides/${fieldGuideId}`)}
+          onClick={() => {
+            // Preserve URL parameters when going back
+            const currentParams = new URLSearchParams(window.location.search);
+            const queryString = currentParams.toString() ? `?${currentParams.toString()}` : '';
+            setLocation(`/field-guides/${fieldGuideId}${queryString}`);
+          }}
           className="flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />

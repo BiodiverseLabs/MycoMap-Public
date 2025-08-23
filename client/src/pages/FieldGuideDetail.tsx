@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface FieldGuide {
   id: number;
@@ -49,6 +49,37 @@ export default function FieldGuideDetail() {
   const [searchFilter, setSearchFilter] = useState('');
   const [showContributorsModal, setShowContributorsModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
+
+  // Initialize state from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const search = urlParams.get('search');
+    const sortColumn = urlParams.get('sortColumn') as 'scientificName' | 'observations' | null;
+    const sortDirection = urlParams.get('sortDirection') as 'asc' | 'desc';
+    
+    if (search) {
+      setSearchFilter(search);
+    }
+    if (sortColumn && sortDirection) {
+      setSortConfig({column: sortColumn, direction: sortDirection});
+    }
+  }, []);
+
+  // Update URL when state changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams();
+    
+    if (searchFilter) {
+      urlParams.set('search', searchFilter);
+    }
+    if (sortConfig.column) {
+      urlParams.set('sortColumn', sortConfig.column);
+      urlParams.set('sortDirection', sortConfig.direction);
+    }
+    
+    const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+  }, [searchFilter, sortConfig]);
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
@@ -409,7 +440,16 @@ export default function FieldGuideDetail() {
                     <TableRow key={species.id}>
                       <TableCell className="font-medium">
                         <button
-                          onClick={() => setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}`)}
+                          onClick={() => {
+                            const urlParams = new URLSearchParams();
+                            if (searchFilter) urlParams.set('search', searchFilter);
+                            if (sortConfig.column) {
+                              urlParams.set('sortColumn', sortConfig.column);
+                              urlParams.set('sortDirection', sortConfig.direction);
+                            }
+                            const queryString = urlParams.toString() ? `?${urlParams.toString()}` : '';
+                            setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}${queryString}`);
+                          }}
                           className="text-left italic text-primary hover:text-primary/80 hover:underline block"
                         >
                           {species.scientificName}
