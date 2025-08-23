@@ -517,55 +517,64 @@ export default function FieldGuideDetail() {
           className={includeInat ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
         >
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              <div className="flex-1">
-                <button
-                  onClick={() => {
-                    if (includeInat) {
+            {includeInat ? (
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                <div className="flex-1">
+                  <button
+                    onClick={() => {
                       setShowSourceBreakdown(showSourceBreakdown === 'contributors' ? null : 'contributors');
-                    } else {
-                      setShowContributorsModal(true);
-                    }
-                  }}
-                  className="w-full text-left"
-                >
+                    }}
+                    className="w-full text-left"
+                  >
+                    <p className="text-2xl font-bold">
+                      {contributorsData?.contributorsCount || 0}
+                    </p>
+                    <p className="text-sm text-slate-600">Contributors</p>
+                  </button>
+                  {showSourceBreakdown === 'contributors' && sourceBreakdowns && (
+                    <div className="mt-3 pt-3 border-t text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-green-700">DNA Validated:</span>
+                        <span className="font-semibold">{sourceBreakdowns.contributors.dnaValidated}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-700">iNaturalist:</span>
+                        <span className="font-semibold">{sourceBreakdowns.contributors.iNaturalist}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-orange-700">Mushroom Observer:</span>
+                        <span className="font-semibold">{sourceBreakdowns.contributors.mushroomObserver}</span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t">
+                        <button
+                          onClick={() => setShowContributorsModal(true)}
+                          className="text-xs text-primary hover:text-primary/80 underline"
+                        >
+                          View full contributor list →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="text-slate-400">
+                  {showSourceBreakdown === 'contributors' ? '−' : '+'}
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowContributorsModal(true)}
+                className="flex items-center gap-2 w-full text-left hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
+              >
+                <Users className="w-5 h-5 text-primary" />
+                <div>
                   <p className="text-2xl font-bold">
                     {contributorsData?.contributorsCount || 0}
                   </p>
                   <p className="text-sm text-slate-600">Contributors</p>
-                </button>
-                {includeInat && showSourceBreakdown === 'contributors' && sourceBreakdowns && (
-                  <div className="mt-3 pt-3 border-t text-xs space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-green-700">DNA Validated:</span>
-                      <span className="font-semibold">{sourceBreakdowns.contributors.dnaValidated}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-blue-700">iNaturalist:</span>
-                      <span className="font-semibold">{sourceBreakdowns.contributors.iNaturalist}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-orange-700">Mushroom Observer:</span>
-                      <span className="font-semibold">{sourceBreakdowns.contributors.mushroomObserver}</span>
-                    </div>
-                    <div className="mt-2 pt-2 border-t">
-                      <button
-                        onClick={() => setShowContributorsModal(true)}
-                        className="text-xs text-primary hover:text-primary/80 underline"
-                      >
-                        View full contributor list →
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {includeInat && (
-                <div className="text-slate-400">
-                  {showSourceBreakdown === 'contributors' ? '−' : '+'}
                 </div>
-              )}
-            </div>
+              </button>
+            )}
           </CardContent>
         </Card>
       </div>
