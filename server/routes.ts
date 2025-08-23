@@ -4433,11 +4433,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const inatSpeciesMap = new Map();
             inatObservations.forEach((obs: any) => {
               if (obs.scientific_name && obs.rank === 'species') {
-                // Debug logging for Abortiporus biennis
-                if (obs.scientific_name.includes('Abortiporus biennis')) {
-                  console.log(`[iNat Debug] Found cached observation: ${obs.scientific_name}, rank: ${obs.rank}`);
-                }
-                
                 if (!inatSpeciesMap.has(obs.scientific_name)) {
                   inatSpeciesMap.set(obs.scientific_name, {
                     id: null,
@@ -4456,13 +4451,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 inatSpeciesMap.get(obs.scientific_name).observationCount++;
               }
             });
-            
-            // Debug logging for Abortiporus biennis
-            if (inatSpeciesMap.has('Abortiporus biennis')) {
-              console.log(`[iNat Debug] Abortiporus biennis in iNat map with ${inatSpeciesMap.get('Abortiporus biennis').observationCount} observations`);
-            } else {
-              console.log(`[iNat Debug] Abortiporus biennis NOT found in iNat species map`);
-            }
             
             const inatSpecies = Array.from(inatSpeciesMap.values());
             
@@ -4622,7 +4610,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
       
-      // Get all observations for this species within the bounding box
+      // Get database observations for this species within the bounding box
       const speciesObservations = await db.execute(sql`
         SELECT 
           o.observation_id,
@@ -4646,20 +4634,61 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND o.image_link != ''
         ORDER BY o.observed_on DESC
       `);
+
+      // Also get cached iNaturalist observations for this species
+      // Use expanded bounding box (25 miles) for comprehensive coverage
+      const latDelta = 25 * 0.014483;
+      const avgLat = (parseFloat(boundingBoxNorth) + parseFloat(boundingBoxSouth)) / 2;
+      const lngDelta = 25 * 0.014483 / Math.cos(avgLat * Math.PI / 180);
+      
+      const expandedNorth = parseFloat(boundingBoxNorth) + latDelta;
+      const expandedSouth = parseFloat(boundingBoxSouth) - latDelta;
+      const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
+      const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
+
+      const cachedObservations = await db.execute(sql`
+        SELECT 
+          'iNat-' || inat_id as observation_id,
+          scientific_name,
+          common_name,
+          user_name as observer,
+          observed_on,
+          place_guess as state,
+          place_guess,
+          (photos::json->>0)::json->>'url' as image_link,
+          'iNaturalist' as source
+        FROM inat_observations_cache
+        WHERE latitude IS NOT NULL 
+          AND longitude IS NOT NULL
+          AND CAST(latitude AS DECIMAL) <= ${expandedNorth}
+          AND CAST(latitude AS DECIMAL) >= ${expandedSouth}
+          AND CAST(longitude AS DECIMAL) <= ${expandedEast}
+          AND CAST(longitude AS DECIMAL) >= ${expandedWest}
+          AND scientific_name = ${scientificName}
+          AND photos IS NOT NULL
+          AND array_length(photos, 1) > 0
+        ORDER BY observed_on DESC
+      `);
+      
+      // Combine database and cached observations
+      const allObservations = [
+        ...speciesObservations.rows,
+        ...cachedObservations.rows
+      ];
       
       // Format the response to match ObservationImage interface
-      const images = speciesObservations.rows.map((row: any) => ({
+      const images = allObservations.map((row: any) => ({
         observationId: row.observation_id,
         imageUrl: row.image_link,
-        imageId: row.observation_id, // Use observation_id as imageId for now
+        imageId: row.observation_id,
         observer: row.observer,
         observedOn: row.observed_on,
         state: row.state,
         placeGuess: row.place_guess,
         source: row.source,
         scientificName: row.scientific_name,
-        isSelected: false // Could be enhanced to check if this is the selected image
-      }));
+        isSelected: false
+      })).filter(img => img.imageUrl); // Filter out any without images
       
       res.json(images);
     } catch (error) {
