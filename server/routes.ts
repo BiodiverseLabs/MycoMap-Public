@@ -106,6 +106,113 @@ async function getCachedObservations(boundingBox: {north: number, south: number,
   return cachedObs.rows;
 }
 
+// MO API Functions
+async function fetchMoObservations(boundingBox: {north: number, south: number, east: number, west: number}, monthStart?: string, monthEnd?: string) {
+  console.log(`[MO API] Fetching observations from Mushroom Observer API`);
+  
+  // Round coordinates to 0.1 degrees (MO precision limit)
+  const roundToTenth = (num: number) => Math.round(num * 10) / 10;
+  
+  const moParams = new URLSearchParams({
+    north: roundToTenth(boundingBox.north).toString(),
+    south: roundToTenth(boundingBox.south).toString(),
+    east: roundToTenth(boundingBox.east).toString(),
+    west: roundToTenth(boundingBox.west).toString(),
+    format: 'json'
+  });
+
+  // Add month filters if specified (MO uses different month format)
+  if (monthStart && monthEnd) {
+    const start = parseInt(monthStart);
+    const end = parseInt(monthEnd);
+    if (start === end) {
+      moParams.set('month', start.toString());
+    } else {
+      // MO doesn't support month ranges like iNat, so we'll skip month filtering for ranges
+      console.log(`[MO API] Skipping month range filter (MO doesn't support ranges)`);
+    }
+  } else if (monthStart) {
+    moParams.set('month', monthStart);
+  } else if (monthEnd) {
+    moParams.set('month', monthEnd);
+  }
+
+  const allMoObservations = [];
+  let page = 1;
+  const maxPages = 10; // Conservative limit due to MO's 20/min rate limit
+  
+  try {
+    do {
+      moParams.set('page', page.toString());
+      const moUrl = `https://mushroomobserver.org/api2/observations?${moParams}`;
+      
+      console.log(`[MO API] Fetching page ${page} from: ${moUrl}`);
+      
+      const moResponse = await fetch(moUrl, {
+        headers: {
+          'User-Agent': 'MycoMap Field Guide - Species Discovery Tool'
+        }
+      });
+
+      if (moResponse.ok) {
+        const moData = await moResponse.json();
+        
+        if (page === 1) {
+          console.log(`[MO API] Page ${page}: Found ${moData.results?.length || 0} observations`);
+        }
+
+        if (moData.results && moData.results.length > 0) {
+          // Transform MO data to our standard format
+          const transformedObs = moData.results.map((obs: any) => ({
+            mo_id: obs.id,
+            scientific_name: obs.consensus?.name || obs.name || null,
+            common_name: null, // MO doesn't typically provide common names in this endpoint
+            family: null, // Would need separate taxonomy lookup
+            rank: 'species', // Assume species for now
+            latitude: obs.latitude ? parseFloat(obs.latitude) : null,
+            longitude: obs.longitude ? parseFloat(obs.longitude) : null,
+            observed_on: obs.when ? new Date(obs.when) : null,
+            location: obs.location?.name || null,
+            place_guess: obs.where || null,
+            user_name: obs.user?.name || null,
+            user_login: obs.user?.login || null,
+            photos: obs.images?.map((img: any) => img.url) || [],
+            confidence: obs.vote?.value || null,
+            notes: obs.notes || null,
+            api_response: JSON.stringify(obs)
+          }));
+          
+          allMoObservations.push(...transformedObs);
+          page++;
+          
+          // Conservative pagination due to rate limit
+          if (allMoObservations.length >= 2000 || page > maxPages) {
+            console.log(`[MO API] Reached limit of ${allMoObservations.length} observations, stopping`);
+            break;
+          }
+          
+          // Rate limiting: wait 3 seconds between requests (20/min = one every 3 seconds)
+          if (page <= maxPages) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        } else {
+          break; // No more results
+        }
+      } else {
+        console.log(`[MO API] Page ${page} failed: ${moResponse.status} ${moResponse.statusText}`);
+        break;
+      }
+    } while (allMoObservations.length < 2000 && page <= maxPages);
+
+    console.log(`[MO API] Fetched ${allMoObservations.length} observations from MO API across ${page-1} pages`);
+    return allMoObservations;
+    
+  } catch (error) {
+    console.error(`[MO API] Error fetching observations:`, error);
+    return [];
+  }
+}
+
 async function fetchAndCacheInatData(fieldGuideId: number, expansionMiles: number, boundingBox: {north: number, south: number, east: number, west: number}, monthStart?: string, monthEnd?: string, progressCallback?: (data: any) => void) {
   console.log(`[iNat Cache] Fetching fresh data from API for ${expansionMiles} mile expansion`);
   
@@ -4485,6 +4592,83 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           console.error(`[iNat Cache] Error supplementing species list:`, error);
         }
       }
+
+      // Add Mushroom Observer supplementation using coordinate search
+      if (includeInat === 'true') {
+        try {
+          const areaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
+          console.log(`[MO API] Getting observations for ${areaDescription}`);
+          
+          const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
+          
+          // Get MO observations using coordinate search
+          const moObservations = await fetchMoObservations(boundingBox, monthStart as string, monthEnd as string);
+          console.log(`[MO API] Fetched ${moObservations.length} MO observations`);
+          
+          if (moObservations.length > 0) {
+            // Process MO observations into species format
+            const moSpeciesMap = new Map();
+            moObservations.forEach((obs: any) => {
+              if (obs.scientific_name && obs.rank === 'species') {
+                if (!moSpeciesMap.has(obs.scientific_name)) {
+                  moSpeciesMap.set(obs.scientific_name, {
+                    id: null,
+                    fieldGuideId: fieldGuideId,
+                    scientificName: obs.scientific_name,
+                    commonName: obs.common_name || null,
+                    family: obs.family || null,
+                    observationCount: 0,
+                    selectedImageUrl: null,
+                    selectedImageSource: null,
+                    selectedObservationId: null,
+                    selectedImageId: null,
+                    source: 'Mushroom Observer'
+                  });
+                }
+                moSpeciesMap.get(obs.scientific_name).observationCount++;
+              }
+            });
+            
+            const moSpecies = Array.from(moSpeciesMap.values());
+            
+            // Merge with existing species (database + iNaturalist)
+            const allSpeciesMap = new Map();
+            finalSpecies.forEach(species => allSpeciesMap.set(species.scientificName, species));
+            moSpecies.forEach(species => {
+              if (allSpeciesMap.has(species.scientificName)) {
+                // Species exists - combine observation counts
+                const existingSpecies = allSpeciesMap.get(species.scientificName);
+                existingSpecies.observationCount += species.observationCount;
+                // Update source to reflect multiple platforms
+                if (existingSpecies.source === 'Database') {
+                  existingSpecies.source = 'Database + Mushroom Observer';
+                } else if (existingSpecies.source === 'Database + iNaturalist') {
+                  existingSpecies.source = 'Database + iNaturalist + Mushroom Observer';
+                } else if (existingSpecies.source === 'iNaturalist') {
+                  existingSpecies.source = 'iNaturalist + Mushroom Observer';
+                }
+                // Update other fields if missing
+                if (!existingSpecies.commonName && species.commonName) {
+                  existingSpecies.commonName = species.commonName;
+                }
+                if (!existingSpecies.family && species.family) {
+                  existingSpecies.family = species.family;
+                }
+              } else {
+                // Species only exists in MO - add it
+                allSpeciesMap.set(species.scientificName, species);
+              }
+            });
+            
+            finalSpecies = Array.from(allSpeciesMap.values())
+              .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
+            
+            console.log(`[MO API] Final merged list: ${finalSpecies.length} species (includes ${moSpecies.length} from MO)`);
+          }
+        } catch (error) {
+          console.error(`[MO API] Error supplementing species list:`, error);
+        }
+      }
       
       return res.json(finalSpecies);
     } catch (error) {
@@ -5208,6 +5392,49 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         allImages.push(...inatObservations.rows);
+      }
+
+      // Include MO observations if includeInat is true (using direct API call)
+      if (includeInatBool) {
+        try {
+          console.log(`[MO Images API] Fetching MO images for ${scientificName}`);
+          
+          const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
+          const moObservations = await fetchMoObservations(boundingBox, monthStart as string, monthEnd as string);
+          
+          // Filter MO observations for this specific species and with photos
+          const moSpeciesObservations = moObservations.filter((obs: any) => 
+            obs.scientific_name === scientificName && 
+            obs.photos && 
+            obs.photos.length > 0
+          );
+          
+          console.log(`[MO Images API] Found ${moSpeciesObservations.length} MO observations with photos for ${scientificName}`);
+          
+          // Transform MO observations to image format (each photo as separate entry)
+          const moImages = [];
+          moSpeciesObservations.forEach((obs: any, obsIndex: number) => {
+            obs.photos.forEach((photoUrl: string, photoIndex: number) => {
+              moImages.push({
+                observation_id: `MO-${obs.mo_id}-${photoIndex}`,
+                scientific_name: obs.scientific_name,
+                common_name: obs.common_name,
+                observer: obs.user_name,
+                observed_on: obs.observed_on,
+                state: obs.location,
+                place_guess: obs.place_guess,
+                image_link: photoUrl,
+                source: 'Mushroom Observer'
+              });
+            });
+          });
+          
+          allImages.push(...moImages);
+          console.log(`[MO Images API] Added ${moImages.length} images from MO for ${scientificName}`);
+          
+        } catch (error) {
+          console.error(`[MO Images API] Error fetching MO images for ${scientificName}:`, error);
+        }
       }
       
       // Format response

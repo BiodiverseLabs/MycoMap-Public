@@ -830,3 +830,76 @@ export type InatObservationsCache = typeof inatObservationsCache.$inferSelect;
 
 export type InsertInatCacheMetadata = z.infer<typeof insertInatCacheMetadataSchema>;
 export type InatCacheMetadata = typeof inatCacheMetadata.$inferSelect;
+
+// Mushroom Observer Cache Tables
+export const moObservationsCache = pgTable("mo_observations_cache", {
+  id: serial("id").primaryKey(),
+  moId: integer("mo_id").notNull().unique(), // Mushroom Observer observation ID
+  scientificName: text("scientific_name"),
+  commonName: text("common_name"),
+  family: text("family"),
+  rank: text("rank"),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  observedOn: date("observed_on"),
+  location: text("location"), // MO location description
+  placeGuess: text("place_guess"),
+  userName: text("user_name"), // MO contributor
+  userLogin: text("user_login"),
+  photos: text("photos").array(), // Array of photo URLs
+  confidence: text("confidence"), // MO confidence level
+  notes: text("notes"), // Observation notes
+  apiResponse: text("api_response"), // JSON string of full API response
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  latLngIdx: index("mo_cache_lat_lng_idx").on(table.latitude, table.longitude),
+  scientificNameIdx: index("mo_cache_scientific_name_idx").on(table.scientificName),
+  observedOnIdx: index("mo_cache_observed_on_idx").on(table.observedOn),
+  userNameIdx: index("mo_cache_user_name_idx").on(table.userName),
+}));
+
+export const moCacheMetadata = pgTable("mo_cache_metadata", {
+  id: serial("id").primaryKey(),
+  fieldGuideId: integer("field_guide_id").references(() => fieldGuides.id),
+  centerLat: decimal("center_lat", { precision: 10, scale: 7 }).notNull(),
+  centerLng: decimal("center_lng", { precision: 10, scale: 7 }).notNull(),
+  maxRadiusMiles: decimal("max_radius_miles", { precision: 8, scale: 2 }).notNull(),
+  boundingBoxNorth: decimal("bounding_box_north", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxSouth: decimal("bounding_box_south", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxEast: decimal("bounding_box_east", { precision: 10, scale: 7 }).notNull(),
+  boundingBoxWest: decimal("bounding_box_west", { precision: 10, scale: 7 }).notNull(),
+  observationsCount: integer("observations_count").default(0),
+  lastFetchedAt: timestamp("last_fetched_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  fieldGuideIdx: index("mo_cache_metadata_field_guide_idx").on(table.fieldGuideId),
+  radiusIdx: index("mo_cache_metadata_radius_idx").on(table.maxRadiusMiles),
+}));
+
+// Relations for Mushroom Observer cache
+export const moCacheMetadataRelations = relations(moCacheMetadata, ({ one }) => ({
+  fieldGuide: one(fieldGuides, {
+    fields: [moCacheMetadata.fieldGuideId],
+    references: [fieldGuides.id],
+  }),
+}));
+
+// Insert schemas for Mushroom Observer cache
+export const insertMoObservationsCacheSchema = createInsertSchema(moObservationsCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMoCacheMetadataSchema = createInsertSchema(moCacheMetadata).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for Mushroom Observer cache
+export type InsertMoObservationsCache = z.infer<typeof insertMoObservationsCacheSchema>;
+export type MoObservationsCache = typeof moObservationsCache.$inferSelect;
+
+export type InsertMoCacheMetadata = z.infer<typeof insertMoCacheMetadataSchema>;
+export type MoCacheMetadata = typeof moCacheMetadata.$inferSelect;
