@@ -4392,7 +4392,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
           AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
           AND o.scientific_name = ${scientificName}
-          AND o.source IN ('iNaturalist', 'MO Observations')
+          AND o.source IN ('iNaturalist', 'MO Observations', 'MycoPortal')
         ORDER BY o.observed_on DESC
         LIMIT 50
       `);
@@ -4418,6 +4418,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             return [{
               observationId: obs.observation_id,
               imageUrl: obs.image_link,
+              imageId: obs.observation_id,
+              observer: obs.observer,
+              observedOn: obs.observed_on,
+              state: obs.state,
+              placeGuess: obs.place_guess,
+              source: obs.source,
+              scientificName: obs.scientific_name,
+              isSelected: obs.observation_id === selectedImageId
+            }];
+          }
+          
+          // Handle MycoPortal records (no images expected)
+          if (obs.source === 'MycoPortal') {
+            return [{
+              observationId: obs.observation_id,
+              imageUrl: null, // MycoPortal records typically don't have images
               imageId: obs.observation_id,
               observer: obs.observer,
               observedOn: obs.observed_on,
