@@ -529,7 +529,7 @@ export default function FieldGuideDetail() {
                 className="rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0"
               />
               <label htmlFor="includeInat" className="text-sm text-slate-600 whitespace-nowrap cursor-pointer">
-                Include non-DNA iNat
+                Include non-DNA Obs
               </label>
             </div>
           </div>
