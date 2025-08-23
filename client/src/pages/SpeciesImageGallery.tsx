@@ -4,7 +4,7 @@ import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, ExternalLink, MapPin, Calendar, User, X } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, MapPin, Calendar, User, X, Edit } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -27,6 +27,7 @@ export default function SpeciesImageGallery() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
   const scientificName = params?.scientificName ? decodeURIComponent(params.scientificName) : null;
@@ -110,11 +111,13 @@ export default function SpeciesImageGallery() {
   });
 
   const handleSelectImage = (image: ObservationImage) => {
+    if (!isEditMode) return;
     selectImageMutation.mutate(image);
   };
 
   const handleRemoveSelection = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the card click
+    if (!isEditMode) return;
     removeSelectionMutation.mutate();
   };
 
@@ -203,17 +206,25 @@ export default function SpeciesImageGallery() {
             <Badge variant="secondary" className="text-sm">
               {images.length} images from {new Set(images.map(img => img.observationId)).size} observations
             </Badge>
-            <p className="text-sm text-slate-500">
-              Click an image to select it as the representative photo
-            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditMode(!isEditMode)}
+              className={`flex items-center gap-2 ${isEditMode ? 'bg-primary text-primary-foreground' : ''}`}
+            >
+              <Edit className="w-4 h-4" />
+              {isEditMode ? 'Exit Edit' : 'Edit Images'}
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {images.map((image) => (
               <Card 
                 key={`${image.observationId}-${image.imageId}`}
-                className={`cursor-pointer transition-all hover:shadow-lg ${
+                className={`transition-all hover:shadow-lg ${
                   image.isSelected ? 'ring-2 ring-primary' : ''
+                } ${
+                  isEditMode ? 'cursor-pointer' : ''
                 }`}
                 onClick={() => handleSelectImage(image)}
               >
@@ -230,13 +241,22 @@ export default function SpeciesImageGallery() {
                         <div className="bg-primary text-primary-foreground rounded-full p-1">
                           <Check className="w-4 h-4" />
                         </div>
-                        <button
-                          onClick={handleRemoveSelection}
-                          className="bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
-                          title="Remove selection"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                        {isEditMode && (
+                          <button
+                            onClick={handleRemoveSelection}
+                            className="bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
+                            title="Remove selection"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {isEditMode && !image.isSelected && (
+                      <div className="absolute top-2 right-2">
+                        <div className="bg-slate-600 text-white rounded-full p-1 opacity-70">
+                          <Edit className="w-4 h-4" />
+                        </div>
                       </div>
                     )}
                   </div>
