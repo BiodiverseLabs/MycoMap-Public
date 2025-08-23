@@ -4627,7 +4627,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
       const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
       
-      // Get database observations for this species within the bounding box
+      // Get ALL database observations for this species with images (not restricted by bounding box for images)
       const speciesObservations = await db.execute(sql`
         SELECT 
           o.observation_id,
@@ -4638,15 +4638,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           o.state,
           o.place_guess,
           o.image_link,
-          'Database' as source
+          CASE 
+            WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
+            WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
+            WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
+            ELSE 'Database'
+          END as source
         FROM observations o
-        WHERE o.latitude IS NOT NULL 
-          AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${expandedNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${expandedSouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${expandedEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
-          AND o.scientific_name = ${scientificName}
+        WHERE o.scientific_name = ${scientificName}
           AND o.image_link IS NOT NULL
           AND o.image_link != ''
         ORDER BY o.observed_on DESC

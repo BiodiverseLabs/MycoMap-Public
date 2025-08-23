@@ -280,7 +280,7 @@ export default function SpeciesImageGallery() {
                         >
                           iNat #{image.observationId}
                         </a>
-                      ) : image.source === 'MO Observations' ? (
+                      ) : image.source === 'Mushroom Observer' ? (
                         <a 
                           href={`https://mushroomobserver.org/observations/${image.observationId}`}
                           target="_blank"
