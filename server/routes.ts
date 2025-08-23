@@ -4121,7 +4121,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           console.log(`[iNat API] Calling: ${inatUrl}`);
           console.log(`[iNat API] Bounding box: SW(${querySouth}, ${queryWest}) to NE(${queryNorth}, ${queryEast})`);
           
-          // Fetch all pages of iNaturalist data
+          // Fetch all pages of iNaturalist data - PAGINATION ENABLED
           const allInatObservations = [];
           let page = 1;
           let totalResults = 0;
@@ -4225,10 +4225,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               console.log(`[iNat API] Final merged list: ${mergedSpecies.length} species (${expandedSpecies.length} from DB, ${inatSpecies.length} from iNat)`);
               return res.json(mergedSpecies);
+            } else {
+              console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
             }
-          } else {
-            console.log(`[iNat API] Pagination complete: No more data to fetch`);
-          }
           } catch (error) {
             console.error(`[iNat API] Error supplementing species list:`, error);
           }
