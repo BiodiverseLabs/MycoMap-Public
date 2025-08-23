@@ -301,6 +301,7 @@ export default function FieldGuideDetail() {
                   <TableRow>
                     <TableHead>Scientific Name</TableHead>
                     <TableHead>Common Name</TableHead>
+                    <TableHead>Family</TableHead>
                     <TableHead className="text-center">Image</TableHead>
                     <TableHead className="text-right">Observations</TableHead>
                   </TableRow>
@@ -309,23 +310,21 @@ export default function FieldGuideDetail() {
                   {species.map((species) => (
                     <TableRow key={species.id}>
                       <TableCell className="font-medium">
-                        <div className="space-y-0.5">
-                          <button
-                            onClick={() => setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}`)}
-                            className="text-left italic text-primary hover:text-primary/80 hover:underline block"
-                          >
-                            {species.scientificName}
-                          </button>
-                          {species.family && (
-                            <div className="text-xs text-slate-500">
-                              Family: {species.family}
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}`)}
+                          className="text-left italic text-primary hover:text-primary/80 hover:underline block"
+                        >
+                          {species.scientificName}
+                        </button>
                       </TableCell>
                       <TableCell>
                         {species.commonName || (
                           <span className="text-slate-400">No common name</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {species.family || (
+                          <span className="text-slate-400">Unknown</span>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
