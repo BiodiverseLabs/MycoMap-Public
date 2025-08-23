@@ -4806,13 +4806,86 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       if (inatObservationsInMainTable.length > 0) {
         console.log(`[Images API] Found ${inatObservationsInMainTable.length} iNaturalist observations in main table:`, inatObservationsInMainTable);
         
-        // Get all photos for these iNaturalist observations from cache
-        let inatCachePhotos;
+        // Get all photos for each iNaturalist observation from cache
+        const allInatCachePhotos = [];
         
-        if (monthStart && monthEnd) {
-          const startMonth = parseInt(monthStart as string);
-          const endMonth = parseInt(monthEnd as string);
-          if (startMonth <= endMonth) {
+        for (const inatId of inatObservationsInMainTable) {
+          let inatCachePhotos;
+          
+          if (monthStart && monthEnd) {
+            const startMonth = parseInt(monthStart as string);
+            const endMonth = parseInt(monthEnd as string);
+            if (startMonth <= endMonth) {
+              inatCachePhotos = await db.execute(sql`
+                SELECT 
+                  'iNat-' || inat_id || '-' || photo_index as observation_id,
+                  inat_id,
+                  scientific_name,
+                  common_name,
+                  user_name as observer,
+                  observed_on,
+                  place_guess as state,
+                  place_guess,
+                  photo_url as image_link,
+                  'iNaturalist' as source,
+                  photo_index
+                FROM (
+                  SELECT 
+                    inat_id,
+                    scientific_name,
+                    common_name,
+                    user_name,
+                    observed_on,
+                    place_guess,
+                    unnest(photos) as photo_url,
+                    generate_subscripts(photos, 1) as photo_index
+                  FROM inat_observations_cache
+                  WHERE inat_id = ${inatId}
+                    AND scientific_name = ${scientificName}
+                    AND photos IS NOT NULL
+                    AND array_length(photos, 1) > 0
+                    AND quality_grade = 'research'
+                    AND EXTRACT(MONTH FROM observed_on) BETWEEN ${startMonth} AND ${endMonth}
+                ) t
+                ORDER BY observed_on DESC, photo_index
+              `);
+            } else {
+              inatCachePhotos = await db.execute(sql`
+                SELECT 
+                  'iNat-' || inat_id || '-' || photo_index as observation_id,
+                  inat_id,
+                  scientific_name,
+                  common_name,
+                  user_name as observer,
+                  observed_on,
+                  place_guess as state,
+                  place_guess,
+                  photo_url as image_link,
+                  'iNaturalist' as source,
+                  photo_index
+                FROM (
+                  SELECT 
+                    inat_id,
+                    scientific_name,
+                    common_name,
+                    user_name,
+                    observed_on,
+                    place_guess,
+                    unnest(photos) as photo_url,
+                    generate_subscripts(photos, 1) as photo_index
+                  FROM inat_observations_cache
+                  WHERE inat_id = ${inatId}
+                    AND scientific_name = ${scientificName}
+                    AND photos IS NOT NULL
+                    AND array_length(photos, 1) > 0
+                    AND quality_grade = 'research'
+                    AND (EXTRACT(MONTH FROM observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM observed_on) <= ${endMonth})
+                ) t
+                ORDER BY observed_on DESC, photo_index
+              `);
+            }
+          } else if (monthStart) {
+            const startMonth = parseInt(monthStart as string);
             inatCachePhotos = await db.execute(sql`
               SELECT 
                 'iNat-' || inat_id || '-' || photo_index as observation_id,
@@ -4837,12 +4910,47 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   unnest(photos) as photo_url,
                   generate_subscripts(photos, 1) as photo_index
                 FROM inat_observations_cache
-                WHERE inat_id = ANY(${inatObservationsInMainTable})
+                WHERE inat_id = ${inatId}
                   AND scientific_name = ${scientificName}
                   AND photos IS NOT NULL
                   AND array_length(photos, 1) > 0
                   AND quality_grade = 'research'
-                  AND EXTRACT(MONTH FROM observed_on) BETWEEN ${startMonth} AND ${endMonth}
+                  AND EXTRACT(MONTH FROM observed_on) >= ${startMonth}
+              ) t
+              ORDER BY observed_on DESC, photo_index
+            `);
+          } else if (monthEnd) {
+            const endMonth = parseInt(monthEnd as string);
+            inatCachePhotos = await db.execute(sql`
+              SELECT 
+                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name as observer,
+                observed_on,
+                place_guess as state,
+                place_guess,
+                photo_url as image_link,
+                'iNaturalist' as source,
+                photo_index
+              FROM (
+                SELECT 
+                  inat_id,
+                  scientific_name,
+                  common_name,
+                  user_name,
+                  observed_on,
+                  place_guess,
+                  unnest(photos) as photo_url,
+                  generate_subscripts(photos, 1) as photo_index
+                FROM inat_observations_cache
+                WHERE inat_id = ${inatId}
+                  AND scientific_name = ${scientificName}
+                  AND photos IS NOT NULL
+                  AND array_length(photos, 1) > 0
+                  AND quality_grade = 'research'
+                  AND EXTRACT(MONTH FROM observed_on) <= ${endMonth}
               ) t
               ORDER BY observed_on DESC, photo_index
             `);
@@ -4871,128 +4979,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   unnest(photos) as photo_url,
                   generate_subscripts(photos, 1) as photo_index
                 FROM inat_observations_cache
-                WHERE inat_id = ANY(${inatObservationsInMainTable})
+                WHERE inat_id = ${inatId}
                   AND scientific_name = ${scientificName}
                   AND photos IS NOT NULL
                   AND array_length(photos, 1) > 0
                   AND quality_grade = 'research'
-                  AND (EXTRACT(MONTH FROM observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM observed_on) <= ${endMonth})
               ) t
               ORDER BY observed_on DESC, photo_index
             `);
           }
-        } else if (monthStart) {
-          const startMonth = parseInt(monthStart as string);
-          inatCachePhotos = await db.execute(sql`
-            SELECT 
-              'iNat-' || inat_id || '-' || photo_index as observation_id,
-              inat_id,
-              scientific_name,
-              common_name,
-              user_name as observer,
-              observed_on,
-              place_guess as state,
-              place_guess,
-              photo_url as image_link,
-              'iNaturalist' as source,
-              photo_index
-            FROM (
-              SELECT 
-                inat_id,
-                scientific_name,
-                common_name,
-                user_name,
-                observed_on,
-                place_guess,
-                unnest(photos) as photo_url,
-                generate_subscripts(photos, 1) as photo_index
-              FROM inat_observations_cache
-              WHERE inat_id = ANY(${inatObservationsInMainTable})
-                AND scientific_name = ${scientificName}
-                AND photos IS NOT NULL
-                AND array_length(photos, 1) > 0
-                AND quality_grade = 'research'
-                AND EXTRACT(MONTH FROM observed_on) >= ${startMonth}
-            ) t
-            ORDER BY observed_on DESC, photo_index
-          `);
-        } else if (monthEnd) {
-          const endMonth = parseInt(monthEnd as string);
-          inatCachePhotos = await db.execute(sql`
-            SELECT 
-              'iNat-' || inat_id || '-' || photo_index as observation_id,
-              inat_id,
-              scientific_name,
-              common_name,
-              user_name as observer,
-              observed_on,
-              place_guess as state,
-              place_guess,
-              photo_url as image_link,
-              'iNaturalist' as source,
-              photo_index
-            FROM (
-              SELECT 
-                inat_id,
-                scientific_name,
-                common_name,
-                user_name,
-                observed_on,
-                place_guess,
-                unnest(photos) as photo_url,
-                generate_subscripts(photos, 1) as photo_index
-              FROM inat_observations_cache
-              WHERE inat_id = ANY(${inatObservationsInMainTable})
-                AND scientific_name = ${scientificName}
-                AND photos IS NOT NULL
-                AND array_length(photos, 1) > 0
-                AND quality_grade = 'research'
-                AND EXTRACT(MONTH FROM observed_on) <= ${endMonth}
-            ) t
-            ORDER BY observed_on DESC, photo_index
-          `);
-        } else {
-          inatCachePhotos = await db.execute(sql`
-            SELECT 
-              'iNat-' || inat_id || '-' || photo_index as observation_id,
-              inat_id,
-              scientific_name,
-              common_name,
-              user_name as observer,
-              observed_on,
-              place_guess as state,
-              place_guess,
-              photo_url as image_link,
-              'iNaturalist' as source,
-              photo_index
-            FROM (
-              SELECT 
-                inat_id,
-                scientific_name,
-                common_name,
-                user_name,
-                observed_on,
-                place_guess,
-                unnest(photos) as photo_url,
-                generate_subscripts(photos, 1) as photo_index
-              FROM inat_observations_cache
-              WHERE inat_id = ANY(${inatObservationsInMainTable})
-                AND scientific_name = ${scientificName}
-                AND photos IS NOT NULL
-                AND array_length(photos, 1) > 0
-                AND quality_grade = 'research'
-            ) t
-            ORDER BY observed_on DESC, photo_index
-          `);
+          
+          allInatCachePhotos.push(...inatCachePhotos.rows);
         }
         
         // Remove duplicate main table entries for iNaturalist observations (we'll use cache versions)
         allImages = allImages.filter(img => img.source !== 'iNaturalist');
         
         // Add all photos from iNaturalist cache
-        allImages.push(...inatCachePhotos.rows);
+        allImages.push(...allInatCachePhotos);
         
-        console.log(`[Images API] Added ${inatCachePhotos.rows.length} photos from iNaturalist cache`);
+        console.log(`[Images API] Added ${allInatCachePhotos.length} photos from iNaturalist cache`);
       }
 
       // Include additional iNaturalist cache observations if includeInat is true (EXACT same logic)
