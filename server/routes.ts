@@ -4194,10 +4194,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             }
           } else {
             console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
+            const errorText = await inatResponse.text();
+            console.log(`[iNat API] Error response:`, errorText.substring(0, 200));
           }
           } catch (error) {
             console.error(`[iNat API] Error supplementing species list:`, error);
           }
+        } else {
+          console.log(`[iNat API] includeInat checkbox not checked, skipping iNaturalist API call`);
         }
         
         // Return database species if iNaturalist API fails
@@ -4479,6 +4483,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         } catch (error) {
           console.error(`[iNat API] Error fetching contributors:`, error);
         }
+      } else {
+        console.log(`[iNat API] includeInat not checked or expansion disabled, skipping contributor API call`);
       }
 
       const totalContributors = dbContributorsCount + inatContributorsCount;
