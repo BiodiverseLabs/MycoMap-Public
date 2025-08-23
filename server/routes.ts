@@ -4153,6 +4153,53 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get detailed contributors list for a field guide
+  app.get("/api/field-guides/:id/contributors/detailed", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const fieldGuideId = parseInt(id);
+      
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+
+      // Get contributors with their observation counts within the bounding box
+      const contributorsResult = await db.execute(sql`
+        SELECT 
+          o.observer,
+          COUNT(*) as observation_count
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
+          AND o.observer IS NOT NULL
+          AND o.observer != ''
+        GROUP BY o.observer
+        ORDER BY observation_count DESC, o.observer ASC
+      `);
+
+      const contributors = contributorsResult.rows.map(row => ({
+        name: (row as any).observer,
+        observationCount: parseInt((row as any).observation_count.toString())
+      }));
+
+      res.json({ 
+        contributors
+      });
+    } catch (error) {
+      console.error("Error fetching detailed contributors:", error);
+      res.status(500).json({ error: "Failed to fetch detailed contributors" });
+    }
+  });
+
   // Get observation images for a species in a field guide
   app.get("/api/field-guides/:id/species/:scientificName/images", async (req, res) => {
     try {

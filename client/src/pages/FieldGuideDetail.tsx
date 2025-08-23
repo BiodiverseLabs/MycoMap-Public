@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity, Users } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity, Users, X } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState } from "react";
 
 interface FieldGuide {
@@ -36,10 +37,16 @@ interface FieldGuideSpecies {
   addedAt: string;
 }
 
+interface Contributor {
+  name: string;
+  observationCount: number;
+}
+
 export default function FieldGuideDetail() {
   const [, params] = useRoute('/field-guides/:id');
   const [, setLocation] = useLocation();
   const [searchFilter, setSearchFilter] = useState('');
+  const [showContributorsModal, setShowContributorsModal] = useState(false);
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
@@ -78,6 +85,17 @@ export default function FieldGuideDetail() {
       return response.json() as Promise<{ contributorsCount: number }>;
     },
     enabled: !!fieldGuideId
+  });
+
+  const { data: detailedContributorsData } = useQuery({
+    queryKey: ['/api/field-guides', fieldGuideId, 'contributors', 'detailed'],
+    queryFn: async () => {
+      if (!fieldGuideId) throw new Error('No field guide ID');
+      const response = await fetch(`/api/field-guides/${fieldGuideId}/contributors/detailed`);
+      if (!response.ok) throw new Error('Failed to fetch detailed contributors');
+      return response.json() as Promise<{ contributors: Contributor[] }>;
+    },
+    enabled: !!fieldGuideId && showContributorsModal
   });
 
   // Filter species based on search term
@@ -270,7 +288,10 @@ export default function FieldGuideDetail() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowContributorsModal(true)}
+              className="flex items-center gap-2 w-full text-left hover:bg-slate-50 rounded-lg p-2 -m-2 transition-colors"
+            >
               <Users className="w-5 h-5 text-primary" />
               <div>
                 <p className="text-2xl font-bold">
@@ -278,7 +299,7 @@ export default function FieldGuideDetail() {
                 </p>
                 <p className="text-sm text-slate-600">Contributors</p>
               </div>
-            </div>
+            </button>
           </CardContent>
         </Card>
       </div>
@@ -371,6 +392,62 @@ export default function FieldGuideDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Contributors Modal */}
+      <Dialog open={showContributorsModal} onOpenChange={setShowContributorsModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Contributors to {fieldGuide?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Scientists and citizen naturalists contributing observations within this region
+            </p>
+            
+            {detailedContributorsData?.contributors ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-4 text-sm font-medium text-slate-700 border-b pb-2">
+                  <span>Contributor</span>
+                  <span className="text-right">Observations</span>
+                </div>
+                
+                {detailedContributorsData.contributors.map((contributor, index) => (
+                  <div key={contributor.name} className="grid grid-cols-2 gap-4 py-2 border-b border-slate-100 last:border-b-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-mono">
+                        #{index + 1}
+                      </span>
+                      <span className="font-medium">{contributor.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="secondary">
+                        {contributor.observationCount.toLocaleString()}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+                
+                <div className="mt-4 pt-4 border-t bg-slate-50 rounded-lg p-3">
+                  <div className="text-sm text-slate-600">
+                    <strong>Total:</strong> {detailedContributorsData.contributors.reduce((sum, c) => sum + c.observationCount, 0).toLocaleString()} observations from {detailedContributorsData.contributors.length} contributors
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <Users className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-500">Loading contributors...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
