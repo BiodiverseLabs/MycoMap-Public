@@ -405,29 +405,87 @@ export default function FieldGuideDetail() {
             Species List ({species.length}{searchFilter ? ` of ${allSpecies.length}` : ''})
           </CardTitle>
           
-          {/* Search Filter and Expansion Controls */}
-          <div className="flex gap-3 items-center">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <Input
-                placeholder="Filter by scientific name..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                className="pl-10 pr-10"
-              />
-              {searchFilter && (
-                <button
-                  onClick={() => setSearchFilter('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                  type="button"
-                  aria-label="Clear search"
+          {/* Search Filter and Controls */}
+          <div className="flex gap-3 items-center justify-between w-full">
+            <div className="flex gap-3 items-center">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder="Filter by scientific name..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="pl-10 pr-10"
+                />
+                {searchFilter && (
+                  <button
+                    onClick={() => setSearchFilter('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    type="button"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Month Range Filter */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-slate-600 whitespace-nowrap">
+                  Season:
+                </label>
+                <select
+                  value={monthRange.start}
+                  onChange={(e) => setMonthRange(prev => ({...prev, start: e.target.value}))}
+                  className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
                 >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+                  <option value="">From</option>
+                  <option value="1">Jan</option>
+                  <option value="2">Feb</option>
+                  <option value="3">Mar</option>
+                  <option value="4">Apr</option>
+                  <option value="5">May</option>
+                  <option value="6">Jun</option>
+                  <option value="7">Jul</option>
+                  <option value="8">Aug</option>
+                  <option value="9">Sep</option>
+                  <option value="10">Oct</option>
+                  <option value="11">Nov</option>
+                  <option value="12">Dec</option>
+                </select>
+                <span className="text-xs text-slate-400">to</span>
+                <select
+                  value={monthRange.end}
+                  onChange={(e) => setMonthRange(prev => ({...prev, end: e.target.value}))}
+                  className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
+                >
+                  <option value="">To</option>
+                  <option value="1">Jan</option>
+                  <option value="2">Feb</option>
+                  <option value="3">Mar</option>
+                  <option value="4">Apr</option>
+                  <option value="5">May</option>
+                  <option value="6">Jun</option>
+                  <option value="7">Jul</option>
+                  <option value="8">Aug</option>
+                  <option value="9">Sep</option>
+                  <option value="10">Oct</option>
+                  <option value="11">Nov</option>
+                  <option value="12">Dec</option>
+                </select>
+                {(monthRange.start || monthRange.end) && (
+                  <button
+                    onClick={() => setMonthRange({start: '', end: ''})}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                    type="button"
+                    aria-label="Clear month filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             </div>
             
-            {/* Expansion Control */}
+            {/* Expansion Control - moved to the right */}
             <div className="flex items-center gap-2">
               <label className="text-sm text-slate-600 whitespace-nowrap">
                 Expand by
@@ -446,62 +504,6 @@ export default function FieldGuideDetail() {
                 className="w-20 text-center"
               />
               <span className="text-sm text-slate-600">miles</span>
-            </div>
-            
-            {/* Month Range Filter */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-600 whitespace-nowrap">
-                Season:
-              </label>
-              <select
-                value={monthRange.start}
-                onChange={(e) => setMonthRange(prev => ({...prev, start: e.target.value}))}
-                className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
-              >
-                <option value="">From</option>
-                <option value="1">Jan</option>
-                <option value="2">Feb</option>
-                <option value="3">Mar</option>
-                <option value="4">Apr</option>
-                <option value="5">May</option>
-                <option value="6">Jun</option>
-                <option value="7">Jul</option>
-                <option value="8">Aug</option>
-                <option value="9">Sep</option>
-                <option value="10">Oct</option>
-                <option value="11">Nov</option>
-                <option value="12">Dec</option>
-              </select>
-              <span className="text-xs text-slate-400">to</span>
-              <select
-                value={monthRange.end}
-                onChange={(e) => setMonthRange(prev => ({...prev, end: e.target.value}))}
-                className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
-              >
-                <option value="">To</option>
-                <option value="1">Jan</option>
-                <option value="2">Feb</option>
-                <option value="3">Mar</option>
-                <option value="4">Apr</option>
-                <option value="5">May</option>
-                <option value="6">Jun</option>
-                <option value="7">Jul</option>
-                <option value="8">Aug</option>
-                <option value="9">Sep</option>
-                <option value="10">Oct</option>
-                <option value="11">Nov</option>
-                <option value="12">Dec</option>
-              </select>
-              {(monthRange.start || monthRange.end) && (
-                <button
-                  onClick={() => setMonthRange({start: '', end: ''})}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                  type="button"
-                  aria-label="Clear month filter"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
             </div>
           </div>
         </CardHeader>
