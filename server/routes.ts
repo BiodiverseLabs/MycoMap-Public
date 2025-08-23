@@ -4742,7 +4742,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
           
           // Check cache first
-          const moCache = await checkMoCacheForArea(parseInt(fieldGuideId), expansionMiles, boundingBox);
+          const moCache = await checkMoCacheForArea(fieldGuideId, expansionMiles, boundingBox);
           let moObservations = [];
           
           if (moCache) {
@@ -4754,7 +4754,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             
             // Store in cache for future use
             if (moObservations.length > 0) {
-              await storeMoObservationsInCache(parseInt(fieldGuideId), expansionMiles, boundingBox, moObservations);
+              await storeMoObservationsInCache(fieldGuideId, expansionMiles, boundingBox, moObservations);
             }
           }
           
