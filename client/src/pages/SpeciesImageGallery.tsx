@@ -4,7 +4,7 @@ import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, ExternalLink, MapPin, Calendar, User } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, MapPin, Calendar, User, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -19,6 +19,7 @@ interface ObservationImage {
   placeGuess: string | null;
   source: string;
   scientificName: string;
+  isSelected?: boolean;
 }
 
 export default function SpeciesImageGallery() {
@@ -76,9 +77,44 @@ export default function SpeciesImageGallery() {
     }
   });
 
+  const removeSelectionMutation = useMutation({
+    mutationFn: async () => {
+      if (!fieldGuideId || !scientificName) throw new Error('Missing parameters');
+      
+      const response = await fetch(`/api/field-guides/${fieldGuideId}/species/${encodeURIComponent(scientificName)}/remove-image`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) throw new Error('Failed to remove selection');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Selection removed",
+        description: "No image is now selected for this species.",
+      });
+      
+      // Invalidate species list to update
+      queryClient.invalidateQueries({ queryKey: ['/api/field-guides', fieldGuideId, 'species'] });
+      // Invalidate images to refresh selection state
+      queryClient.invalidateQueries({ queryKey: ['/api/field-guides', fieldGuideId, 'species', scientificName, 'images'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to remove selection. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleSelectImage = (image: ObservationImage) => {
-    setSelectedImageId(image.imageId);
     selectImageMutation.mutate(image);
+  };
+
+  const handleRemoveSelection = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    removeSelectionMutation.mutate();
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -176,7 +212,7 @@ export default function SpeciesImageGallery() {
               <Card 
                 key={`${image.observationId}-${image.imageId}`}
                 className={`cursor-pointer transition-all hover:shadow-lg ${
-                  selectedImageId === image.imageId ? 'ring-2 ring-primary' : ''
+                  image.isSelected ? 'ring-2 ring-primary' : ''
                 }`}
                 onClick={() => handleSelectImage(image)}
               >
@@ -188,9 +224,18 @@ export default function SpeciesImageGallery() {
                       className="w-full h-48 object-cover rounded-t-lg"
                       loading="lazy"
                     />
-                    {selectedImageId === image.imageId && (
-                      <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
-                        <Check className="w-4 h-4" />
+                    {image.isSelected && (
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <div className="bg-primary text-primary-foreground rounded-full p-1">
+                          <Check className="w-4 h-4" />
+                        </div>
+                        <button
+                          onClick={handleRemoveSelection}
+                          className="bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
+                          title="Remove selection"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     )}
                   </div>

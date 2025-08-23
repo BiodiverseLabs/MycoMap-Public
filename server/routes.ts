@@ -4115,6 +4115,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
 
+      // Get currently selected image for this species
+      const selectedSpecies = await db.select().from(fieldGuideSpecies)
+        .where(sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`)
+        .limit(1);
+      
+      const selectedImageId = selectedSpecies[0]?.selectedObservationId || null;
+
       // Find all observations for this species within the bounding box
       const observationsInBox = await db.execute(sql`
         SELECT DISTINCT 
@@ -4173,7 +4180,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             state: obs.state,
             placeGuess: obs.place_guess,
             source: obs.source,
-            scientificName: obs.scientific_name
+            scientificName: obs.scientific_name,
+            isSelected: obs.observation_id === selectedImageId
           }));
         } catch (error) {
           console.error(`Error fetching images for observation ${obs.observation_id}:`, error);
@@ -4212,6 +4220,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error updating selected image:", error);
       res.status(500).json({ error: "Failed to update selected image" });
+    }
+  });
+
+  // Remove selected image for a field guide species
+  app.delete("/api/field-guides/:id/species/:scientificName/remove-image", async (req, res) => {
+    try {
+      const { id, scientificName } = req.params;
+      const fieldGuideId = parseInt(id);
+
+      await db.update(fieldGuideSpecies)
+        .set({
+          selectedImageUrl: null,
+          selectedImageSource: null,
+          selectedObservationId: null
+        })
+        .where(
+          sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`
+        );
+
+      res.json({ message: "Selected image removed successfully" });
+    } catch (error) {
+      console.error("Error removing selected image:", error);
+      res.status(500).json({ error: "Failed to remove selected image" });
     }
   });
 
