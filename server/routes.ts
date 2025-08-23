@@ -4113,6 +4113,46 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get contributors count for a field guide
+  app.get("/api/field-guides/:id/contributors", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const fieldGuideId = parseInt(id);
+      
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+
+      // Count unique contributors within the bounding box
+      const contributorsResult = await db.execute(sql`
+        SELECT COUNT(DISTINCT observer) as unique_contributors
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
+          AND o.observer IS NOT NULL
+          AND o.observer != ''
+      `);
+
+      const contributorsCount = (contributorsResult.rows[0] as any)?.unique_contributors || 0;
+
+      res.json({ 
+        contributorsCount: parseInt(contributorsCount.toString())
+      });
+    } catch (error) {
+      console.error("Error fetching contributors count:", error);
+      res.status(500).json({ error: "Failed to fetch contributors count" });
+    }
+  });
+
   // Get observation images for a species in a field guide
   app.get("/api/field-guides/:id/species/:scientificName/images", async (req, res) => {
     try {

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity, Users } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -65,6 +65,17 @@ export default function FieldGuideDetail() {
       const response = await fetch(`/api/field-guides/${fieldGuideId}/species`);
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json() as Promise<FieldGuideSpecies[]>;
+    },
+    enabled: !!fieldGuideId
+  });
+
+  const { data: contributorsData } = useQuery({
+    queryKey: ['/api/field-guides', fieldGuideId, 'contributors'],
+    queryFn: async () => {
+      if (!fieldGuideId) throw new Error('No field guide ID');
+      const response = await fetch(`/api/field-guides/${fieldGuideId}/contributors`);
+      if (!response.ok) throw new Error('Failed to fetch contributors count');
+      return response.json() as Promise<{ contributorsCount: number }>;
     },
     enabled: !!fieldGuideId
   });
@@ -259,13 +270,13 @@ export default function FieldGuideDetail() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-slate-600">Coordinates</p>
-              <div className="text-xs text-slate-500 space-y-0.5">
-                <p>N: {Number(fieldGuide.boundingBoxNorth).toFixed(4)}°</p>
-                <p>S: {Number(fieldGuide.boundingBoxSouth).toFixed(4)}°</p>
-                <p>E: {Number(fieldGuide.boundingBoxEast).toFixed(4)}°</p>
-                <p>W: {Number(fieldGuide.boundingBoxWest).toFixed(4)}°</p>
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-2xl font-bold">
+                  {contributorsData?.contributorsCount || 0}
+                </p>
+                <p className="text-sm text-slate-600">Contributors</p>
               </div>
             </div>
           </CardContent>
