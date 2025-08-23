@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Map, Square, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -213,6 +214,9 @@ export default function FieldGuideCreate() {
         title: "Field guide created!",
         description: `Successfully created "${formData.name}" with ${result.speciesCount} species.`,
       });
+
+      // Invalidate field guides cache to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['/api/field-guides'] });
 
       // Navigate back to field guides list
       setLocation('/field-guides');
