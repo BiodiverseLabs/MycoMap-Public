@@ -27,6 +27,13 @@ export function Sidebar() {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAdminExpanded, setIsAdminExpanded] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Auto-collapse on field guide detail pages
+  useEffect(() => {
+    const isFieldGuideDetail = /^\/field-guides\/\d+$/.test(location);
+    setIsCollapsed(isFieldGuideDetail);
+  }, [location]);
 
   const navigationItems = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
@@ -102,16 +109,30 @@ export function Sidebar() {
       )}
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white shadow-sm border-r border-slate-200 flex-col relative z-10">
+      <aside className={`hidden lg:flex bg-white shadow-sm border-r border-slate-200 flex-col relative z-10 transition-all duration-300 ${
+        isCollapsed ? 'w-16' : 'w-64'
+      }`}>
         <div className="p-6 border-b border-slate-200">
-          <div className="flex items-center space-x-3">
-            <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center overflow-hidden">
-              <Microscope className="w-8 h-8 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center overflow-hidden">
+                <Microscope className="w-6 h-6 text-primary" />
+              </div>
+              {!isCollapsed && (
+                <div>
+                  <h1 className="text-lg font-semibold text-slate-900">MycoMap</h1>
+                  <p className="text-sm text-slate-500">Research Dashboard</p>
+                </div>
+              )}
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-slate-900">The MycoMap Network</h1>
-              <p className="text-sm text-slate-500">Research Dashboard</p>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-2"
+            >
+              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 rotate-90" />}
+            </Button>
           </div>
         </div>
         
@@ -123,14 +144,15 @@ export function Sidebar() {
             return (
               <Link key={item.href} href={item.href}>
                 <a
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left ${
+                  className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left ${
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
+                  title={isCollapsed ? item.label : undefined}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {!isCollapsed && <span>{item.label}</span>}
                 </a>
               </Link>
             );
@@ -139,65 +161,79 @@ export function Sidebar() {
         
         <div className="p-4 border-t border-slate-200 space-y-2 bg-white">
           <Link href="/updates">
-            <a className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left ${
+            <a className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left ${
               location === "/updates" || location.startsWith("/updates")
                 ? "bg-primary/10 text-primary"
                 : "text-slate-600 hover:bg-slate-100"
-            }`}>
-              <AlertTriangle className="w-5 h-5" />
-              <span>Updates Needed</span>
+            }`}
+            title={isCollapsed ? "Updates Needed" : undefined}>
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              {!isCollapsed && <span>Updates Needed</span>}
             </a>
           </Link>
 
           {/* Admin Section */}
-          <div className="space-y-1">
-            <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
+          {!isCollapsed ? (
+            <div className="space-y-1">
+              <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
+                  location.startsWith('/admin')
+                    ? "bg-primary/10 text-primary"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}>
+                <Link href="/admin" className="flex-1">
+                  <div className="flex items-center space-x-3 px-3 py-2">
+                    <Settings className="w-5 h-5" />
+                    <span>Admin</span>
+                  </div>
+                </Link>
+                <button
+                  onClick={() => setIsAdminExpanded(!isAdminExpanded)}
+                  className="px-2 py-2 hover:bg-slate-200 rounded-r-lg"
+                >
+                  {isAdminExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              
+              {isAdminExpanded && (
+                <div className="ml-6 space-y-1 bg-white">
+                  {adminItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location === item.href;
+                    
+                    return (
+                      <Link key={item.href} href={item.href}>
+                        <div
+                          className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
+                            isActive
+                              ? "bg-primary/10 text-primary"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span>{item.label}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link href="/admin">
+              <a className={`flex items-center justify-center px-2 py-2 rounded-lg font-medium w-full text-left ${
                 location.startsWith('/admin')
                   ? "bg-primary/10 text-primary"
                   : "text-slate-600 hover:bg-slate-100"
-              }`}>
-              <Link href="/admin" className="flex-1">
-                <div className="flex items-center space-x-3 px-3 py-2">
-                  <Settings className="w-5 h-5" />
-                  <span>Admin</span>
-                </div>
-              </Link>
-              <button
-                onClick={() => setIsAdminExpanded(!isAdminExpanded)}
-                className="px-2 py-2 hover:bg-slate-200 rounded-r-lg"
-              >
-                {isAdminExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-            
-            {isAdminExpanded && (
-              <div className="ml-6 space-y-1 bg-white">
-                {adminItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location === item.href;
-                  
-                  return (
-                    <Link key={item.href} href={item.href}>
-                      <div
-                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
-                          isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+              }`}
+              title="Admin">
+                <Settings className="w-5 h-5 flex-shrink-0" />
+              </a>
+            </Link>
+          )}
         </div>
       </aside>
 
