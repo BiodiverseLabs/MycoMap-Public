@@ -4636,110 +4636,373 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         queryWest = parseFloat(boundingBoxWest);
       }
       
-      // Build month filter conditions (EXACT same logic as main species list)
-      let monthCondition = '';
+      // Get database observations with images (EXACT same filtering as main species list)
+      let speciesObservations;
+      
       if (monthStart && monthEnd) {
         const startMonth = parseInt(monthStart as string);
         const endMonth = parseInt(monthEnd as string);
         if (startMonth <= endMonth) {
-          monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+          speciesObservations = await db.execute(sql`
+            SELECT 
+              o.observation_id,
+              o.scientific_name,
+              o.common_name,
+              o.collector as observer,
+              o.observed_on,
+              o.state,
+              o.place_guess,
+              o.image_link,
+              CASE 
+                WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
+                WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
+                WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
+                ELSE 'Database'
+              END as source
+            FROM observations o
+            WHERE o.latitude IS NOT NULL 
+              AND o.longitude IS NOT NULL
+              AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+              AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+              AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+              AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
+              AND o.scientific_name = ${scientificName}
+              AND o.image_link IS NOT NULL
+              AND o.image_link != ''
+              AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}
+            ORDER BY o.observed_on DESC
+          `);
         } else {
-          monthCondition = `AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})`;
+          speciesObservations = await db.execute(sql`
+            SELECT 
+              o.observation_id,
+              o.scientific_name,
+              o.common_name,
+              o.collector as observer,
+              o.observed_on,
+              o.state,
+              o.place_guess,
+              o.image_link,
+              CASE 
+                WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
+                WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
+                WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
+                ELSE 'Database'
+              END as source
+            FROM observations o
+            WHERE o.latitude IS NOT NULL 
+              AND o.longitude IS NOT NULL
+              AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+              AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+              AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+              AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
+              AND o.scientific_name = ${scientificName}
+              AND o.image_link IS NOT NULL
+              AND o.image_link != ''
+              AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})
+            ORDER BY o.observed_on DESC
+          `);
         }
       } else if (monthStart) {
-        monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) >= ${parseInt(monthStart as string)}`;
+        const startMonth = parseInt(monthStart as string);
+        speciesObservations = await db.execute(sql`
+          SELECT 
+            o.observation_id,
+            o.scientific_name,
+            o.common_name,
+            o.collector as observer,
+            o.observed_on,
+            o.state,
+            o.place_guess,
+            o.image_link,
+            CASE 
+              WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
+              WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
+              WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
+              ELSE 'Database'
+            END as source
+          FROM observations o
+          WHERE o.latitude IS NOT NULL 
+            AND o.longitude IS NOT NULL
+            AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+            AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+            AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+            AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
+            AND o.scientific_name = ${scientificName}
+            AND o.image_link IS NOT NULL
+            AND o.image_link != ''
+            AND EXTRACT(MONTH FROM o.observed_on) >= ${startMonth}
+          ORDER BY o.observed_on DESC
+        `);
       } else if (monthEnd) {
-        monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) <= ${parseInt(monthEnd as string)}`;
+        const endMonth = parseInt(monthEnd as string);
+        speciesObservations = await db.execute(sql`
+          SELECT 
+            o.observation_id,
+            o.scientific_name,
+            o.common_name,
+            o.collector as observer,
+            o.observed_on,
+            o.state,
+            o.place_guess,
+            o.image_link,
+            CASE 
+              WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
+              WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
+              WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
+              ELSE 'Database'
+            END as source
+          FROM observations o
+          WHERE o.latitude IS NOT NULL 
+            AND o.longitude IS NOT NULL
+            AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+            AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+            AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+            AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
+            AND o.scientific_name = ${scientificName}
+            AND o.image_link IS NOT NULL
+            AND o.image_link != ''
+            AND EXTRACT(MONTH FROM o.observed_on) <= ${endMonth}
+          ORDER BY o.observed_on DESC
+        `);
+      } else {
+        speciesObservations = await db.execute(sql`
+          SELECT 
+            o.observation_id,
+            o.scientific_name,
+            o.common_name,
+            o.collector as observer,
+            o.observed_on,
+            o.state,
+            o.place_guess,
+            o.image_link,
+            CASE 
+              WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
+              WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
+              WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
+              ELSE 'Database'
+            END as source
+          FROM observations o
+          WHERE o.latitude IS NOT NULL 
+            AND o.longitude IS NOT NULL
+            AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+            AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+            AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+            AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
+            AND o.scientific_name = ${scientificName}
+            AND o.image_link IS NOT NULL
+            AND o.image_link != ''
+          ORDER BY o.observed_on DESC
+        `);
       }
-
-      // Get database observations with images (EXACT same filtering as main species list)
-      const speciesObservations = await db.execute(sql`
-        SELECT 
-          o.observation_id,
-          o.scientific_name,
-          o.common_name,
-          o.collector as observer,
-          o.observed_on,
-          o.state,
-          o.place_guess,
-          o.image_link,
-          CASE 
-            WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
-            WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
-            WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
-            ELSE 'Database'
-          END as source
-        FROM observations o
-        WHERE o.latitude IS NOT NULL 
-          AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
-          AND o.scientific_name = ${scientificName}
-          AND o.image_link IS NOT NULL
-          AND o.image_link != ''
-          ${monthCondition}
-        ORDER BY o.observed_on DESC
-      `);
 
       let allImages = [...speciesObservations.rows];
 
       // Include iNaturalist cache observations if includeInat is true (EXACT same logic)
       if (includeInatBool) {
-        let inatMonthCondition = '';
+        let inatObservations;
+        
         if (monthStart && monthEnd) {
           const startMonth = parseInt(monthStart as string);
           const endMonth = parseInt(monthEnd as string);
           if (startMonth <= endMonth) {
-            inatMonthCondition = `AND EXTRACT(MONTH FROM observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+            inatObservations = await db.execute(sql`
+              SELECT 
+                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name as observer,
+                observed_on,
+                place_guess as state,
+                place_guess,
+                photo_url as image_link,
+                'iNaturalist' as source,
+                photo_index
+              FROM (
+                SELECT 
+                  inat_id,
+                  scientific_name,
+                  common_name,
+                  user_name,
+                  observed_on,
+                  place_guess,
+                  unnest(photos) as photo_url,
+                  generate_subscripts(photos, 1) as photo_index
+                FROM inat_observations_cache
+                WHERE latitude IS NOT NULL 
+                  AND longitude IS NOT NULL
+                  AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+                  AND CAST(latitude AS DECIMAL) >= ${querySouth}
+                  AND CAST(longitude AS DECIMAL) <= ${queryEast}
+                  AND CAST(longitude AS DECIMAL) >= ${queryWest}
+                  AND scientific_name = ${scientificName}
+                  AND photos IS NOT NULL
+                  AND array_length(photos, 1) > 0
+                  AND quality_grade = 'research'
+                  AND EXTRACT(MONTH FROM observed_on) BETWEEN ${startMonth} AND ${endMonth}
+              ) t
+              ORDER BY observed_on DESC, photo_index
+            `);
           } else {
-            inatMonthCondition = `AND (EXTRACT(MONTH FROM observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM observed_on) <= ${endMonth})`;
+            inatObservations = await db.execute(sql`
+              SELECT 
+                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name as observer,
+                observed_on,
+                place_guess as state,
+                place_guess,
+                photo_url as image_link,
+                'iNaturalist' as source,
+                photo_index
+              FROM (
+                SELECT 
+                  inat_id,
+                  scientific_name,
+                  common_name,
+                  user_name,
+                  observed_on,
+                  place_guess,
+                  unnest(photos) as photo_url,
+                  generate_subscripts(photos, 1) as photo_index
+                FROM inat_observations_cache
+                WHERE latitude IS NOT NULL 
+                  AND longitude IS NOT NULL
+                  AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+                  AND CAST(latitude AS DECIMAL) >= ${querySouth}
+                  AND CAST(longitude AS DECIMAL) <= ${queryEast}
+                  AND CAST(longitude AS DECIMAL) >= ${queryWest}
+                  AND scientific_name = ${scientificName}
+                  AND photos IS NOT NULL
+                  AND array_length(photos, 1) > 0
+                  AND quality_grade = 'research'
+                  AND (EXTRACT(MONTH FROM observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM observed_on) <= ${endMonth})
+              ) t
+              ORDER BY observed_on DESC, photo_index
+            `);
           }
         } else if (monthStart) {
-          inatMonthCondition = `AND EXTRACT(MONTH FROM observed_on) >= ${parseInt(monthStart as string)}`;
-        } else if (monthEnd) {
-          inatMonthCondition = `AND EXTRACT(MONTH FROM observed_on) <= ${parseInt(monthEnd as string)}`;
-        }
-
-        const inatObservations = await db.execute(sql`
-          SELECT 
-            'iNat-' || inat_id || '-' || photo_index as observation_id,
-            inat_id,
-            scientific_name,
-            common_name,
-            user_name as observer,
-            observed_on,
-            place_guess as state,
-            place_guess,
-            photo_url as image_link,
-            'iNaturalist' as source,
-            photo_index
-          FROM (
+          const startMonth = parseInt(monthStart as string);
+          inatObservations = await db.execute(sql`
             SELECT 
+              'iNat-' || inat_id || '-' || photo_index as observation_id,
               inat_id,
               scientific_name,
               common_name,
-              user_name,
+              user_name as observer,
               observed_on,
+              place_guess as state,
               place_guess,
-              unnest(photos) as photo_url,
-              generate_subscripts(photos, 1) as photo_index
-            FROM inat_observations_cache
-            WHERE latitude IS NOT NULL 
-              AND longitude IS NOT NULL
-              AND CAST(latitude AS DECIMAL) <= ${queryNorth}
-              AND CAST(latitude AS DECIMAL) >= ${querySouth}
-              AND CAST(longitude AS DECIMAL) <= ${queryEast}
-              AND CAST(longitude AS DECIMAL) >= ${queryWest}
-              AND scientific_name = ${scientificName}
-              AND photos IS NOT NULL
-              AND array_length(photos, 1) > 0
-              AND quality_grade = 'research'
-              ${inatMonthCondition}
-          ) t
-          ORDER BY observed_on DESC, photo_index
-        `);
+              photo_url as image_link,
+              'iNaturalist' as source,
+              photo_index
+            FROM (
+              SELECT 
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name,
+                observed_on,
+                place_guess,
+                unnest(photos) as photo_url,
+                generate_subscripts(photos, 1) as photo_index
+              FROM inat_observations_cache
+              WHERE latitude IS NOT NULL 
+                AND longitude IS NOT NULL
+                AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+                AND CAST(latitude AS DECIMAL) >= ${querySouth}
+                AND CAST(longitude AS DECIMAL) <= ${queryEast}
+                AND CAST(longitude AS DECIMAL) >= ${queryWest}
+                AND scientific_name = ${scientificName}
+                AND photos IS NOT NULL
+                AND array_length(photos, 1) > 0
+                AND quality_grade = 'research'
+                AND EXTRACT(MONTH FROM observed_on) >= ${startMonth}
+            ) t
+            ORDER BY observed_on DESC, photo_index
+          `);
+        } else if (monthEnd) {
+          const endMonth = parseInt(monthEnd as string);
+          inatObservations = await db.execute(sql`
+            SELECT 
+              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name as observer,
+              observed_on,
+              place_guess as state,
+              place_guess,
+              photo_url as image_link,
+              'iNaturalist' as source,
+              photo_index
+            FROM (
+              SELECT 
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name,
+                observed_on,
+                place_guess,
+                unnest(photos) as photo_url,
+                generate_subscripts(photos, 1) as photo_index
+              FROM inat_observations_cache
+              WHERE latitude IS NOT NULL 
+                AND longitude IS NOT NULL
+                AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+                AND CAST(latitude AS DECIMAL) >= ${querySouth}
+                AND CAST(longitude AS DECIMAL) <= ${queryEast}
+                AND CAST(longitude AS DECIMAL) >= ${queryWest}
+                AND scientific_name = ${scientificName}
+                AND photos IS NOT NULL
+                AND array_length(photos, 1) > 0
+                AND quality_grade = 'research'
+                AND EXTRACT(MONTH FROM observed_on) <= ${endMonth}
+            ) t
+            ORDER BY observed_on DESC, photo_index
+          `);
+        } else {
+          inatObservations = await db.execute(sql`
+            SELECT 
+              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name as observer,
+              observed_on,
+              place_guess as state,
+              place_guess,
+              photo_url as image_link,
+              'iNaturalist' as source,
+              photo_index
+            FROM (
+              SELECT 
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name,
+                observed_on,
+                place_guess,
+                unnest(photos) as photo_url,
+                generate_subscripts(photos, 1) as photo_index
+              FROM inat_observations_cache
+              WHERE latitude IS NOT NULL 
+                AND longitude IS NOT NULL
+                AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+                AND CAST(latitude AS DECIMAL) >= ${querySouth}
+                AND CAST(longitude AS DECIMAL) <= ${queryEast}
+                AND CAST(longitude AS DECIMAL) >= ${queryWest}
+                AND scientific_name = ${scientificName}
+                AND photos IS NOT NULL
+                AND array_length(photos, 1) > 0
+                AND quality_grade = 'research'
+            ) t
+            ORDER BY observed_on DESC, photo_index
+          `);
+        }
         
         allImages.push(...inatObservations.rows);
       }
