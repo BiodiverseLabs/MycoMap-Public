@@ -4217,7 +4217,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Get guide to determine base contributor count
       const dbContributors = await db.execute(sql`
-        SELECT DISTINCT o.observer as name
+        SELECT DISTINCT o.collector as name
         FROM observations o
         JOIN field_guides fg ON fg.id = ${fieldGuideId}
         WHERE o.latitude IS NOT NULL 
@@ -4226,7 +4226,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.latitude AS DECIMAL) >= CAST(fg.bounding_box_south AS DECIMAL)
           AND CAST(o.longitude AS DECIMAL) <= CAST(fg.bounding_box_east AS DECIMAL)
           AND CAST(o.longitude AS DECIMAL) >= CAST(fg.bounding_box_west AS DECIMAL)
-          AND o.observer IS NOT NULL
+          AND o.collector IS NOT NULL
       `);
       
       let totalContributors = dbContributors.rows.length;
