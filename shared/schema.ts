@@ -714,6 +714,7 @@ export const fieldGuideSpecies = pgTable("field_guide_species", {
   fieldGuideId: integer("field_guide_id").notNull().references(() => fieldGuides.id, { onDelete: 'cascade' }),
   scientificName: text("scientific_name").notNull(),
   commonName: text("common_name"),
+  family: text("family"),
   observationCount: integer("observation_count").default(0),
   selectedImageUrl: text("selected_image_url"), // URL of the selected representative image
   selectedImageSource: text("selected_image_source"), // "iNaturalist" or "MushroomObserver"  

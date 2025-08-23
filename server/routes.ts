@@ -4046,6 +4046,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         SELECT DISTINCT 
           o.scientific_name,
           o.common_name,
+          o.family,
           COUNT(*) as observation_count
         FROM observations o
         WHERE o.latitude IS NOT NULL 
@@ -4056,13 +4057,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
           AND o.scientific_name IS NOT NULL
           AND o.scientific_name != ''
-        GROUP BY o.scientific_name, o.common_name
+        GROUP BY o.scientific_name, o.common_name, o.family
         ORDER BY o.scientific_name
       `);
 
       const species = speciesInBox.rows as Array<{
         scientific_name: string;
         common_name: string | null;
+        family: string | null;
         observation_count: number;
       }>;
 
@@ -4075,6 +4077,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           fieldGuideId,
           scientificName: s.scientific_name,
           commonName: s.common_name,
+          family: s.family,
           observationCount: parseInt(s.observation_count.toString())
         }));
 

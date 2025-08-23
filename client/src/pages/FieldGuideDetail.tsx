@@ -28,6 +28,7 @@ interface FieldGuideSpecies {
   fieldGuideId: number;
   scientificName: string;
   commonName: string | null;
+  family: string | null;
   observationCount: number;
   selectedImageUrl: string | null;
   selectedImageSource: string | null;
@@ -284,12 +285,19 @@ export default function FieldGuideDetail() {
                   {species.map((species) => (
                     <TableRow key={species.id}>
                       <TableCell className="font-medium">
-                        <button
-                          onClick={() => setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}`)}
-                          className="text-left italic text-primary hover:text-primary/80 hover:underline"
-                        >
-                          {species.scientificName}
-                        </button>
+                        <div className="space-y-0.5">
+                          <button
+                            onClick={() => setLocation(`/field-guides/${fieldGuideId}/species/${encodeURIComponent(species.scientificName)}`)}
+                            className="text-left italic text-primary hover:text-primary/80 hover:underline block"
+                          >
+                            {species.scientificName}
+                          </button>
+                          {species.family && (
+                            <div className="text-xs text-slate-500">
+                              Family: {species.family}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {species.commonName || (
