@@ -4421,18 +4421,51 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   order: 'asc'
                 });
 
-                const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
-                console.log(`[iNat API] Calling: ${inatUrl}`);
+                // Fetch all pages of iNaturalist data - PAGINATION ENABLED
+                const allInatObservations = [];
+                let page = 1;
+                let totalResults = 0;
                 
-                const inatResponse = await fetch(inatUrl, {
-                  headers: {
-                    'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
-                  }
-                });
+                do {
+                  inatParams.set('page', page.toString());
+                  const pagedUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
+                  
+                  const inatResponse = await fetch(pagedUrl, {
+                    headers: {
+                      'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
+                    }
+                  });
 
-                if (inatResponse.ok) {
-                  const inatData = await inatResponse.json();
-                  console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
+                  console.log(`[iNat API] Page ${page} - Response status: ${inatResponse.status}`);
+                  if (inatResponse.ok) {
+                    const inatData = await inatResponse.json();
+                    totalResults = inatData.total_results || 0;
+                    
+                    console.log(`[iNat API] Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
+                    
+                    if (inatData.results && inatData.results.length > 0) {
+                      allInatObservations.push(...inatData.results);
+                      page++;
+                      
+                      // Safety limit 
+                      if (allInatObservations.length >= 5000 || page > 25) {
+                        console.log(`[iNat API] Reached limit of ${allInatObservations.length} observations, stopping pagination`);
+                        break;
+                      }
+                    } else {
+                      break; // No more results
+                    }
+                  } else {
+                    console.log(`[iNat API] Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
+                    break;
+                  }
+                } while (allInatObservations.length < totalResults && page <= 25);
+                
+                console.log(`[iNat API] Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
+                
+                // Process all observations as if they came from a single response
+                const inatData = { results: allInatObservations, total_results: totalResults };
+                console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
                   
                   if (inatData.results && inatData.results.length > 0) {
                     // Process iNaturalist observations into species format
