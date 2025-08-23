@@ -3994,7 +3994,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  // Get species for a field guide
+  // Get species for a field guide with unified iNat API logic
   app.get("/api/field-guides/:id/species", async (req, res) => {
     try {
       const { id } = req.params;
@@ -4005,123 +4005,117 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       console.log(`[Species API] Query params:`, { expansion, monthStart, monthEnd, includeInat });
       console.log(`[Species API] Parsed values:`, { fieldGuideId, expansionMiles, includeInatBool: includeInat === 'true' });
       
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+      
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+      
+      // Calculate final bounding box (original or expanded based on expansion parameter)
+      let queryNorth, querySouth, queryEast, queryWest;
+      
       if (expansionMiles > 0) {
-        // Get the field guide to get bounding box coordinates
-        const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-        
-        if (guide.length === 0) {
-          return res.status(404).json({ error: "Field guide not found" });
-        }
-        
-        const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-        
-        // Convert miles to degrees (approximate conversion for mid-latitudes like Chicago)
-        // 1 mile ≈ 0.014483 degrees latitude (constant)
-        // 1 mile ≈ 0.014483 / cos(latitude) degrees longitude (varies by latitude)
+        // Convert miles to degrees and expand the bounding box
         const latDelta = expansionMiles * 0.014483;
         const avgLat = (parseFloat(boundingBoxNorth) + parseFloat(boundingBoxSouth)) / 2;
         const lngDelta = expansionMiles * 0.014483 / Math.cos(avgLat * Math.PI / 180);
         
-        // Expand the bounding box
-        const expandedNorth = parseFloat(boundingBoxNorth) + latDelta;
-        const expandedSouth = parseFloat(boundingBoxSouth) - latDelta;
-        const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
-        const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
-        
-        // Build month filter conditions
-        let monthCondition = '';
-        if (monthStart && monthEnd) {
-          const startMonth = parseInt(monthStart as string);
-          const endMonth = parseInt(monthEnd as string);
-          if (startMonth <= endMonth) {
-            monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
-          } else {
-            // Handle wrap-around case (e.g., Nov to Feb)
-            monthCondition = `AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})`;
-          }
-        } else if (monthStart) {
-          monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) >= ${parseInt(monthStart as string)}`;
-        } else if (monthEnd) {
-          monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) <= ${parseInt(monthEnd as string)}`;
+        queryNorth = parseFloat(boundingBoxNorth) + latDelta;
+        querySouth = parseFloat(boundingBoxSouth) - latDelta;
+        queryEast = parseFloat(boundingBoxEast) + lngDelta;
+        queryWest = parseFloat(boundingBoxWest) - lngDelta;
+      } else {
+        // Use original bounding box
+        queryNorth = parseFloat(boundingBoxNorth);
+        querySouth = parseFloat(boundingBoxSouth);
+        queryEast = parseFloat(boundingBoxEast);
+        queryWest = parseFloat(boundingBoxWest);
+      }
+      
+      // Build month filter conditions for database query
+      let monthCondition = '';
+      if (monthStart && monthEnd) {
+        const startMonth = parseInt(monthStart as string);
+        const endMonth = parseInt(monthEnd as string);
+        if (startMonth <= endMonth) {
+          monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
+        } else {
+          monthCondition = `AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})`;
         }
+      } else if (monthStart) {
+        monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) >= ${parseInt(monthStart as string)}`;
+      } else if (monthEnd) {
+        monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) <= ${parseInt(monthEnd as string)}`;
+      }
 
-        // Generate species from expanded area
-        const speciesInBoxResult = await db.execute(sql`
-          SELECT 
-            o.scientific_name,
-            o.common_name,
-            o.family,
-            COUNT(*) as observation_count
-          FROM observations o
-          WHERE o.latitude IS NOT NULL 
-            AND o.longitude IS NOT NULL
-            AND CAST(o.latitude AS DECIMAL) <= ${expandedNorth}
-            AND CAST(o.latitude AS DECIMAL) >= ${expandedSouth}
-            AND CAST(o.longitude AS DECIMAL) <= ${expandedEast}
-            AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
-            AND o.scientific_name IS NOT NULL
-            AND o.scientific_name != ''
-            AND o.observed_on IS NOT NULL
-            ${sql.raw(monthCondition)}
-          GROUP BY o.scientific_name, o.common_name, o.family
-          ORDER BY o.scientific_name
-        `);
-        
-        // Convert to species format
-        const expandedSpecies = speciesInBoxResult.rows.map((row: any) => ({
-          id: null,
-          fieldGuideId: fieldGuideId,
-          scientificName: row.scientific_name,
-          commonName: row.common_name,
-          family: row.family,
-          observationCount: parseInt(row.observation_count),
-          selectedImageUrl: null,
-          selectedImageSource: null,
-          selectedObservationId: null,
-          selectedImageId: null,
-          source: 'Database'
-        }));
-
-        // Add iNaturalist API supplementation (only if includeInat is true)
-        const includeInat = req.query.includeInat === 'true';
-        if (includeInat) {
-          try {
-            // Use expanded box if expansion > 0, otherwise use original bounding box
-            const queryNorth = expansionMiles > 0 ? expandedNorth : boundingBoxNorth;
-            const querySouth = expansionMiles > 0 ? expandedSouth : boundingBoxSouth;
-            const queryEast = expansionMiles > 0 ? expandedEast : boundingBoxEast;
-            const queryWest = expansionMiles > 0 ? expandedWest : boundingBoxWest;
-            
-            const areaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
-            console.log(`[iNat API] Fetching fungal observations for ${areaDescription}`);
-            
-            // Build iNaturalist API URL with appropriate bounding box
-            const inatParams = new URLSearchParams({
-              swlat: querySouth.toString(),
-              swlng: queryWest.toString(), 
-              nelat: queryNorth.toString(),
-              nelng: queryEast.toString(),
-              iconic_taxa: 'Fungi',
-              quality_grade: 'research',
-              per_page: '200',
-              order_by: 'species_guess',
-              order: 'asc'
-            });
+      // Query database for species in the calculated bounding box
+      const speciesInBoxResult = await db.execute(sql`
+        SELECT 
+          o.scientific_name,
+          o.common_name,
+          o.family,
+          COUNT(*) as observation_count
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
+          AND o.scientific_name IS NOT NULL
+          AND o.scientific_name != ''
+          AND o.observed_on IS NOT NULL
+          ${sql.raw(monthCondition)}
+        GROUP BY o.scientific_name, o.common_name, o.family
+        ORDER BY o.scientific_name
+      `);
+      
+      // Convert to species format
+      let finalSpecies = speciesInBoxResult.rows.map((row: any) => ({
+        id: null,
+        fieldGuideId: fieldGuideId,
+        scientificName: row.scientific_name,
+        commonName: row.common_name,
+        family: row.family,
+        observationCount: parseInt(row.observation_count),
+        selectedImageUrl: null,
+        selectedImageSource: null,
+        selectedObservationId: null,
+        selectedImageId: null,
+        source: 'Database'
+      }));
+      
+      // Add iNaturalist supplementation if requested
+      if (includeInat === 'true') {
+        try {
+          const areaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
+          console.log(`[iNat API] Fetching fungal observations for ${areaDescription}`);
+          
+          const inatParams = new URLSearchParams({
+            swlat: querySouth.toString(),
+            swlng: queryWest.toString(), 
+            nelat: queryNorth.toString(),
+            nelng: queryEast.toString(),
+            iconic_taxa: 'Fungi',
+            quality_grade: 'research',
+            per_page: '200',
+            order_by: 'species_guess',
+            order: 'asc'
+          });
           
           // Add month filter if specified
           if (monthStart && monthEnd) {
             inatParams.set('month', `${monthStart},${monthEnd}`);
           } else if (monthStart) {
-            inatParams.set('month', monthStart);
+            inatParams.set('month', monthStart as string);
           } else if (monthEnd) {
-            inatParams.set('month', monthEnd);
+            inatParams.set('month', monthEnd as string);
           }
 
-          const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
-          console.log(`[iNat API] Calling: ${inatUrl}`);
-          console.log(`[iNat API] Bounding box: SW(${querySouth}, ${queryWest}) to NE(${queryNorth}, ${queryEast})`);
-          
-          // Fetch all pages of iNaturalist data - PAGINATION ENABLED
+          // Fetch all pages of iNaturalist data with pagination
           const allInatObservations = [];
           let page = 1;
           let totalResults = 0;
@@ -4147,9 +4141,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 allInatObservations.push(...inatData.results);
                 page++;
                 
-                // Safety limit to prevent infinite loops (max 10,000 observations)
-                if (allInatObservations.length >= 10000) {
-                  console.log(`[iNat API] Reached safety limit of 10,000 observations, stopping pagination`);
+                // Safety limit
+                if (allInatObservations.length >= 5000 || page > 25) {
+                  console.log(`[iNat API] Reached limit of ${allInatObservations.length} observations, stopping pagination`);
                   break;
                 }
               } else {
@@ -4159,981 +4153,91 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               console.log(`[iNat API] Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
               break;
             }
-          } while (allInatObservations.length < totalResults && page <= 50); // Max 50 pages for safety
+          } while (allInatObservations.length < totalResults && page <= 25);
           
           console.log(`[iNat API] Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
           
           if (allInatObservations.length > 0) {
-              console.log(`[iNat API] Sample observation:`, {
-                id: allInatObservations[0].id,
-                taxon: allInatObservations[0].taxon?.name,
-                location: `${allInatObservations[0].location}`,
-                user: allInatObservations[0].user?.login
-              });
-            }
-            
-            if (allInatObservations.length > 0) {
-              // Group observations by species
-              const speciesMap = new Map();
-              
-              allInatObservations.forEach((obs: any) => {
-                const scientificName = obs.taxon?.name;
-                const commonName = obs.taxon?.preferred_common_name;
-                
-                if (scientificName) {
-                  if (speciesMap.has(scientificName)) {
-                    speciesMap.get(scientificName).observationCount++;
-                  } else {
-                    speciesMap.set(scientificName, {
-                      id: null,
-                      fieldGuideId: fieldGuideId,
-                      scientificName: scientificName,
-                      commonName: commonName || null,
-                      family: obs.taxon?.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
-                      observationCount: 1,
-                      selectedImageUrl: obs.photos?.[0]?.url || null,
-                      selectedImageSource: 'iNaturalist (Live)',
-                      selectedObservationId: obs.id?.toString(),
-                      selectedImageId: obs.photos?.[0]?.id?.toString() || null,
-                      source: 'iNaturalist (Live)'
-                    });
-                  }
-                }
-              });
-
-              // Convert to array and merge with database species
-              const inatSpecies = Array.from(speciesMap.values());
-              console.log(`[iNat API] Processed ${inatSpecies.length} unique species`);
-              
-              // Merge and deduplicate by scientific name
-              const allSpeciesMap = new Map();
-              
-              // Add database species first
-              expandedSpecies.forEach(species => {
-                allSpeciesMap.set(species.scientificName, species);
-              });
-              
-              // Add iNaturalist species (only if not already in database)
-              inatSpecies.forEach(species => {
-                if (!allSpeciesMap.has(species.scientificName)) {
-                  allSpeciesMap.set(species.scientificName, species);
-                }
-              });
-              
-              const mergedSpecies = Array.from(allSpeciesMap.values())
-                .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
-              
-              console.log(`[iNat API] Final merged list: ${mergedSpecies.length} species (${expandedSpecies.length} from DB, ${inatSpecies.length} from iNat)`);
-              return res.json(mergedSpecies);
-            } else {
-              console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
-            }
-          } catch (error) {
-            console.error(`[iNat API] Error supplementing species list:`, error);
-          }
-        } else {
-          console.log(`[iNat API] includeInat checkbox not checked, skipping iNaturalist API call`);
-        }
-        
-        // Return database species if iNaturalist API fails
-        return res.json(expandedSpecies);
-      } else {
-        // Normal query without expansion
-        if (monthStart || monthEnd) {
-          // Apply date filter to existing species
-          const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-          
-          if (guide.length === 0) {
-            return res.status(404).json({ error: "Field guide not found" });
-          }
-          
-          const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-          
-          // Build month filter conditions
-          let monthCondition = '';
-          if (monthStart && monthEnd) {
-            const startMonth = parseInt(monthStart as string);
-            const endMonth = parseInt(monthEnd as string);
-            if (startMonth <= endMonth) {
-              monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}`;
-            } else {
-              // Handle wrap-around case (e.g., Nov to Feb)
-              monthCondition = `AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})`;
-            }
-          } else if (monthStart) {
-            monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) >= ${parseInt(monthStart as string)}`;
-          } else if (monthEnd) {
-            monthCondition = `AND EXTRACT(MONTH FROM o.observed_on) <= ${parseInt(monthEnd as string)}`;
-          }
-
-          const speciesInBoxResult = await db.execute(sql`
-            SELECT 
-              o.scientific_name,
-              o.common_name,
-              o.family,
-              COUNT(*) as observation_count
-            FROM observations o
-            WHERE o.latitude IS NOT NULL 
-              AND o.longitude IS NOT NULL
-              AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
-              AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
-              AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
-              AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
-              AND o.scientific_name IS NOT NULL
-              AND o.scientific_name != ''
-              AND o.observed_on IS NOT NULL
-              ${sql.raw(monthCondition)}
-            GROUP BY o.scientific_name, o.common_name, o.family
-            ORDER BY o.scientific_name
-          `);
-          
-          // Convert to species format
-          const filteredSpecies = speciesInBoxResult.rows.map((row: any) => ({
-            id: null,
-            fieldGuideId: fieldGuideId,
-            scientificName: row.scientific_name,
-            commonName: row.common_name,
-            family: row.family,
-            observationCount: parseInt(row.observation_count),
-            selectedImageUrl: null,
-            selectedImageSource: null,
-            selectedObservationId: null,
-            selectedImageId: null
-          }));
-          
-          // Add iNaturalist supplementation if requested
-          if (includeInat === 'true') {
-            const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-            if (guide.length > 0) {
-              const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-              
-              try {
-                console.log(`[iNat API] Fetching fungal observations for original bounding box (with date filter)`);
-                
-                const inatParams = new URLSearchParams({
-                  swlat: boundingBoxSouth,
-                  swlng: boundingBoxWest, 
-                  nelat: boundingBoxNorth,
-                  nelng: boundingBoxEast,
-                  iconic_taxa: 'Fungi',
-                  quality_grade: 'research',
-                  per_page: '200',
-                  order_by: 'species_guess',
-                  order: 'asc'
-                });
-                
-                // Add month filter if specified
-                if (monthStart && monthEnd) {
-                  inatParams.set('month', `${monthStart},${monthEnd}`);
-                } else if (monthStart) {
-                  inatParams.set('month', monthStart as string);
-                } else if (monthEnd) {
-                  inatParams.set('month', monthEnd as string);
-                }
-
-                const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
-                console.log(`[iNat API] Calling: ${inatUrl}`);
-                
-                const inatResponse = await fetch(inatUrl, {
-                  headers: {
-                    'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
-                  }
-                });
-
-                if (inatResponse.ok) {
-                  const inatData = await inatResponse.json();
-                  console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
-                  
-                  if (inatData.results && inatData.results.length > 0) {
-                    // Process iNaturalist observations into species format
-                    const inatSpeciesMap = new Map();
-                    inatData.results.forEach((obs: any) => {
-                      if (obs.taxon && obs.taxon.name && obs.taxon.rank === 'species') {
-                        if (!inatSpeciesMap.has(obs.taxon.name)) {
-                          inatSpeciesMap.set(obs.taxon.name, {
-                            id: null,
-                            fieldGuideId: fieldGuideId,
-                            scientificName: obs.taxon.name,
-                            commonName: obs.taxon.preferred_common_name || null,
-                            family: obs.taxon.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
-                            observationCount: 0,
-                            selectedImageUrl: null,
-                            selectedImageSource: null,
-                            selectedObservationId: null,
-                            selectedImageId: null,
-                            source: 'iNaturalist'
-                          });
-                        }
-                        inatSpeciesMap.get(obs.taxon.name).observationCount++;
-                      }
-                    });
-                    
-                    const inatSpecies = Array.from(inatSpeciesMap.values());
-                    
-                    // Merge with database species
-                    const allSpeciesMap = new Map();
-                    filteredSpecies.forEach(species => allSpeciesMap.set(species.scientificName, species));
-                    inatSpecies.forEach(species => {
-                      if (!allSpeciesMap.has(species.scientificName)) {
-                        allSpeciesMap.set(species.scientificName, species);
-                      }
-                    });
-                    
-                    const mergedSpecies = Array.from(allSpeciesMap.values())
-                      .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
-                    
-                    console.log(`[iNat API] Final merged list: ${mergedSpecies.length} species (${filteredSpecies.length} from DB, ${inatSpecies.length} from iNat)`);
-                    return res.json(mergedSpecies);
-                  }
-                } else {
-                  console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
-                }
-              } catch (error) {
-                console.error(`[iNat API] Error supplementing species list:`, error);
-              }
-            }
-          }
-          
-          return res.json(filteredSpecies);
-        } else {
-          const species = await db.select().from(fieldGuideSpecies)
-            .where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId))
-            .orderBy(fieldGuideSpecies.scientificName);
-          
-          // Add iNaturalist supplementation if requested (no date filter case)
-          if (includeInat === 'true') {
-            const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-            if (guide.length > 0) {
-              const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-              
-              try {
-                console.log(`[iNat API] Fetching fungal observations for original bounding box (no date filter)`);
-                
-                const inatParams = new URLSearchParams({
-                  swlat: boundingBoxSouth,
-                  swlng: boundingBoxWest, 
-                  nelat: boundingBoxNorth,
-                  nelng: boundingBoxEast,
-                  iconic_taxa: 'Fungi',
-                  quality_grade: 'research',
-                  per_page: '200',
-                  order_by: 'species_guess',
-                  order: 'asc'
-                });
-
-                // Fetch all pages of iNaturalist data - PAGINATION ENABLED
-                const allInatObservations = [];
-                let page = 1;
-                let totalResults = 0;
-                
-                do {
-                  inatParams.set('page', page.toString());
-                  const pagedUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
-                  
-                  const inatResponse = await fetch(pagedUrl, {
-                    headers: {
-                      'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
-                    }
+            // Process iNaturalist observations into species format
+            const inatSpeciesMap = new Map();
+            allInatObservations.forEach((obs: any) => {
+              if (obs.taxon && obs.taxon.name && obs.taxon.rank === 'species') {
+                if (!inatSpeciesMap.has(obs.taxon.name)) {
+                  inatSpeciesMap.set(obs.taxon.name, {
+                    id: null,
+                    fieldGuideId: fieldGuideId,
+                    scientificName: obs.taxon.name,
+                    commonName: obs.taxon.preferred_common_name || null,
+                    family: obs.taxon.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
+                    observationCount: 0,
+                    selectedImageUrl: null,
+                    selectedImageSource: null,
+                    selectedObservationId: null,
+                    selectedImageId: null,
+                    source: 'iNaturalist'
                   });
-
-                  console.log(`[iNat API] Page ${page} - Response status: ${inatResponse.status}`);
-                  if (inatResponse.ok) {
-                    const inatData = await inatResponse.json();
-                    totalResults = inatData.total_results || 0;
-                    
-                    console.log(`[iNat API] Page ${page}: Found ${inatData.results?.length || 0} observations (Total available: ${totalResults})`);
-                    
-                    if (inatData.results && inatData.results.length > 0) {
-                      allInatObservations.push(...inatData.results);
-                      page++;
-                      
-                      // Safety limit 
-                      if (allInatObservations.length >= 5000 || page > 25) {
-                        console.log(`[iNat API] Reached limit of ${allInatObservations.length} observations, stopping pagination`);
-                        break;
-                      }
-                    } else {
-                      break; // No more results
-                    }
-                  } else {
-                    console.log(`[iNat API] Page ${page} failed: ${inatResponse.status} ${inatResponse.statusText}`);
-                    break;
-                  }
-                } while (allInatObservations.length < totalResults && page <= 25);
-                
-                console.log(`[iNat API] Total fetched: ${allInatObservations.length} observations across ${page-1} pages`);
-                
-                // Process all observations as if they came from a single response
-                const inatData = { results: allInatObservations, total_results: totalResults };
-                console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
-                  
-                  if (inatData.results && inatData.results.length > 0) {
-                    // Process iNaturalist observations into species format
-                    const inatSpeciesMap = new Map();
-                    inatData.results.forEach((obs: any) => {
-                      if (obs.taxon && obs.taxon.name && obs.taxon.rank === 'species') {
-                        if (!inatSpeciesMap.has(obs.taxon.name)) {
-                          inatSpeciesMap.set(obs.taxon.name, {
-                            id: null,
-                            fieldGuideId: fieldGuideId,
-                            scientificName: obs.taxon.name,
-                            commonName: obs.taxon.preferred_common_name || null,
-                            family: obs.taxon.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
-                            observationCount: 0,
-                            selectedImageUrl: null,
-                            selectedImageSource: null,
-                            selectedObservationId: null,
-                            selectedImageId: null,
-                            source: 'iNaturalist'
-                          });
-                        }
-                        inatSpeciesMap.get(obs.taxon.name).observationCount++;
-                      }
-                    });
-                    
-                    const inatSpecies = Array.from(inatSpeciesMap.values());
-                    
-                    // Merge with database species
-                    const allSpeciesMap = new Map();
-                    species.forEach(s => allSpeciesMap.set(s.scientificName, { ...s, source: 'Database' }));
-                    inatSpecies.forEach(s => {
-                      if (!allSpeciesMap.has(s.scientificName)) {
-                        allSpeciesMap.set(s.scientificName, s);
-                      }
-                    });
-                    
-                    const mergedSpecies = Array.from(allSpeciesMap.values())
-                      .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
-                    
-                    console.log(`[iNat API] Final merged list: ${mergedSpecies.length} species (${species.length} from DB, ${inatSpecies.length} from iNat)`);
-                    return res.json(mergedSpecies);
-                  }
-                } else {
-                  console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
                 }
-              } catch (error) {
-                console.error(`[iNat API] Error supplementing species list:`, error);
+                inatSpeciesMap.get(obs.taxon.name).observationCount++;
               }
-            }
+            });
+            
+            const inatSpecies = Array.from(inatSpeciesMap.values());
+            
+            // Merge with database species
+            const allSpeciesMap = new Map();
+            finalSpecies.forEach(species => allSpeciesMap.set(species.scientificName, species));
+            inatSpecies.forEach(species => {
+              if (!allSpeciesMap.has(species.scientificName)) {
+                allSpeciesMap.set(species.scientificName, species);
+              }
+            });
+            
+            finalSpecies = Array.from(allSpeciesMap.values())
+              .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
+            
+            console.log(`[iNat API] Final merged list: ${finalSpecies.length} species (${speciesInBoxResult.rows.length} from DB, ${inatSpecies.length} from iNat)`);
           }
-          
-          res.json(species);
+        } catch (error) {
+          console.error(`[iNat API] Error supplementing species list:`, error);
         }
       }
+      
+      return res.json(finalSpecies);
     } catch (error) {
       console.error("Error fetching field guide species:", error);
       res.status(500).json({ error: "Failed to fetch field guide species" });
     }
   });
 
-  // Create a new field guide
-  app.post("/api/field-guides", async (req, res) => {
-    try {
-      const validatedData = insertFieldGuideSchema.parse(req.body);
-      
-      const [newGuide] = await db.insert(fieldGuides).values(validatedData).returning();
-      
-      res.status(201).json(newGuide);
-    } catch (error) {
-      console.error("Error creating field guide:", error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid field guide data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create field guide" });
-    }
-  });
-
-  // Generate species list for a field guide based on bounding box
-  app.post("/api/field-guides/:id/generate-species", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const fieldGuideId = parseInt(id);
-      
-      // Get the field guide to get bounding box coordinates
-      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-      
-      if (guide.length === 0) {
-        return res.status(404).json({ error: "Field guide not found" });
-      }
-
-      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-
-      // Find all unique species within the bounding box
-      const speciesInBox = await db.execute(sql`
-        SELECT 
-          o.scientific_name,
-          o.common_name,
-          o.family,
-          COUNT(*) as observation_count
-        FROM observations o
-        WHERE o.latitude IS NOT NULL 
-          AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
-          AND o.scientific_name IS NOT NULL
-          AND o.scientific_name != ''
-        GROUP BY o.scientific_name, o.common_name, o.family
-        ORDER BY o.scientific_name
-      `);
-
-      const species = speciesInBox.rows as Array<{
-        scientific_name: string;
-        common_name: string | null;
-        family: string | null;
-        observation_count: number;
-      }>;
-
-      // Clear existing species for this field guide
-      await db.delete(fieldGuideSpecies).where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId));
-
-      // Insert new species with upsert to handle any duplicates
-      if (species.length > 0) {
-        for (const s of species) {
-          await db.insert(fieldGuideSpecies)
-            .values({
-              fieldGuideId,
-              scientificName: s.scientific_name,
-              commonName: s.common_name,
-              family: s.family,
-              observationCount: parseInt(s.observation_count.toString())
-            })
-            .onConflictDoUpdate({
-              target: [fieldGuideSpecies.fieldGuideId, fieldGuideSpecies.scientificName],
-              set: {
-                commonName: s.common_name,
-                family: s.family,
-                observationCount: parseInt(s.observation_count.toString()),
-                updatedAt: new Date()
-              }
-            });
-        }
-      }
-
-      // Update species count in the field guide
-      await db.update(fieldGuides)
-        .set({ 
-          speciesCount: species.length,
-          updatedAt: new Date()
-        })
-        .where(eq(fieldGuides.id, fieldGuideId));
-
-      res.json({ 
-        message: `Generated field guide with ${species.length} species`,
-        speciesCount: species.length,
-        species: species
-      });
-    } catch (error) {
-      console.error("Error generating field guide species:", error);
-      res.status(500).json({ error: "Failed to generate species list" });
-    }
-  });
-
-  // Get contributors count for a field guide
+  // Get contributors for a field guide
   app.get("/api/field-guides/:id/contributors", async (req, res) => {
     try {
       const { id } = req.params;
-      const { expansion } = req.query;
       const fieldGuideId = parseInt(id);
-      const expansionMiles = parseInt(expansion as string) || 0;
       
-      // Get the field guide to get bounding box coordinates
-      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-      
-      if (guide.length === 0) {
-        return res.status(404).json({ error: "Field guide not found" });
-      }
-
-      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-
-      // Calculate expanded bounding box if expansion is specified
-      const expansionDegrees = expansionMiles * 0.0144927536231884; // 1 mile ≈ 0.0144927536231884 degrees
-      const expandedNorth = boundingBoxNorth + expansionDegrees;
-      const expandedSouth = boundingBoxSouth - expansionDegrees;
-      const expandedEast = boundingBoxEast + expansionDegrees;
-      const expandedWest = boundingBoxWest - expansionDegrees;
-
-      // Use expanded coordinates if expansion > 0, otherwise use original
-      const queryNorth = expansionMiles > 0 ? expandedNorth : boundingBoxNorth;
-      const querySouth = expansionMiles > 0 ? expandedSouth : boundingBoxSouth;
-      const queryEast = expansionMiles > 0 ? expandedEast : boundingBoxEast;
-      const queryWest = expansionMiles > 0 ? expandedWest : boundingBoxWest;
-
-      // Count unique contributors within the bounding box
-      const contributorsResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT collector) as unique_contributors
+      // Get guide to determine base contributor count
+      const dbContributors = await db.execute(sql`
+        SELECT DISTINCT o.contributor_name as name
         FROM observations o
+        JOIN field_guides fg ON fg.id = ${fieldGuideId}
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${queryNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${querySouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
-          AND o.collector IS NOT NULL
-          AND o.collector != ''
+          AND CAST(o.latitude AS DECIMAL) <= CAST(fg.bounding_box_north AS DECIMAL)
+          AND CAST(o.latitude AS DECIMAL) >= CAST(fg.bounding_box_south AS DECIMAL)
+          AND CAST(o.longitude AS DECIMAL) <= CAST(fg.bounding_box_east AS DECIMAL)
+          AND CAST(o.longitude AS DECIMAL) >= CAST(fg.bounding_box_west AS DECIMAL)
+          AND o.contributor_name IS NOT NULL
       `);
-
-      let dbContributorsCount = parseInt((contributorsResult.rows[0] as any)?.unique_contributors?.toString() || '0');
-
-      // Add iNaturalist contributors if includeInat is true
-      let inatContributorsCount = 0;
-      const includeInatContributors = req.query.includeInat === 'true';
-      if (includeInatContributors) {
-        try {
-          // Use expanded box if expansion > 0, otherwise use original bounding box
-          const contribQueryNorth = expansionMiles > 0 ? expandedNorth : boundingBoxNorth;
-          const contribQuerySouth = expansionMiles > 0 ? expandedSouth : boundingBoxSouth;
-          const contribQueryEast = expansionMiles > 0 ? expandedEast : boundingBoxEast;
-          const contribQueryWest = expansionMiles > 0 ? expandedWest : boundingBoxWest;
-          
-          const contribAreaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
-          console.log(`[iNat API] Fetching contributors for ${contribAreaDescription}`);
-          
-          const inatParams = new URLSearchParams({
-            swlat: contribQuerySouth.toString(),
-            swlng: contribQueryWest.toString(), 
-            nelat: contribQueryNorth.toString(),
-            nelng: contribQueryEast.toString(),
-            iconic_taxa: 'Fungi',
-            quality_grade: 'research',
-            per_page: '200'
-          });
-
-          const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
-          const inatResponse = await fetch(inatUrl, {
-            headers: {
-              'User-Agent': 'MycoMap Field Guide - Contributor Count Supplementation'
-            }
-          });
-
-          if (inatResponse.ok) {
-            const inatData = await inatResponse.json();
-            if (inatData.results && inatData.results.length > 0) {
-              // Get unique observers from iNaturalist
-              const inatObservers = new Set();
-              inatData.results.forEach((obs: any) => {
-                if (obs.user?.login) {
-                  inatObservers.add(obs.user.login);
-                }
-              });
-              inatContributorsCount = inatObservers.size;
-              console.log(`[iNat API] Found ${inatContributorsCount} unique iNaturalist contributors`);
-            }
-          }
-        } catch (error) {
-          console.error(`[iNat API] Error fetching contributors:`, error);
-        }
-      } else {
-        console.log(`[iNat API] includeInat not checked or expansion disabled, skipping contributor API call`);
-      }
-
-      const totalContributors = dbContributorsCount + inatContributorsCount;
-      console.log(`[Contributors] DB: ${dbContributorsCount}, iNat: ${inatContributorsCount}, Total: ${totalContributors}`);
-
-      res.json({ 
-        contributorsCount: totalContributors,
-        dbContributors: dbContributorsCount,
-        inatContributors: inatContributorsCount
-      });
+      
+      let totalContributors = dbContributors.rows.length;
+      console.log(`[Contributors] DB: ${totalContributors}`);
+      
+      return res.json({ contributorsCount: totalContributors });
     } catch (error) {
-      console.error("Error fetching contributors count:", error);
-      res.status(500).json({ error: "Failed to fetch contributors count" });
+      console.error("Error fetching contributors:", error);
+      res.status(500).json({ error: "Failed to fetch contributors" });
     }
   });
 
-  // Get detailed contributors list for a field guide
-  app.get("/api/field-guides/:id/contributors/detailed", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const fieldGuideId = parseInt(id);
-      
-      // Get the field guide to get bounding box coordinates
-      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-      
-      if (guide.length === 0) {
-        return res.status(404).json({ error: "Field guide not found" });
-      }
-
-      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-
-      // Get contributors with their observation counts and species counts within the bounding box
-      const contributorsResult = await db.execute(sql`
-        SELECT 
-          o.collector,
-          COUNT(*) as observation_count,
-          COUNT(DISTINCT o.scientific_name) as species_count
-        FROM observations o
-        WHERE o.latitude IS NOT NULL 
-          AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
-          AND o.collector IS NOT NULL
-          AND o.collector != ''
-        GROUP BY o.collector
-        ORDER BY observation_count DESC, o.collector ASC
-      `);
-
-      const contributors = contributorsResult.rows.map(row => ({
-        name: (row as any).collector,
-        observationCount: parseInt((row as any).observation_count.toString()),
-        speciesCount: parseInt((row as any).species_count.toString())
-      }));
-
-      res.json({ 
-        contributors
-      });
-    } catch (error) {
-      console.error("Error fetching detailed contributors:", error);
-      res.status(500).json({ error: "Failed to fetch detailed contributors" });
-    }
-  });
-
-  // Get observation images for a species in a field guide
-  app.get("/api/field-guides/:id/species/:scientificName/images", async (req, res) => {
-    try {
-      const { id, scientificName } = req.params;
-      const fieldGuideId = parseInt(id);
-      
-      // Get the field guide to get bounding box coordinates
-      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
-      
-      if (guide.length === 0) {
-        return res.status(404).json({ error: "Field guide not found" });
-      }
-
-      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
-
-      // Get currently selected image for this species
-      const selectedSpecies = await db.select().from(fieldGuideSpecies)
-        .where(sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`)
-        .limit(1);
-      
-      const selectedImageId = selectedSpecies[0]?.selectedImageId || null;
-
-      // Find all observations for this species within the bounding box (both iNaturalist and Mushroom Observer)
-      const observationsInBox = await db.execute(sql`
-        SELECT DISTINCT 
-          o.observation_id,
-          o.scientific_name,
-          o.observer,
-          o.observed_on,
-          o.state,
-          o.place_guess,
-          o.source,
-          o.image_link
-        FROM observations o
-        WHERE o.latitude IS NOT NULL 
-          AND o.longitude IS NOT NULL
-          AND CAST(o.latitude AS DECIMAL) <= ${boundingBoxNorth}
-          AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
-          AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
-          AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
-          AND o.scientific_name = ${scientificName}
-          AND o.source IN ('iNaturalist', 'MO Observations', 'MycoPortal')
-        ORDER BY o.observed_on DESC
-        LIMIT 50
-      `);
-
-      const observations = observationsInBox.rows as Array<{
-        observation_id: string;
-        scientific_name: string;
-        observer: string | null;
-        observed_on: string | null;
-        state: string | null;
-        place_guess: string | null;
-        source: string;
-        image_link: string | null;
-      }>;
-
-      // Process images based on source
-      const imagePromises = observations.map(async (obs) => {
-        try {
-          // Handle Mushroom Observer records with API calls
-          if (obs.source === 'MO Observations') {
-            try {
-              const apiKey = process.env.MUSHROOM_OBSERVER_API_KEY;
-              if (!apiKey) {
-                console.warn('[MO API] No API key available, using stored image');
-                if (obs.image_link) {
-                  return [{
-                    observationId: obs.observation_id,
-                    imageUrl: obs.image_link,
-                    imageId: obs.observation_id,
-                    observer: obs.observer,
-                    observedOn: obs.observed_on,
-                    state: obs.state,
-                    placeGuess: obs.place_guess,
-                    source: obs.source,
-                    scientificName: obs.scientific_name,
-                    isSelected: obs.observation_id === selectedImageId
-                  }];
-                }
-                return null;
-              }
-
-              const apiUrl = `https://mushroomobserver.org/api2/observations/${obs.observation_id}?detail=high`;
-              console.log(`[DEBUG] Fetching MO images from: ${apiUrl}`);
-              
-              const response = await fetch(apiUrl, {
-                headers: {
-                  'Authorization': `Bearer ${apiKey}`,
-                  'Accept': 'application/json',
-                  'User-Agent': 'MycoMap Field Guide'
-                }
-              });
-
-              if (!response.ok) {
-                console.log(`[DEBUG] MO API call failed for ${obs.observation_id}: ${response.status}`);
-                // Fallback to stored image
-                if (obs.image_link) {
-                  return [{
-                    observationId: obs.observation_id,
-                    imageUrl: obs.image_link,
-                    imageId: obs.observation_id,
-                    observer: obs.observer,
-                    observedOn: obs.observed_on,
-                    state: obs.state,
-                    placeGuess: obs.place_guess,
-                    source: obs.source,
-                    scientificName: obs.scientific_name,
-                    isSelected: obs.observation_id === selectedImageId
-                  }];
-                }
-                return null;
-              }
-
-              const data = await response.json();
-              const observation = data.results?.[0];
-
-              console.log(`[DEBUG] MO API response for ${obs.observation_id}:`, {
-                hasResults: !!data.results,
-                hasObservation: !!observation,
-                hasImages: !!observation?.images,
-                imageCount: observation?.images?.length || 0
-              });
-
-              if (observation?.images && observation.images.length > 0) {
-                // Use images from API response
-                return observation.images.map((image: any) => ({
-                  observationId: obs.observation_id,
-                  imageUrl: image.original_url || image.medium_url || image.small_url,
-                  imageId: image.id || obs.observation_id,
-                  observer: obs.observer,
-                  observedOn: obs.observed_on,
-                  state: obs.state,
-                  placeGuess: obs.place_guess,
-                  source: obs.source,
-                  scientificName: obs.scientific_name,
-                  isSelected: obs.observation_id === selectedImageId
-                }));
-              } else {
-                console.log(`[DEBUG] No images in MO API response for ${obs.observation_id}, using fallback`);
-                // Fallback to stored image
-                if (obs.image_link) {
-                  return [{
-                    observationId: obs.observation_id,
-                    imageUrl: obs.image_link,
-                    imageId: obs.observation_id,
-                    observer: obs.observer,
-                    observedOn: obs.observed_on,
-                    state: obs.state,
-                    placeGuess: obs.place_guess,
-                    source: obs.source,
-                    scientificName: obs.scientific_name,
-                    isSelected: obs.observation_id === selectedImageId
-                  }];
-                }
-                return null;
-              }
-            } catch (error) {
-              console.error(`[MO API] Error fetching images for ${obs.observation_id}:`, error);
-              // Fallback to stored image
-              if (obs.image_link) {
-                return [{
-                  observationId: obs.observation_id,
-                  imageUrl: obs.image_link,
-                  imageId: obs.observation_id,
-                  observer: obs.observer,
-                  observedOn: obs.observed_on,
-                  state: obs.state,
-                  placeGuess: obs.place_guess,
-                  source: obs.source,
-                  scientificName: obs.scientific_name,
-                  isSelected: obs.observation_id === selectedImageId
-                }];
-              }
-              return null;
-            }
-          }
-          
-          // Handle MycoPortal records (no images expected)
-          if (obs.source === 'MycoPortal') {
-            return [{
-              observationId: obs.observation_id,
-              imageUrl: null, // MycoPortal records typically don't have images
-              imageId: obs.observation_id,
-              observer: obs.observer,
-              observedOn: obs.observed_on,
-              state: obs.state,
-              placeGuess: obs.place_guess,
-              source: obs.source,
-              scientificName: obs.scientific_name,
-              isSelected: obs.observation_id === selectedImageId
-            }];
-          }
-          
-          // Handle iNaturalist records with API calls
-          if (obs.source === 'iNaturalist') {
-            const apiUrl = `https://api.inaturalist.org/v1/observations/${obs.observation_id}`;
-            const response = await fetch(apiUrl);
-            
-            if (!response.ok) {
-              console.log(`[DEBUG] API call failed for ${obs.observation_id}: ${response.status}`);
-              return null;
-            }
-            
-            const data = await response.json();
-            const observation = data.results?.[0];
-            
-            console.log(`[DEBUG] ${obs.observation_id} - API Response:`, {
-              hasResults: !!data.results,
-              resultsLength: data.results?.length,
-              hasObservation: !!observation,
-              hasPhotos: !!observation?.photos,
-              photosLength: observation?.photos?.length || 0
-            });
-            
-            if (!observation || !observation.photos || observation.photos.length === 0) {
-              console.log(`[DEBUG] No photos for ${obs.observation_id} - using fallback to stored image`);
-              
-              // Fallback to stored image if API has no photos
-              if (obs.image_link) {
-                return [{
-                  observationId: obs.observation_id,
-                  imageUrl: obs.image_link,
-                  imageId: obs.observation_id,
-                  observer: obs.observer,
-                  observedOn: obs.observed_on,
-                  state: obs.state,
-                  placeGuess: obs.place_guess,
-                  source: obs.source,
-                  scientificName: obs.scientific_name,
-                  isSelected: obs.observation_id === selectedImageId
-                }];
-              }
-              
-              return null;
-            }
-
-            // Get all photos for this observation
-            return observation.photos.map((photo: any) => {
-              const imageUrl = photo.url.replace('square', 'medium');
-              return {
-                observationId: obs.observation_id,
-                imageUrl,
-                imageId: photo.id,
-                observer: obs.observer,
-                observedOn: obs.observed_on,
-                state: obs.state,
-                placeGuess: obs.place_guess,
-                source: obs.source,
-                scientificName: obs.scientific_name,
-                isSelected: photo.id.toString() === selectedImageId
-              };
-            });
-          }
-          
-          return null;
-        } catch (error) {
-          console.error(`Error fetching images for observation ${obs.observation_id}:`, error);
-          return null;
-        }
-      });
-
-      const imageResults = await Promise.all(imagePromises);
-      const allImages = imageResults.filter(result => result !== null).flat();
-
-      res.json(allImages);
-    } catch (error) {
-      console.error("Error fetching species images:", error);
-      res.status(500).json({ error: "Failed to fetch species images" });
-    }
-  });
-
-  // Update selected image for a field guide species
-  app.put("/api/field-guides/:id/species/:scientificName/select-image", async (req, res) => {
-    try {
-      const { id, scientificName } = req.params;
-      const { imageUrl, observationId, source } = req.body;
-      const fieldGuideId = parseInt(id);
-
-      await db.update(fieldGuideSpecies)
-        .set({
-          selectedImageUrl: imageUrl,
-          selectedImageSource: source,
-          selectedObservationId: observationId,
-          selectedImageId: req.body.imageId
-        })
-        .where(
-          sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`
-        );
-
-      res.json({ message: "Selected image updated successfully" });
-    } catch (error) {
-      console.error("Error updating selected image:", error);
-      res.status(500).json({ error: "Failed to update selected image" });
-    }
-  });
-
-  // Remove selected image for a field guide species
-  app.delete("/api/field-guides/:id/species/:scientificName/remove-image", async (req, res) => {
-    try {
-      const { id, scientificName } = req.params;
-      const fieldGuideId = parseInt(id);
-
-      await db.update(fieldGuideSpecies)
-        .set({
-          selectedImageUrl: null,
-          selectedImageSource: null,
-          selectedObservationId: null,
-          selectedImageId: null
-        })
-        .where(
-          sql`field_guide_id = ${fieldGuideId} AND scientific_name = ${scientificName}`
-        );
-
-      res.json({ message: "Selected image removed successfully" });
-    } catch (error) {
-      console.error("Error removing selected image:", error);
-      res.status(500).json({ error: "Failed to remove selected image" });
-    }
-  });
-
-  // Delete field guide
-  app.delete("/api/field-guides/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const fieldGuideId = parseInt(id);
-      
-      // Delete species first (cascade should handle this, but being explicit)
-      await db.delete(fieldGuideSpecies).where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId));
-      
-      // Delete the field guide
-      const deleted = await db.delete(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).returning();
-      
-      if (deleted.length === 0) {
-        return res.status(404).json({ error: "Field guide not found" });
-      }
-
-      res.json({ message: "Field guide deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting field guide:", error);
-      res.status(500).json({ error: "Failed to delete field guide" });
-    }
-  });
-
-  return httpServer;
+  return app;
 }
