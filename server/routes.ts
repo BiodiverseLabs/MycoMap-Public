@@ -162,22 +162,22 @@ async function getCachedMoObservations(boundingBox: {north: number, south: numbe
   
   // Transform cached data to match API format expected by filtering logic
   const transformedObs = cachedObs.rows.map((row: any) => ({
-    mo_id: row.mo_id,
-    scientific_name: row.scientific_name || row.scientificName,
-    common_name: row.common_name || row.commonName,
+    mo_id: row.moId,
+    scientific_name: row.scientificName,
+    common_name: row.commonName,
     family: row.family,
     rank: 'species',
     latitude: row.latitude ? parseFloat(row.latitude) : null,
     longitude: row.longitude ? parseFloat(row.longitude) : null,
-    observed_on: row.observed_on || row.observedOn ? new Date(row.observed_on || row.observedOn) : null,
+    observed_on: row.observedOn ? new Date(row.observedOn) : null,
     location: null,
-    place_guess: row.place_name || row.placeName,
-    user_name: row.user_name || row.userName,
-    user_login: row.user_login || row.userLogin,
+    place_guess: row.placeName,
+    user_name: row.userName,
+    user_login: row.userLogin,
     photos: [], // Will be parsed from API response if needed
     confidence: null,
     notes: row.notes,
-    api_response: row.api_response || row.apiResponse
+    api_response: row.apiResponse
   }));
   
   // Parse photos from API response if available
