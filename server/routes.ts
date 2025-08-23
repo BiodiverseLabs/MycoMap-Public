@@ -3998,7 +3998,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/species", async (req, res) => {
     try {
       const { id } = req.params;
-      const { expansion, monthStart, monthEnd } = req.query;
+      const { expansion, monthStart, monthEnd, includeInat } = req.query;
       const fieldGuideId = parseInt(id);
       const expansionMiles = expansion ? parseFloat(expansion as string) : 0;
       
@@ -4270,11 +4270,188 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             selectedImageId: null
           }));
           
+          // Add iNaturalist supplementation if requested
+          if (includeInat === 'true') {
+            const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+            if (guide.length > 0) {
+              const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+              
+              try {
+                console.log(`[iNat API] Fetching fungal observations for original bounding box (with date filter)`);
+                
+                const inatParams = new URLSearchParams({
+                  swlat: boundingBoxSouth,
+                  swlng: boundingBoxWest, 
+                  nelat: boundingBoxNorth,
+                  nelng: boundingBoxEast,
+                  iconic_taxa: 'Fungi',
+                  quality_grade: 'research',
+                  per_page: '200',
+                  order_by: 'species_guess',
+                  order: 'asc'
+                });
+                
+                // Add month filter if specified
+                if (monthStart && monthEnd) {
+                  inatParams.set('month', `${monthStart},${monthEnd}`);
+                } else if (monthStart) {
+                  inatParams.set('month', monthStart as string);
+                } else if (monthEnd) {
+                  inatParams.set('month', monthEnd as string);
+                }
+
+                const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
+                console.log(`[iNat API] Calling: ${inatUrl}`);
+                
+                const inatResponse = await fetch(inatUrl, {
+                  headers: {
+                    'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
+                  }
+                });
+
+                if (inatResponse.ok) {
+                  const inatData = await inatResponse.json();
+                  console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
+                  
+                  if (inatData.results && inatData.results.length > 0) {
+                    // Process iNaturalist observations into species format
+                    const inatSpeciesMap = new Map();
+                    inatData.results.forEach((obs: any) => {
+                      if (obs.taxon && obs.taxon.name && obs.taxon.rank === 'species') {
+                        if (!inatSpeciesMap.has(obs.taxon.name)) {
+                          inatSpeciesMap.set(obs.taxon.name, {
+                            id: null,
+                            fieldGuideId: fieldGuideId,
+                            scientificName: obs.taxon.name,
+                            commonName: obs.taxon.preferred_common_name || null,
+                            family: obs.taxon.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
+                            observationCount: 0,
+                            selectedImageUrl: null,
+                            selectedImageSource: null,
+                            selectedObservationId: null,
+                            selectedImageId: null,
+                            source: 'iNaturalist'
+                          });
+                        }
+                        inatSpeciesMap.get(obs.taxon.name).observationCount++;
+                      }
+                    });
+                    
+                    const inatSpecies = Array.from(inatSpeciesMap.values());
+                    
+                    // Merge with database species
+                    const allSpeciesMap = new Map();
+                    filteredSpecies.forEach(species => allSpeciesMap.set(species.scientificName, species));
+                    inatSpecies.forEach(species => {
+                      if (!allSpeciesMap.has(species.scientificName)) {
+                        allSpeciesMap.set(species.scientificName, species);
+                      }
+                    });
+                    
+                    const mergedSpecies = Array.from(allSpeciesMap.values())
+                      .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
+                    
+                    console.log(`[iNat API] Final merged list: ${mergedSpecies.length} species (${filteredSpecies.length} from DB, ${inatSpecies.length} from iNat)`);
+                    return res.json(mergedSpecies);
+                  }
+                } else {
+                  console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
+                }
+              } catch (error) {
+                console.error(`[iNat API] Error supplementing species list:`, error);
+              }
+            }
+          }
+          
           return res.json(filteredSpecies);
         } else {
           const species = await db.select().from(fieldGuideSpecies)
             .where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId))
             .orderBy(fieldGuideSpecies.scientificName);
+          
+          // Add iNaturalist supplementation if requested (no date filter case)
+          if (includeInat === 'true') {
+            const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+            if (guide.length > 0) {
+              const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+              
+              try {
+                console.log(`[iNat API] Fetching fungal observations for original bounding box (no date filter)`);
+                
+                const inatParams = new URLSearchParams({
+                  swlat: boundingBoxSouth,
+                  swlng: boundingBoxWest, 
+                  nelat: boundingBoxNorth,
+                  nelng: boundingBoxEast,
+                  iconic_taxa: 'Fungi',
+                  quality_grade: 'research',
+                  per_page: '200',
+                  order_by: 'species_guess',
+                  order: 'asc'
+                });
+
+                const inatUrl = `https://api.inaturalist.org/v1/observations?${inatParams.toString()}`;
+                console.log(`[iNat API] Calling: ${inatUrl}`);
+                
+                const inatResponse = await fetch(inatUrl, {
+                  headers: {
+                    'User-Agent': 'MycoMap Field Guide - Supplemental Species Discovery'
+                  }
+                });
+
+                if (inatResponse.ok) {
+                  const inatData = await inatResponse.json();
+                  console.log(`[iNat API] Found ${inatData.results?.length || 0} observations`);
+                  
+                  if (inatData.results && inatData.results.length > 0) {
+                    // Process iNaturalist observations into species format
+                    const inatSpeciesMap = new Map();
+                    inatData.results.forEach((obs: any) => {
+                      if (obs.taxon && obs.taxon.name && obs.taxon.rank === 'species') {
+                        if (!inatSpeciesMap.has(obs.taxon.name)) {
+                          inatSpeciesMap.set(obs.taxon.name, {
+                            id: null,
+                            fieldGuideId: fieldGuideId,
+                            scientificName: obs.taxon.name,
+                            commonName: obs.taxon.preferred_common_name || null,
+                            family: obs.taxon.ancestors?.find((a: any) => a.rank === 'family')?.name || null,
+                            observationCount: 0,
+                            selectedImageUrl: null,
+                            selectedImageSource: null,
+                            selectedObservationId: null,
+                            selectedImageId: null,
+                            source: 'iNaturalist'
+                          });
+                        }
+                        inatSpeciesMap.get(obs.taxon.name).observationCount++;
+                      }
+                    });
+                    
+                    const inatSpecies = Array.from(inatSpeciesMap.values());
+                    
+                    // Merge with database species
+                    const allSpeciesMap = new Map();
+                    species.forEach(s => allSpeciesMap.set(s.scientificName, { ...s, source: 'Database' }));
+                    inatSpecies.forEach(s => {
+                      if (!allSpeciesMap.has(s.scientificName)) {
+                        allSpeciesMap.set(s.scientificName, s);
+                      }
+                    });
+                    
+                    const mergedSpecies = Array.from(allSpeciesMap.values())
+                      .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
+                    
+                    console.log(`[iNat API] Final merged list: ${mergedSpecies.length} species (${species.length} from DB, ${inatSpecies.length} from iNat)`);
+                    return res.json(mergedSpecies);
+                  }
+                } else {
+                  console.log(`[iNat API] Request failed: ${inatResponse.status} ${inatResponse.statusText}`);
+                }
+              } catch (error) {
+                console.error(`[iNat API] Error supplementing species list:`, error);
+              }
+            }
+          }
           
           res.json(species);
         }
