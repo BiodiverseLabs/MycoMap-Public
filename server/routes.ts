@@ -4168,11 +4168,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
 
-      // Get contributors with their observation counts within the bounding box
+      // Get contributors with their observation counts and species counts within the bounding box
       const contributorsResult = await db.execute(sql`
         SELECT 
           o.collector,
-          COUNT(*) as observation_count
+          COUNT(*) as observation_count,
+          COUNT(DISTINCT o.scientific_name) as species_count
         FROM observations o
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
@@ -4188,7 +4189,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       const contributors = contributorsResult.rows.map(row => ({
         name: (row as any).collector,
-        observationCount: parseInt((row as any).observation_count.toString())
+        observationCount: parseInt((row as any).observation_count.toString()),
+        speciesCount: parseInt((row as any).species_count.toString())
       }));
 
       res.json({ 
