@@ -240,6 +240,12 @@ export default function SpeciesImageGallery() {
                       alt={`${image.scientificName} observation`}
                       className="w-full h-48 object-cover rounded-t-lg"
                       loading="lazy"
+                      onError={(e) => {
+                        // Replace broken image with a fallback placeholder
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDIwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiBmaWxsPSIjZjFmNWY5Ii8+CjxwYXRoIGQ9Ik0xMDAgNDBjLTggMC0xNCA2LTE0IDE0czYgMTQgMTQgMTQgMTQtNiAxNC0xNC02LTE0LTE0LTE0ek0xMDAgNjBjLTMuMyAwLTYtMi43LTYtNnMyLjctNiA2LTYgNiAyLjcgNiA2LTIuNyA2LTYgNnoiIGZpbGw9IiM5Y2E0YWYiLz4KPHA+PHRleHQgeD0iMTAwIiB5PSI5MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzljYTNhZiIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTIiPkltYWdlIG5vdCBhdmFpbGFibGU8L3RleHQ+PC9wPgo8L3N2Zz4=';
+                        target.style.backgroundColor = '#f1f5f9';
+                      }}
                     />
                     {image.isSelected && (
                       <div className="absolute top-2 right-2 flex gap-1">
