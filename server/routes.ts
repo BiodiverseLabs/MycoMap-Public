@@ -4130,7 +4130,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       // Count unique contributors within the bounding box
       const contributorsResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT observer) as unique_contributors
+        SELECT COUNT(DISTINCT collector) as unique_contributors
         FROM observations o
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
@@ -4138,8 +4138,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
           AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
           AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
-          AND o.observer IS NOT NULL
-          AND o.observer != ''
+          AND o.collector IS NOT NULL
+          AND o.collector != ''
       `);
 
       const contributorsCount = (contributorsResult.rows[0] as any)?.unique_contributors || 0;
@@ -4171,7 +4171,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Get contributors with their observation counts within the bounding box
       const contributorsResult = await db.execute(sql`
         SELECT 
-          o.observer,
+          o.collector,
           COUNT(*) as observation_count
         FROM observations o
         WHERE o.latitude IS NOT NULL 
@@ -4180,14 +4180,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.latitude AS DECIMAL) >= ${boundingBoxSouth}
           AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
           AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
-          AND o.observer IS NOT NULL
-          AND o.observer != ''
-        GROUP BY o.observer
-        ORDER BY observation_count DESC, o.observer ASC
+          AND o.collector IS NOT NULL
+          AND o.collector != ''
+        GROUP BY o.collector
+        ORDER BY observation_count DESC, o.collector ASC
       `);
 
       const contributors = contributorsResult.rows.map(row => ({
-        name: (row as any).observer,
+        name: (row as any).collector,
         observationCount: parseInt((row as any).observation_count.toString())
       }));
 
