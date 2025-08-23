@@ -4026,7 +4026,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
         
         // Generate species from expanded area
-        const speciesInBox = await db.execute(sql`
+        const speciesInBoxResult = await db.execute(sql`
           SELECT 
             o.scientific_name,
             o.common_name,
@@ -4046,7 +4046,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         `);
         
         // Convert to species format
-        const expandedSpecies = speciesInBox.map((row: any) => ({
+        const expandedSpecies = speciesInBoxResult.rows.map((row: any) => ({
           id: null,
           fieldGuideId: fieldGuideId,
           scientificName: row.scientific_name,
