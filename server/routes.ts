@@ -4450,12 +4450,41 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const apiUrl = `https://api.inaturalist.org/v1/observations/${obs.observation_id}`;
             const response = await fetch(apiUrl);
             
-            if (!response.ok) return null;
+            if (!response.ok) {
+              console.log(`[DEBUG] API call failed for ${obs.observation_id}: ${response.status}`);
+              return null;
+            }
             
             const data = await response.json();
             const observation = data.results?.[0];
             
+            console.log(`[DEBUG] ${obs.observation_id} - API Response:`, {
+              hasResults: !!data.results,
+              resultsLength: data.results?.length,
+              hasObservation: !!observation,
+              hasPhotos: !!observation?.photos,
+              photosLength: observation?.photos?.length || 0
+            });
+            
             if (!observation || !observation.photos || observation.photos.length === 0) {
+              console.log(`[DEBUG] No photos for ${obs.observation_id} - using fallback to stored image`);
+              
+              // Fallback to stored image if API has no photos
+              if (obs.image_link) {
+                return [{
+                  observationId: obs.observation_id,
+                  imageUrl: obs.image_link,
+                  imageId: obs.observation_id,
+                  observer: obs.observer,
+                  observedOn: obs.observed_on,
+                  state: obs.state,
+                  placeGuess: obs.place_guess,
+                  source: obs.source,
+                  scientificName: obs.scientific_name,
+                  isSelected: obs.observation_id === selectedImageId
+                }];
+              }
+              
               return null;
             }
 
