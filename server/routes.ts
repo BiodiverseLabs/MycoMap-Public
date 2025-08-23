@@ -4627,7 +4627,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
       const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
       
-      // Get ALL database observations for this species with images (not restricted by bounding box for images)
+      // Get database observations for this species with images, filtered by bounding box
       const speciesObservations = await db.execute(sql`
         SELECT 
           o.observation_id,
@@ -4648,6 +4648,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         WHERE o.scientific_name = ${scientificName}
           AND o.image_link IS NOT NULL
           AND o.image_link != ''
+          AND o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${expandedNorth}
+          AND CAST(o.latitude AS DECIMAL) >= ${expandedSouth}
+          AND CAST(o.longitude AS DECIMAL) <= ${expandedEast}
+          AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
         ORDER BY o.observed_on DESC
       `);
 
@@ -4664,28 +4670,42 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const inatExpandedEast = parseFloat(boundingBoxEast) + inatLngDelta;
         const inatExpandedWest = parseFloat(boundingBoxWest) - inatLngDelta;
 
+        // Get all photos from cached iNaturalist observations, creating separate records for each image
         const cachedObservations = await db.execute(sql`
           SELECT 
-            'iNat-' || inat_id as observation_id,
+            'iNat-' || inat_id || '-' || photo_index as observation_id,
+            inat_id,
             scientific_name,
             common_name,
             user_name as observer,
             observed_on,
             place_guess as state,
             place_guess,
-            photos[1] as image_link,
-            'iNaturalist' as source
-          FROM inat_observations_cache
-          WHERE latitude IS NOT NULL 
-            AND longitude IS NOT NULL
-            AND CAST(latitude AS DECIMAL) <= ${inatExpandedNorth}
-            AND CAST(latitude AS DECIMAL) >= ${inatExpandedSouth}
-            AND CAST(longitude AS DECIMAL) <= ${inatExpandedEast}
-            AND CAST(longitude AS DECIMAL) >= ${inatExpandedWest}
-            AND scientific_name = ${scientificName}
-            AND photos IS NOT NULL
-            AND array_length(photos, 1) > 0
-          ORDER BY observed_on DESC
+            photo_url as image_link,
+            'iNaturalist' as source,
+            photo_index
+          FROM (
+            SELECT 
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name,
+              observed_on,
+              place_guess,
+              unnest(photos) as photo_url,
+              generate_subscripts(photos, 1) as photo_index
+            FROM inat_observations_cache
+            WHERE latitude IS NOT NULL 
+              AND longitude IS NOT NULL
+              AND CAST(latitude AS DECIMAL) <= ${inatExpandedNorth}
+              AND CAST(latitude AS DECIMAL) >= ${inatExpandedSouth}
+              AND CAST(longitude AS DECIMAL) <= ${inatExpandedEast}
+              AND CAST(longitude AS DECIMAL) >= ${inatExpandedWest}
+              AND scientific_name = ${scientificName}
+              AND photos IS NOT NULL
+              AND array_length(photos, 1) > 0
+          ) t
+          ORDER BY observed_on DESC, photo_index
         `);
         
         allObservations.push(...cachedObservations.rows);
