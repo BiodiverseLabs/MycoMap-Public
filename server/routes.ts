@@ -4373,7 +4373,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const selectedImageId = selectedSpecies[0]?.selectedImageId || null;
 
-      // Find all observations for this species within the bounding box
+      // Find all observations for this species within the bounding box that have images
       const observationsInBox = await db.execute(sql`
         SELECT DISTINCT 
           o.observation_id,
@@ -4382,7 +4382,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           o.observed_on,
           o.state,
           o.place_guess,
-          o.source
+          o.source,
+          o.image_link
         FROM observations o
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
@@ -4391,7 +4392,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           AND CAST(o.longitude AS DECIMAL) <= ${boundingBoxEast}
           AND CAST(o.longitude AS DECIMAL) >= ${boundingBoxWest}
           AND o.scientific_name = ${scientificName}
-          AND o.source = 'iNaturalist'
+          AND o.image_link IS NOT NULL
+          AND o.image_link != ''
         ORDER BY o.observed_on DESC
         LIMIT 50
       `);
@@ -4404,47 +4406,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         state: string | null;
         place_guess: string | null;
         source: string;
+        image_link: string;
       }>;
 
-      // Fetch images from iNaturalist API for each observation
-      const imagePromises = observations.map(async (obs) => {
-        try {
-          const apiUrl = `https://api.inaturalist.org/v1/observations/${obs.observation_id}`;
-          const response = await fetch(apiUrl);
-          
-          if (!response.ok) return null;
-          
-          const data = await response.json();
-          const observation = data.results?.[0];
-          
-          if (!observation || !observation.photos || observation.photos.length === 0) {
-            return null;
-          }
-
-          // Get all photos for this observation
-          return observation.photos.map((photo: any) => {
-            const imageUrl = photo.url.replace('square', 'medium');
-            return {
-              observationId: obs.observation_id,
-              imageUrl,
-              imageId: photo.id,
-              observer: obs.observer,
-              observedOn: obs.observed_on,
-              state: obs.state,
-              placeGuess: obs.place_guess,
-              source: obs.source,
-              scientificName: obs.scientific_name,
-              isSelected: photo.id.toString() === selectedImageId
-            };
-          });
-        } catch (error) {
-          console.error(`Error fetching images for observation ${obs.observation_id}:`, error);
-          return null;
-        }
+      // Use stored image data instead of making API calls
+      const allImages = observations.map((obs) => {
+        return {
+          observationId: obs.observation_id,
+          imageUrl: obs.image_link,
+          imageId: obs.observation_id, // Use observation ID as image ID fallback
+          observer: obs.observer,
+          observedOn: obs.observed_on,
+          state: obs.state,
+          placeGuess: obs.place_guess,
+          source: obs.source,
+          scientificName: obs.scientific_name,
+          isSelected: obs.observation_id === selectedImageId
+        };
       });
-
-      const imageResults = await Promise.all(imagePromises);
-      const allImages = imageResults.filter(result => result !== null).flat();
 
       res.json(allImages);
     } catch (error) {
