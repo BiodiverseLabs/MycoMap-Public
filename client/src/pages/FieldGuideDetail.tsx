@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -27,6 +27,9 @@ interface FieldGuideSpecies {
   scientificName: string;
   commonName: string | null;
   observationCount: number;
+  selectedImageUrl: string | null;
+  selectedImageSource: string | null;
+  selectedObservationId: string | null;
   addedAt: string;
 }
 
@@ -248,6 +251,7 @@ export default function FieldGuideDetail() {
                   <TableRow>
                     <TableHead>Scientific Name</TableHead>
                     <TableHead>Common Name</TableHead>
+                    <TableHead className="text-center">Image</TableHead>
                     <TableHead className="text-right">Observations</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -266,6 +270,15 @@ export default function FieldGuideDetail() {
                         {species.commonName || (
                           <span className="text-slate-400">No common name</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Check 
+                          className={`w-4 h-4 mx-auto ${
+                            species.selectedImageUrl 
+                              ? 'text-green-600' 
+                              : 'text-slate-300'
+                          }`}
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary">
