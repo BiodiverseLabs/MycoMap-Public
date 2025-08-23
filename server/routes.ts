@@ -4433,6 +4433,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const inatSpeciesMap = new Map();
             inatObservations.forEach((obs: any) => {
               if (obs.scientific_name && obs.rank === 'species') {
+                // Debug logging for Abortiporus biennis
+                if (obs.scientific_name.includes('Abortiporus biennis')) {
+                  console.log(`[iNat Debug] Found cached observation: ${obs.scientific_name}, rank: ${obs.rank}`);
+                }
+                
                 if (!inatSpeciesMap.has(obs.scientific_name)) {
                   inatSpeciesMap.set(obs.scientific_name, {
                     id: null,
@@ -4451,6 +4456,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 inatSpeciesMap.get(obs.scientific_name).observationCount++;
               }
             });
+            
+            // Debug logging for Abortiporus biennis
+            if (inatSpeciesMap.has('Abortiporus biennis')) {
+              console.log(`[iNat Debug] Abortiporus biennis in iNat map with ${inatSpeciesMap.get('Abortiporus biennis').observationCount} observations`);
+            } else {
+              console.log(`[iNat Debug] Abortiporus biennis NOT found in iNat species map`);
+            }
             
             const inatSpecies = Array.from(inatSpeciesMap.values());
             
