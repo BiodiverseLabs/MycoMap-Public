@@ -43,7 +43,7 @@ async function checkCacheForArea(fieldGuideId: number, expansionMiles: number, b
     
   if (existingCache.length > 0) {
     const cache = existingCache[0];
-    const cacheAge = Date.now() - new Date(cache.lastFetchedAt).getTime();
+    const cacheAge = Date.now() - new Date(cache.lastFetchedAt || new Date()).getTime();
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
     
     if (cacheAge < maxAge) {
@@ -387,8 +387,8 @@ async function syncUploadedInaturalistData(uploadId: number, progressTracker: Ma
                 updated_at: obs.updated_at ? new Date(obs.updated_at) : null,
                 taxon: obs.taxon ? JSON.stringify(obs.taxon) : null,
                 user: obs.user ? JSON.stringify(obs.user) : null,
-                placeIds: obs.place_ids || [],
-                projectIds: obs.project_ids || [],
+                place_ids: obs.place_ids || [],
+                project_ids: obs.project_ids || [],
                 application: obs.application ? JSON.stringify(obs.application) : null,
                 syncStatus: 'synced'
               }).onConflictDoNothing();

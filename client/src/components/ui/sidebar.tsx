@@ -143,8 +143,8 @@ export function Sidebar() {
             
             return (
               <Link key={item.href} href={item.href}>
-                <a
-                  className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left ${
+                <div
+                  className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left cursor-pointer ${
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-slate-600 hover:bg-slate-100"
@@ -153,7 +153,7 @@ export function Sidebar() {
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   {!isCollapsed && <span>{item.label}</span>}
-                </a>
+                </div>
               </Link>
             );
           })}
@@ -161,7 +161,7 @@ export function Sidebar() {
         
         <div className="p-4 border-t border-slate-200 space-y-2 bg-white">
           <Link href="/updates">
-            <a className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left ${
+            <div className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left cursor-pointer ${
               location === "/updates" || location.startsWith("/updates")
                 ? "bg-primary/10 text-primary"
                 : "text-slate-600 hover:bg-slate-100"
@@ -169,7 +169,7 @@ export function Sidebar() {
             title={isCollapsed ? "Updates Needed" : undefined}>
               <AlertTriangle className="w-5 h-5 flex-shrink-0" />
               {!isCollapsed && <span>Updates Needed</span>}
-            </a>
+            </div>
           </Link>
 
           {/* Admin Section */}
@@ -224,14 +224,14 @@ export function Sidebar() {
             </div>
           ) : (
             <Link href="/admin">
-              <a className={`flex items-center justify-center px-2 py-2 rounded-lg font-medium w-full text-left ${
+              <div className={`flex items-center justify-center px-2 py-2 rounded-lg font-medium w-full text-left cursor-pointer ${
                 location.startsWith('/admin')
                   ? "bg-primary/10 text-primary"
                   : "text-slate-600 hover:bg-slate-100"
               }`}
               title="Admin">
                 <Settings className="w-5 h-5 flex-shrink-0" />
-              </a>
+              </div>
             </Link>
           )}
         </div>
@@ -262,8 +262,8 @@ export function Sidebar() {
             
             return (
               <Link key={item.href} href={item.href}>
-                <a
-                  className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left ${
+                <div
+                  className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left cursor-pointer ${
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-slate-600 hover:bg-slate-100"
@@ -271,7 +271,7 @@ export function Sidebar() {
                 >
                   <Icon className="w-5 h-5" />
                   <span>{item.label}</span>
-                </a>
+                </div>
               </Link>
             );
           })}
@@ -279,14 +279,14 @@ export function Sidebar() {
         
         <div className="p-4 border-t border-slate-200 space-y-2">
           <Link href="/updates">
-            <a className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left ${
+            <div className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left cursor-pointer ${
               location === "/updates" || location.startsWith("/updates")
                 ? "bg-primary/10 text-primary"
                 : "text-slate-600 hover:bg-slate-100"
             }`}>
               <AlertTriangle className="w-5 h-5" />
               <span>Updates Needed</span>
-            </a>
+            </div>
           </Link>
 
           {/* Admin Section - Mobile */}
