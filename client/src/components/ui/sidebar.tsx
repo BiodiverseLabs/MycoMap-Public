@@ -29,10 +29,10 @@ export function Sidebar() {
   const [isAdminExpanded, setIsAdminExpanded] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Auto-collapse on field guide detail pages
+  // Auto-collapse on field guide pages (including species detail pages)
   useEffect(() => {
-    const isFieldGuideDetail = /^\/field-guides\/\d+$/.test(location);
-    setIsCollapsed(isFieldGuideDetail);
+    const isFieldGuidePage = /^\/field-guides\/\d+(\/.*)?$/.test(location);
+    setIsCollapsed(isFieldGuidePage);
   }, [location]);
 
   const navigationItems = [
