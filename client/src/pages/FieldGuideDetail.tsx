@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity, Users, X, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, MapPin, Download, Dna, Calendar, Check, Search, GitBranch, Activity, Users, X, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -376,7 +376,7 @@ export default function FieldGuideDetail() {
                         Observations
                         {sortOrder === 'desc' && <ChevronDown className="w-4 h-4" />}
                         {sortOrder === 'asc' && <ChevronUp className="w-4 h-4" />}
-                        {sortOrder === null && <div className="w-4 h-4" />}
+                        {sortOrder === null && <ArrowUpDown className="w-4 h-4" />}
                       </button>
                     </TableHead>
                   </TableRow>
