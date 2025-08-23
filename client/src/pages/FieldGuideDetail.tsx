@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { INaturalistProgressBar } from "@/components/ui/progress-bar";
 
 interface FieldGuide {
@@ -36,6 +36,7 @@ interface FieldGuideSpecies {
   selectedImageSource: string | null;
   selectedObservationId: string | null;
   addedAt: string;
+  source?: string;
 }
 
 interface Contributor {
@@ -54,6 +55,7 @@ export default function FieldGuideDetail() {
   const [expansionRadius, setExpansionRadius] = useState(0);
   const [monthRange, setMonthRange] = useState<{start: string, end: string}>({start: '', end: ''});
   const [includeInat, setIncludeInat] = useState(false);
+  const [showSourceBreakdown, setShowSourceBreakdown] = useState<'species' | 'genera' | 'observations' | null>(null);
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   // Initialize state from URL parameters whenever the component mounts or navigation occurs
@@ -222,6 +224,34 @@ export default function FieldGuideDetail() {
   const totalObservations = species.reduce((sum, s) => sum + s.observationCount, 0);
   const allObservationsTotal = allSpecies.reduce((sum, s) => sum + s.observationCount, 0);
 
+  // Calculate source breakdowns (only relevant when includeInat is true)
+  const sourceBreakdowns = useMemo(() => {
+    if (!includeInat) return null;
+
+    const getSourceCounts = (speciesList: FieldGuideSpecies[]) => {
+      const dnaValidated = speciesList.filter(s => s.source?.includes('Database')).length;
+      const iNaturalist = speciesList.filter(s => s.source?.includes('iNaturalist')).length;  
+      const mushroomObserver = speciesList.filter(s => s.source?.includes('Mushroom Observer')).length;
+
+      const dnaValidatedObs = speciesList.filter(s => s.source?.includes('Database')).reduce((sum, s) => sum + s.observationCount, 0);
+      const iNaturalistObs = speciesList.filter(s => s.source?.includes('iNaturalist')).reduce((sum, s) => sum + s.observationCount, 0);
+      const mushroomObserverObs = speciesList.filter(s => s.source?.includes('Mushroom Observer')).reduce((sum, s) => sum + s.observationCount, 0);
+
+      // Calculate unique genera counts by source
+      const dnaValidatedGenera = new Set(speciesList.filter(s => s.source?.includes('Database')).map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size;
+      const iNaturalistGenera = new Set(speciesList.filter(s => s.source?.includes('iNaturalist')).map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size;
+      const mushroomObserverGenera = new Set(speciesList.filter(s => s.source?.includes('Mushroom Observer')).map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size;
+
+      return {
+        species: { dnaValidated, iNaturalist, mushroomObserver },
+        observations: { dnaValidated: dnaValidatedObs, iNaturalist: iNaturalistObs, mushroomObserver: mushroomObserverObs },
+        genera: { dnaValidated: dnaValidatedGenera, iNaturalist: iNaturalistGenera, mushroomObserver: mushroomObserverGenera }
+      };
+    };
+
+    return getSourceCounts(species);
+  }, [includeInat, species]);
+
   const downloadCSV = () => {
     if (!fieldGuide || !species.length) return;
 
@@ -329,11 +359,18 @@ export default function FieldGuideDetail() {
 
       {/* Field Guide Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <Card 
+          className={includeInat ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
+          onClick={() => {
+            if (includeInat) {
+              setShowSourceBreakdown(showSourceBreakdown === 'species' ? null : 'species');
+            }
+          }}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
               <Dna className="w-5 h-5 text-primary" />
-              <div>
+              <div className="flex-1">
                 <p className="text-2xl font-bold">
                   {species.length}
                   {searchFilter && species.length !== allSpecies.length && (
@@ -345,16 +382,44 @@ export default function FieldGuideDetail() {
                 <p className="text-sm text-slate-600">
                   {searchFilter && species.length !== allSpecies.length ? 'Filtered Species' : 'Species'}
                 </p>
+                {includeInat && showSourceBreakdown === 'species' && sourceBreakdowns && (
+                  <div className="mt-3 pt-3 border-t text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-700">DNA Validated:</span>
+                      <span className="font-semibold">{sourceBreakdowns.species.dnaValidated}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">iNaturalist:</span>
+                      <span className="font-semibold">{sourceBreakdowns.species.iNaturalist}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-orange-700">Mushroom Observer:</span>
+                      <span className="font-semibold">{sourceBreakdowns.species.mushroomObserver}</span>
+                    </div>
+                  </div>
+                )}
               </div>
+              {includeInat && (
+                <div className="text-slate-400">
+                  {showSourceBreakdown === 'species' ? '−' : '+'}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={includeInat ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
+          onClick={() => {
+            if (includeInat) {
+              setShowSourceBreakdown(showSourceBreakdown === 'genera' ? null : 'genera');
+            }
+          }}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
               <GitBranch className="w-5 h-5 text-primary" />
-              <div>
+              <div className="flex-1">
                 <p className="text-2xl font-bold">
                   {generaCount}
                   {searchFilter && generaCount !== new Set(allSpecies.map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size && (
@@ -366,16 +431,44 @@ export default function FieldGuideDetail() {
                 <p className="text-sm text-slate-600">
                   {searchFilter && generaCount !== new Set(allSpecies.map(s => s.scientificName.split(' ')[0]).filter(g => g && g.length > 0)).size ? 'Filtered Genera' : 'Genera'}
                 </p>
+                {includeInat && showSourceBreakdown === 'genera' && sourceBreakdowns && (
+                  <div className="mt-3 pt-3 border-t text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-700">DNA Validated:</span>
+                      <span className="font-semibold">{sourceBreakdowns.genera.dnaValidated}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">iNaturalist:</span>
+                      <span className="font-semibold">{sourceBreakdowns.genera.iNaturalist}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-orange-700">Mushroom Observer:</span>
+                      <span className="font-semibold">{sourceBreakdowns.genera.mushroomObserver}</span>
+                    </div>
+                  </div>
+                )}
               </div>
+              {includeInat && (
+                <div className="text-slate-400">
+                  {showSourceBreakdown === 'genera' ? '−' : '+'}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={includeInat ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
+          onClick={() => {
+            if (includeInat) {
+              setShowSourceBreakdown(showSourceBreakdown === 'observations' ? null : 'observations');
+            }
+          }}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" />
-              <div>
+              <div className="flex-1">
                 <p className="text-2xl font-bold">
                   {totalObservations.toLocaleString()}
                   {searchFilter && totalObservations !== allObservationsTotal && (
@@ -387,7 +480,28 @@ export default function FieldGuideDetail() {
                 <p className="text-sm text-slate-600">
                   {searchFilter && totalObservations !== allObservationsTotal ? 'Filtered Observations' : 'Total Observations'}
                 </p>
+                {includeInat && showSourceBreakdown === 'observations' && sourceBreakdowns && (
+                  <div className="mt-3 pt-3 border-t text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-700">DNA Validated:</span>
+                      <span className="font-semibold">{sourceBreakdowns.observations.dnaValidated.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">iNaturalist:</span>
+                      <span className="font-semibold">{sourceBreakdowns.observations.iNaturalist.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-orange-700">Mushroom Observer:</span>
+                      <span className="font-semibold">{sourceBreakdowns.observations.mushroomObserver.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
               </div>
+              {includeInat && (
+                <div className="text-slate-400">
+                  {showSourceBreakdown === 'observations' ? '−' : '+'}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
