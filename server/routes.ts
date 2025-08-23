@@ -3998,11 +3998,76 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/species", async (req, res) => {
     try {
       const { id } = req.params;
-      const species = await db.select().from(fieldGuideSpecies)
-        .where(eq(fieldGuideSpecies.fieldGuideId, parseInt(id)))
-        .orderBy(fieldGuideSpecies.scientificName);
+      const { expansion } = req.query;
+      const fieldGuideId = parseInt(id);
+      const expansionMiles = expansion ? parseFloat(expansion as string) : 0;
       
-      res.json(species);
+      if (expansionMiles > 0) {
+        // Get the field guide to get bounding box coordinates
+        const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+        
+        if (guide.length === 0) {
+          return res.status(404).json({ error: "Field guide not found" });
+        }
+        
+        const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+        
+        // Convert miles to degrees (approximate conversion for mid-latitudes like Chicago)
+        // 1 mile ≈ 0.014483 degrees latitude (constant)
+        // 1 mile ≈ 0.014483 / cos(latitude) degrees longitude (varies by latitude)
+        const latDelta = expansionMiles * 0.014483;
+        const avgLat = (parseFloat(boundingBoxNorth) + parseFloat(boundingBoxSouth)) / 2;
+        const lngDelta = expansionMiles * 0.014483 / Math.cos(avgLat * Math.PI / 180);
+        
+        // Expand the bounding box
+        const expandedNorth = parseFloat(boundingBoxNorth) + latDelta;
+        const expandedSouth = parseFloat(boundingBoxSouth) - latDelta;
+        const expandedEast = parseFloat(boundingBoxEast) + lngDelta;
+        const expandedWest = parseFloat(boundingBoxWest) - lngDelta;
+        
+        // Generate species from expanded area
+        const speciesInBox = await db.execute(sql`
+          SELECT 
+            o.scientific_name,
+            o.common_name,
+            o.family,
+            COUNT(*) as observation_count
+          FROM observations o
+          WHERE o.latitude IS NOT NULL 
+            AND o.longitude IS NOT NULL
+            AND CAST(o.latitude AS DECIMAL) <= ${expandedNorth}
+            AND CAST(o.latitude AS DECIMAL) >= ${expandedSouth}
+            AND CAST(o.longitude AS DECIMAL) <= ${expandedEast}
+            AND CAST(o.longitude AS DECIMAL) >= ${expandedWest}
+            AND o.scientific_name IS NOT NULL
+            AND o.scientific_name != ''
+          GROUP BY o.scientific_name, o.common_name, o.family
+          ORDER BY o.scientific_name
+        `);
+        
+        // Convert to species format
+        const expandedSpecies = speciesInBox.map((row: any) => ({
+          id: null,
+          fieldGuideId: fieldGuideId,
+          scientificName: row.scientific_name,
+          commonName: row.common_name,
+          family: row.family,
+          observationCount: parseInt(row.observation_count),
+          selectedImageUrl: null,
+          selectedImageSource: null,
+          selectedObservationId: null,
+          selectedImageId: null
+        }));
+        
+        return res.json(expandedSpecies);
+      } else {
+        // Normal query without expansion
+        const species = await db.select().from(fieldGuideSpecies)
+          .where(eq(fieldGuideSpecies.fieldGuideId, fieldGuideId))
+          .orderBy(fieldGuideSpecies.scientificName);
+        
+        res.json(species);
+      }
     } catch (error) {
       console.error("Error fetching field guide species:", error);
       res.status(500).json({ error: "Failed to fetch field guide species" });

@@ -50,6 +50,7 @@ export default function FieldGuideDetail() {
   const [showContributorsModal, setShowContributorsModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{column: 'scientificName' | 'observations' | null, direction: 'asc' | 'desc'}>({column: null, direction: 'asc'});
   const [isReadingFromUrl, setIsReadingFromUrl] = useState(false);
+  const [expansionRadius, setExpansionRadius] = useState(25);
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
 
   // Initialize state from URL parameters whenever the component mounts or navigation occurs
@@ -60,10 +61,16 @@ export default function FieldGuideDetail() {
       const search = urlParams.get('search') || '';
       const sortColumn = urlParams.get('sortColumn') as 'scientificName' | 'observations' | null;
       const sortDirection = urlParams.get('sortDirection') as 'asc' | 'desc';
+      const expansion = urlParams.get('expansion');
       
-      console.log('Reading URL params:', { search, sortColumn, sortDirection }); // Debug log
       
       setSearchFilter(search);
+      if (expansion) {
+        const expansionNum = parseInt(expansion);
+        if (!isNaN(expansionNum) && expansionNum >= 0) {
+          setExpansionRadius(expansionNum);
+        }
+      }
       if (sortColumn && sortDirection) {
         setSortConfig({column: sortColumn, direction: sortDirection});
       } else {
@@ -93,6 +100,9 @@ export default function FieldGuideDetail() {
     if (searchFilter) {
       urlParams.set('search', searchFilter);
     }
+    if (expansionRadius !== 25) {
+      urlParams.set('expansion', expansionRadius.toString());
+    }
     if (sortConfig.column) {
       urlParams.set('sortColumn', sortConfig.column);
       urlParams.set('sortDirection', sortConfig.direction);
@@ -100,7 +110,7 @@ export default function FieldGuideDetail() {
     
     const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newUrl);
-  }, [searchFilter, sortConfig, isReadingFromUrl]);
+  }, [searchFilter, sortConfig, expansionRadius, isReadingFromUrl]);
 
   const { data: fieldGuide, isLoading: isLoadingGuide, error: guideError } = useQuery({
     queryKey: ['/api/field-guides', fieldGuideId],
@@ -119,10 +129,11 @@ export default function FieldGuideDetail() {
   });
 
   const { data: allSpecies = [], isLoading: isLoadingSpecies, error: speciesError } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'species'],
+    queryKey: ['/api/field-guides', fieldGuideId, 'species', expansionRadius],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
-      const response = await fetch(`/api/field-guides/${fieldGuideId}/species`);
+      const url = `/api/field-guides/${fieldGuideId}/species?expansion=${expansionRadius}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json() as Promise<FieldGuideSpecies[]>;
     },
@@ -379,25 +390,48 @@ export default function FieldGuideDetail() {
             Species List ({species.length}{searchFilter ? ` of ${allSpecies.length}` : ''})
           </CardTitle>
           
-          {/* Search Filter */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              placeholder="Filter by scientific name..."
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="pl-10 pr-10"
-            />
-            {searchFilter && (
-              <button
-                onClick={() => setSearchFilter('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                type="button"
-                aria-label="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          {/* Search Filter and Expansion Controls */}
+          <div className="flex gap-3 items-center">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <Input
+                placeholder="Filter by scientific name..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="pl-10 pr-10"
+              />
+              {searchFilter && (
+                <button
+                  onClick={() => setSearchFilter('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  type="button"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {/* Expansion Control */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-600 whitespace-nowrap">
+                Expand by
+              </label>
+              <Input
+                type="number"
+                min="0"
+                max="500"
+                value={expansionRadius}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 0 && val <= 500) {
+                    setExpansionRadius(val);
+                  }
+                }}
+                className="w-20 text-center"
+              />
+              <span className="text-sm text-slate-600">miles</span>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
