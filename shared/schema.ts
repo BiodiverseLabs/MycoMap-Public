@@ -834,24 +834,20 @@ export type InatCacheMetadata = typeof inatCacheMetadata.$inferSelect;
 // Mushroom Observer Cache Tables
 export const moObservationsCache = pgTable("mo_observations_cache", {
   id: serial("id").primaryKey(),
-  moId: integer("mo_id").notNull().unique(), // Mushroom Observer observation ID
-  scientificName: text("scientific_name"),
-  commonName: text("common_name"),
+  moId: integer("moId").notNull().unique(), // Mushroom Observer observation ID
+  scientificName: text("scientificName"),
+  commonName: text("commonName"),
   family: text("family"),
-  rank: text("rank"),
   latitude: decimal("latitude", { precision: 10, scale: 7 }),
   longitude: decimal("longitude", { precision: 10, scale: 7 }),
-  observedOn: date("observed_on"),
-  location: text("location"), // MO location description
-  placeGuess: text("place_guess"),
-  userName: text("user_name"), // MO contributor
-  userLogin: text("user_login"),
-  photos: text("photos").array(), // Array of photo URLs
-  confidence: text("confidence"), // MO confidence level
+  observedOn: date("observedOn"),
+  placeName: text("placeName"), // MO location description
+  userName: text("userName"), // MO contributor
+  userLogin: text("userLogin"),
   notes: text("notes"), // Observation notes
-  apiResponse: text("api_response"), // JSON string of full API response
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  apiResponse: text("apiResponse"), // JSON string of full API response
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow(),
 }, (table) => ({
   latLngIdx: index("mo_cache_lat_lng_idx").on(table.latitude, table.longitude),
   scientificNameIdx: index("mo_cache_scientific_name_idx").on(table.scientificName),
