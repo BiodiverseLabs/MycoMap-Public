@@ -4002,6 +4002,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const fieldGuideId = parseInt(id);
       const expansionMiles = expansion ? parseFloat(expansion as string) : 0;
       
+      console.log(`[Species API] Query params:`, { expansion, monthStart, monthEnd, includeInat });
+      console.log(`[Species API] Parsed values:`, { fieldGuideId, expansionMiles, includeInatBool: includeInat === 'true' });
+      
       if (expansionMiles > 0) {
         // Get the field guide to get bounding box coordinates
         const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
