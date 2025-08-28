@@ -839,6 +839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/metrics", async (req, res) => {
     try {
       const { startDate, endDate, dateRange, state } = req.query;
+      const clientIP = (req as any).clientIP || 'unknown';
       
       // Set cache headers for better performance
       res.set('Cache-Control', 'public, max-age=300'); // 5 minute cache
@@ -864,10 +865,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actualEndDate = endDate as string;
       }
       
-      const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate, state as string);
+      const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate, state as string, clientIP);
       res.json(metrics);
     } catch (error) {
-      console.error("Error fetching metrics:", error);
+      console.error(`Error fetching metrics (IP: ${clientIP}):`, error);
       res.status(500).json({ error: "Failed to fetch metrics" });
     }
   });

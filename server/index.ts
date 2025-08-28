@@ -5,7 +5,16 @@ import { validateDatabaseConnection } from './db';
 
 // Increase default max listeners to prevent AbortSignal warnings with many concurrent operations
 import { setMaxListeners } from 'events';
-setMaxListeners(50);
+import { EventEmitter } from 'events';
+EventEmitter.defaultMaxListeners = 50;
+
+// Utility function to extract client IP
+function getClientIP(req: Request): string {
+  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+         (req.headers['x-real-ip'] as string) || 
+         req.socket.remoteAddress || 
+         'unknown';
+}
 
 const app = express();
 app.use(express.json());
@@ -15,6 +24,9 @@ app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  
+  // Add client IP to request for logging
+  (req as any).clientIP = getClientIP(req);
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {

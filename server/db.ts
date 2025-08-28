@@ -76,13 +76,15 @@ const CIRCUIT_BREAKER_TIMEOUT = 30000; // 30 seconds
 export async function queryWithRetry<T>(
   queryFn: () => Promise<T>, 
   operation: string,
-  maxRetries = 2 // Reduced retries to fail faster
+  maxRetries = 2, // Reduced retries to fail faster
+  clientIp?: string // Add IP logging parameter
 ): Promise<T> {
   // Circuit breaker check
   const now = Date.now();
   if (circuitBreakerFailures >= CIRCUIT_BREAKER_THRESHOLD && 
       (now - circuitBreakerLastFailure) < CIRCUIT_BREAKER_TIMEOUT) {
-    console.warn(`[DB] Circuit breaker OPEN for ${operation} - too many recent failures`);
+    const ipInfo = clientIp ? ` (IP: ${clientIp})` : '';
+    console.warn(`[DB] Circuit breaker OPEN for ${operation} - too many recent failures${ipInfo}`);
     throw new Error(`Circuit breaker open - database temporarily unavailable`);
   }
   
@@ -103,7 +105,8 @@ export async function queryWithRetry<T>(
       
       return result;
     } catch (error: any) {
-      console.error(`[DB] ${operation} attempt ${attempt}/${maxRetries} failed:`, error?.code || error?.message);
+      const ipInfo = clientIp ? ` (IP: ${clientIp})` : '';
+      console.error(`[DB] ${operation} attempt ${attempt}/${maxRetries} failed${ipInfo}:`, error?.code || error?.message);
       
       // Update circuit breaker
       circuitBreakerFailures++;
@@ -120,14 +123,14 @@ export async function queryWithRetry<T>(
       
       if (!isRetryable || attempt === maxRetries) {
         if (attempt === maxRetries) {
-          console.error(`[DB] ${operation} failed after ${maxRetries} attempts`);
+          console.error(`[DB] ${operation} failed after ${maxRetries} attempts${ipInfo}`);
         }
         throw error;
       }
       
       // Wait before retry with shorter delays
       const delay = Math.min(200 * Math.pow(2, attempt - 1), 2000);
-      console.log(`[DB] Retrying ${operation} in ${delay}ms...`);
+      console.log(`[DB] Retrying ${operation} in ${delay}ms${ipInfo}...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -140,6 +143,11 @@ pool.on('error', (err: any) => {
   console.error('[DB] Pool error:', err?.code || err?.message);
   circuitBreakerFailures++; // Increment circuit breaker on pool errors
   circuitBreakerLastFailure = Date.now();
+  
+  // Log additional error context if available
+  if (err?.code === '57P01') {
+    console.error('[DB] 57P01 ADMIN_SHUTDOWN - Neon connection terminated by server');
+  }
 });
 
 pool.on('connect', (client: any) => {
