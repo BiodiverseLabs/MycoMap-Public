@@ -5338,11 +5338,50 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           allImages.push(...allInatCachePhotos);
           console.log(`[Images API] Replaced main DB images with ${allInatCachePhotos.length} photos from iNaturalist cache`);
         } else {
-          // Cache is empty - keep main DB images and optionally fetch from API
-          console.log(`[Images API] Cache empty for ${inatObservationsInMainTable.length} observations - keeping main DB images`);
+          // Cache is empty - fetch fresh data from iNaturalist API
+          console.log(`[Images API] Cache empty for ${inatObservationsInMainTable.length} observations - fetching fresh data from API`);
           
-          // TODO: Implement batch API fallback for missing cache records
-          // For efficiency, we could batch API calls here to update cache
+          try {
+            // Batch API call for missing observations
+            const freshInatData = [];
+            for (const inatId of inatObservationsInMainTable) {
+              const response = await fetch(`https://api.inaturalist.org/v1/observations/${inatId}`);
+              if (response.ok) {
+                const data = await response.json();
+                const obs = data.results[0];
+                if (obs && obs.photos && obs.photos.length > 0) {
+                  // Add each photo as separate entry  
+                  obs.photos.forEach((photo: any, photoIndex: number) => {
+                    freshInatData.push({
+                      observation_id: `iNat-${obs.id}-${photoIndex + 1}`,
+                      scientific_name: obs.taxon?.name || scientificName,
+                      common_name: obs.taxon?.preferred_common_name || null,
+                      observer: obs.user?.name || obs.user?.login,
+                      observed_on: obs.observed_on,
+                      state: obs.place_guess,
+                      place_guess: obs.place_guess,
+                      image_link: photo.url.replace('square', 'large'), // Get large version
+                      source: 'iNaturalist'
+                    });
+                  });
+                }
+              }
+              // Small delay to be respectful to iNaturalist API
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            if (freshInatData.length > 0) {
+              // Replace main DB images with fresh API data
+              allImages = allImages.filter(img => img.source !== 'iNaturalist');
+              allImages.push(...freshInatData);
+              console.log(`[Images API] Fetched ${freshInatData.length} fresh photos from iNaturalist API`);
+            } else {
+              console.log(`[Images API] No valid photos found via API fallback`);
+            }
+          } catch (error) {
+            console.error(`[Images API] Error fetching fresh iNaturalist data:`, error);
+            console.log(`[Images API] Keeping main DB images as fallback`);
+          }
         }
         
         console.log(`[Images API] Using ${allImages.filter(img => img.source === 'iNaturalist').length} iNaturalist images`);
