@@ -64,6 +64,42 @@ export async function validateDatabaseConnection(maxRetries = 3): Promise<boolea
   return false;
 }
 
+// Add wrapper function for query retry logic
+export async function queryWithRetry<T>(
+  queryFn: () => Promise<T>, 
+  operation: string,
+  maxRetries = 3
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await queryFn();
+    } catch (error: any) {
+      console.error(`[DB] ${operation} attempt ${attempt}/${maxRetries} failed:`, error?.code || error?.message);
+      
+      // Check if this is a retryable error
+      const isRetryable = error?.code === '57P01' || // ADMIN_SHUTDOWN
+                         error?.code === 'ECONNRESET' ||
+                         error?.code === 'ETIMEDOUT' ||
+                         error?.message?.includes('Connection terminated') ||
+                         error?.message?.includes('socket hang up');
+      
+      if (!isRetryable || attempt === maxRetries) {
+        if (attempt === maxRetries) {
+          console.error(`[DB] ${operation} failed after ${maxRetries} attempts, returning empty/error result`);
+        }
+        throw error;
+      }
+      
+      // Wait before retry with exponential backoff
+      const delay = Math.min(500 * Math.pow(2, attempt - 1), 5000);
+      console.log(`[DB] Retrying ${operation} in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error('Should not reach here');
+}
+
 // Add graceful connection error handler
 pool.on('error', (err) => {
   console.error('[DB] Unexpected database pool error:', err);
@@ -100,7 +136,9 @@ export class DatabaseStorage implements IStorage {
 
   // Observations
   async getAllObservations(): Promise<Observation[]> {
-    return await db.select().from(observations).orderBy(desc(observations.observedOn));
+    return await queryWithRetry(async () => {
+      return await db.select().from(observations).orderBy(desc(observations.observedOn));
+    }, 'getAllObservations');
   }
 
   async getObservationsByDateRange(startDate: string, endDate: string): Promise<Observation[]> {
@@ -227,63 +265,65 @@ export class DatabaseStorage implements IStorage {
     statesCovered: number;
     fullyValidated: number;
   }> {
-    // Use optimized SQL queries instead of loading all records
-    let whereClause = sql`1=1`;
-    
-    if (startDate && endDate) {
-      whereClause = sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`;
-    }
-    
-    if (state) {
+    return await queryWithRetry(async () => {
+      // Use optimized SQL queries instead of loading all records
+      let whereClause = sql`1=1`;
+      
       if (startDate && endDate) {
-        whereClause = sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate} AND ${observations.state} = ${state}`;
-      } else {
-        whereClause = sql`${observations.state} = ${state}`;
+        whereClause = sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`;
       }
-    }
-    
-    // Execute all metric queries in parallel for better performance
-    const [totalCount, speciesCount, contributorCount, stateCount, fullyValidatedCount] = await Promise.all([
-      // Total observations count
-      db.execute(sql`SELECT COUNT(*)::int as count FROM ${observations} WHERE ${whereClause}`),
       
-      // Unique species count
-      db.execute(sql`SELECT COUNT(DISTINCT ${observations.scientificName})::int as count FROM ${observations} WHERE ${whereClause}`),
+      if (state) {
+        if (startDate && endDate) {
+          whereClause = sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate} AND ${observations.state} = ${state}`;
+        } else {
+          whereClause = sql`${observations.state} = ${state}`;
+        }
+      }
       
-      // Active contributors count
-      db.execute(sql`SELECT COUNT(DISTINCT ${observations.collector})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.collector} IS NOT NULL`),
-      
-      // States covered count (always 1 when filtering by state, otherwise count distinct states)
-      state ? 
-        Promise.resolve({ rows: [{ count: 1 }] }) :
-        db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`),
+      // Execute all metric queries in parallel for better performance
+      const [totalCount, speciesCount, contributorCount, stateCount, fullyValidatedCount] = await Promise.all([
+        // Total observations count
+        db.execute(sql`SELECT COUNT(*)::int as count FROM ${observations} WHERE ${whereClause}`),
+        
+        // Unique species count
+        db.execute(sql`SELECT COUNT(DISTINCT ${observations.scientificName})::int as count FROM ${observations} WHERE ${whereClause}`),
+        
+        // Active contributors count
+        db.execute(sql`SELECT COUNT(DISTINCT ${observations.collector})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.collector} IS NOT NULL`),
+        
+        // States covered count (always 1 when filtering by state, otherwise count distinct states)
+        state ? 
+          Promise.resolve({ rows: [{ count: 1 }] }) :
+          db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`),
 
-      // Fully validated observations count - species-level identification with complete data sync
-      db.execute(sql`
-        SELECT COUNT(*)::int as count 
-        FROM ${observations} o
-        LEFT JOIN ${inaturalistData} i ON o.observation_id = i.observation_id
-        WHERE ${whereClause}
-        AND o.source = 'iNaturalist'
-        AND o.scientific_name IS NOT NULL 
-        AND LENGTH(TRIM(o.scientific_name)) > 0
-        AND ARRAY_LENGTH(STRING_TO_ARRAY(TRIM(o.scientific_name), ' '), 1) >= 2
-        AND i.sync_status = 'success'
-        AND o.inat_api_saved = true
-        AND (
-          o.mycomap_blast_url IS NULL 
-          OR (o.mycomap_blast_url IS NOT NULL AND o.blast_files_downloaded = true)
-        )
-      `)
-    ]);
-    
-    return {
-      totalObservations: (totalCount.rows[0] as any).count,
-      uniqueSpecies: (speciesCount.rows[0] as any).count,
-      activeContributors: (contributorCount.rows[0] as any).count,
-      statesCovered: (stateCount.rows[0] as any).count,
-      fullyValidated: (fullyValidatedCount.rows[0] as any).count,
-    };
+        // Fully validated observations count - species-level identification with complete data sync
+        db.execute(sql`
+          SELECT COUNT(*)::int as count 
+          FROM ${observations} o
+          LEFT JOIN ${inaturalistData} i ON o.observation_id = i.observation_id
+          WHERE ${whereClause}
+          AND o.source = 'iNaturalist'
+          AND o.scientific_name IS NOT NULL 
+          AND LENGTH(TRIM(o.scientific_name)) > 0
+          AND ARRAY_LENGTH(STRING_TO_ARRAY(TRIM(o.scientific_name), ' '), 1) >= 2
+          AND i.sync_status = 'success'
+          AND o.inat_api_saved = true
+          AND (
+            o.mycomap_blast_url IS NULL 
+            OR (o.mycomap_blast_url IS NOT NULL AND o.blast_files_downloaded = true)
+          )
+        `)
+      ]);
+      
+      return {
+        totalObservations: (totalCount.rows[0] as any).count,
+        uniqueSpecies: (speciesCount.rows[0] as any).count,
+        activeContributors: (contributorCount.rows[0] as any).count,
+        statesCovered: (stateCount.rows[0] as any).count,
+        fullyValidated: (fullyValidatedCount.rows[0] as any).count,
+      };
+    }, 'getObservationMetrics');
   }
 
   async getTemporalTrends(groupBy: 'month' | 'quarter' | 'year', state?: string, startDate?: string, endDate?: string, goingBackYears?: string, collector?: string): Promise<Array<{
@@ -1360,9 +1400,9 @@ export class DatabaseStorage implements IStorage {
     species?: string;
     collector?: string;
   }>> {
-    const startTime = Date.now();
-    
-    try {
+    return await queryWithRetry(async () => {
+      const startTime = Date.now();
+      
       // Use raw SQL with proper indexing for maximum performance
       let sqlQuery = `
         SELECT 
@@ -1399,10 +1439,10 @@ export class DatabaseStorage implements IStorage {
         species: row.species || undefined,
         collector: row.collector || undefined,
       }));
-    } catch (error) {
-      console.log('[Map Data] Error with optimized query, using fallback:', error);
+    }, 'getMapDataOptimized').catch(error => {
+      console.log('[Map Data] All retry attempts failed, using fallback:', error);
       return this.getMapDataFallback(Math.min(limit, 20000), state);
-    }
+    });
   }
 
   async getMapDataChunked(limit: number, state?: string): Promise<Array<{
