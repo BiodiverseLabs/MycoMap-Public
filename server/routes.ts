@@ -4646,23 +4646,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Add iNaturalist supplementation using smart caching
       if (includeInat === 'true') {
         try {
+          console.time('[PERF] iNat Total Processing Time');
           const areaDescription = expansionMiles > 0 ? `expanded area (${expansionMiles} miles)` : 'original bounding box';
           console.log(`[iNat Cache] Getting observations for ${areaDescription}`);
           
           const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
           
           // Check if we have cached data
+          console.time('[PERF] Cache Check');
           const cachedMetadata = await checkCacheForArea(fieldGuideId, expansionMiles, boundingBox);
+          console.timeEnd('[PERF] Cache Check');
           
           let inatObservations = [];
           if (cachedMetadata) {
             // Use cached data
+            console.time('[PERF] Cache Retrieval');
             inatObservations = await getCachedObservations(boundingBox, monthStart as string, monthEnd as string);
+            console.timeEnd('[PERF] Cache Retrieval');
             console.log(`[iNat Cache] Using ${inatObservations.length} cached observations`);
           } else {
             // Fetch fresh data and cache it
+            console.time('[PERF] Fresh Data Fetch');
             const freshObs = await fetchAndCacheInatData(fieldGuideId, expansionMiles, boundingBox, monthStart as string, monthEnd as string, progressBroadcast);
             inatObservations = await getCachedObservations(boundingBox, monthStart as string, monthEnd as string);
+            console.timeEnd('[PERF] Fresh Data Fetch');
             console.log(`[iNat Cache] Fetched fresh data, now have ${inatObservations.length} observations`);
             
             // Broadcast completion
@@ -4677,6 +4684,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           if (inatObservations.length > 0) {
             // Process cached observations into species format
+            console.time('[PERF] Species Map Creation');
             const inatSpeciesMap = new Map();
             inatObservations.forEach((obs: any) => {
               if (obs.scientific_name && obs.rank === 'species') {
@@ -4698,10 +4706,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 inatSpeciesMap.get(obs.scientific_name).observationCount++;
               }
             });
+            console.timeEnd('[PERF] Species Map Creation');
             
+            console.time('[PERF] Species Array Conversion');
             const inatSpecies = Array.from(inatSpeciesMap.values());
+            console.timeEnd('[PERF] Species Array Conversion');
             
             // Merge with database species (combine counts for overlapping species)
+            console.time('[PERF] Species Merging');
             const allSpeciesMap = new Map();
             finalSpecies.forEach(species => allSpeciesMap.set(species.scientificName, species));
             inatSpecies.forEach(species => {
@@ -4722,12 +4734,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 allSpeciesMap.set(species.scientificName, species);
               }
             });
+            console.timeEnd('[PERF] Species Merging');
             
+            console.time('[PERF] Final Sorting');
             finalSpecies = Array.from(allSpeciesMap.values())
               .sort((a, b) => a.scientificName.localeCompare(b.scientificName));
+            console.timeEnd('[PERF] Final Sorting');
             
             console.log(`[iNat Cache] Final merged list: ${finalSpecies.length} species (${speciesInBoxResult.rows.length} from DB, ${inatSpecies.length} from iNat)`);
           }
+          console.timeEnd('[PERF] iNat Total Processing Time');
         } catch (error) {
           console.error(`[iNat Cache] Error supplementing species list:`, error);
         }
@@ -4867,6 +4883,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Add iNaturalist contributors using smart caching
       if (includeInat === 'true') {
         try {
+          console.time('[PERF] Contributors Total Processing Time');
           console.log(`[Contributors Cache] Getting iNaturalist contributors...`);
           
           const boundingBox = { 
@@ -4877,17 +4894,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           };
           
           // Check if we have cached data (use 0 miles expansion for original bounding box)
+          console.time('[PERF] Contributors Cache Check');
           const cachedMetadata = await checkCacheForArea(fieldGuideId, 0, boundingBox);
+          console.timeEnd('[PERF] Contributors Cache Check');
           
           let inatObservations = [];
           if (cachedMetadata) {
             // Use cached data
+            console.time('[PERF] Contributors Cache Retrieval');
             inatObservations = await getCachedObservations(boundingBox);
+            console.timeEnd('[PERF] Contributors Cache Retrieval');
             console.log(`[Contributors Cache] Using ${inatObservations.length} cached observations`);
           } else {
             // Fetch fresh data and cache it
+            console.time('[PERF] Contributors Fresh Data Fetch');
             const freshObs = await fetchAndCacheInatData(fieldGuideId, 0, boundingBox, undefined, undefined, progressBroadcast);
             inatObservations = await getCachedObservations(boundingBox);
+            console.timeEnd('[PERF] Contributors Fresh Data Fetch');
             console.log(`[Contributors Cache] Fetched fresh data, now have ${inatObservations.length} observations`);
             
             // Broadcast completion
@@ -4901,24 +4924,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
 
           // Extract unique iNaturalist contributors from cached data
+          console.time('[PERF] Contributors Processing');
           const inatContributors = new Set();
           inatObservations.forEach((obs: any) => {
             if (obs.user_name) {
               inatContributors.add(obs.user_name);
             }
           });
+          console.timeEnd('[PERF] Contributors Processing');
 
           console.log(`[Contributors Cache] iNat: ${inatContributors.size} unique contributors`);
 
           // Combine database and iNaturalist contributors (removing duplicates)
+          console.time('[PERF] Contributors Merging');
           const allContributors = new Set();
           dbContributors.rows.forEach(row => {
             if (row.name) allContributors.add(row.name);
           });
           inatContributors.forEach(name => allContributors.add(name));
+          console.timeEnd('[PERF] Contributors Merging');
 
           totalContributors = allContributors.size;
           console.log(`[Contributors Cache] Combined: ${totalContributors} total unique contributors`);
+          console.timeEnd('[PERF] Contributors Total Processing Time');
 
         } catch (inatError) {
           console.error("[Contributors Cache] Error:", inatError);
