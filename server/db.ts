@@ -25,11 +25,58 @@ if (!process.env.DATABASE_URL) {
 
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 10, // Maximum number of connections in the pool
-  statement_timeout: 60000, // 60 second timeout
-  query_timeout: 60000, // 60 second query timeout
+  max: 5, // Reduce max connections for deployment stability
+  min: 1, // Keep minimum connections alive
+  statement_timeout: 30000, // 30 second timeout (reduced)
+  query_timeout: 30000, // 30 second query timeout (reduced)
+  connectionTimeoutMillis: 10000, // 10 second connection timeout
+  idleTimeoutMillis: 300000, // 5 minutes idle timeout
+  allowExitOnIdle: false, // Keep pool alive
 });
+
+// Create DB instance immediately
 export const db = drizzle({ client: pool, schema });
+
+// Add connection health check function
+export async function validateDatabaseConnection(maxRetries = 3): Promise<boolean> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[DB] Health check attempt ${attempt}/${maxRetries}`);
+      await pool.query('SELECT 1');
+      console.log(`[DB] Health check passed on attempt ${attempt}`);
+      return true;
+      
+    } catch (error) {
+      console.error(`[DB] Health check attempt ${attempt} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        console.error(`[DB] All health check attempts failed.`);
+        return false;
+      }
+      
+      // Wait before retry (exponential backoff)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+      console.log(`[DB] Retrying health check in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  return false;
+}
+
+// Add graceful connection error handler
+pool.on('error', (err) => {
+  console.error('[DB] Unexpected database pool error:', err);
+  // Don't exit - let the app continue with degraded functionality
+});
+
+pool.on('connect', () => {
+  console.log('[DB] New database connection established');
+});
+
+pool.on('remove', () => {
+  console.log('[DB] Database connection removed from pool');
+});
 
 export class DatabaseStorage implements IStorage {
   // Users
