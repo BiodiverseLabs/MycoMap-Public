@@ -4997,11 +4997,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       `);
       console.timeEnd('[PERF] DB Contributors Query');
       
-      const contributors: any[] = dbContributors.rows.map((row: any) => ({
-        name: row.name,
-        observationCount: parseInt(row.observationCount) || 0,
-        speciesCount: parseInt(row.speciesCount) || 0
-      }));
+      const contributors: any[] = dbContributors.rows.map((row: any) => {
+        console.log('[Debug] Raw row:', row);
+        return {
+          name: row.name,
+          observationCount: parseInt(row.observationcount) || 0,  // PostgreSQL returns lowercase
+          speciesCount: parseInt(row.speciescount) || 0           // PostgreSQL returns lowercase
+        };
+      });
       
       console.log(`[Detailed Contributors] Returning ${contributors.length} contributors`);
       console.timeEnd('[PERF] Detailed Contributors Total Time');
