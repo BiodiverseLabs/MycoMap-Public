@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Plus, Calendar, Trash2, Eye } from "lucide-react";
+import { BoundingBoxMap } from "@/components/BoundingBoxMap";
 import { format } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -194,12 +195,12 @@ export default function FieldGuides() {
                   </div>
                 </div>
 
-                <div className="text-sm text-slate-600 space-y-1">
-                  <p><strong>North:</strong> {Number(guide.boundingBoxNorth).toFixed(4)}°</p>
-                  <p><strong>South:</strong> {Number(guide.boundingBoxSouth).toFixed(4)}°</p>
-                  <p><strong>East:</strong> {Number(guide.boundingBoxEast).toFixed(4)}°</p>
-                  <p><strong>West:</strong> {Number(guide.boundingBoxWest).toFixed(4)}°</p>
-                </div>
+                <BoundingBoxMap
+                  north={Number(guide.boundingBoxNorth)}
+                  south={Number(guide.boundingBoxSouth)}
+                  east={Number(guide.boundingBoxEast)}
+                  west={Number(guide.boundingBoxWest)}
+                />
 
                 <Link href={`/field-guides/${guide.id}`}>
                   <Button variant="outline" className="w-full flex items-center gap-2">
