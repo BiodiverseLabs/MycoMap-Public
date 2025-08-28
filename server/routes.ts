@@ -4961,6 +4961,58 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get detailed contributors list for a field guide (for the modal)
+  app.get("/api/field-guides/:id/contributors/detailed", async (req, res) => {
+    try {
+      console.time('[PERF] Detailed Contributors Total Time');
+      const { id } = req.params;
+      const fieldGuideId = parseInt(id);
+      
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+      
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+      
+      // Get detailed database contributors with observation and species counts
+      console.time('[PERF] DB Contributors Query');
+      const dbContributors = await db.execute(sql`
+        SELECT 
+          o.collector as name,
+          COUNT(*) as observationCount,
+          COUNT(DISTINCT o.scientificName) as speciesCount
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${parseFloat(boundingBoxNorth)}
+          AND CAST(o.latitude AS DECIMAL) >= ${parseFloat(boundingBoxSouth)}
+          AND CAST(o.longitude AS DECIMAL) <= ${parseFloat(boundingBoxEast)}
+          AND CAST(o.longitude AS DECIMAL) >= ${parseFloat(boundingBoxWest)}
+          AND o.collector IS NOT NULL
+        GROUP BY o.collector
+        ORDER BY COUNT(*) DESC
+      `);
+      console.timeEnd('[PERF] DB Contributors Query');
+      
+      const contributors: any[] = dbContributors.rows.map((row: any) => ({
+        name: row.name,
+        observationCount: parseInt(row.observationCount),
+        speciesCount: parseInt(row.speciesCount)
+      }));
+      
+      console.log(`[Detailed Contributors] Returning ${contributors.length} contributors`);
+      console.timeEnd('[PERF] Detailed Contributors Total Time');
+      
+      return res.json({ contributors });
+    } catch (error) {
+      console.error("Error fetching detailed contributors:", error);
+      res.status(500).json({ error: "Failed to fetch detailed contributors" });
+    }
+  });
+
   // Get images for a specific species in a field guide
   app.get("/api/field-guides/:id/species/:name/images", async (req, res) => {
     try {
