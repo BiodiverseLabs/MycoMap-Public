@@ -862,7 +862,7 @@ export default function FieldGuideDetail() {
                     </div>
                     <div className="text-right">
                       <Badge variant="secondary">
-                        {contributor.observationCount.toLocaleString()}
+                        {contributor.observationCount?.toLocaleString() || 0}
                       </Badge>
                     </div>
                   </div>
@@ -870,7 +870,7 @@ export default function FieldGuideDetail() {
                 
                 <div className="mt-4 pt-4 border-t bg-slate-50 rounded-lg p-3">
                   <div className="text-sm text-slate-600">
-                    <strong>Total:</strong> {detailedContributorsData.contributors.reduce((sum, c) => sum + (c.speciesCount || 0), 0).toLocaleString()} species, {detailedContributorsData.contributors.reduce((sum, c) => sum + c.observationCount, 0).toLocaleString()} observations from {detailedContributorsData.contributors.length} contributors
+                    <strong>Total:</strong> {detailedContributorsData.contributors.reduce((sum, c) => sum + (c.speciesCount || 0), 0).toLocaleString()} species, {detailedContributorsData.contributors.reduce((sum, c) => sum + (c.observationCount || 0), 0).toLocaleString()} observations from {detailedContributorsData.contributors.length} contributors
                   </div>
                 </div>
               </div>

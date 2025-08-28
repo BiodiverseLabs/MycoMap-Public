@@ -4999,8 +4999,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const contributors: any[] = dbContributors.rows.map((row: any) => ({
         name: row.name,
-        observationCount: parseInt(row.observationCount),
-        speciesCount: parseInt(row.speciesCount)
+        observationCount: parseInt(row.observationCount) || 0,
+        speciesCount: parseInt(row.speciesCount) || 0
       }));
       
       console.log(`[Detailed Contributors] Returning ${contributors.length} contributors`);
