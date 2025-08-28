@@ -178,10 +178,12 @@ export default function FieldGuideDetail() {
       if (!response.ok) throw new Error('Failed to fetch contributors count');
       return response.json() as Promise<{ contributorsCount: number; dbContributors?: number; inatContributors?: number }>;
     },
-    enabled: !!fieldGuideId
+    enabled: !!fieldGuideId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    cacheTime: 30 * 60 * 1000, // Keep in memory for 30 minutes
   });
 
-  const { data: detailedContributorsData } = useQuery({
+  const { data: detailedContributorsData, isLoading: isLoadingContributors } = useQuery({
     queryKey: ['/api/field-guides', fieldGuideId, 'contributors', 'detailed'],
     queryFn: async () => {
       if (!fieldGuideId) throw new Error('No field guide ID');
@@ -189,7 +191,9 @@ export default function FieldGuideDetail() {
       if (!response.ok) throw new Error('Failed to fetch detailed contributors');
       return response.json() as Promise<{ contributors: Contributor[] }>;
     },
-    enabled: !!fieldGuideId && showContributorsModal
+    enabled: !!fieldGuideId && showContributorsModal,
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes 
+    cacheTime: 60 * 60 * 1000, // Keep in memory for 1 hour
   });
 
   // Filter and sort species based on search term and sort configuration
