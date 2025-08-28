@@ -3,6 +3,10 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { validateDatabaseConnection } from './db';
 
+// Increase default max listeners to prevent AbortSignal warnings with many concurrent operations
+import { setMaxListeners } from 'events';
+setMaxListeners(50);
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
