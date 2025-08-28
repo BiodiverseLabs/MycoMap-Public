@@ -5343,7 +5343,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           try {
             // Batch API call for missing observations
-            const freshInatData = [];
+            const freshInatData: any[] = [];
             for (const inatId of inatObservationsInMainTable) {
               const response = await fetch(`https://api.inaturalist.org/v1/observations/${inatId}`);
               if (response.ok) {
@@ -5630,7 +5630,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           console.log(`[MO Images API] Found ${moSpeciesObservations.length} MO observations with photos for ${scientificName}`);
           
           // Transform MO observations to image format (each photo as separate entry)
-          const moImages = [];
+          const moImages: any[] = [];
           moSpeciesObservations.forEach((obs: any, obsIndex: number) => {
             obs.photos.forEach((photoUrl: string, photoIndex: number) => {
               moImages.push({
