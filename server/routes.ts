@@ -4983,7 +4983,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         SELECT 
           o.collector as name,
           COUNT(*) as observationCount,
-          COUNT(DISTINCT o.scientificName) as speciesCount
+          COUNT(DISTINCT o.scientific_name) as speciesCount
         FROM observations o
         WHERE o.latitude IS NOT NULL 
           AND o.longitude IS NOT NULL
