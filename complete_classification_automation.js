@@ -87,11 +87,14 @@ async function completeClassificationAutomation() {
       for (const record of batch) {
         let targetGenus = null;
         
-        // Extract genus from species or infraspecies
+        // Extract genus from species, infraspecies, or scientific_name
         if (record.species) {
           targetGenus = record.species.split(' ')[0].toLowerCase().trim();
         } else if (record.infraspecies) {
           targetGenus = record.infraspecies.split(' ')[0].toLowerCase().trim();
+        } else if (record.scientificName) {
+          // Fallback to scientific_name for cases like "Amanita batonrougensis"
+          targetGenus = record.scientificName.split(' ')[0].toLowerCase().trim();
         }
         
         if (targetGenus && genusLookup.has(targetGenus)) {
