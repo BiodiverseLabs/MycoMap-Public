@@ -3790,7 +3790,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       if (existingData.length > 0) {
         await storage.updateInaturalistData(observationId, {
           photos: photoUrls,
-          lastSyncedAt: new Date(),
           syncStatus: 'success'
         });
       } else {
@@ -3802,7 +3801,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           captive: observation.captive,
           geoprivacy: observation.geoprivacy,
           licenseCode: observation.license_code,
-          lastSyncedAt: new Date(),
           syncStatus: 'success'
         });
       }
@@ -4018,18 +4016,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const { id } = req.params;
       
       // First check if we have this observation in our database
-      const existingMoData = await db.getMoDataByMoId(id);
+      const existingMoData = await db.select().from(observations).where(eq(observations.moId, id)).limit(1);
       
-      if (existingMoData) {
+      if (existingMoData.length > 0) {
         // Return data from our database
+        const moData = existingMoData[0];
         const responseData = {
-          scientific_name: existingMoData.scientificName,
-          common_name: existingMoData.commonName,
-          observer: existingMoData.observer,
-          location: existingMoData.location,
-          state: existingMoData.state,
-          country: existingMoData.country || 'United States',
-          observed_on: existingMoData.observedOn,
+          scientific_name: moData.scientific_name,
+          common_name: moData.common_name,
+          observer: moData.collector,
+          location: moData.locality,
+          state: moData.state,
+          country: moData.country || 'United States',
+          observed_on: moData.observation_date,
           image_url: null // Would need to fetch from MO API if needed
         };
         res.json(responseData);
@@ -4051,18 +4050,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const { id } = req.params;
       
       // First check if we have this observation in our database
-      const existingMcData = await db.getMycoportalDataByCatalogNumber(id);
+      const existingMcData = await db.select().from(observations).where(eq(observations.catalogNumber, id)).limit(1);
       
-      if (existingMcData) {
+      if (existingMcData.length > 0) {
         // Return data from our database
+        const mcData = existingMcData[0];
         const responseData = {
-          scientific_name: existingMcData.scientificName,
-          common_name: existingMcData.commonName,
-          recorded_by: existingMcData.recordedBy,
-          locality: existingMcData.locality,
-          state_province: existingMcData.stateProvince,
-          country: existingMcData.country || 'United States',
-          event_date: existingMcData.eventDate,
+          scientific_name: mcData.scientific_name,
+          common_name: mcData.common_name,
+          recorded_by: mcData.collector,
+          locality: mcData.locality,
+          state_province: mcData.state,
+          country: mcData.country || 'United States',
+          event_date: mcData.observation_date,
           image_url: null // Would need to fetch from MyCoPortal API if needed
         };
         res.json(responseData);
