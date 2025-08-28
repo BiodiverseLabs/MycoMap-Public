@@ -1,0 +1,148 @@
+2025-08-27 22:33:24.01
+9cf63e14
+User
+routine: 'ProcessInterrupts',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+client: NeonClient {
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_events: [Object: null prototype] { error: [Function (anonymous)] },
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_eventsCount: 1,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_maxListeners: undefined,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+connectionParameters: ConnectionParameters {
+2025-08-27 22:33:24.01
+9cf63e14
+User
+user: 'neondb_owner',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+database: 'neondb',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+port: 5432,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+host: 'ep-little-lake-a5bv0sna.us-east-2.aws.neon.tech',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+binary: false,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+options: undefined,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+ssl: {},
+2025-08-27 22:33:24.01
+9cf63e14
+User
+client_encoding: '',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+replication: undefined,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+isDomainSocket: false,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+application_name: undefined,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+fallback_application_name: undefined,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+statement_timeout: 30000,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+lock_timeout: false,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+idle_in_transaction_session_timeout: false,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+query_timeout: 30000,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+connect_timeout: 10
+2025-08-27 22:33:24.01
+9cf63e14
+User
+user: 'neondb_owner',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+database: 'neondb',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+port: 5432,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+host: 'ep-little-lake-a5bv0sna.us-east-2.aws.neon.tech',
+2025-08-27 22:33:24.01
+9cf63e14
+User
+replication: undefined,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_Promise: [Function: Promise] { withResolvers: [Function (anonymous)] },
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_types: TypeOverrides { _types: [Object], text: {}, binary: {} },
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_maxListeners: undefined,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+lastBuffer: false,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+ssl: false,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_ending: true,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+processID: -419063436,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+_connectionTimeoutMillis: 10000,
+2025-08-27 22:33:24.01
+9cf63e14
+User
+config: {
