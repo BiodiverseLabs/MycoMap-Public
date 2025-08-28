@@ -5331,13 +5331,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           allInatCachePhotos.push(...inatCachePhotos.rows);
         }
         
-        // Remove duplicate main table entries for iNaturalist observations (we'll use cache versions)
-        allImages = allImages.filter(img => img.source !== 'iNaturalist');
+        // Smart fallback: Keep main DB images when cache is empty, replace when cache has data
+        if (allInatCachePhotos.length > 0) {
+          // Cache has photos - replace main DB images with detailed cache versions
+          allImages = allImages.filter(img => img.source !== 'iNaturalist');
+          allImages.push(...allInatCachePhotos);
+          console.log(`[Images API] Replaced main DB images with ${allInatCachePhotos.length} photos from iNaturalist cache`);
+        } else {
+          // Cache is empty - keep main DB images and optionally fetch from API
+          console.log(`[Images API] Cache empty for ${inatObservationsInMainTable.length} observations - keeping main DB images`);
+          
+          // TODO: Implement batch API fallback for missing cache records
+          // For efficiency, we could batch API calls here to update cache
+        }
         
-        // Add all photos from iNaturalist cache
-        allImages.push(...allInatCachePhotos);
-        
-        console.log(`[Images API] Added ${allInatCachePhotos.length} photos from iNaturalist cache`);
+        console.log(`[Images API] Using ${allImages.filter(img => img.source === 'iNaturalist').length} iNaturalist images`);
       }
 
       // Include additional iNaturalist cache observations if includeInat is true (EXACT same logic)
