@@ -1,0 +1,148 @@
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_socket: TLSSocket {
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_tlsOptions: [Object],
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_secureEstablished: true,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_securePending: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_newSessionPending: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_controlReleased: true,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+secureConnecting: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_SNICallback: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+servername: 'ep-little-lake-a5bv0sna.us-east-2.aws.neon.tech',
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+alpnProtocol: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+authorized: true,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+authorizationError: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+encrypted: true,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_events: [Object: null prototype],
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_eventsCount: 6,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+connecting: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_hadError: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_parent: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_host: 'ep-little-lake-a5bv0sna.us-east-2.aws.neon.tech',
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_closeAfterHandlingError: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_readableState: [ReadableState],
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_writableState: [WritableState],
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+allowHalfOpen: false,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_maxListeners: undefined,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_sockname: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_pendingData: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+server: undefined,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_server: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+ssl: [TLSWrap],
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+_rejectUnauthorized: true,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+parser: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+[Symbol(pendingSession)]: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+[Symbol(async_id_symbol)]: 13852,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+[Symbol(lastWriteQueueSize)]: 11,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+[Symbol(timeout)]: null,
+2025-08-27 21:52:11.49
+9cbafaf1
+User
+[Symbol(kBufferCb)]: null,
+2025-08-27 21:52:16.59
+9cbafaf1
+System
+command finished with error [npm run start]: exit status 1
