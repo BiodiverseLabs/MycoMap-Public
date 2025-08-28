@@ -25,13 +25,15 @@ if (!process.env.DATABASE_URL) {
 
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 5, // Reduce max connections for deployment stability
-  min: 1, // Keep minimum connections alive
-  statement_timeout: 30000, // 30 second timeout (reduced)
-  query_timeout: 30000, // 30 second query timeout (reduced)
-  connectionTimeoutMillis: 10000, // 10 second connection timeout
-  idleTimeoutMillis: 300000, // 5 minutes idle timeout
-  allowExitOnIdle: false, // Keep pool alive
+  max: 3, // Further reduce max connections to avoid overwhelming Neon
+  min: 0, // Don't keep idle connections - let Neon manage
+  statement_timeout: 20000, // 20 second timeout (more aggressive)
+  query_timeout: 20000, // 20 second query timeout (more aggressive)
+  connectionTimeoutMillis: 8000, // 8 second connection timeout
+  idleTimeoutMillis: 60000, // 1 minute idle timeout (much shorter)
+  allowExitOnIdle: true, // Allow pool to exit when idle
+  maxUses: 100, // Recycle connections after 100 uses
+  maxLifetimeSeconds: 300, // Recycle connections after 5 minutes
 });
 
 // Create DB instance immediately
@@ -64,34 +66,67 @@ export async function validateDatabaseConnection(maxRetries = 3): Promise<boolea
   return false;
 }
 
+// Circuit breaker state for database failures
+let circuitBreakerFailures = 0;
+let circuitBreakerLastFailure = 0;
+const CIRCUIT_BREAKER_THRESHOLD = 5;
+const CIRCUIT_BREAKER_TIMEOUT = 30000; // 30 seconds
+
 // Add wrapper function for query retry logic
 export async function queryWithRetry<T>(
   queryFn: () => Promise<T>, 
   operation: string,
-  maxRetries = 3
+  maxRetries = 2 // Reduced retries to fail faster
 ): Promise<T> {
+  // Circuit breaker check
+  const now = Date.now();
+  if (circuitBreakerFailures >= CIRCUIT_BREAKER_THRESHOLD && 
+      (now - circuitBreakerLastFailure) < CIRCUIT_BREAKER_TIMEOUT) {
+    console.warn(`[DB] Circuit breaker OPEN for ${operation} - too many recent failures`);
+    throw new Error(`Circuit breaker open - database temporarily unavailable`);
+  }
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await queryFn();
+      const result = await Promise.race([
+        queryFn(),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout')), 15000)
+        )
+      ]);
+      
+      // Reset circuit breaker on success
+      if (circuitBreakerFailures > 0) {
+        console.log(`[DB] Circuit breaker RESET - successful ${operation}`);
+        circuitBreakerFailures = 0;
+      }
+      
+      return result;
     } catch (error: any) {
       console.error(`[DB] ${operation} attempt ${attempt}/${maxRetries} failed:`, error?.code || error?.message);
+      
+      // Update circuit breaker
+      circuitBreakerFailures++;
+      circuitBreakerLastFailure = now;
       
       // Check if this is a retryable error
       const isRetryable = error?.code === '57P01' || // ADMIN_SHUTDOWN
                          error?.code === 'ECONNRESET' ||
                          error?.code === 'ETIMEDOUT' ||
+                         error?.code === 'EPIPE' ||
                          error?.message?.includes('Connection terminated') ||
-                         error?.message?.includes('socket hang up');
+                         error?.message?.includes('socket hang up') ||
+                         error?.message?.includes('Query timeout');
       
       if (!isRetryable || attempt === maxRetries) {
         if (attempt === maxRetries) {
-          console.error(`[DB] ${operation} failed after ${maxRetries} attempts, returning empty/error result`);
+          console.error(`[DB] ${operation} failed after ${maxRetries} attempts`);
         }
         throw error;
       }
       
-      // Wait before retry with exponential backoff
-      const delay = Math.min(500 * Math.pow(2, attempt - 1), 5000);
+      // Wait before retry with shorter delays
+      const delay = Math.min(200 * Math.pow(2, attempt - 1), 2000);
       console.log(`[DB] Retrying ${operation} in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -101,18 +136,40 @@ export async function queryWithRetry<T>(
 }
 
 // Add graceful connection error handler
-pool.on('error', (err) => {
-  console.error('[DB] Unexpected database pool error:', err);
-  // Don't exit - let the app continue with degraded functionality
+pool.on('error', (err: any) => {
+  console.error('[DB] Pool error:', err?.code || err?.message);
+  circuitBreakerFailures++; // Increment circuit breaker on pool errors
+  circuitBreakerLastFailure = Date.now();
 });
 
-pool.on('connect', () => {
-  console.log('[DB] New database connection established');
+pool.on('connect', (client: any) => {
+  console.log('[DB] New connection established');
+  // Reset circuit breaker on successful connection
+  if (circuitBreakerFailures > 0) {
+    circuitBreakerFailures = Math.max(0, circuitBreakerFailures - 1);
+  }
 });
 
 pool.on('remove', () => {
-  console.log('[DB] Database connection removed from pool');
+  console.log('[DB] Connection removed from pool');
 });
+
+// Add connection health monitoring
+setInterval(async () => {
+  try {
+    if (pool.totalCount > 0) {
+      await pool.query('SELECT 1');
+      // Reset circuit breaker on successful health check
+      if (circuitBreakerFailures > 0) {
+        circuitBreakerFailures = Math.max(0, circuitBreakerFailures - 1);
+      }
+    }
+  } catch (error: any) {
+    console.warn('[DB] Health check failed:', error?.code);
+    circuitBreakerFailures++;
+    circuitBreakerLastFailure = Date.now();
+  }
+}, 60000); // Check every minute
 
 export class DatabaseStorage implements IStorage {
   // Users
