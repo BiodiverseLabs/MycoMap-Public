@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Trophy, ChevronRight } from "lucide-react";
+import { ArrowLeft, Trophy, ChevronRight, Download } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 
@@ -17,6 +18,32 @@ interface GlobalFirstSpecies {
   creation_date: string;
   collector?: string;
 }
+
+// CSV export function
+const exportStateSpeciesToCSV = (stateName: string, speciesData: GlobalFirstSpecies[]) => {
+  if (!speciesData || speciesData.length === 0) {
+    return;
+  }
+
+  const headers = ['Scientific Name', 'Common Name', 'Family', 'First Recorded Date', 'Collector'];
+  const csvContent = [
+    headers.join(','),
+    ...speciesData.map(species => [
+      `"${species.scientific_name}"`,
+      `"${species.common_name || ''}"`,
+      `"${species.family || ''}"`,
+      `"${new Date(species.creation_date).toLocaleDateString()}"`,
+      `"${species.collector || ''}"`
+    ].join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${stateName}_global_first_species.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
 
 export default function StatesGlobalFirsts() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -66,28 +93,86 @@ export default function StatesGlobalFirsts() {
                     {stateData.map((state, index) => {
                       const isTopThree = index < 3;
                       const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
+                      const isExpanded = selectedState === state.state;
                       
                       return (
-                        <div 
-                          key={state.state} 
-                          className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted cursor-pointer transition-colors"
-                          onClick={() => setSelectedState(selectedState === state.state ? null : state.state)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className={`flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold ${
-                              isTopThree ? badgeColors[index] : 'bg-muted-foreground'
-                            }`}>
-                              {index + 1}
-                            </span>
-                            <span className={isTopThree ? "font-semibold text-lg" : "font-medium"}>{state.state}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <div className={isTopThree ? "font-bold text-xl" : "font-semibold text-lg"}>{state.globalFirstCount.toLocaleString()}</div>
-                              <div className="text-sm text-muted-foreground">{state.percentage.toFixed(1)}% of total</div>
+                        <div key={state.state} className="space-y-2">
+                          <div 
+                            className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                            onClick={() => setSelectedState(selectedState === state.state ? null : state.state)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className={`flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold ${
+                                isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                              }`}>
+                                {index + 1}
+                              </span>
+                              <span className={isTopThree ? "font-semibold text-lg" : "font-medium"}>{state.state}</span>
                             </div>
-                            <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${selectedState === state.state ? 'rotate-90' : ''}`} />
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <div className={isTopThree ? "font-bold text-xl" : "font-semibold text-lg"}>{state.globalFirstCount.toLocaleString()}</div>
+                                <div className="text-sm text-muted-foreground">{state.percentage.toFixed(1)}% of total</div>
+                              </div>
+                              <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                            </div>
                           </div>
+                          
+                          {/* Inline species detail view */}
+                          {isExpanded && (
+                            <div className="ml-11 mr-4 p-4 bg-muted/30 rounded-lg border-l-4 border-blue-500">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-lg">Global First Species in {state.state}</h3>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    exportStateSpeciesToCSV(state.state, speciesData);
+                                  }}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Download className="h-4 w-4" />
+                                  Export CSV
+                                </Button>
+                              </div>
+                              
+                              {isLoadingSpecies ? (
+                                <div className="space-y-2">
+                                  {Array.from({ length: 5 }, (_, i) => (
+                                    <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                  {speciesData.map((species, speciesIndex) => (
+                                    <div key={speciesIndex} className="flex items-center justify-between p-3 bg-background rounded border">
+                                      <div className="flex-1">
+                                        <div className="font-medium">{species.scientific_name}</div>
+                                        {species.common_name && (
+                                          <div className="text-sm text-muted-foreground">{species.common_name}</div>
+                                        )}
+                                        {species.family && (
+                                          <div className="text-xs text-muted-foreground">Family: {species.family}</div>
+                                        )}
+                                      </div>
+                                      <div className="text-right text-sm text-muted-foreground">
+                                        <div>{new Date(species.creation_date).toLocaleDateString()}</div>
+                                        {species.collector && (
+                                          <div>{species.collector}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {speciesData.length === 0 && (
+                                    <div className="text-center text-muted-foreground py-4">
+                                      No global first species found for {state.state}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -96,56 +181,6 @@ export default function StatesGlobalFirsts() {
               </CardContent>
             </Card>
 
-            {/* Species Detail View */}
-            {selectedState && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Trophy className="h-5 w-5" />
-                    Global First Species in {selectedState}
-                  </CardTitle>
-                  <p className="text-muted-foreground">
-                    Species that were first recorded globally in {selectedState}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingSpecies ? (
-                    <div className="space-y-2">
-                      {Array.from({ length: 10 }, (_, i) => (
-                        <div key={i} className="h-12 bg-muted animate-pulse rounded" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {speciesData.map((species, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                          <div className="flex-1">
-                            <div className="font-medium">{species.scientific_name}</div>
-                            {species.common_name && (
-                              <div className="text-sm text-muted-foreground">{species.common_name}</div>
-                            )}
-                            {species.family && (
-                              <div className="text-xs text-muted-foreground">Family: {species.family}</div>
-                            )}
-                          </div>
-                          <div className="text-right text-sm text-muted-foreground">
-                            <div>{new Date(species.creation_date).toLocaleDateString()}</div>
-                            {species.collector && (
-                              <div>{species.collector}</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {speciesData.length === 0 && (
-                        <div className="text-center text-muted-foreground py-4">
-                          No global first species found for {selectedState}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         </main>
       </div>
