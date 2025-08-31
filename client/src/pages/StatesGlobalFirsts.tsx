@@ -84,7 +84,7 @@ const getExternalLink = (species: GlobalFirstSpecies): { url: string, platform: 
       platform: 'iNaturalist' 
     };
   }
-  if (species.source === 'Mushroom Observer' && species.observation_id) {
+  if ((species.source === 'Mushroom Observer' || species.source === 'MO Observations') && species.observation_id) {
     return { 
       url: `https://mushroomobserver.org/${species.observation_id}`, 
       platform: 'Mushroom Observer' 
@@ -124,7 +124,7 @@ const getExternalLink = (species: GlobalFirstSpecies): { url: string, platform: 
   
   // Additional fallback for sources without specific external IDs
   if (species.source && species.observation_id) {
-    if (species.source.toLowerCase().includes('mushroom')) {
+    if (species.source.toLowerCase().includes('mushroom') || species.source.toLowerCase().includes('mo ')) {
       return { 
         url: `https://mushroomobserver.org/${species.observation_id}`, 
         platform: 'Mushroom Observer' 
