@@ -2372,8 +2372,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         return;
       }
       
+      // Read workbook with progress updates
+      console.log('Loading workbook (this may take a moment for large files)...');
+      progressTracker.set(uploadId, {
+        progress: 10,
+        phase: 'reading',
+        message: 'Loading Excel workbook...'
+      });
+      
       const workbook = readFile(filePath, { cellDates: true });
       console.log('✓ Workbook loaded, sheet names:', workbook.SheetNames);
+      
+      progressTracker.set(uploadId, {
+        progress: 15,
+        phase: 'reading',
+        message: 'Analyzing worksheet structure...'
+      });
+      
       const sheetName = workbook.SheetNames.find((name: string) => 
         name.toLowerCase().includes('validated') || 
         name.toLowerCase().includes('observation')
@@ -2381,9 +2396,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const worksheet = workbook.Sheets[sheetName];
       console.log('Converting sheet to JSON (this may take a moment for large files)...');
+      
+      progressTracker.set(uploadId, {
+        progress: 20,
+        phase: 'reading',
+        message: 'Converting Excel data to JSON format...'
+      });
+      
       const rawData = utils.sheet_to_json(worksheet);
 
       console.log('✓ Raw data length:', rawData.length);
+      
+      progressTracker.set(uploadId, {
+        progress: 25,
+        phase: 'analyzing',
+        message: `Analyzing ${rawData.length} observation records...`
+      });
+      
       if (rawData.length > 0) {
         const allColumns = Object.keys(rawData[0] as any);
         console.log('Available columns:', allColumns);
