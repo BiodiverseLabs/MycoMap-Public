@@ -16,7 +16,12 @@ import { WebSocketServer } from "ws";
 
 const upload = multer({ 
   dest: 'uploads/',
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+  limits: { 
+    fileSize: 200 * 1024 * 1024, // 200MB limit (temporary test)
+    fieldSize: 200 * 1024 * 1024,
+    fields: 1000,
+    files: 10
+  }
 });
 
 const uploadMemory = multer({ 
@@ -1951,7 +1956,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/upload", upload.single('file'), async (req, res) => {
+  app.post("/api/upload", (req, res, next) => {
+    console.log(`[UPLOAD] Starting upload, current multer limit: ${100 * 1024 * 1024} bytes`);
+    upload.single('file')(req, res, (err) => {
+      if (err) {
+        console.error(`[UPLOAD] Multer error:`, err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          console.error(`[UPLOAD] File size limit exceeded. Current limit: ${100 * 1024 * 1024} bytes`);
+        }
+        return res.status(500).json({ error: err.message || 'Upload failed' });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
