@@ -2798,20 +2798,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Automated classification updates', 100, true);
         completedPhases++;
 
-        // Phase 2: Calculate ALL record fields (state firsts, global firsts, state record numbers)
-        console.log('Phase 2: Calculating all record fields (state/global firsts, record numbers)...');
+        // Phase 2: Calculate state first records (for database flag only - other values calculated dynamically)
+        console.log('Phase 2: Calculating state first records for database flags...');
         
-        // Check for cancellation before record calculations
+        // Check for cancellation before state first calculation
         if (cancelledUploads.has(uploadId)) {
-          console.log(`Upload ${uploadId} cancelled before record calculations`);
+          console.log(`Upload ${uploadId} cancelled before state first calculation`);
           return;
         }
         
-        updatePostProcessingProgress('Calculating record fields (state/global firsts, record numbers)', 0);
-        const recordCalcStart = Date.now();
-        await storage.calculateAllRecordFields();
-        console.log(`✓ All record fields calculation completed in ${Date.now() - recordCalcStart}ms`);
-        updatePostProcessingProgress('Record fields calculation', 100, true);
+        updatePostProcessingProgress('Calculating state first records', 0);
+        const stateFirstStart = Date.now();
+        await storage.calculateStateFirstRecordsOnly();
+        console.log(`✓ State first records calculation completed in ${Date.now() - stateFirstStart}ms`);
+        updatePostProcessingProgress('State first records', 100, true);
         completedPhases++;
 
         // Phase 3: Contributor statistics (after state first calculation)
@@ -5842,15 +5842,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  // Admin endpoint to run comprehensive record calculations
-  app.post('/api/admin/calculate-records', async (req, res) => {
+  // Admin endpoint to run state first record calculations
+  app.post('/api/admin/calculate-state-firsts', async (req, res) => {
     try {
-      console.log('Running comprehensive record calculations on all observations...');
-      await storage.calculateAllRecordFields();
-      res.json({ success: true, message: 'Record calculations completed successfully' });
+      console.log('Running state first record calculations on all observations...');
+      await storage.calculateStateFirstRecordsOnly();
+      res.json({ success: true, message: 'State first record calculations completed successfully' });
     } catch (error) {
-      console.error('Error running record calculations:', error);
-      res.status(500).json({ error: 'Failed to calculate records' });
+      console.error('Error running state first calculations:', error);
+      res.status(500).json({ error: 'Failed to calculate state first records' });
     }
   });
 

@@ -4011,66 +4011,28 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async calculateAllRecordFields(): Promise<void> {
-    console.log('Calculating comprehensive record fields (state firsts, global firsts, state record numbers)...');
+  async calculateStateFirstRecordsOnly(): Promise<void> {
+    console.log('Calculating state first records for database flags (other values calculated dynamically)...');
     
     try {
-      // Step 1: Reset all calculated fields
-      console.log('Resetting all calculated record fields...');
-      await db.execute(sql`
-        UPDATE observations SET 
-          is_first_state_record = false,
-          is_first_global = false,
-          is_first_in_state = false,
-          state_record_number = 0
-      `);
+      // Reset state first record flags
+      console.log('Resetting state first record flags...');
+      await db.execute(sql`UPDATE observations SET is_first_state_record = false`);
       
-      // Step 2: Calculate Global First Records (earliest record globally for each species)
-      console.log('Calculating global first records...');
-      const globalFirstQuery = sql`
-        WITH earliest_global AS (
-          SELECT 
-            scientific_name,
-            MIN(report_date) as earliest_global_date
-          FROM observations 
-          WHERE scientific_name IS NOT NULL 
-            AND scientific_name != '' 
-            AND report_date IS NOT NULL
-          GROUP BY scientific_name
-        ),
-        global_first_records AS (
-          SELECT DISTINCT ON (o.scientific_name) 
-            o.id
-          FROM observations o
-          INNER JOIN earliest_global e 
-            ON o.scientific_name = e.scientific_name 
-            AND o.report_date = e.earliest_global_date
-          WHERE o.scientific_name IS NOT NULL 
-            AND o.scientific_name != '' 
-            AND o.report_date IS NOT NULL
-          ORDER BY o.scientific_name, o.id
-        )
-        UPDATE observations 
-        SET is_first_global = true 
-        WHERE id IN (SELECT id FROM global_first_records)
-      `;
-      const globalResult = await db.execute(globalFirstQuery);
-      console.log(`✓ Updated ${globalResult.rowCount || 0} records as global first records`);
-      
-      // Step 3: Calculate State First Records (earliest record by species in each state)
+      // Calculate State First Records (earliest record by species in each state)
       console.log('Calculating state first records...');
       const stateFirstQuery = sql`
         WITH earliest_by_state_species AS (
           SELECT 
             scientific_name,
             state,
-            MIN(report_date) as earliest_state_date
+            MIN(observed_on) as earliest_state_date
           FROM observations 
           WHERE scientific_name IS NOT NULL 
             AND scientific_name != '' 
             AND state IS NOT NULL 
             AND state != ''
-            AND report_date IS NOT NULL
+            AND observed_on IS NOT NULL
           GROUP BY scientific_name, state
         ),
         state_first_records AS (
@@ -4080,50 +4042,25 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN earliest_by_state_species e 
             ON o.scientific_name = e.scientific_name 
             AND o.state = e.state 
-            AND o.report_date = e.earliest_state_date
+            AND o.observed_on = e.earliest_state_date
           WHERE o.scientific_name IS NOT NULL 
             AND o.scientific_name != '' 
             AND o.state IS NOT NULL 
             AND o.state != ''
-            AND o.report_date IS NOT NULL
+            AND o.observed_on IS NOT NULL
           ORDER BY o.scientific_name, o.state, o.id
         )
         UPDATE observations 
-        SET is_first_state_record = true, is_first_in_state = true
+        SET is_first_state_record = true 
         WHERE id IN (SELECT id FROM state_first_records)
       `;
       const stateResult = await db.execute(stateFirstQuery);
       console.log(`✓ Updated ${stateResult.rowCount || 0} records as state first records`);
       
-      // Step 4: Calculate State Record Numbers (chronological numbering within each state/species)
-      console.log('Calculating state record numbers...');
-      const stateNumberQuery = sql`
-        WITH numbered_observations AS (
-          SELECT 
-            id,
-            ROW_NUMBER() OVER (
-              PARTITION BY scientific_name, state 
-              ORDER BY report_date, id
-            ) as record_number
-          FROM observations 
-          WHERE scientific_name IS NOT NULL 
-            AND scientific_name != '' 
-            AND state IS NOT NULL 
-            AND state != ''
-            AND report_date IS NOT NULL
-        )
-        UPDATE observations 
-        SET state_record_number = numbered_observations.record_number
-        FROM numbered_observations 
-        WHERE observations.id = numbered_observations.id
-      `;
-      const numberResult = await db.execute(stateNumberQuery);
-      console.log(`✓ Updated state record numbers for ${numberResult.rowCount || 0} records`);
-      
-      console.log('✓ All record field calculations completed successfully');
+      console.log('✓ State first record calculation completed successfully');
       
     } catch (error) {
-      console.error('Error calculating record fields:', error);
+      console.error('Error calculating state first records:', error);
       throw error;
     }
   }
