@@ -1842,12 +1842,26 @@ export class DatabaseStorage implements IStorage {
   }>> {
     try {
       let sqlQuery = `
+        WITH global_first_records AS (
+          SELECT 
+            scientific_name,
+            COALESCE(collector, observer, 'Unknown') as name,
+            state,
+            ROW_NUMBER() OVER (
+              PARTITION BY scientific_name
+              ORDER BY observed_on
+            ) as species_rank_global
+          FROM observations 
+          WHERE scientific_name IS NOT NULL 
+            AND scientific_name != '' 
+            AND observed_on IS NOT NULL
+            AND (collector IS NOT NULL OR observer IS NOT NULL)
+        )
         SELECT 
-          COALESCE(collector, observer, 'Unknown') as name,
+          name,
           COUNT(*) as global_first_count
-        FROM observations 
-        WHERE is_first_global = true 
-        AND (collector IS NOT NULL OR observer IS NOT NULL)
+        FROM global_first_records 
+        WHERE species_rank_global = 1
       `;
       
       const params: any[] = [];
@@ -1857,7 +1871,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       sqlQuery += `
-        GROUP BY COALESCE(collector, observer, 'Unknown')
+        GROUP BY name
         ORDER BY COUNT(*) DESC
         LIMIT $${params.length + 1}
       `;
