@@ -1714,7 +1714,7 @@ export class DatabaseStorage implements IStorage {
             ELSE 0
           END as rarity_index
         FROM state_stats
-        WHERE total_observations > 0
+        WHERE total_observations >= 20
         ORDER BY rarity_index DESC, global_first_count DESC
       `;
 

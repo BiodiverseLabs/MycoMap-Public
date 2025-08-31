@@ -383,7 +383,7 @@ export default function StatesGlobalFirsts() {
                       States Rarity Index
                     </CardTitle>
                     <p className="text-muted-foreground">
-                      States ranked by the percentage of observations that are global firsts
+                      States ranked by the percentage of observations that are global firsts (minimum 20 records)
                     </p>
                   </CardHeader>
                   <CardContent>
