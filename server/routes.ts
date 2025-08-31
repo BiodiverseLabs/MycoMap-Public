@@ -2798,20 +2798,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Automated classification updates', 100, true);
         completedPhases++;
 
-        // Phase 2: Calculate state first records
-        console.log('Phase 2: Calculating state first records...');
+        // Phase 2: Calculate ALL record fields (state firsts, global firsts, state record numbers)
+        console.log('Phase 2: Calculating all record fields (state/global firsts, record numbers)...');
         
-        // Check for cancellation before state first calculation
+        // Check for cancellation before record calculations
         if (cancelledUploads.has(uploadId)) {
-          console.log(`Upload ${uploadId} cancelled before state first calculation`);
+          console.log(`Upload ${uploadId} cancelled before record calculations`);
           return;
         }
         
-        updatePostProcessingProgress('Calculating state first records', 0);
-        const stateFirstStart = Date.now();
-        await storage.calculateStateFirstRecords();
-        console.log(`✓ State first records calculation completed in ${Date.now() - stateFirstStart}ms`);
-        updatePostProcessingProgress('State first records', 100, true);
+        updatePostProcessingProgress('Calculating record fields (state/global firsts, record numbers)', 0);
+        const recordCalcStart = Date.now();
+        await storage.calculateAllRecordFields();
+        console.log(`✓ All record fields calculation completed in ${Date.now() - recordCalcStart}ms`);
+        updatePostProcessingProgress('Record fields calculation', 100, true);
         completedPhases++;
 
         // Phase 3: Contributor statistics (after state first calculation)

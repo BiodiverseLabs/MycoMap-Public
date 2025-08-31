@@ -61,6 +61,10 @@ export const observations = pgTable("observations", {
   firstGenbankRecord: boolean("first_genbank_record").default(false),
   
   isFirstStateRecord: boolean("is_first_state_record").default(false),
+  isFirstGlobal: boolean("is_first_global").default(false),
+  isFirstInState: boolean("is_first_in_state").default(false),
+  stateRecordNumber: integer("state_record_number").default(0),
+  datasetRecordNumber: integer("dataset_record_number").default(0),
   hasMultipleGenotypes: boolean("has_multiple_genotypes").default(false),
   source: text("source"), // iNaturalist or Mushroom Observer
   sourceUrl: text("source_url"),
