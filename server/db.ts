@@ -1677,28 +1677,46 @@ export class DatabaseStorage implements IStorage {
     family?: string;
     creation_date: string;
     collector?: string;
+    source?: string;
+    observation_id?: string;
+    inat_id?: string;
+    mo_id?: string;
+    catalog_number?: string;
   }>> {
     try {
       const sqlQuery = `
         WITH global_firsts AS (
           SELECT 
-            scientific_name,
-            common_name,
-            family,
-            observed_on as creation_date,
-            collector,
-            ROW_NUMBER() OVER (PARTITION BY scientific_name ORDER BY observed_on ASC, id ASC) as rn
-          FROM observations 
-          WHERE scientific_name IS NOT NULL 
-            AND scientific_name != ''
-            AND state = $1
+            o.scientific_name,
+            o.common_name,
+            o.family,
+            o.observed_on as creation_date,
+            o.collector,
+            o.source,
+            o.observation_id,
+            i.inat_id,
+            m.mo_id,
+            my.catalog_number,
+            ROW_NUMBER() OVER (PARTITION BY o.scientific_name ORDER BY o.observed_on ASC, o.id ASC) as rn
+          FROM observations o
+          LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
+          LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id  
+          LEFT JOIN mycoportal_data my ON o.observation_id = my.observation_id
+          WHERE o.scientific_name IS NOT NULL 
+            AND o.scientific_name != ''
+            AND o.state = $1
         )
         SELECT 
           scientific_name,
           common_name,
           family,
           creation_date,
-          collector
+          collector,
+          source,
+          observation_id,
+          inat_id,
+          mo_id,
+          catalog_number
         FROM global_firsts 
         WHERE rn = 1
         ORDER BY creation_date ASC, scientific_name ASC
@@ -1712,6 +1730,11 @@ export class DatabaseStorage implements IStorage {
         family: row.family || undefined,
         creation_date: row.creation_date || '',
         collector: row.collector || undefined,
+        source: row.source || undefined,
+        observation_id: row.observation_id || undefined,
+        inat_id: row.inat_id || undefined,
+        mo_id: row.mo_id || undefined,
+        catalog_number: row.catalog_number || undefined,
       }));
     } catch (error) {
       console.error('[DB] Error in getGlobalFirstSpeciesByState:', error);

@@ -144,6 +144,11 @@ export interface IStorage {
     family?: string;
     creation_date: string;
     collector?: string;
+    source?: string;
+    observation_id?: string;
+    inat_id?: string;
+    mo_id?: string;
+    catalog_number?: string;
   }>>;
   
   getContributorsWithMostGlobalFirsts(limit?: number, filterState?: string): Promise<Array<{
@@ -1070,6 +1075,11 @@ export class MemoryStorage implements IStorage {
     family?: string;
     creation_date: string;
     collector?: string;
+    source?: string;
+    observation_id?: string;
+    inat_id?: string;
+    mo_id?: string;
+    catalog_number?: string;
   }>> {
     // Memory storage doesn't implement global first functionality
     return [];

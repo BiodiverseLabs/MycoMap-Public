@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Trophy, ChevronRight, Download } from "lucide-react";
+import { ArrowLeft, Trophy, ChevronRight, Download, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 
@@ -17,6 +17,11 @@ interface GlobalFirstSpecies {
   family?: string;
   creation_date: string;
   collector?: string;
+  source?: string;
+  observation_id?: string;
+  inat_id?: string;
+  mo_id?: string;
+  catalog_number?: string;
 }
 
 // CSV export function for individual state species
@@ -68,6 +73,29 @@ const exportAllStatesToCSV = (stateData: StateRecord[]) => {
   link.download = `states_global_first_records.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
+};
+
+// Function to generate external links
+const getExternalLink = (species: GlobalFirstSpecies): { url: string, platform: string } | null => {
+  if (species.inat_id) {
+    return { 
+      url: `https://www.inaturalist.org/observations/${species.inat_id}`, 
+      platform: 'iNaturalist' 
+    };
+  }
+  if (species.mo_id) {
+    return { 
+      url: `https://mushroomobserver.org/observations/${species.mo_id}`, 
+      platform: 'Mushroom Observer' 
+    };
+  }
+  if (species.catalog_number) {
+    return { 
+      url: `https://mycoportal.org/portal/collections/individual/index.php?occid=${species.catalog_number}`, 
+      platform: 'MyCoPortal' 
+    };
+  }
+  return null;
 };
 
 export default function StatesGlobalFirsts() {
@@ -182,25 +210,39 @@ export default function StatesGlobalFirsts() {
                                 </div>
                               ) : (
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                                  {speciesData.map((species, speciesIndex) => (
-                                    <div key={speciesIndex} className="flex items-center justify-between p-3 bg-background rounded border">
-                                      <div className="flex-1">
-                                        <div className="font-medium">{species.scientific_name}</div>
-                                        {species.common_name && (
-                                          <div className="text-sm text-muted-foreground">{species.common_name}</div>
-                                        )}
-                                        {species.family && (
-                                          <div className="text-xs text-muted-foreground">Family: {species.family}</div>
-                                        )}
+                                  {speciesData.map((species, speciesIndex) => {
+                                    const externalLink = getExternalLink(species);
+                                    return (
+                                      <div key={speciesIndex} className="flex items-center justify-between p-3 bg-background rounded border">
+                                        <div className="flex-1">
+                                          <div className="font-medium">{species.scientific_name}</div>
+                                          {species.common_name && (
+                                            <div className="text-sm text-muted-foreground">{species.common_name}</div>
+                                          )}
+                                          {species.family && (
+                                            <div className="text-xs text-muted-foreground">Family: {species.family}</div>
+                                          )}
+                                          {externalLink && (
+                                            <a
+                                              href={externalLink.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
+                                            >
+                                              <ExternalLink className="h-3 w-3" />
+                                              View on {externalLink.platform}
+                                            </a>
+                                          )}
+                                        </div>
+                                        <div className="text-right text-sm text-muted-foreground">
+                                          <div>{new Date(species.creation_date).toLocaleDateString()}</div>
+                                          {species.collector && (
+                                            <div>{species.collector}</div>
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="text-right text-sm text-muted-foreground">
-                                        <div>{new Date(species.creation_date).toLocaleDateString()}</div>
-                                        {species.collector && (
-                                          <div>{species.collector}</div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                   {speciesData.length === 0 && (
                                     <div className="text-center text-muted-foreground py-4">
                                       No global first species found for {state.state}
