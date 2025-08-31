@@ -77,6 +77,32 @@ const exportAllStatesToCSV = (stateData: StateRecord[]) => {
 
 // Function to generate external links
 const getExternalLink = (species: GlobalFirstSpecies): { url: string, platform: string } | null => {
+  // Use the observation_id based on the source
+  if (species.source === 'iNaturalist' && species.observation_id) {
+    return { 
+      url: `https://www.inaturalist.org/observations/${species.observation_id}`, 
+      platform: 'iNaturalist' 
+    };
+  }
+  if (species.source === 'Mushroom Observer' && species.observation_id) {
+    return { 
+      url: `https://mushroomobserver.org/observations/${species.observation_id}`, 
+      platform: 'Mushroom Observer' 
+    };
+  }
+  if (species.source === 'MyCoPortal' && species.observation_id) {
+    return { 
+      url: `https://mycoportal.org/portal/collections/individual/index.php?occid=${species.observation_id}`, 
+      platform: 'MyCoPortal' 
+    };
+  }
+  if (species.source === 'GenBank Accessions' && species.observation_id) {
+    return { 
+      url: `https://www.ncbi.nlm.nih.gov/nuccore/${species.observation_id}`, 
+      platform: 'GenBank' 
+    };
+  }
+  // Fallback to specific external IDs if available
   if (species.inat_id) {
     return { 
       url: `https://www.inaturalist.org/observations/${species.inat_id}`, 
@@ -212,6 +238,14 @@ export default function StatesGlobalFirsts() {
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {speciesData.map((species, speciesIndex) => {
                                     const externalLink = getExternalLink(species);
+                                    console.log('Species external data:', {
+                                      name: species.scientific_name,
+                                      source: species.source,
+                                      inat_id: species.inat_id,
+                                      mo_id: species.mo_id,
+                                      catalog_number: species.catalog_number,
+                                      externalLink
+                                    });
                                     return (
                                       <div key={speciesIndex} className="flex items-center justify-between p-3 bg-background rounded border">
                                         <div className="flex-1">
@@ -221,6 +255,9 @@ export default function StatesGlobalFirsts() {
                                           )}
                                           {species.family && (
                                             <div className="text-xs text-muted-foreground">Family: {species.family}</div>
+                                          )}
+                                          {species.source && (
+                                            <div className="text-xs text-muted-foreground">Source: {species.source}</div>
                                           )}
                                           {externalLink && (
                                             <a
@@ -232,6 +269,11 @@ export default function StatesGlobalFirsts() {
                                               <ExternalLink className="h-3 w-3" />
                                               View on {externalLink.platform}
                                             </a>
+                                          )}
+                                          {!externalLink && species.source && (
+                                            <div className="text-xs text-amber-600 mt-1">
+                                              External link not available
+                                            </div>
                                           )}
                                         </div>
                                         <div className="text-right text-sm text-muted-foreground">
