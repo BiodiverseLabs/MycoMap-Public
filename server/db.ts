@@ -1615,6 +1615,20 @@ export class DatabaseStorage implements IStorage {
   }>> {
     try {
       let sqlQuery = `
+        WITH global_first_records AS (
+          SELECT 
+            scientific_name,
+            state,
+            source,
+            ROW_NUMBER() OVER (
+              PARTITION BY scientific_name
+              ORDER BY observed_on
+            ) as species_rank_global
+          FROM observations 
+          WHERE scientific_name IS NOT NULL 
+            AND scientific_name != '' 
+            AND observed_on IS NOT NULL
+        )
         SELECT 
           CASE 
             WHEN state IS NULL OR state = '' THEN 
@@ -1625,8 +1639,8 @@ export class DatabaseStorage implements IStorage {
             ELSE state
           END as state,
           COUNT(*) as global_first_count
-        FROM observations 
-        WHERE is_first_global = true
+        FROM global_first_records 
+        WHERE species_rank_global = 1
       `;
       
       const params: any[] = [];
