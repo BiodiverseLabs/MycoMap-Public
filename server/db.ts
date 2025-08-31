@@ -1671,6 +1671,67 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getStateRarityIndex(): Promise<Array<{
+    state: string;
+    globalFirstCount: number;
+    totalObservations: number;
+    rarityIndex: number;
+  }>> {
+    try {
+      const sqlQuery = `
+        WITH state_stats AS (
+          SELECT 
+            CASE 
+              WHEN state IS NULL OR state = '' THEN 
+                CASE 
+                  WHEN source = 'Sequences' THEN 'Unassociated Sequence'
+                  ELSE 'Unknown Location'
+                END
+              ELSE state
+            END as state,
+            COUNT(*) as total_observations,
+            COUNT(CASE WHEN is_first_global = true THEN 1 END) as global_first_count
+          FROM observations 
+          WHERE scientific_name IS NOT NULL 
+            AND scientific_name != ''
+          GROUP BY 
+            CASE 
+              WHEN state IS NULL OR state = '' THEN 
+                CASE 
+                  WHEN source = 'Sequences' THEN 'Unassociated Sequence'
+                  ELSE 'Unknown Location'
+                END
+              ELSE state
+            END
+          HAVING COUNT(*) > 0
+        )
+        SELECT 
+          state,
+          global_first_count,
+          total_observations,
+          CASE 
+            WHEN total_observations > 0 THEN (global_first_count::float / total_observations::float) * 100
+            ELSE 0
+          END as rarity_index
+        FROM state_stats
+        WHERE total_observations > 0
+        ORDER BY rarity_index DESC, global_first_count DESC
+      `;
+
+      const result = await pool.query(sqlQuery);
+      
+      return result.rows.map((row: any) => ({
+        state: row.state,
+        globalFirstCount: parseInt(row.global_first_count),
+        totalObservations: parseInt(row.total_observations),
+        rarityIndex: parseFloat(row.rarity_index)
+      }));
+    } catch (error) {
+      console.error('[DB] Error in getStateRarityIndex:', error);
+      return [];
+    }
+  }
+
   async getGlobalFirstSpeciesByState(state: string): Promise<Array<{
     scientific_name: string;
     common_name?: string;

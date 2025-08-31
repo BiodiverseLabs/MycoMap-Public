@@ -1580,6 +1580,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/states/rarity-index", async (req, res) => {
+    try {
+      const data = await storage.getStateRarityIndex();
+      
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching states rarity index:", error);
+      res.status(500).json({ error: "Failed to fetch states rarity index" });
+    }
+  });
+
   app.get("/api/contributors/global-firsts", async (req, res) => {
     try {
       const { state, limit } = req.query;

@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Trophy, ChevronRight, Download, ExternalLink } from "lucide-react";
+import { ArrowLeft, Trophy, ChevronRight, Download, ExternalLink, TrendingUp } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 
@@ -22,6 +23,13 @@ interface GlobalFirstSpecies {
   inat_id?: string;
   mo_id?: string;
   catalog_number?: string;
+}
+
+interface RarityIndexRecord {
+  state: string;
+  globalFirstCount: number;
+  totalObservations: number;
+  rarityIndex: number;
 }
 
 // CSV export function for individual state species
@@ -180,6 +188,10 @@ export default function StatesGlobalFirsts() {
     queryKey: ['/api/states/global-firsts'],
   });
 
+  const { data: rarityData = [], isLoading: isLoadingRarity } = useQuery<RarityIndexRecord[]>({
+    queryKey: ['/api/states/rarity-index'],
+  });
+
   const { data: speciesData = [], isLoading: isLoadingSpecies } = useQuery<GlobalFirstSpecies[]>({
     queryKey: ['/api/states/global-firsts/species', selectedState],
     queryFn: () => selectedState ? fetch(`/api/states/global-firsts/species/${encodeURIComponent(selectedState)}`).then(res => res.json()) : [],
@@ -214,14 +226,27 @@ export default function StatesGlobalFirsts() {
               </div>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5" />
-                  All States Global First Records
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <Tabs defaultValue="global-firsts" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="global-firsts" className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4" />
+                  Global Firsts
+                </TabsTrigger>
+                <TabsTrigger value="rarity-index" className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Rarity Index
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="global-firsts">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5" />
+                      All States Global First Records
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
                 {isLoading ? (
                   <div className="space-y-2">
                     {Array.from({ length: 20 }, (_, i) => (
@@ -346,9 +371,66 @@ export default function StatesGlobalFirsts() {
                     })}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
+              <TabsContent value="rarity-index">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      States Rarity Index
+                    </CardTitle>
+                    <p className="text-muted-foreground">
+                      States ranked by the percentage of observations that are global firsts
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingRarity ? (
+                      <div className="space-y-2">
+                        {Array.from({ length: 20 }, (_, i) => (
+                          <div key={i} className="h-16 bg-muted animate-pulse rounded" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {rarityData.map((state, index) => {
+                          const isTopThree = index < 3;
+                          const badgeColors = ['bg-green-500', 'bg-green-500', 'bg-green-500'];
+                          
+                          return (
+                            <div key={state.state} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <span className={`flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold ${
+                                  isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                                }`}>
+                                  {index + 1}
+                                </span>
+                                <span className={isTopThree ? "font-semibold text-lg" : "font-medium"}>{state.state}</span>
+                              </div>
+                              <div className="text-right">
+                                <div className={isTopThree ? "font-bold text-xl text-green-600" : "font-semibold text-lg text-green-600"}>
+                                  {state.rarityIndex.toFixed(1)}%
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {state.globalFirstCount.toLocaleString()} firsts / {state.totalObservations.toLocaleString()} observations
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {rarityData.length === 0 && (
+                          <div className="text-center text-muted-foreground py-8">
+                            No rarity index data available
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </main>
       </div>

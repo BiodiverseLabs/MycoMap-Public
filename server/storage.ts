@@ -138,6 +138,13 @@ export interface IStorage {
     percentage: number;
   }>>;
 
+  getStateRarityIndex(): Promise<Array<{
+    state: string;
+    globalFirstCount: number;
+    totalObservations: number;
+    rarityIndex: number;
+  }>>;
+
   getGlobalFirstSpeciesByState(state: string): Promise<Array<{
     scientific_name: string;
     common_name?: string;
@@ -1067,6 +1074,16 @@ export class MemoryStorage implements IStorage {
       obs.latitude === '0' || obs.longitude === '0' ||
       obs.latitude === '' || obs.longitude === ''
     );
+  }
+
+  async getStateRarityIndex(): Promise<Array<{
+    state: string;
+    globalFirstCount: number;
+    totalObservations: number;
+    rarityIndex: number;
+  }>> {
+    // Memory storage doesn't implement rarity index functionality
+    return [];
   }
 
   async getGlobalFirstSpeciesByState(state: string): Promise<Array<{
