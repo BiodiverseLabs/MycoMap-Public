@@ -19,7 +19,7 @@ interface GlobalFirstSpecies {
   collector?: string;
 }
 
-// CSV export function
+// CSV export function for individual state species
 const exportStateSpeciesToCSV = (stateName: string, speciesData: GlobalFirstSpecies[]) => {
   if (!speciesData || speciesData.length === 0) {
     return;
@@ -41,6 +41,31 @@ const exportStateSpeciesToCSV = (stateName: string, speciesData: GlobalFirstSpec
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = `${stateName}_global_first_species.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
+
+// CSV export function for all states data
+const exportAllStatesToCSV = (stateData: StateRecord[]) => {
+  if (!stateData || stateData.length === 0) {
+    return;
+  }
+
+  const headers = ['Rank', 'State', 'Global First Count', 'Percentage'];
+  const csvContent = [
+    headers.join(','),
+    ...stateData.map((state, index) => [
+      index + 1,
+      `"${state.state}"`,
+      state.globalFirstCount,
+      `${state.percentage.toFixed(1)}%`
+    ].join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `states_global_first_records.csv`;
   link.click();
   URL.revokeObjectURL(link.href);
 };
@@ -68,10 +93,22 @@ export default function StatesGlobalFirsts() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Records
               </Link>
-              <h1 className="text-3xl font-bold tracking-tight">States with Most Global First Records</h1>
-              <p className="text-muted-foreground mt-2">
-                Complete ranking of states by their global first records in macrofungi observations
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight">States with Most Global First Records</h1>
+                  <p className="text-muted-foreground mt-2">
+                    Complete ranking of states by their global first records in macrofungi observations
+                  </p>
+                </div>
+                <Button
+                  onClick={() => exportAllStatesToCSV(stateData)}
+                  disabled={isLoading || stateData.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export All States CSV
+                </Button>
+              </div>
             </div>
 
             <Card>
