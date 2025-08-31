@@ -83,7 +83,7 @@ const exportAllStatesToCSV = async (stateData: StateRecord[]) => {
     const allSpeciesArrays = await Promise.all(allSpeciesPromises);
     const allSpecies = allSpeciesArrays.flat();
 
-    const headers = ['State', 'Scientific Name', 'Common Name', 'Family', 'First Recorded Date', 'Collector', 'Source', 'Accession'];
+    const headers = ['Region', 'Scientific Name', 'Common Name', 'Family', 'First Recorded Date', 'Collector', 'Source', 'Accession'];
     const csvContent = [
       headers.join(','),
       ...allSpecies.map(species => {
@@ -92,7 +92,7 @@ const exportAllStatesToCSV = async (stateData: StateRecord[]) => {
         const displayDate = dateStr === '12/31/1969' ? 'Date Unavailable' : dateStr;
         
         return [
-          `"${species.state || ''}"`,
+          `"${species.region || ''}"`,
           `"${species.scientific_name}"`,
           `"${species.common_name || ''}"`,
           `"${species.family || ''}"`,
@@ -107,11 +107,11 @@ const exportAllStatesToCSV = async (stateData: StateRecord[]) => {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `all_states_global_first_species.csv`;
+    link.download = `all_regions_global_first_species.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   } catch (error) {
-    console.error('Error exporting all states data:', error);
+    console.error('Error exporting all regions data:', error);
   }
 };
 
@@ -210,9 +210,9 @@ export default function StatesGlobalFirsts() {
               </Link>
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight">States with Most Global First Records</h1>
+                  <h1 className="text-3xl font-bold tracking-tight">Regions with Most Global First Records</h1>
                   <p className="text-muted-foreground mt-2">
-                    Complete ranking of states by their global first records in macrofungi observations
+                    Complete ranking of regions by their global first records in macrofungi observations
                   </p>
                 </div>
                 <Button
@@ -221,7 +221,7 @@ export default function StatesGlobalFirsts() {
                   className="flex items-center gap-2"
                 >
                   <Download className="h-4 w-4" />
-                  Export All States CSV
+                  Export All Regions CSV
                 </Button>
               </div>
             </div>
@@ -243,7 +243,7 @@ export default function StatesGlobalFirsts() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Trophy className="h-5 w-5" />
-                      All States Global First Records
+                      All Regions Global First Records
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -380,10 +380,10 @@ export default function StatesGlobalFirsts() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <TrendingUp className="h-5 w-5" />
-                      States Rarity Index
+                      Regions Rarity Index
                     </CardTitle>
                     <p className="text-muted-foreground">
-                      States ranked by the percentage of observations that are global firsts (minimum 20 records)
+                      Regions ranked by the percentage of observations that are global firsts (minimum 20 records)
                     </p>
                   </CardHeader>
                   <CardContent>
