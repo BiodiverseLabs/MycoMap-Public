@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
+import { useState } from "react";
 
 interface StateRecord {
   state: string;
@@ -9,9 +10,25 @@ interface StateRecord {
   percentage: number;
 }
 
+interface GlobalFirstSpecies {
+  scientific_name: string;
+  common_name?: string;
+  family?: string;
+  creation_date: string;
+  collector?: string;
+}
+
 export default function StatesGlobalFirsts() {
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  
   const { data: stateData = [], isLoading } = useQuery<StateRecord[]>({
     queryKey: ['/api/states/global-firsts'],
+  });
+
+  const { data: speciesData = [], isLoading: isLoadingSpecies } = useQuery<GlobalFirstSpecies[]>({
+    queryKey: ['/api/states/global-firsts/species', selectedState],
+    queryFn: () => selectedState ? fetch(`/api/states/global-firsts/species/${encodeURIComponent(selectedState)}`).then(res => res.json()) : [],
+    enabled: !!selectedState,
   });
 
   return (
@@ -51,7 +68,11 @@ export default function StatesGlobalFirsts() {
                       const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
                       
                       return (
-                        <div key={state.state} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                        <div 
+                          key={state.state} 
+                          className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                          onClick={() => setSelectedState(selectedState === state.state ? null : state.state)}
+                        >
                           <div className="flex items-center gap-3">
                             <span className={`flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold ${
                               isTopThree ? badgeColors[index] : 'bg-muted-foreground'
@@ -60,9 +81,12 @@ export default function StatesGlobalFirsts() {
                             </span>
                             <span className={isTopThree ? "font-semibold text-lg" : "font-medium"}>{state.state}</span>
                           </div>
-                          <div className="text-right">
-                            <div className={isTopThree ? "font-bold text-xl" : "font-semibold text-lg"}>{state.globalFirstCount.toLocaleString()}</div>
-                            <div className="text-sm text-muted-foreground">{state.percentage.toFixed(1)}% of total</div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className={isTopThree ? "font-bold text-xl" : "font-semibold text-lg"}>{state.globalFirstCount.toLocaleString()}</div>
+                              <div className="text-sm text-muted-foreground">{state.percentage.toFixed(1)}% of total</div>
+                            </div>
+                            <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${selectedState === state.state ? 'rotate-90' : ''}`} />
                           </div>
                         </div>
                       );
@@ -71,6 +95,57 @@ export default function StatesGlobalFirsts() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Species Detail View */}
+            {selectedState && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5" />
+                    Global First Species in {selectedState}
+                  </CardTitle>
+                  <p className="text-muted-foreground">
+                    Species that were first recorded globally in {selectedState}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingSpecies ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 10 }, (_, i) => (
+                        <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {speciesData.map((species, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium">{species.scientific_name}</div>
+                            {species.common_name && (
+                              <div className="text-sm text-muted-foreground">{species.common_name}</div>
+                            )}
+                            {species.family && (
+                              <div className="text-xs text-muted-foreground">Family: {species.family}</div>
+                            )}
+                          </div>
+                          <div className="text-right text-sm text-muted-foreground">
+                            <div>{new Date(species.creation_date).toLocaleDateString()}</div>
+                            {species.collector && (
+                              <div>{species.collector}</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {speciesData.length === 0 && (
+                        <div className="text-center text-muted-foreground py-4">
+                          No global first species found for {selectedState}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </main>
       </div>

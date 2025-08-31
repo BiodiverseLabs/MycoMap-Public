@@ -1671,6 +1671,54 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getGlobalFirstSpeciesByState(state: string): Promise<Array<{
+    scientific_name: string;
+    common_name?: string;
+    family?: string;
+    creation_date: string;
+    collector?: string;
+  }>> {
+    try {
+      const sqlQuery = `
+        WITH global_firsts AS (
+          SELECT 
+            scientific_name,
+            common_name,
+            family,
+            observed_on as creation_date,
+            collector,
+            ROW_NUMBER() OVER (PARTITION BY scientific_name ORDER BY observed_on ASC, id ASC) as rn
+          FROM observations 
+          WHERE scientific_name IS NOT NULL 
+            AND scientific_name != ''
+            AND state = $1
+        )
+        SELECT 
+          scientific_name,
+          common_name,
+          family,
+          creation_date,
+          collector
+        FROM global_firsts 
+        WHERE rn = 1
+        ORDER BY creation_date ASC, scientific_name ASC
+      `;
+
+      const result = await pool.query(sqlQuery, [state]);
+      
+      return result.rows.map((row: any) => ({
+        scientific_name: row.scientific_name,
+        common_name: row.common_name || undefined,
+        family: row.family || undefined,
+        creation_date: row.creation_date || '',
+        collector: row.collector || undefined,
+      }));
+    } catch (error) {
+      console.error('[DB] Error in getGlobalFirstSpeciesByState:', error);
+      return [];
+    }
+  }
+
   async getContributorsWithMostGlobalFirsts(limit: number = 10, filterState?: string): Promise<Array<{
     id: string;
     name: string;

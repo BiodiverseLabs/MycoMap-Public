@@ -1608,6 +1608,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get global first species for a specific state
+  app.get("/api/states/global-firsts/species/:state", async (req, res) => {
+    try {
+      const { state } = req.params;
+      const species = await storage.getGlobalFirstSpeciesByState(state);
+      res.json(species);
+    } catch (error) {
+      console.error(`Error fetching global first species for state ${req.params.state}:`, error);
+      res.status(500).json({ error: "Failed to fetch global first species" });
+    }
+  });
+
   // Global first records by year endpoint
   app.get("/api/global-firsts-by-year", async (req, res) => {
     try {

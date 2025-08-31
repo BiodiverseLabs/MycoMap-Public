@@ -137,6 +137,14 @@ export interface IStorage {
     globalFirstCount: number;
     percentage: number;
   }>>;
+
+  getGlobalFirstSpeciesByState(state: string): Promise<Array<{
+    scientific_name: string;
+    common_name?: string;
+    family?: string;
+    creation_date: string;
+    collector?: string;
+  }>>;
   
   getContributorsWithMostGlobalFirsts(limit?: number, filterState?: string): Promise<Array<{
     id: string;
@@ -1054,6 +1062,17 @@ export class MemoryStorage implements IStorage {
       obs.latitude === '0' || obs.longitude === '0' ||
       obs.latitude === '' || obs.longitude === ''
     );
+  }
+
+  async getGlobalFirstSpeciesByState(state: string): Promise<Array<{
+    scientific_name: string;
+    common_name?: string;
+    family?: string;
+    creation_date: string;
+    collector?: string;
+  }>> {
+    // Memory storage doesn't implement global first functionality
+    return [];
   }
 }
 
