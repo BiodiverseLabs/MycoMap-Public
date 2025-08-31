@@ -30,16 +30,24 @@ const exportStateSpeciesToCSV = (stateName: string, speciesData: GlobalFirstSpec
     return;
   }
 
-  const headers = ['Scientific Name', 'Common Name', 'Family', 'First Recorded Date', 'Collector'];
+  const headers = ['Scientific Name', 'Common Name', 'Family', 'First Recorded Date', 'Collector', 'Source', 'Accession'];
   const csvContent = [
     headers.join(','),
-    ...speciesData.map(species => [
-      `"${species.scientific_name}"`,
-      `"${species.common_name || ''}"`,
-      `"${species.family || ''}"`,
-      `"${new Date(species.creation_date).toLocaleDateString()}"`,
-      `"${species.collector || ''}"`
-    ].join(','))
+    ...speciesData.map(species => {
+      const date = new Date(species.creation_date);
+      const dateStr = date.toLocaleDateString();
+      const displayDate = dateStr === '12/31/1969' ? 'Date Unavailable' : dateStr;
+      
+      return [
+        `"${species.scientific_name}"`,
+        `"${species.common_name || ''}"`,
+        `"${species.family || ''}"`,
+        `"${displayDate}"`,
+        `"${species.collector || ''}"`,
+        `"${species.source || ''}"`,
+        `"${species.observation_id || ''}"`
+      ].join(',');
+    })
   ].join('\n');
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -50,29 +58,53 @@ const exportStateSpeciesToCSV = (stateName: string, speciesData: GlobalFirstSpec
   URL.revokeObjectURL(link.href);
 };
 
-// CSV export function for all states data
-const exportAllStatesToCSV = (stateData: StateRecord[]) => {
+// CSV export function for all states data - comprehensive species export
+const exportAllStatesToCSV = async (stateData: StateRecord[]) => {
   if (!stateData || stateData.length === 0) {
     return;
   }
 
-  const headers = ['Rank', 'State', 'Global First Count', 'Percentage'];
-  const csvContent = [
-    headers.join(','),
-    ...stateData.map((state, index) => [
-      index + 1,
-      `"${state.state}"`,
-      state.globalFirstCount,
-      `${state.percentage.toFixed(1)}%`
-    ].join(','))
-  ].join('\n');
+  try {
+    // Fetch all species data for all states
+    const allSpeciesPromises = stateData.map(state => 
+      fetch(`/api/states/global-firsts/species/${encodeURIComponent(state.state)}`)
+        .then(res => res.json())
+        .then(species => species.map((s: GlobalFirstSpecies) => ({ ...s, state: state.state })))
+    );
+    
+    const allSpeciesArrays = await Promise.all(allSpeciesPromises);
+    const allSpecies = allSpeciesArrays.flat();
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `states_global_first_records.csv`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+    const headers = ['State', 'Scientific Name', 'Common Name', 'Family', 'First Recorded Date', 'Collector', 'Source', 'Accession'];
+    const csvContent = [
+      headers.join(','),
+      ...allSpecies.map(species => {
+        const date = new Date(species.creation_date);
+        const dateStr = date.toLocaleDateString();
+        const displayDate = dateStr === '12/31/1969' ? 'Date Unavailable' : dateStr;
+        
+        return [
+          `"${species.state || ''}"`,
+          `"${species.scientific_name}"`,
+          `"${species.common_name || ''}"`,
+          `"${species.family || ''}"`,
+          `"${displayDate}"`,
+          `"${species.collector || ''}"`,
+          `"${species.source || ''}"`,
+          `"${species.observation_id || ''}"`
+        ].join(',');
+      })
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `all_states_global_first_species.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (error) {
+    console.error('Error exporting all states data:', error);
+  }
 };
 
 // Function to generate external links
