@@ -1766,7 +1766,8 @@ export class DatabaseStorage implements IStorage {
   }>> {
     try {
       const sqlQuery = `
-        WITH global_firsts AS (
+        WITH true_global_firsts AS (
+          -- Find the actual global first for each species across all states
           SELECT 
             o.scientific_name,
             o.common_name,
@@ -1775,10 +1776,10 @@ export class DatabaseStorage implements IStorage {
             o.collector,
             o.source,
             o.observation_id,
+            o.state,
             i.inat_id,
             m.mo_id,
             my.catalog_number,
-            -- Prefer records with valid dates over null/epoch dates
             ROW_NUMBER() OVER (
               PARTITION BY o.scientific_name 
               ORDER BY 
@@ -1788,14 +1789,14 @@ export class DatabaseStorage implements IStorage {
                 END,
                 o.observed_on ASC NULLS LAST, 
                 o.id ASC
-            ) as rn
+            ) as global_rank
           FROM observations o
           LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
           LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id  
           LEFT JOIN mycoportal_data my ON o.observation_id = my.observation_id
           WHERE o.scientific_name IS NOT NULL 
             AND o.scientific_name != ''
-            AND o.state = $1
+            AND o.observed_on IS NOT NULL
         )
         SELECT 
           scientific_name,
@@ -1808,8 +1809,9 @@ export class DatabaseStorage implements IStorage {
           inat_id,
           mo_id,
           catalog_number
-        FROM global_firsts 
-        WHERE rn = 1
+        FROM true_global_firsts 
+        WHERE global_rank = 1  -- Only true global firsts
+          AND state = $1        -- That happen to be in the requested state
         ORDER BY 
           CASE 
             WHEN creation_date IS NULL OR creation_date = '1970-01-01' OR creation_date = '1969-12-31' THEN 1
