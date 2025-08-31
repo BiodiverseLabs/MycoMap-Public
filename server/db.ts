@@ -4011,6 +4011,57 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async calculateStateFirstRecords(): Promise<void> {
+    console.log('Calculating state first records based on earliest observation dates...');
+    
+    try {
+      // First, reset all state first record flags
+      await db.execute(sql`UPDATE observations SET is_first_state_record = false`);
+      
+      // Calculate earliest records by species and state using report_date
+      const stateFirstQuery = sql`
+        WITH earliest_by_state_species AS (
+          SELECT 
+            scientific_name,
+            state,
+            MIN(report_date) as earliest_date
+          FROM observations 
+          WHERE scientific_name IS NOT NULL 
+            AND scientific_name != '' 
+            AND state IS NOT NULL 
+            AND state != ''
+            AND report_date IS NOT NULL
+          GROUP BY scientific_name, state
+        ),
+        first_records AS (
+          SELECT DISTINCT ON (o.scientific_name, o.state) 
+            o.id
+          FROM observations o
+          INNER JOIN earliest_by_state_species e 
+            ON o.scientific_name = e.scientific_name 
+            AND o.state = e.state 
+            AND o.report_date = e.earliest_date
+          WHERE o.scientific_name IS NOT NULL 
+            AND o.scientific_name != '' 
+            AND o.state IS NOT NULL 
+            AND o.state != ''
+            AND o.report_date IS NOT NULL
+          ORDER BY o.scientific_name, o.state, o.id
+        )
+        UPDATE observations 
+        SET is_first_state_record = true 
+        WHERE id IN (SELECT id FROM first_records)
+      `;
+      
+      const result = await db.execute(stateFirstQuery);
+      console.log(`✓ Updated ${result.rowCount || 0} records as state first records`);
+      
+    } catch (error) {
+      console.error('Error calculating state first records:', error);
+      throw error;
+    }
+  }
+
   async getObservationsWithoutGPS(): Promise<Observation[]> {
     // Use raw SQL to handle numeric field edge cases properly
     const result = await db.execute(sql`

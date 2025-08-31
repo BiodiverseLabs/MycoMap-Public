@@ -2798,8 +2798,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Automated classification updates', 100, true);
         completedPhases++;
 
-        // Phase 2: Contributor statistics (after classification)
-        console.log('Phase 2: Updating contributor statistics...');
+        // Phase 2: Calculate state first records
+        console.log('Phase 2: Calculating state first records...');
+        
+        // Check for cancellation before state first calculation
+        if (cancelledUploads.has(uploadId)) {
+          console.log(`Upload ${uploadId} cancelled before state first calculation`);
+          return;
+        }
+        
+        updatePostProcessingProgress('Calculating state first records', 0);
+        const stateFirstStart = Date.now();
+        await storage.calculateStateFirstRecords();
+        console.log(`✓ State first records calculation completed in ${Date.now() - stateFirstStart}ms`);
+        updatePostProcessingProgress('State first records', 100, true);
+        completedPhases++;
+
+        // Phase 3: Contributor statistics (after state first calculation)
+        console.log('Phase 3: Updating contributor statistics...');
         
         // Check for cancellation before contributor stats
         if (cancelledUploads.has(uploadId)) {
@@ -2814,8 +2830,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Contributor statistics', 100, true);
         completedPhases++;
         
-        // Phase 3: Species statistics (after classification)
-        console.log('Phase 3: Updating species statistics...');
+        // Phase 4: Species statistics (after classification)
+        console.log('Phase 4: Updating species statistics...');
         
         // Check for cancellation before species stats
         if (cancelledUploads.has(uploadId)) {
@@ -2830,8 +2846,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Species statistics', 100, true);
         completedPhases++;
         
-        // Phase 4: GPS index building
-        console.log('Phase 4: Building GPS index for map performance...');
+        // Phase 5: GPS index building
+        console.log('Phase 5: Building GPS index for map performance...');
         
         // Check for cancellation before GPS index
         if (cancelledUploads.has(uploadId)) {
@@ -2848,8 +2864,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         console.log('✓ All index tables updated successfully');
 
-        // Phase 5: iNaturalist API sync
-        console.log('Phase 5: Syncing iNaturalist API data for thumbnail and validation support...');
+        // Phase 6: iNaturalist API sync
+        console.log('Phase 6: Syncing iNaturalist API data for thumbnail and validation support...');
         
         // Check for cancellation before iNat sync
         if (cancelledUploads.has(uploadId)) {
@@ -2885,8 +2901,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             apiCalls: apiStats.totalCalls,
             cacheHits: apiStats.cacheHits,
             newApiCalls: apiStats.cacheMisses,
-            completedPhases: 5,
-            totalPhases: 5
+            completedPhases: 6,
+            totalPhases: 6
           }
         });
         await storage.updateUploadStatus(uploadId, 'completed');
