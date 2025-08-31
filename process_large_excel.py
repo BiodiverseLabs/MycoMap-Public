@@ -119,7 +119,7 @@ def process_large_excel():
                     safe_str(row.get('Family')),  # family
                     safe_str(row.get('Genus')),  # genus
                     safe_str(row.get('Species')),  # species
-                    safe_str(row.get('Variety')),  # variety
+                    safe_str(row.get('Variety')),  # infraspecies
                     safe_str(row.get('Authority')),  # authority
                     safe_str(row.get('Abbreviated Authority')),  # abbreviated_authority
                     safe_str(row.get('Mycobank #')),  # mycobank_number
@@ -132,20 +132,18 @@ def process_large_excel():
                     safe_str(row.get('Flags')),  # flags
                     safe_str(row.get('Forward Primer')),  # forward_primer
                     safe_str(row.get('Reverse Primer')),  # reverse_primer
-                    safe_str(row.get('Sequence Owner')),  # sequence_owner
                     safe_str(row.get('Run Name')),  # run_name
-                    safe_str(row.get('Sequence #2')),  # sequence2
-                    safe_str(row.get('Forward Primer #2')),  # forward_primer2
-                    safe_str(row.get('Reverse Primer #2')),  # reverse_primer2
-                    safe_str(row.get('Sequence Owner #2')),  # sequence_owner2
-                    safe_str(row.get('Run Name #2')),  # run_name2
+                    safe_str(row.get('Sequence #2')),  # sequence_2
+                    safe_str(row.get('Forward Primer #2')),  # forward_primer_2
+                    safe_str(row.get('Reverse Primer #2')),  # reverse_primer_2
+                    safe_str(row.get('Sequence Owner #2')),  # sequence_owner_2
+                    safe_str(row.get('Run Name #2')),  # run_name_2
                     safe_str(row.get('Location Name')),  # location_name
                     safe_str(row.get('Country')),  # country
-                    safe_str(row.get('City')),  # city
                     safe_str(row.get('State')),  # state
                     safe_float(row.get('Latitude')),  # latitude
                     safe_float(row.get('Longitude')),  # longitude
-                    safe_date(row.get('Report Date')),  # report_date
+                    safe_date(row.get('Report Date')),  # observed_on
                     safe_date(row.get('Creation Date')),  # creation_date
                     safe_str(row.get('Collector')),  # collector
                     safe_str(row.get('Verified')),  # verified
@@ -153,17 +151,13 @@ def process_large_excel():
                     safe_str(row.get('MO Notes')),  # mo_notes
                     safe_str(row.get('Report Link')),  # report_link
                     safe_str(row.get('Image Link')),  # image_link
-                    safe_bool(row.get('First State Record')),  # first_state_record
                     safe_bool(row.get('First GenBank Record')),  # first_genbank_record
-                    safe_bool(row.get('Multiple Genotypes Under Name')),  # multiple_genotypes_under_name
+                    safe_bool(row.get('Multiple Genotypes Under Name')),  # has_multiple_genotypes
                     name_update,  # name_update
                     classification_update,  # classification_update
                     safe_str(row.get('Source Database', 'Unknown')),  # source
                     safe_str(row.get('Collection Number')),  # collection_number
-                    total_processed + len(batch_data) + 1,  # dataset_record_number
-                    0,  # state_record_number
-                    False,  # is_first_global
-                    False,  # is_first_in_state
+                    safe_bool(row.get('First State Record')),  # is_first_state_record
                     datetime.now(),  # created_at
                     datetime.now()   # updated_at
                 )
@@ -173,13 +167,13 @@ def process_large_excel():
             # Insert batch
             insert_query = """
                 INSERT INTO observations (
-                    observation_id, scientific_name, common_name, phylum, class, "order", family, genus, species, variety,
+                    observation_id, scientific_name, common_name, phylum, class, "order", family, genus, species, infraspecies,
                     authority, abbreviated_authority, mycobank_number, fungarium_specimen, images, genbank_accession,
-                    mycoportal_number, dna_sequence, sequence, flags, forward_primer, reverse_primer, sequence_owner, run_name,
-                    sequence2, forward_primer2, reverse_primer2, sequence_owner2, run_name2, location_name, country, city, state,
-                    latitude, longitude, report_date, creation_date, collector, verified, notes, mo_notes, report_link, image_link,
-                    first_state_record, first_genbank_record, multiple_genotypes_under_name, name_update, classification_update,
-                    source, collection_number, dataset_record_number, state_record_number, is_first_global, is_first_in_state,
+                    mycoportal_number, dna_sequence, sequence, flags, forward_primer, reverse_primer, run_name,
+                    sequence_2, forward_primer_2, reverse_primer_2, sequence_owner_2, run_name_2, location_name, country, state,
+                    latitude, longitude, observed_on, creation_date, collector, verified, notes, mo_notes, report_link, image_link,
+                    first_genbank_record, has_multiple_genotypes, name_update, classification_update,
+                    source, collection_number, is_first_state_record,
                     created_at, updated_at
                 ) VALUES %s
             """
