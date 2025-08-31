@@ -36,7 +36,7 @@ def process_large_excel(file_path=None):
         excel_file = file_path if file_path else './attached_assets/Validated Observations05.30.25.xlsx'
         
         # Read in chunks to handle large file
-        chunk_size = 1000
+        chunk_size = 500  # Smaller chunks for better stability
         total_processed = 0
         name_updates = 0
         classification_updates = 0
@@ -54,7 +54,7 @@ def process_large_excel(file_path=None):
             print(f"Processing chunk {chunk_start//chunk_size + 1}/{(total_rows-1)//chunk_size + 1} (rows {chunk_start+1}-{chunk_end})")
             
             batch_data = []
-            seen_keys = set()  # Track duplicates within batch
+            seen_records = {}  # Track and merge duplicates within batch
             
             for _, row in chunk_df.iterrows():
                 # Build scientific name
@@ -169,16 +169,25 @@ def process_large_excel(file_path=None):
                     datetime.now()   # updated_at
                 )
                 
-                # Check for duplicates within this batch
+                # Check for duplicates within this batch and merge
                 obs_id = safe_str(row.get('Reference Number', ''))
                 source = safe_str(row.get('Source Database', 'Unknown'))
                 key = (source, obs_id)
                 
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    batch_data.append(observation_data)
+                if key not in seen_records:
+                    seen_records[key] = observation_data
                 else:
-                    print(f"  Skipping duplicate: {source} - {obs_id}")
+                    # Merge with existing record - only overwrite if existing field is None
+                    existing = seen_records[key]
+                    merged = tuple(
+                        observation_data[i] if existing[i] is None else existing[i] 
+                        for i in range(len(observation_data))
+                    )
+                    seen_records[key] = merged
+                    print(f"  Merging duplicate: {source} - {obs_id}")
+            
+            # Add all unique/merged records to batch
+            batch_data = list(seen_records.values())
             
             # Insert batch
             insert_query = """
@@ -194,7 +203,50 @@ def process_large_excel(file_path=None):
                 ) VALUES %s
                 ON CONFLICT (source, observation_id) 
                 DO UPDATE SET 
-                    scientific_name = EXCLUDED.scientific_name,
+                    scientific_name = COALESCE(observations.scientific_name, EXCLUDED.scientific_name),
+                    common_name = COALESCE(observations.common_name, EXCLUDED.common_name),
+                    phylum = COALESCE(observations.phylum, EXCLUDED.phylum),
+                    class = COALESCE(observations.class, EXCLUDED.class),
+                    "order" = COALESCE(observations."order", EXCLUDED."order"),
+                    family = COALESCE(observations.family, EXCLUDED.family),
+                    genus = COALESCE(observations.genus, EXCLUDED.genus),
+                    species = COALESCE(observations.species, EXCLUDED.species),
+                    infraspecies = COALESCE(observations.infraspecies, EXCLUDED.infraspecies),
+                    authority = COALESCE(observations.authority, EXCLUDED.authority),
+                    abbreviated_authority = COALESCE(observations.abbreviated_authority, EXCLUDED.abbreviated_authority),
+                    mycobank_number = COALESCE(observations.mycobank_number, EXCLUDED.mycobank_number),
+                    fungarium_specimen = COALESCE(observations.fungarium_specimen, EXCLUDED.fungarium_specimen),
+                    images = COALESCE(observations.images, EXCLUDED.images),
+                    genbank_accession = COALESCE(observations.genbank_accession, EXCLUDED.genbank_accession),
+                    mycoportal_number = COALESCE(observations.mycoportal_number, EXCLUDED.mycoportal_number),
+                    dna_sequence = COALESCE(observations.dna_sequence, EXCLUDED.dna_sequence),
+                    sequence = COALESCE(observations.sequence, EXCLUDED.sequence),
+                    flags = COALESCE(observations.flags, EXCLUDED.flags),
+                    forward_primer = COALESCE(observations.forward_primer, EXCLUDED.forward_primer),
+                    reverse_primer = COALESCE(observations.reverse_primer, EXCLUDED.reverse_primer),
+                    run_name = COALESCE(observations.run_name, EXCLUDED.run_name),
+                    sequence_2 = COALESCE(observations.sequence_2, EXCLUDED.sequence_2),
+                    forward_primer_2 = COALESCE(observations.forward_primer_2, EXCLUDED.forward_primer_2),
+                    reverse_primer_2 = COALESCE(observations.reverse_primer_2, EXCLUDED.reverse_primer_2),
+                    sequence_owner_2 = COALESCE(observations.sequence_owner_2, EXCLUDED.sequence_owner_2),
+                    run_name_2 = COALESCE(observations.run_name_2, EXCLUDED.run_name_2),
+                    location_name = COALESCE(observations.location_name, EXCLUDED.location_name),
+                    country = COALESCE(observations.country, EXCLUDED.country),
+                    state = COALESCE(observations.state, EXCLUDED.state),
+                    latitude = COALESCE(observations.latitude, EXCLUDED.latitude),
+                    longitude = COALESCE(observations.longitude, EXCLUDED.longitude),
+                    observed_on = COALESCE(observations.observed_on, EXCLUDED.observed_on),
+                    creation_date = COALESCE(observations.creation_date, EXCLUDED.creation_date),
+                    collector = COALESCE(observations.collector, EXCLUDED.collector),
+                    verified = COALESCE(observations.verified, EXCLUDED.verified),
+                    notes = COALESCE(observations.notes, EXCLUDED.notes),
+                    mo_notes = COALESCE(observations.mo_notes, EXCLUDED.mo_notes),
+                    report_link = COALESCE(observations.report_link, EXCLUDED.report_link),
+                    image_link = COALESCE(observations.image_link, EXCLUDED.image_link),
+                    first_genbank_record = COALESCE(observations.first_genbank_record, EXCLUDED.first_genbank_record),
+                    has_multiple_genotypes = COALESCE(observations.has_multiple_genotypes, EXCLUDED.has_multiple_genotypes),
+                    collection_number = COALESCE(observations.collection_number, EXCLUDED.collection_number),
+                    is_first_state_record = COALESCE(observations.is_first_state_record, EXCLUDED.is_first_state_record),
                     updated_at = NOW()
             """
             
