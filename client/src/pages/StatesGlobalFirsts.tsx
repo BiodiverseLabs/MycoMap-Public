@@ -86,7 +86,7 @@ const getExternalLink = (species: GlobalFirstSpecies): { url: string, platform: 
   }
   if (species.source === 'Mushroom Observer' && species.observation_id) {
     return { 
-      url: `https://mushroomobserver.org/observations/${species.observation_id}`, 
+      url: `https://mushroomobserver.org/${species.observation_id}`, 
       platform: 'Mushroom Observer' 
     };
   }
@@ -111,7 +111,7 @@ const getExternalLink = (species: GlobalFirstSpecies): { url: string, platform: 
   }
   if (species.mo_id) {
     return { 
-      url: `https://mushroomobserver.org/observations/${species.mo_id}`, 
+      url: `https://mushroomobserver.org/${species.mo_id}`, 
       platform: 'Mushroom Observer' 
     };
   }
@@ -121,6 +121,23 @@ const getExternalLink = (species: GlobalFirstSpecies): { url: string, platform: 
       platform: 'MyCoPortal' 
     };
   }
+  
+  // Additional fallback for sources without specific external IDs
+  if (species.source && species.observation_id) {
+    if (species.source.toLowerCase().includes('mushroom')) {
+      return { 
+        url: `https://mushroomobserver.org/${species.observation_id}`, 
+        platform: 'Mushroom Observer' 
+      };
+    }
+    if (species.source.toLowerCase().includes('mycoportal') || species.source.toLowerCase().includes('myco')) {
+      return { 
+        url: `https://mycoportal.org/portal/collections/individual/index.php?occid=${species.observation_id}`, 
+        platform: 'MyCoPortal' 
+      };
+    }
+  }
+  
   return null;
 };
 
@@ -238,14 +255,6 @@ export default function StatesGlobalFirsts() {
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
                                   {speciesData.map((species, speciesIndex) => {
                                     const externalLink = getExternalLink(species);
-                                    console.log('Species external data:', {
-                                      name: species.scientific_name,
-                                      source: species.source,
-                                      inat_id: species.inat_id,
-                                      mo_id: species.mo_id,
-                                      catalog_number: species.catalog_number,
-                                      externalLink
-                                    });
                                     return (
                                       <div key={speciesIndex} className="flex items-center justify-between p-3 bg-background rounded border">
                                         <div className="flex-1">
