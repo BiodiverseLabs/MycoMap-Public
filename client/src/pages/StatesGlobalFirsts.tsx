@@ -286,7 +286,13 @@ export default function StatesGlobalFirsts() {
                                           )}
                                         </div>
                                         <div className="text-right text-sm text-muted-foreground">
-                                          <div>{new Date(species.creation_date).toLocaleDateString()}</div>
+                                          <div>
+                                            {(() => {
+                                              const date = new Date(species.creation_date);
+                                              const dateStr = date.toLocaleDateString();
+                                              return dateStr === '12/31/1969' ? 'Date Unavailable' : dateStr;
+                                            })()}
+                                          </div>
                                           {species.collector && (
                                             <div>{species.collector}</div>
                                           )}
