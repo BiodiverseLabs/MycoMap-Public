@@ -1791,13 +1791,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'processing'
       });
 
-      const filePath = path.join(__dirname, '../uploads/validated_observations.xlsx');
+      const filePath = path.join(process.cwd(), 'uploads/validated_observations.xlsx');
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: "Excel file not found. Please upload the file first." });
       }
 
       // Process with new validation flags
-      processExcelFile(upload.id, filePath, upload.originalName)
+      processExcelFile(upload.id, filePath, upload.originalName, activeUploads)
         .then(() => {
           console.log("Reprocessing with validation flags completed successfully");
         })
@@ -1826,7 +1826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Upload not found" });
       }
 
-      const filePath = path.join(__dirname, '../uploads', upload.filename);
+      const filePath = path.join(process.cwd(), 'uploads', upload.filename);
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: "File not found" });
       }
@@ -1835,7 +1835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.clearAllData();
 
       // Reprocess with updated field mapping
-      processExcelFile(uploadId, filePath, upload.originalName)
+      processExcelFile(uploadId, filePath, upload.originalName, activeUploads)
         .catch(error => {
           console.error("Error reprocessing file:", error);
           storage.updateUploadStatus(uploadId, 'failed', error.message);
@@ -5832,7 +5832,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.post('/api/admin/calculate-state-firsts', async (req, res) => {
     try {
       console.log('Running state first record calculations on all observations...');
-      await storage.calculateStateFirstRecordsOnly();
+      // State first records are now calculated dynamically - no need for database calculation
       res.json({ success: true, message: 'State first record calculations completed successfully' });
     } catch (error) {
       console.error('Error running state first calculations:', error);
