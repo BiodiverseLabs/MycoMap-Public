@@ -1622,7 +1622,13 @@ export class DatabaseStorage implements IStorage {
             source,
             ROW_NUMBER() OVER (
               PARTITION BY scientific_name
-              ORDER BY observed_on
+              ORDER BY 
+                CASE 
+                  WHEN observed_on IS NULL OR observed_on = '1970-01-01' OR observed_on = '1969-12-31' THEN 1
+                  ELSE 0
+                END,
+                observed_on ASC NULLS LAST,
+                id ASC
             ) as species_rank_global
           FROM observations 
           WHERE scientific_name IS NOT NULL 
