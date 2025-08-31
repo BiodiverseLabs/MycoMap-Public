@@ -1697,7 +1697,17 @@ export class DatabaseStorage implements IStorage {
             i.inat_id,
             m.mo_id,
             my.catalog_number,
-            ROW_NUMBER() OVER (PARTITION BY o.scientific_name ORDER BY o.observed_on ASC, o.id ASC) as rn
+            -- Prefer records with valid dates over null/epoch dates
+            ROW_NUMBER() OVER (
+              PARTITION BY o.scientific_name 
+              ORDER BY 
+                CASE 
+                  WHEN o.observed_on IS NULL OR o.observed_on = '1970-01-01' OR o.observed_on = '1969-12-31' THEN 1
+                  ELSE 0
+                END,
+                o.observed_on ASC NULLS LAST, 
+                o.id ASC
+            ) as rn
           FROM observations o
           LEFT JOIN inaturalist_data i ON o.observation_id = i.observation_id
           LEFT JOIN mushroom_observer_data m ON o.observation_id = m.observation_id  
@@ -1719,7 +1729,13 @@ export class DatabaseStorage implements IStorage {
           catalog_number
         FROM global_firsts 
         WHERE rn = 1
-        ORDER BY creation_date ASC, scientific_name ASC
+        ORDER BY 
+          CASE 
+            WHEN creation_date IS NULL OR creation_date = '1970-01-01' OR creation_date = '1969-12-31' THEN 1
+            ELSE 0
+          END,
+          creation_date ASC NULLS LAST, 
+          scientific_name ASC
       `;
 
       const result = await pool.query(sqlQuery, [state]);
