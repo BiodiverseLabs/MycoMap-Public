@@ -1876,13 +1876,22 @@ export class DatabaseStorage implements IStorage {
     percentage: number;
   }>> {
     try {
+      // Use dynamic calculation like the record index API does
       let sqlQuery = `
-        SELECT 
-          COALESCE(collector, observer, 'Unknown') as name,
-          COUNT(*) as state_first_count
-        FROM observations 
-        WHERE is_first_state_record = true 
-        AND (collector IS NOT NULL OR observer IS NOT NULL)
+        WITH state_first_records AS (
+          SELECT 
+            COALESCE(collector, observer, 'Unknown') as name,
+            ROW_NUMBER() OVER (
+              PARTITION BY scientific_name, state
+              ORDER BY observed_on
+            ) as species_rank_state
+          FROM observations 
+          WHERE scientific_name IS NOT NULL 
+            AND scientific_name != '' 
+            AND state IS NOT NULL 
+            AND state != ''
+            AND observed_on IS NOT NULL
+            AND (collector IS NOT NULL OR observer IS NOT NULL)
       `;
       
       const params: any[] = [];
@@ -1892,7 +1901,13 @@ export class DatabaseStorage implements IStorage {
       }
       
       sqlQuery += `
-        GROUP BY COALESCE(collector, observer, 'Unknown')
+        )
+        SELECT 
+          name,
+          COUNT(*) as state_first_count
+        FROM state_first_records 
+        WHERE species_rank_state = 1
+        GROUP BY name
         ORDER BY COUNT(*) DESC
         LIMIT $${params.length + 1}
       `;
@@ -4011,59 +4026,6 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async calculateStateFirstRecordsOnly(): Promise<void> {
-    console.log('Calculating state first records for database flags (other values calculated dynamically)...');
-    
-    try {
-      // Reset state first record flags
-      console.log('Resetting state first record flags...');
-      await db.execute(sql`UPDATE observations SET is_first_state_record = false`);
-      
-      // Calculate State First Records (earliest record by species in each state)
-      console.log('Calculating state first records...');
-      const stateFirstQuery = sql`
-        WITH earliest_by_state_species AS (
-          SELECT 
-            scientific_name,
-            state,
-            MIN(observed_on) as earliest_state_date
-          FROM observations 
-          WHERE scientific_name IS NOT NULL 
-            AND scientific_name != '' 
-            AND state IS NOT NULL 
-            AND state != ''
-            AND observed_on IS NOT NULL
-          GROUP BY scientific_name, state
-        ),
-        state_first_records AS (
-          SELECT DISTINCT ON (o.scientific_name, o.state) 
-            o.id
-          FROM observations o
-          INNER JOIN earliest_by_state_species e 
-            ON o.scientific_name = e.scientific_name 
-            AND o.state = e.state 
-            AND o.observed_on = e.earliest_state_date
-          WHERE o.scientific_name IS NOT NULL 
-            AND o.scientific_name != '' 
-            AND o.state IS NOT NULL 
-            AND o.state != ''
-            AND o.observed_on IS NOT NULL
-          ORDER BY o.scientific_name, o.state, o.id
-        )
-        UPDATE observations 
-        SET is_first_state_record = true 
-        WHERE id IN (SELECT id FROM state_first_records)
-      `;
-      const stateResult = await db.execute(stateFirstQuery);
-      console.log(`✓ Updated ${stateResult.rowCount || 0} records as state first records`);
-      
-      console.log('✓ State first record calculation completed successfully');
-      
-    } catch (error) {
-      console.error('Error calculating state first records:', error);
-      throw error;
-    }
-  }
 
   async getObservationsWithoutGPS(): Promise<Observation[]> {
     // Use raw SQL to handle numeric field edge cases properly

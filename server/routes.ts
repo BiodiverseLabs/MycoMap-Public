@@ -2798,21 +2798,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         updatePostProcessingProgress('Automated classification updates', 100, true);
         completedPhases++;
 
-        // Phase 2: Calculate state first records (for database flag only - other values calculated dynamically)
-        console.log('Phase 2: Calculating state first records for database flags...');
-        
-        // Check for cancellation before state first calculation
-        if (cancelledUploads.has(uploadId)) {
-          console.log(`Upload ${uploadId} cancelled before state first calculation`);
-          return;
-        }
-        
-        updatePostProcessingProgress('Calculating state first records', 0);
-        const stateFirstStart = Date.now();
-        await storage.calculateStateFirstRecordsOnly();
-        console.log(`✓ State first records calculation completed in ${Date.now() - stateFirstStart}ms`);
-        updatePostProcessingProgress('State first records', 100, true);
-        completedPhases++;
+        // Phase 2: Skip database calculations - all record calculations are done dynamically by API
 
         // Phase 3: Contributor statistics (after state first calculation)
         console.log('Phase 3: Updating contributor statistics...');
