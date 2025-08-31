@@ -5842,5 +5842,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Admin endpoint to run comprehensive record calculations
+  app.post('/api/admin/calculate-records', async (req, res) => {
+    try {
+      console.log('Running comprehensive record calculations on all observations...');
+      await storage.calculateAllRecordFields();
+      res.json({ success: true, message: 'Record calculations completed successfully' });
+    } catch (error) {
+      console.error('Error running record calculations:', error);
+      res.status(500).json({ error: 'Failed to calculate records' });
+    }
+  });
+
   return httpServer;
 }
