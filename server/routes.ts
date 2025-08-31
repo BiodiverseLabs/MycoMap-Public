@@ -16,7 +16,7 @@ import { WebSocketServer } from "ws";
 
 const upload = multer({ 
   dest: 'uploads/',
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
 
 const uploadMemory = multer({ 

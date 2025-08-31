@@ -444,10 +444,10 @@ export function FileUpload() {
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
+    if (file.size > 100 * 1024 * 1024) {
       toast({
         title: "File Too Large",
-        description: "File size must be less than 50MB",
+        description: "File size must be less than 100MB",
         variant: "destructive",
       });
       return;
@@ -677,7 +677,7 @@ export function FileUpload() {
                   Choose File
                 </Button>
                 <p className="text-sm text-slate-500 mt-3">
-                  Supports .xlsx, .xls files up to 50MB
+                  Supports .xlsx, .xls files up to 100MB
                 </p>
               </>
             )}
