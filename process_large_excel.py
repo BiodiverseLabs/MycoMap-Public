@@ -4,17 +4,23 @@ import os
 from datetime import datetime
 import numpy as np
 
-def process_large_excel():
+def process_large_excel(file_path=None):
     try:
         print("=== PROCESSING LARGE EXCEL DATASET ===")
         
-        # Database connection
+        # Database connection with retry logic
         db_url = os.environ.get('DATABASE_URL')
         if not db_url:
             print("ERROR: DATABASE_URL not found in environment")
             return
         
-        conn = psycopg2.connect(db_url)
+        # Add connection parameters for stability
+        conn = psycopg2.connect(db_url, 
+                               connect_timeout=30,
+                               keepalives=1,
+                               keepalives_idle=30,
+                               keepalives_interval=10,
+                               keepalives_count=5)
         cursor = conn.cursor()
         
         # Clear existing data
@@ -27,7 +33,7 @@ def process_large_excel():
         
         # Read Excel file
         print("Reading Excel file...")
-        excel_file = './attached_assets/Validated Observations05.30.25.xlsx'
+        excel_file = file_path if file_path else './attached_assets/Validated Observations05.30.25.xlsx'
         
         # Read in chunks to handle large file
         chunk_size = 1000
@@ -176,6 +182,10 @@ def process_large_excel():
                     source, collection_number, is_first_state_record,
                     created_at, updated_at
                 ) VALUES %s
+                ON CONFLICT (source, observation_id) 
+                DO UPDATE SET 
+                    scientific_name = EXCLUDED.scientific_name,
+                    updated_at = NOW()
             """
             
             try:
@@ -207,4 +217,6 @@ def process_large_excel():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    process_large_excel()
+    import sys
+    file_path = sys.argv[1] if len(sys.argv) > 1 else None
+    process_large_excel(file_path)
