@@ -54,6 +54,7 @@ def process_large_excel(file_path=None):
             print(f"Processing chunk {chunk_start//chunk_size + 1}/{(total_rows-1)//chunk_size + 1} (rows {chunk_start+1}-{chunk_end})")
             
             batch_data = []
+            seen_keys = set()  # Track duplicates within batch
             
             for _, row in chunk_df.iterrows():
                 # Build scientific name
@@ -168,7 +169,16 @@ def process_large_excel(file_path=None):
                     datetime.now()   # updated_at
                 )
                 
-                batch_data.append(observation_data)
+                # Check for duplicates within this batch
+                obs_id = safe_str(row.get('Reference Number', ''))
+                source = safe_str(row.get('Source Database', 'Unknown'))
+                key = (source, obs_id)
+                
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    batch_data.append(observation_data)
+                else:
+                    print(f"  Skipping duplicate: {source} - {obs_id}")
             
             # Insert batch
             insert_query = """
