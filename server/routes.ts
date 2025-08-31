@@ -870,9 +870,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actualEndDate = endDate as string;
       }
       
-      const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate, state as string, clientIP);
+      const metrics = await storage.getObservationMetrics(actualStartDate, actualEndDate, state as string);
       res.json(metrics);
     } catch (error) {
+      const clientIP = (req as any).clientIP || 'unknown';
       console.error(`Error fetching metrics (IP: ${clientIP}):`, error);
       res.status(500).json({ error: "Failed to fetch metrics" });
     }
@@ -2435,7 +2436,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
 
       // Character encoding fix function
-      function fixEncoding(text: string | null | undefined): string | null {
+      const fixEncoding = (text: string | null | undefined): string | null => {
         if (!text || typeof text !== 'string') return text || null;
         
         // Fix common UTF-8 encoding corruption patterns
