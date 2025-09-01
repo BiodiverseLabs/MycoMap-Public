@@ -28,7 +28,7 @@ export default function Species() {
   const [extrapolate, setExtrapolate] = useState(false);
   const [showGenera, setShowGenera] = useState(false);
   const [showDiscoveryRate, setShowDiscoveryRate] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("power-law");
+  const [selectedModel, setSelectedModel] = useState("michaelis-menten");
 
   // Fetch species data with state filtering
   const { data: allSpecies = [], isLoading: speciesLoading } = useQuery({
@@ -862,31 +862,10 @@ export default function Species() {
                       <CardContent>
                         <Tabs value={selectedModel} onValueChange={setSelectedModel}>
                           <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="power-law">Power Law</TabsTrigger>
                             <TabsTrigger value="michaelis-menten">Michaelis-Menten</TabsTrigger>
+                            <TabsTrigger value="power-law">Power Law</TabsTrigger>
                             <TabsTrigger value="weibull">Weibull</TabsTrigger>
                           </TabsList>
-                          <TabsContent value="power-law" className="mt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.estimatedTotal?.toLocaleString()}</div>
-                                <p className="text-xs text-slate-600">Estimated Total</p>
-                              </div>
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.observationsFor95?.toLocaleString()}</div>
-                                <p className="text-xs text-slate-600">Obs for 95%</p>
-                              </div>
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.rSquared ? (modelCalculations.powerLaw.rSquared * 100).toFixed(1) + '%' : 'N/A'}</div>
-                                <p className="text-xs text-slate-600">Model Fit (R²)</p>
-                              </div>
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">S = a×N^b</div>
-                                <p className="text-xs text-slate-600">Model Formula</p>
-                              </div>
-                            </div>
-                            <p className="text-sm text-slate-600 mt-2">Power law model uses last 30% of data and data-driven projection parameters</p>
-                          </TabsContent>
                           <TabsContent value="michaelis-menten" className="mt-4">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                               <div className="text-center p-3 bg-muted/50 rounded-lg">
@@ -907,6 +886,27 @@ export default function Species() {
                               </div>
                             </div>
                             <p className="text-sm text-slate-600 mt-2">Michaelis-Menten model - classic for species accumulation curves</p>
+                          </TabsContent>
+                          <TabsContent value="power-law" className="mt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.estimatedTotal?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Estimated Total</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.observationsFor95?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Obs for 95%</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.rSquared ? (modelCalculations.powerLaw.rSquared * 100).toFixed(1) + '%' : 'N/A'}</div>
+                                <p className="text-xs text-slate-600">Model Fit (R²)</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">S = a×N^b</div>
+                                <p className="text-xs text-slate-600">Model Formula</p>
+                              </div>
+                            </div>
+                            <p className="text-sm text-slate-600 mt-2">Power law model uses last 30% of data and data-driven projection parameters</p>
                           </TabsContent>
                           <TabsContent value="weibull" className="mt-4">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
