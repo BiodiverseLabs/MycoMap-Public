@@ -26,7 +26,7 @@ export default function Species() {
   const [selectedState, setSelectedState] = useState<string>("all");
 
   const [extrapolate, setExtrapolate] = useState(false);
-  const [showGenera, setShowGenera] = useState(false);
+  const [showGenera, setShowGenera] = useState(true);
   const [showDiscoveryRate, setShowDiscoveryRate] = useState(false);
   const [selectedModel, setSelectedModel] = useState("michaelis-menten");
 
@@ -104,7 +104,7 @@ export default function Species() {
     enabled: !!selectedState, // Always fetch when state is selected (needed for recent discovery rate calculation)
   });
 
-  // Filter species based on search and filters
+  // Filter species based on search and filters - show only genus-level identifications
   const filteredSpecies = useMemo(() => {
     let filtered = allSpecies;
 
@@ -112,6 +112,14 @@ export default function Species() {
     filtered = filtered.filter((species: Species) =>
       species.scientificName !== 'Fungi' && species.scientificName !== 'Unknown'
     );
+
+    // Filter for genus-level identifications only (no species epithets)
+    filtered = filtered.filter((species: Species) => {
+      const parts = species.scientificName.split(' ');
+      // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
+      return parts.length === 1 || 
+             (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
+    });
 
     // Search filter
     if (searchTerm) {
