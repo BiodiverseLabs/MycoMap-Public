@@ -163,8 +163,7 @@ export default function Species() {
       return { 
         powerLaw: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null },
         michaelisMenten: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null },
-        weibull: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null },
-        chapman: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null }
+        weibull: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null }
       };
     }
 
@@ -343,73 +342,16 @@ export default function Species() {
       return { extendedData, estimatedTotal, observationsFor95, rSquared };
     }
 
-    // 4. Chapman-Richards Model: S = a * (1 - exp(-b*N))^c - Growth model with flexible approach
-    function calculateChapman() {
-      const maxObserved = Math.max(...fitData.map(p => p.uniqueSpeciesCount));
-      const a = maxObserved * 1.4; // Asymptote estimate
-      let bestB = 0.001;
-      let bestC = 1.0;
-      let bestSSE = Infinity;
-
-      // Grid search for optimal parameters
-      for (let c = 0.1; c <= 3.0; c += 0.2) {
-        for (let b = 0.0001; b <= 0.01; b += 0.0005) {
-          const sse = fitData.reduce((sum, point) => {
-            const exp_term = Math.exp(-b * point.observationNumber);
-            const predicted = a * Math.pow(1 - exp_term, c);
-            return sum + Math.pow(point.uniqueSpeciesCount - predicted, 2);
-          }, 0);
-          if (sse < bestSSE) {
-            bestSSE = sse;
-            bestB = b;
-            bestC = c;
-          }
-        }
-      }
-
-      const estimatedTotal = Math.round(a * 0.97); // 97% of asymptote
-      const observationsFor95 = Math.round(-Math.log(1 - Math.pow(0.95, 1/bestC)) / bestB);
-      
-      // Calculate R²
-      const predicted = fitData.map(point => {
-        const exp_term = Math.exp(-bestB * point.observationNumber);
-        return a * Math.pow(1 - exp_term, bestC);
-      });
-      const actual = fitData.map(point => point.uniqueSpeciesCount);
-      const rSquared = calculateRSquared(actual, predicted);
-
-      const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
-      const extendedData = accumulationData.map(point => ({
-        ...point,
-        fittedSpecies: Math.round(a * Math.pow(1 - Math.exp(-bestB * point.observationNumber), bestC)),
-        extrapolatedSpecies: null
-      }));
-      
-      for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
-        const predictedSpecies = Math.round(a * Math.pow(1 - Math.exp(-bestB * i), bestC));
-        extendedData.push({
-          observationNumber: i,
-          uniqueSpeciesCount: null,
-          fittedSpecies: null,
-          extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
-        });
-      }
-      
-      return { extendedData, estimatedTotal, observationsFor95, rSquared };
-    }
 
     return {
       powerLaw: calculatePowerLaw(),
       michaelisMenten: calculateMichaelisMenten(),
-      weibull: calculateWeibull(),
-      chapman: calculateChapman()
+      weibull: calculateWeibull()
     };
   }, [accumulationData, extrapolate]);
 
   // Get the currently selected model data
-  const modelKey = selectedModel === 'michaelis-menten' ? 'michaelisMenten' : 
-                   selectedModel === 'chapman-richards' ? 'chapman' :
-                   selectedModel.replace('-', '');
+  const modelKey = selectedModel === 'michaelis-menten' ? 'michaelisMenten' : selectedModel.replace('-', '');
   const extrapolationData = modelCalculations[modelKey as keyof typeof modelCalculations] || modelCalculations.powerLaw;
 
   return (
@@ -919,11 +861,10 @@ export default function Species() {
                       </CardHeader>
                       <CardContent>
                         <Tabs value={selectedModel} onValueChange={setSelectedModel}>
-                          <TabsList className="grid w-full grid-cols-4">
+                          <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="power-law">Power Law</TabsTrigger>
                             <TabsTrigger value="michaelis-menten">Michaelis-Menten</TabsTrigger>
                             <TabsTrigger value="weibull">Weibull</TabsTrigger>
-                            <TabsTrigger value="chapman-richards">Chapman-Richards</TabsTrigger>
                           </TabsList>
                           <TabsContent value="power-law" className="mt-4">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -987,27 +928,6 @@ export default function Species() {
                               </div>
                             </div>
                             <p className="text-sm text-slate-600 mt-2">Weibull model with flexible shape parameter for varied growth patterns</p>
-                          </TabsContent>
-                          <TabsContent value="chapman-richards" className="mt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">{modelCalculations.chapman.estimatedTotal?.toLocaleString()}</div>
-                                <p className="text-xs text-slate-600">Estimated Total</p>
-                              </div>
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">{modelCalculations.chapman.observationsFor95?.toLocaleString()}</div>
-                                <p className="text-xs text-slate-600">Obs for 95%</p>
-                              </div>
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">{modelCalculations.chapman.rSquared ? (modelCalculations.chapman.rSquared * 100).toFixed(1) + '%' : 'N/A'}</div>
-                                <p className="text-xs text-slate-600">Model Fit (R²)</p>
-                              </div>
-                              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                                <div className="text-lg font-bold text-primary">S = a×(1-e^(-b×N))^c</div>
-                                <p className="text-xs text-slate-600">Model Formula</p>
-                              </div>
-                            </div>
-                            <p className="text-sm text-slate-600 mt-2">Chapman-Richards model with flexible approach to asymptote</p>
                           </TabsContent>
                         </Tabs>
                       </CardContent>
