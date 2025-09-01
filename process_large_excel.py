@@ -116,6 +116,12 @@ def process_large_excel(file_path=None):
                         return False
                     return str(val).upper() in ['TRUE', 'YES', '1', 'Y']
                 
+                # Fix species field - if infraspecies exists, use it for species too
+                variety_value = safe_str(row.get('Variety'))
+                species_value = safe_str(row.get('Species'))
+                # When variety exists, use it as the species to show proper species-level identification
+                final_species = variety_value if variety_value else species_value
+                
                 observation_data = (
                     safe_str(row.get('Reference Number', '')),  # observation_id
                     scientific_name,  # scientific_name
@@ -125,8 +131,8 @@ def process_large_excel(file_path=None):
                     safe_str(row.get('Order')),  # order
                     safe_str(row.get('Family')),  # family
                     safe_str(row.get('Genus')),  # genus
-                    safe_str(row.get('Species')),  # species
-                    safe_str(row.get('Variety')),  # infraspecies
+                    final_species,  # species - use variety if available, otherwise species
+                    variety_value,  # infraspecies
                     safe_str(row.get('Authority')),  # authority
                     safe_str(row.get('Abbreviated Authority')),  # abbreviated_authority
                     safe_str(row.get('Mycobank #')),  # mycobank_number
