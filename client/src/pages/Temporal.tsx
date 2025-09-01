@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { TemporalChart } from "@/components/dashboard/TemporalChart";
 import { GlobalFirstsByYear } from "@/components/dashboard/GlobalFirstsByYear";
+import { GlobalFirstsByWeek } from "@/components/dashboard/GlobalFirstsByWeek";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -436,6 +437,11 @@ export default function Temporal() {
         {/* Global First Records by Year Chart */}
         <div className="mb-6">
           <GlobalFirstsByYear dateRange={dateRange} selectedState={selectedState} collectorSearch={collectorSearch} />
+        </div>
+
+        {/* Global First Records by Week Chart */}
+        <div className="mb-6">
+          <GlobalFirstsByWeek dateRange={dateRange} selectedState={selectedState} collectorSearch={collectorSearch} />
         </div>
       </div>
     </div>

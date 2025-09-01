@@ -1687,6 +1687,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Global first records by week endpoint
+  app.get("/api/global-firsts-by-week", async (req, res) => {
+    try {
+      const { state, collector } = req.query;
+      
+      // Get all global first records from the record index
+      const globalFirstRecords = await storage.getRecordIndex(50000, 0, false, false, state as string, true, undefined, undefined, undefined, collector as string);
+      
+      // Group by week number (1-52) based on report date
+      const globalFirstsByWeek = globalFirstRecords.reduce((acc: { [key: number]: number }, record) => {
+        if (record.reportDate) {
+          const date = new Date(record.reportDate);
+          // Calculate week number of the year (1-52)
+          const startOfYear = new Date(date.getFullYear(), 0, 1);
+          const dayOfYear = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+          const weekNumber = Math.min(52, Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7));
+          acc[weekNumber] = (acc[weekNumber] || 0) + 1;
+        }
+        return acc;
+      }, {});
+
+      // Convert to array format for chart, ensuring all weeks 1-52 are represented
+      const weekData = [];
+      for (let week = 1; week <= 52; week++) {
+        weekData.push({
+          week,
+          count: globalFirstsByWeek[week] || 0
+        });
+      }
+
+      res.json(weekData);
+    } catch (error) {
+      console.error("Error fetching global firsts by week:", error);
+      res.status(500).json({ error: "Failed to fetch global firsts by week" });
+    }
+  });
+
   // Species seasonal distribution endpoint
   app.get("/api/species/:name/seasonal", async (req, res) => {
     try {
