@@ -1866,6 +1866,7 @@ export class DatabaseStorage implements IStorage {
             AND scientific_name != '' 
             AND observed_on IS NOT NULL
             AND (collector IS NOT NULL OR observer IS NOT NULL)
+            AND source != 'MycoPortal'
         )
         SELECT 
           name,
