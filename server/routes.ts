@@ -1245,6 +1245,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get species discovery rate data
+  app.get("/api/species-discovery-rate", async (req, res) => {
+    try {
+      // Add cache headers for chart data
+      res.set({
+        'Cache-Control': 'public, max-age=180, stale-while-revalidate=360', // 3 min cache, 6 min stale
+        'ETag': `"species-discovery-${Date.now() - (Date.now() % 180000)}"` // ETag updates every 3 minutes
+      });
+      
+      const { state, search } = req.query;
+      const data = await storage.getSpeciesDiscoveryRate(state as string, search as string);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching species discovery rate data:", error);
+      res.status(500).json({ error: "Failed to fetch species discovery rate data" });
+    }
+  });
+
   // Get genera accumulation curve data
   app.get("/api/genera-accumulation", async (req, res) => {
     try {

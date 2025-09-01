@@ -1262,18 +1262,18 @@ export class DatabaseStorage implements IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
-    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != ''`;
+    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal'`;
     
     if (state && state !== 'all') {
-      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.state} = ${state}`;
+      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state}`;
     }
     
     if (search && search.trim() !== '') {
       const searchTerm = `%${search.toLowerCase()}%`;
       if (state && state !== 'all') {
-        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
       } else {
-        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
       }
     }
 
@@ -1316,6 +1316,71 @@ export class DatabaseStorage implements IStorage {
     return result.rows.map(row => ({
       observationNumber: parseInt(row.observationNumber as string),
       uniqueSpeciesCount: parseInt(row.uniqueSpeciesCount as string)
+    }));
+  }
+
+  async getSpeciesDiscoveryRate(state?: string, search?: string): Promise<Array<{
+    observationChunk: number;
+    newSpeciesCount: number;
+  }>> {
+    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal'`;
+    
+    if (state && state !== 'all') {
+      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state}`;
+    }
+    
+    if (search && search.trim() !== '') {
+      const searchTerm = `%${search.toLowerCase()}%`;
+      if (state && state !== 'all') {
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+      } else {
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+      }
+    }
+
+    const result = await db.execute(sql`
+      WITH ordered_observations AS (
+        SELECT 
+          ${observations.scientificName} as scientific_name,
+          ${observations.observedOn},
+          ${observations.id},
+          ROW_NUMBER() OVER (ORDER BY ${observations.observedOn}, ${observations.id}) as observation_number
+        FROM ${observations}
+        ${whereClause}
+      ),
+      chunked_observations AS (
+        SELECT 
+          scientific_name,
+          observation_number,
+          CEIL(observation_number / 1000.0) as chunk_number
+        FROM ordered_observations
+      ),
+      species_first_chunk AS (
+        SELECT 
+          scientific_name,
+          MIN(chunk_number) as first_chunk
+        FROM chunked_observations
+        GROUP BY scientific_name
+      ),
+      chunk_discovery AS (
+        SELECT 
+          first_chunk as chunk_number,
+          COUNT(*) as new_species_count
+        FROM species_first_chunk
+        GROUP BY first_chunk
+        ORDER BY first_chunk
+      )
+      SELECT 
+        chunk_number as "observationChunk",
+        new_species_count as "newSpeciesCount"
+      FROM chunk_discovery
+      WHERE chunk_number <= (SELECT MAX(CEIL(observation_number / 1000.0)) FROM ordered_observations)
+      ORDER BY chunk_number
+    `);
+
+    return result.rows.map(row => ({
+      observationChunk: parseInt(row.observationChunk as string),
+      newSpeciesCount: parseInt(row.newSpeciesCount as string)
     }));
   }
 

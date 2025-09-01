@@ -124,6 +124,11 @@ export interface IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>>;
+
+  getSpeciesDiscoveryRate(state?: string, search?: string): Promise<Array<{
+    observationChunk: number;
+    newSpeciesCount: number;
+  }>>;
   
   // Get unique states
   getUniqueStates(): Promise<string[]>;
@@ -977,7 +982,7 @@ export class MemoryStorage implements IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
-    let filteredObs = this.observations.filter(obs => obs.scientificName && obs.scientificName.trim() !== '');
+    let filteredObs = this.observations.filter(obs => obs.scientificName && obs.scientificName.trim() !== '' && obs.source !== 'MycoPortal');
     
     if (state && state !== 'all') {
       filteredObs = filteredObs.filter(obs => obs.state === state);
@@ -1003,6 +1008,14 @@ export class MemoryStorage implements IStorage {
     });
     
     return result;
+  }
+
+  async getSpeciesDiscoveryRate(state?: string, search?: string): Promise<Array<{
+    observationChunk: number;
+    newSpeciesCount: number;
+  }>> {
+    // Memory storage doesn't implement species discovery rate functionality
+    return [];
   }
 
   // iNaturalist data operations (stub implementations for MemoryStorage)

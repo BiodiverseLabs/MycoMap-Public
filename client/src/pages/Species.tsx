@@ -26,6 +26,7 @@ export default function Species() {
 
   const [extrapolate, setExtrapolate] = useState(false);
   const [showGenera, setShowGenera] = useState(false);
+  const [showDiscoveryRate, setShowDiscoveryRate] = useState(false);
 
   // Fetch species data with state filtering
   const { data: allSpecies = [], isLoading: speciesLoading } = useQuery({
@@ -78,7 +79,27 @@ export default function Species() {
     },
     staleTime: 3 * 60 * 1000, // 3 minutes for dynamic chart data
     gcTime: 10 * 60 * 1000, // 10 minutes cache retention
-    enabled: !!selectedState, // Only fetch when state is selected
+    enabled: !!selectedState && !showDiscoveryRate, // Only fetch when state is selected and not showing discovery rate
+  });
+
+  // Fetch species discovery rate data
+  const { data: discoveryRateData = [], isLoading: discoveryLoading } = useQuery({
+    queryKey: ["/api/species-discovery-rate", selectedState, searchTerm],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedState && selectedState !== 'all') {
+        params.append('state', selectedState);
+      }
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+      const response = await fetch(`/api/species-discovery-rate?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch discovery rate data');
+      return response.json();
+    },
+    staleTime: 3 * 60 * 1000, // 3 minutes for dynamic chart data
+    gcTime: 10 * 60 * 1000, // 10 minutes cache retention
+    enabled: !!selectedState && showDiscoveryRate, // Only fetch when state is selected and showing discovery rate
   });
 
   // Filter species based on search and filters
@@ -429,7 +450,11 @@ export default function Species() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
-                {showGenera ? "Genera Accumulation Curve" : "Species Accumulation Curve"}
+                {showDiscoveryRate 
+                  ? "Species Discovery Rate (per 1,000 observations)" 
+                  : showGenera 
+                    ? "Genera Accumulation Curve" 
+                    : "Species Accumulation Curve"}
                 {selectedState !== "all" && (
                   <Badge variant="secondary">State: {selectedState}</Badge>
                 )}
@@ -437,9 +462,31 @@ export default function Species() {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
+                    id="showDiscoveryRate"
+                    checked={showDiscoveryRate}
+                    onCheckedChange={(checked) => {
+                      setShowDiscoveryRate(checked === true);
+                      if (checked) {
+                        setShowGenera(false);
+                        setExtrapolate(false);
+                      }
+                    }}
+                  />
+                  <label htmlFor="showDiscoveryRate" className="text-sm font-medium">
+                    Discovery Rate
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
                     id="showGenera"
                     checked={showGenera}
-                    onCheckedChange={(checked) => setShowGenera(checked === true)}
+                    onCheckedChange={(checked) => {
+                      setShowGenera(checked === true);
+                      if (checked) {
+                        setShowDiscoveryRate(false);
+                      }
+                    }}
+                    disabled={showDiscoveryRate}
                   />
                   <label htmlFor="showGenera" className="text-sm font-medium">
                     Show Genera
@@ -450,6 +497,7 @@ export default function Species() {
                     id="extrapolate"
                     checked={extrapolate}
                     onCheckedChange={(checked) => setExtrapolate(checked === true)}
+                    disabled={showDiscoveryRate}
                   />
                   <label htmlFor="extrapolate" className="text-sm font-medium">
                     Extrapolate
@@ -459,9 +507,47 @@ export default function Species() {
             </div>
           </CardHeader>
           <CardContent>
-            {accumulationLoading ? (
+            {(accumulationLoading || discoveryLoading) ? (
               <div className="h-80 flex items-center justify-center">
-                <div className="text-slate-500">Loading accumulation curve...</div>
+                <div className="text-slate-500">
+                  {showDiscoveryRate ? "Loading discovery rate..." : "Loading accumulation curve..."}
+                </div>
+              </div>
+            ) : showDiscoveryRate && discoveryRateData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={discoveryRateData} margin={{ top: 5, right: 30, left: 80, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="observationChunk" 
+                      tickFormatter={(value) => `${value}k`}
+                      interval="preserveStartEnd"
+                      tick={{ fontSize: 12 }}
+                      label={{ value: 'Observation Chunk (thousands)', position: 'insideBottom', offset: -10 }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      label={{ 
+                        value: 'New Species Discovered', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { textAnchor: 'middle' }
+                      }}
+                    />
+                    <Tooltip 
+                      formatter={(value, name) => [value, "New Species"]}
+                      labelFormatter={(label) => `Observations ${((label - 1) * 1000 + 1).toLocaleString()}-${(label * 1000).toLocaleString()}`}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="newSpeciesCount" 
+                      stroke="#ff7300" 
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#ff7300" }}
+                      name="New Species Per 1,000 Observations"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             ) : extrapolationData.extendedData.length > 0 ? (
               <div>
