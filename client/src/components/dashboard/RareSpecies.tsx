@@ -15,8 +15,22 @@ interface RareSpeciesProps {
 }
 
 export function RareSpecies({ dateRange }: RareSpeciesProps) {
-  const { data: species = [], isLoading } = useQuery<RareSpecies[]>({
+  const { data: rawSpecies = [], isLoading } = useQuery<RareSpecies[]>({
     queryKey: ["/api/species", { type: 'rare', limit: '5' }],
+  });
+
+  // Filter for genus-level identifications only
+  const species = rawSpecies.filter((s: RareSpecies) => {
+    // Exclude Fungi and Unknown
+    if (s.scientificName === 'Fungi' || s.scientificName === 'Unknown') {
+      return false;
+    }
+    
+    // Filter for genus-level identifications only (no species epithets)
+    const parts = s.scientificName.split(' ');
+    // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
+    return parts.length === 1 || 
+           (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
   });
 
   const formatDate = (dateString: string | null) => {

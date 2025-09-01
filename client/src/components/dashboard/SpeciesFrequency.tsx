@@ -34,10 +34,19 @@ export function SpeciesFrequency({ dateRange, selectedState }: SpeciesFrequencyP
     }
   });
 
-  // Filter out Fungi and Unknown entries
-  const species = rawSpecies.filter((s: Species) => 
-    s.scientificName !== 'Fungi' && s.scientificName !== 'Unknown'
-  );
+  // Filter out Fungi and Unknown entries, and keep only genus-level identifications
+  const species = rawSpecies.filter((s: Species) => {
+    // Exclude Fungi and Unknown
+    if (s.scientificName === 'Fungi' || s.scientificName === 'Unknown') {
+      return false;
+    }
+    
+    // Filter for genus-level identifications only (no species epithets)
+    const parts = s.scientificName.split(' ');
+    // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
+    return parts.length === 1 || 
+           (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
+  });
 
   const maxCount = species.length > 0 ? species[0].observationCount : 1;
 
