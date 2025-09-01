@@ -869,7 +869,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTopSpecies(limit: number = 10, state?: string): Promise<Species[]> {
-    let whereConditions = [sql`${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != ''`];
+    let whereConditions = [sql`${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown'`];
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
@@ -899,7 +899,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRareSpecies(maxObservations: number = 3, state?: string): Promise<Species[]> {
-    let whereConditions = [sql`${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != ''`];
+    let whereConditions = [sql`${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown'`];
     
     if (state) {
       whereConditions.push(sql`${observations.state} = ${state}`);
