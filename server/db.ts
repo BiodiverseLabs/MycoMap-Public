@@ -1634,6 +1634,7 @@ export class DatabaseStorage implements IStorage {
           WHERE scientific_name IS NOT NULL 
             AND scientific_name != '' 
             AND observed_on IS NOT NULL
+            AND source != 'MycoPortal'
         )
         SELECT 
           CASE 
@@ -1797,6 +1798,7 @@ export class DatabaseStorage implements IStorage {
           WHERE o.scientific_name IS NOT NULL 
             AND o.scientific_name != ''
             AND o.observed_on IS NOT NULL
+            AND o.source != 'MycoPortal'
         )
         SELECT 
           scientific_name,
