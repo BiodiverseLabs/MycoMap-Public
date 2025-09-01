@@ -1262,18 +1262,18 @@ export class DatabaseStorage implements IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
-    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal'`;
+    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown'`;
     
     if (state && state !== 'all') {
-      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state}`;
+      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown' AND ${observations.state} = ${state}`;
     }
     
     if (search && search.trim() !== '') {
       const searchTerm = `%${search.toLowerCase()}%`;
       if (state && state !== 'all') {
-        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
       } else {
-        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
       }
     }
 
@@ -1323,18 +1323,18 @@ export class DatabaseStorage implements IStorage {
     observationChunk: number;
     newSpeciesCount: number;
   }>> {
-    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal'`;
+    let whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown'`;
     
     if (state && state !== 'all') {
-      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state}`;
+      whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown' AND ${observations.state} = ${state}`;
     }
     
     if (search && search.trim() !== '') {
       const searchTerm = `%${search.toLowerCase()}%`;
       if (state && state !== 'all') {
-        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown' AND ${observations.state} = ${state} AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
       } else {
-        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.scientificName} IS NOT NULL AND ${observations.scientificName} != '' AND ${observations.source} != 'MycoPortal' AND ${observations.scientificName} != 'Fungi' AND ${observations.scientificName} != 'Unknown' AND LOWER(${observations.scientificName}) LIKE ${searchTerm}`;
       }
     }
 
@@ -1388,18 +1388,18 @@ export class DatabaseStorage implements IStorage {
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
-    let whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != ''`;
+    let whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.genus} != 'Fungi'`;
     
     if (state && state !== 'all') {
-      whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.state} = ${state}`;
+      whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.genus} != 'Fungi' AND ${observations.state} = ${state}`;
     }
     
     if (search && search.trim() !== '') {
       const searchTerm = `%${search.toLowerCase()}%`;
       if (state && state !== 'all') {
-        whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.state} = ${state} AND LOWER(${observations.genus}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.genus} != 'Fungi' AND ${observations.state} = ${state} AND LOWER(${observations.genus}) LIKE ${searchTerm}`;
       } else {
-        whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND LOWER(${observations.genus}) LIKE ${searchTerm}`;
+        whereClause = sql`WHERE ${observations.genus} IS NOT NULL AND ${observations.genus} != '' AND ${observations.genus} != 'Fungi' AND LOWER(${observations.genus}) LIKE ${searchTerm}`;
       }
     }
 
