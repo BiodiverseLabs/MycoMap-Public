@@ -1930,6 +1930,7 @@ export class DatabaseStorage implements IStorage {
             AND state != ''
             AND observed_on IS NOT NULL
             AND (collector IS NOT NULL OR observer IS NOT NULL)
+            AND source != 'MycoPortal'
       `;
       
       const params: any[] = [];
