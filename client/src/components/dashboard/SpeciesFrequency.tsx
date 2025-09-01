@@ -16,7 +16,7 @@ interface SpeciesFrequencyProps {
 }
 
 export function SpeciesFrequency({ dateRange, selectedState }: SpeciesFrequencyProps) {
-  const { data: species = [], isLoading } = useQuery<Species[]>({
+  const { data: rawSpecies = [], isLoading } = useQuery<Species[]>({
     queryKey: ["/api/species", { type: 'top', limit: '5' }, dateRange, selectedState],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -33,6 +33,11 @@ export function SpeciesFrequency({ dateRange, selectedState }: SpeciesFrequencyP
       return response.json();
     }
   });
+
+  // Filter out Fungi and Unknown entries
+  const species = rawSpecies.filter((s: Species) => 
+    s.scientificName !== 'Fungi' && s.scientificName !== 'Unknown'
+  );
 
   const maxCount = species.length > 0 ? species[0].observationCount : 1;
 
