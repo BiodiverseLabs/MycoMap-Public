@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award, BarChart3 } from "lucide-react";
@@ -27,6 +28,7 @@ export default function Species() {
   const [extrapolate, setExtrapolate] = useState(false);
   const [showGenera, setShowGenera] = useState(false);
   const [showDiscoveryRate, setShowDiscoveryRate] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("power-law");
 
   // Fetch species data with state filtering
   const { data: allSpecies = [], isLoading: speciesLoading } = useQuery({
@@ -155,74 +157,246 @@ export default function Species() {
     return { totalSpecies, veryCommon, common, uncommon, rare, veryRare, recentSpecies, temporaryCodeNames };
   }, [filteredSpecies]);
 
-  // Calculate extrapolation data and estimates
-  const extrapolationData = useMemo(() => {
+  // Multiple model calculations
+  const modelCalculations = useMemo(() => {
     if (!extrapolate || accumulationData.length < 10) {
       return { 
-        extendedData: accumulationData, 
-        estimatedTotal: null, 
-        observationsFor95: null 
+        powerLaw: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null },
+        exponential: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null },
+        logistic: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null },
+        clench: { extendedData: accumulationData, estimatedTotal: null, observationsFor95: null, rSquared: null }
       };
     }
 
-    // Use power law model: S = a * N^b which transforms to log(S) = log(a) + b*log(N)
-    // This is more appropriate for species accumulation curves and avoids negative values
     const n = accumulationData.length;
     const lastPoint = accumulationData[n - 1];
-    
-    // Take last 50% of data for fitting to get stable portion of curve
-    const fitStart = Math.floor(n * 0.5);
-    const fitData = accumulationData.slice(fitStart).filter(point => 
-      point.uniqueSpeciesCount > 0 && point.observationNumber > 0
-    );
-    
-    // Calculate power law regression: log(S) = log(a) + b*log(N)
-    let sumLogX = 0, sumLogY = 0, sumLogXLogY = 0, sumLogX2 = 0;
-    fitData.forEach(point => {
-      const logX = Math.log(point.observationNumber);
-      const logY = Math.log(point.uniqueSpeciesCount);
-      sumLogX += logX;
-      sumLogY += logY;
-      sumLogXLogY += logX * logY;
-      sumLogX2 += logX * logX;
-    });
-    
-    const m = fitData.length;
-    const b = (m * sumLogXLogY - sumLogX * sumLogY) / (m * sumLogX2 - sumLogX * sumLogX);
-    const logA = (sumLogY - b * sumLogX) / m;
-    const a = Math.exp(logA);
-    
-    // Estimate asymptotic maximum using current rate of change
     const currentSpecies = lastPoint.uniqueSpeciesCount;
     const currentObs = lastPoint.observationNumber;
     
-    // Project to much larger observation count to estimate asymptote
-    const futureObs = currentObs * 10;
-    const projectedSpecies = a * Math.pow(futureObs, b);
-    const estimatedTotal = Math.round(projectedSpecies * 1.2); // Add 20% buffer
-    const observationsFor95 = Math.round(Math.pow((estimatedTotal * 0.95) / a, 1 / b));
+    // Take last 30% of data for fitting (changed from 50%)
+    const fitStart = Math.floor(n * 0.7);
+    const fitData = accumulationData.slice(fitStart).filter(point => 
+      point.uniqueSpeciesCount > 0 && point.observationNumber > 0
+    );
+
+    // Calculate data-driven projection parameters
+    const recent10Percent = accumulationData.slice(-Math.floor(n * 0.1));
+    const avgRecentRate = recent10Percent.length > 1 ? 
+      (recent10Percent[recent10Percent.length - 1].uniqueSpeciesCount - recent10Percent[0].uniqueSpeciesCount) / 
+      (recent10Percent[recent10Percent.length - 1].observationNumber - recent10Percent[0].observationNumber) : 0.01;
     
-    // Create full extrapolation line showing both fitted and projected portions
-    const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
-    const extendedData = accumulationData.map(point => ({
-      ...point,
-      fittedSpecies: Math.round(a * Math.pow(point.observationNumber, b)), // Power law fit
-      extrapolatedSpecies: null
-    }));
-    
-    // Add extrapolated points beyond current observations
-    for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
-      const predictedSpecies = Math.round(a * Math.pow(i, b));
-      extendedData.push({
-        observationNumber: i,
-        uniqueSpeciesCount: null,
-        fittedSpecies: null,
-        extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
-      });
+    // Data-driven projection: project until rate drops to 5% of current rate
+    const stabilizationThreshold = avgRecentRate * 0.05;
+    const projectionMultiplier = Math.max(2, Math.min(20, Math.ceil(avgRecentRate / stabilizationThreshold)));
+
+    function calculateRSquared(actual: number[], predicted: number[]) {
+      const mean = actual.reduce((a, b) => a + b, 0) / actual.length;
+      const ssTotal = actual.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0);
+      const ssResidual = actual.reduce((sum, val, i) => sum + Math.pow(val - predicted[i], 2), 0);
+      return 1 - (ssResidual / ssTotal);
     }
-    
-    return { extendedData, estimatedTotal, observationsFor95 };
+
+    // 1. Power Law Model: S = a * N^b
+    function calculatePowerLaw() {
+      let sumLogX = 0, sumLogY = 0, sumLogXLogY = 0, sumLogX2 = 0;
+      fitData.forEach(point => {
+        const logX = Math.log(point.observationNumber);
+        const logY = Math.log(point.uniqueSpeciesCount);
+        sumLogX += logX;
+        sumLogY += logY;
+        sumLogXLogY += logX * logY;
+        sumLogX2 += logX * logX;
+      });
+      
+      const m = fitData.length;
+      const b = (m * sumLogXLogY - sumLogX * sumLogY) / (m * sumLogX2 - sumLogX * sumLogX);
+      const logA = (sumLogY - b * sumLogX) / m;
+      const a = Math.exp(logA);
+      
+      const projectedObs = currentObs * projectionMultiplier;
+      const projectedSpecies = a * Math.pow(projectedObs, b);
+      const estimatedTotal = Math.round(projectedSpecies);
+      const observationsFor95 = Math.round(Math.pow((estimatedTotal * 0.95) / a, 1 / b));
+      
+      // Calculate R²
+      const predicted = fitData.map(point => a * Math.pow(point.observationNumber, b));
+      const actual = fitData.map(point => point.uniqueSpeciesCount);
+      const rSquared = calculateRSquared(actual, predicted);
+
+      const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
+      const extendedData = accumulationData.map(point => ({
+        ...point,
+        fittedSpecies: Math.round(a * Math.pow(point.observationNumber, b)),
+        extrapolatedSpecies: null
+      }));
+      
+      for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
+        const predictedSpecies = Math.round(a * Math.pow(i, b));
+        extendedData.push({
+          observationNumber: i,
+          uniqueSpeciesCount: null,
+          fittedSpecies: null,
+          extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
+        });
+      }
+      
+      return { extendedData, estimatedTotal, observationsFor95, rSquared };
+    }
+
+    // 2. Exponential Model: S = a * (1 - e^(-b*N))
+    function calculateExponential() {
+      // Use nonlinear regression approximation
+      const maxSpecies = Math.max(...fitData.map(p => p.uniqueSpeciesCount));
+      const a = maxSpecies * 1.5; // Initial asymptote estimate
+      let bestB = 0.001;
+      let bestSSE = Infinity;
+
+      for (let b = 0.0001; b <= 0.01; b += 0.0001) {
+        const sse = fitData.reduce((sum, point) => {
+          const predicted = a * (1 - Math.exp(-b * point.observationNumber));
+          return sum + Math.pow(point.uniqueSpeciesCount - predicted, 2);
+        }, 0);
+        if (sse < bestSSE) {
+          bestSSE = sse;
+          bestB = b;
+        }
+      }
+
+      const estimatedTotal = Math.round(a);
+      const observationsFor95 = Math.round(-Math.log(1 - 0.95) / bestB);
+      
+      // Calculate R²
+      const predicted = fitData.map(point => a * (1 - Math.exp(-bestB * point.observationNumber)));
+      const actual = fitData.map(point => point.uniqueSpeciesCount);
+      const rSquared = calculateRSquared(actual, predicted);
+
+      const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
+      const extendedData = accumulationData.map(point => ({
+        ...point,
+        fittedSpecies: Math.round(a * (1 - Math.exp(-bestB * point.observationNumber))),
+        extrapolatedSpecies: null
+      }));
+      
+      for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
+        const predictedSpecies = Math.round(a * (1 - Math.exp(-bestB * i)));
+        extendedData.push({
+          observationNumber: i,
+          uniqueSpeciesCount: null,
+          fittedSpecies: null,
+          extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
+        });
+      }
+      
+      return { extendedData, estimatedTotal, observationsFor95, rSquared };
+    }
+
+    // 3. Logistic Model: S = K / (1 + e^(-r*(N-N0)))
+    function calculateLogistic() {
+      const K = Math.max(...fitData.map(p => p.uniqueSpeciesCount)) * 2;
+      let bestR = 0.001;
+      let bestN0 = currentObs / 2;
+      let bestSSE = Infinity;
+
+      for (let r = 0.0001; r <= 0.01; r += 0.0001) {
+        for (let n0 = currentObs * 0.1; n0 <= currentObs * 0.9; n0 += currentObs * 0.1) {
+          const sse = fitData.reduce((sum, point) => {
+            const predicted = K / (1 + Math.exp(-r * (point.observationNumber - n0)));
+            return sum + Math.pow(point.uniqueSpeciesCount - predicted, 2);
+          }, 0);
+          if (sse < bestSSE) {
+            bestSSE = sse;
+            bestR = r;
+            bestN0 = n0;
+          }
+        }
+      }
+
+      const estimatedTotal = Math.round(K * 0.95); // 95% of carrying capacity
+      const observationsFor95 = Math.round(bestN0 + Math.log(19) / bestR); // 95% of K
+      
+      // Calculate R²
+      const predicted = fitData.map(point => K / (1 + Math.exp(-bestR * (point.observationNumber - bestN0))));
+      const actual = fitData.map(point => point.uniqueSpeciesCount);
+      const rSquared = calculateRSquared(actual, predicted);
+
+      const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
+      const extendedData = accumulationData.map(point => ({
+        ...point,
+        fittedSpecies: Math.round(K / (1 + Math.exp(-bestR * (point.observationNumber - bestN0)))),
+        extrapolatedSpecies: null
+      }));
+      
+      for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
+        const predictedSpecies = Math.round(K / (1 + Math.exp(-bestR * (i - bestN0))));
+        extendedData.push({
+          observationNumber: i,
+          uniqueSpeciesCount: null,
+          fittedSpecies: null,
+          extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
+        });
+      }
+      
+      return { extendedData, estimatedTotal, observationsFor95, rSquared };
+    }
+
+    // 4. Clench Model: S = (a*N) / (1 + b*N)
+    function calculateClench() {
+      // Linear transformation: 1/S = 1/a + (b/a) * (1/N)
+      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+      fitData.forEach(point => {
+        const x = 1 / point.observationNumber;
+        const y = 1 / point.uniqueSpeciesCount;
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumX2 += x * x;
+      });
+      
+      const m = fitData.length;
+      const slope = (m * sumXY - sumX * sumY) / (m * sumX2 - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / m;
+      
+      const a = 1 / intercept;
+      const b = slope * a;
+      
+      const estimatedTotal = Math.round(a / (2 * b)); // Maximum at N → ∞
+      const observationsFor95 = Math.round((0.95 * estimatedTotal) / (a - 0.95 * estimatedTotal * b));
+      
+      // Calculate R²
+      const predicted = fitData.map(point => (a * point.observationNumber) / (1 + b * point.observationNumber));
+      const actual = fitData.map(point => point.uniqueSpeciesCount);
+      const rSquared = calculateRSquared(actual, predicted);
+
+      const maxExtension = Math.max(currentObs * 2, observationsFor95 * 1.2);
+      const extendedData = accumulationData.map(point => ({
+        ...point,
+        fittedSpecies: Math.round((a * point.observationNumber) / (1 + b * point.observationNumber)),
+        extrapolatedSpecies: null
+      }));
+      
+      for (let i = currentObs + 1000; i <= maxExtension; i += 1000) {
+        const predictedSpecies = Math.round((a * i) / (1 + b * i));
+        extendedData.push({
+          observationNumber: i,
+          uniqueSpeciesCount: null,
+          fittedSpecies: null,
+          extrapolatedSpecies: Math.min(predictedSpecies, estimatedTotal)
+        });
+      }
+      
+      return { extendedData, estimatedTotal, observationsFor95, rSquared };
+    }
+
+    return {
+      powerLaw: calculatePowerLaw(),
+      exponential: calculateExponential(),
+      logistic: calculateLogistic(),
+      clench: calculateClench()
+    };
   }, [accumulationData, extrapolate]);
+
+  // Get the currently selected model data
+  const extrapolationData = modelCalculations[selectedModel.replace('-', '') as keyof typeof modelCalculations] || modelCalculations.powerLaw;
 
   return (
     <div className="flex flex-col h-full">
@@ -726,37 +900,102 @@ export default function Species() {
 
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Model Performance</CardTitle>
+                        <CardTitle className="text-base">Model Comparison</CardTitle>
+                        <p className="text-sm text-slate-600">Compare different extrapolation models</p>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                          <div>
-                            <div className="text-lg font-bold text-primary">Power Law</div>
-                            <p className="text-xs text-slate-600">Model Type</p>
-                          </div>
-                          <div>
-                            <div className="text-lg font-bold text-primary">
-                              {accumulationData.length > 0 ? Math.floor(accumulationData.length * 0.5) : 0}
+                        <Tabs value={selectedModel} onValueChange={setSelectedModel}>
+                          <TabsList className="grid w-full grid-cols-4">
+                            <TabsTrigger value="power-law">Power Law</TabsTrigger>
+                            <TabsTrigger value="exponential">Exponential</TabsTrigger>
+                            <TabsTrigger value="logistic">Logistic</TabsTrigger>
+                            <TabsTrigger value="clench">Clench</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="power-law" className="mt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.estimatedTotal?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Estimated Total</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.observationsFor95?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Obs for 95%</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.powerLaw.rSquared ? (modelCalculations.powerLaw.rSquared * 100).toFixed(1) + '%' : 'N/A'}</div>
+                                <p className="text-xs text-slate-600">Model Fit (R²)</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">S = a×N^b</div>
+                                <p className="text-xs text-slate-600">Model Formula</p>
+                              </div>
                             </div>
-                            <p className="text-xs text-slate-600">Fit Data Points</p>
-                          </div>
-                          <div>
-                            <div className="text-lg font-bold text-primary">
-                              {extrapolationData.observationsFor95 && accumulationData.length > 0 ? 
-                                Math.round((extrapolationData.observationsFor95 / accumulationData[accumulationData.length - 1]?.observationNumber) * 100) / 100 + 'x'
-                                : 'N/A'}
+                            <p className="text-sm text-slate-600 mt-2">Power law model uses last 30% of data and data-driven projection parameters</p>
+                          </TabsContent>
+                          <TabsContent value="exponential" className="mt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.exponential.estimatedTotal?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Estimated Total</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.exponential.observationsFor95?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Obs for 95%</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.exponential.rSquared ? (modelCalculations.exponential.rSquared * 100).toFixed(1) + '%' : 'N/A'}</div>
+                                <p className="text-xs text-slate-600">Model Fit (R²)</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">S = a×(1-e^(-b×N))</div>
+                                <p className="text-xs text-slate-600">Model Formula</p>
+                              </div>
                             </div>
-                            <p className="text-xs text-slate-600">Effort Multiplier</p>
-                          </div>
-                          <div>
-                            <div className="text-lg font-bold text-primary">
-                              {accumulationData.length > 0 ? 
-                                Math.floor(accumulationData.length * 0.5).toLocaleString() + '-' + accumulationData.length.toLocaleString()
-                                : 'N/A'}
+                            <p className="text-sm text-slate-600 mt-2">Exponential model approaches asymptote exponentially</p>
+                          </TabsContent>
+                          <TabsContent value="logistic" className="mt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.logistic.estimatedTotal?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Estimated Total</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.logistic.observationsFor95?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Obs for 95%</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.logistic.rSquared ? (modelCalculations.logistic.rSquared * 100).toFixed(1) + '%' : 'N/A'}</div>
+                                <p className="text-xs text-slate-600">Model Fit (R²)</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">S = K/(1+e^(-r×(N-N₀)))</div>
+                                <p className="text-xs text-slate-600">Model Formula</p>
+                              </div>
                             </div>
-                            <p className="text-xs text-slate-600">Fitting Range</p>
-                          </div>
-                        </div>
+                            <p className="text-sm text-slate-600 mt-2">Logistic model with S-shaped growth curve and carrying capacity</p>
+                          </TabsContent>
+                          <TabsContent value="clench" className="mt-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.clench.estimatedTotal?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Estimated Total</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.clench.observationsFor95?.toLocaleString()}</div>
+                                <p className="text-xs text-slate-600">Obs for 95%</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">{modelCalculations.clench.rSquared ? (modelCalculations.clench.rSquared * 100).toFixed(1) + '%' : 'N/A'}</div>
+                                <p className="text-xs text-slate-600">Model Fit (R²)</p>
+                              </div>
+                              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                                <div className="text-lg font-bold text-primary">S = (a×N)/(1+b×N)</div>
+                                <p className="text-xs text-slate-600">Model Formula</p>
+                              </div>
+                            </div>
+                            <p className="text-sm text-slate-600 mt-2">Clench model specifically designed for species accumulation curves</p>
+                          </TabsContent>
+                        </Tabs>
                       </CardContent>
                     </Card>
                   </div>
