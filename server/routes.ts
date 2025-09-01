@@ -4610,6 +4610,33 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   });
 
   // Field Guide API routes
+  // Create new field guide
+  app.post("/api/field-guides", async (req, res) => {
+    try {
+      const { name, description, boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = req.body;
+      
+      if (!name || !boundingBoxNorth || !boundingBoxSouth || !boundingBoxEast || !boundingBoxWest) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const [newGuide] = await db.insert(fieldGuides).values({
+        name: name.trim(),
+        description: description?.trim() || null,
+        boundingBoxNorth: boundingBoxNorth.toString(),
+        boundingBoxSouth: boundingBoxSouth.toString(), 
+        boundingBoxEast: boundingBoxEast.toString(),
+        boundingBoxWest: boundingBoxWest.toString(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      res.json(newGuide);
+    } catch (error) {
+      console.error("Error creating field guide:", error);
+      res.status(500).json({ error: "Failed to create field guide" });
+    }
+  });
+
   // Get all field guides
   app.get("/api/field-guides", async (req, res) => {
     try {
@@ -4618,6 +4645,54 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error fetching field guides:", error);
       res.status(500).json({ error: "Failed to fetch field guides" });
+    }
+  });
+
+  // Generate species list for a field guide
+  app.post("/api/field-guides/:id/generate-species", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const fieldGuideId = parseInt(id);
+
+      // Get the field guide to get bounding box coordinates
+      const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
+      
+      if (guide.length === 0) {
+        return res.status(404).json({ error: "Field guide not found" });
+      }
+
+      const { boundingBoxNorth, boundingBoxSouth, boundingBoxEast, boundingBoxWest } = guide[0];
+
+      // Query database for species in the bounding box
+      const speciesInBoxResult = await db.execute(sql`
+        SELECT 
+          o.scientific_name,
+          o.common_name,
+          o.family,
+          COUNT(*) as observation_count
+        FROM observations o
+        WHERE o.latitude IS NOT NULL 
+          AND o.longitude IS NOT NULL
+          AND CAST(o.latitude AS DECIMAL) <= ${parseFloat(boundingBoxNorth)}
+          AND CAST(o.latitude AS DECIMAL) >= ${parseFloat(boundingBoxSouth)}
+          AND CAST(o.longitude AS DECIMAL) <= ${parseFloat(boundingBoxEast)}
+          AND CAST(o.longitude AS DECIMAL) >= ${parseFloat(boundingBoxWest)}
+          AND o.scientific_name IS NOT NULL
+          AND o.scientific_name != ''
+          AND o.observed_on IS NOT NULL
+        GROUP BY o.scientific_name, o.common_name, o.family
+        ORDER BY o.scientific_name
+      `);
+
+      const speciesCount = speciesInBoxResult.rows.length;
+
+      res.json({ 
+        message: "Species list generated successfully",
+        speciesCount: speciesCount 
+      });
+    } catch (error) {
+      console.error("Error generating species list:", error);
+      res.status(500).json({ error: "Failed to generate species list" });
     }
   });
 
