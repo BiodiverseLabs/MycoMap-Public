@@ -1722,7 +1722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Group by collector and count unique species
       const contributorSpecies = filteredObs.reduce((acc, obs) => {
-        if (!obs.collector || !obs.scientificName) return acc;
+        if (!obs.collector || !obs.scientificName || obs.source === 'MycoPortal') return acc;
         
         if (!acc[obs.collector]) {
           acc[obs.collector] = new Set();

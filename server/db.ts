@@ -838,7 +838,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTopContributors(limit: number = 10, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]> {
-    let whereConditions = [sql`${observations.collector} IS NOT NULL`];
+    let whereConditions = [sql`${observations.collector} IS NOT NULL AND ${observations.source} != 'MycoPortal'`];
     
     if (startDate && endDate) {
       whereConditions.push(sql`${observations.observedOn} >= ${startDate} AND ${observations.observedOn} <= ${endDate}`);
