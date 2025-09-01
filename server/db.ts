@@ -1106,6 +1106,7 @@ export class DatabaseStorage implements IStorage {
         WHERE o.scientific_name IS NOT NULL 
           AND o.scientific_name != '' 
           AND o.observed_on IS NOT NULL
+          AND o.source != 'MycoPortal'
       ),
       ranked_observations AS (
         SELECT * FROM global_rankings
