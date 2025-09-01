@@ -1700,8 +1700,9 @@ export class DatabaseStorage implements IStorage {
   }>> {
     try {
       const sqlQuery = `
-        WITH state_stats AS (
+        WITH global_first_records AS (
           SELECT 
+            scientific_name,
             CASE 
               WHEN state IS NULL OR state = '' THEN 
                 CASE 
@@ -1710,20 +1711,30 @@ export class DatabaseStorage implements IStorage {
                 END
               ELSE state
             END as state,
-            COUNT(*) as total_observations,
-            COUNT(CASE WHEN is_first_global = true THEN 1 END) as global_first_count
+            ROW_NUMBER() OVER (
+              PARTITION BY scientific_name
+              ORDER BY 
+                CASE 
+                  WHEN observed_on = '1970-01-01' OR observed_on = '1969-12-31' THEN 1
+                  WHEN observed_on IS NULL THEN 2
+                  ELSE 0
+                END,
+                observed_on ASC,
+                creation_date ASC NULLS LAST,
+                scientific_name ASC
+            ) as species_rank_global
           FROM observations 
           WHERE scientific_name IS NOT NULL 
             AND scientific_name != ''
-          GROUP BY 
-            CASE 
-              WHEN state IS NULL OR state = '' THEN 
-                CASE 
-                  WHEN source = 'Sequences' THEN 'Unassociated Sequence'
-                  ELSE 'Unknown Location'
-                END
-              ELSE state
-            END
+            AND source != 'MycoPortal'
+        ),
+        state_stats AS (
+          SELECT 
+            state,
+            COUNT(*) as total_observations,
+            COUNT(CASE WHEN species_rank_global = 1 THEN 1 END) as global_first_count
+          FROM global_first_records
+          GROUP BY state
           HAVING COUNT(*) > 0
         )
         SELECT 
