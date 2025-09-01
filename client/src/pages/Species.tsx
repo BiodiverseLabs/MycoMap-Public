@@ -106,6 +106,11 @@ export default function Species() {
   const filteredSpecies = useMemo(() => {
     let filtered = allSpecies;
 
+    // Filter out Fungi and Unknown entries
+    filtered = filtered.filter((species: Species) =>
+      species.scientificName !== 'Fungi' && species.scientificName !== 'Unknown'
+    );
+
     // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
