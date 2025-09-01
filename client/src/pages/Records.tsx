@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Users, Eye, Dna } from "lucide-react";
+import { Trophy, Users, Eye, Dna, MapPin } from "lucide-react";
 import { Link } from "wouter";
 
 interface StateRecord {
@@ -37,6 +37,11 @@ interface ContributorStateRecord {
   affiliation?: string;
   stateFirstCount: number;
   percentage: number;
+}
+
+interface RegionRecord {
+  state: string;
+  count: number;
 }
 
 function MostGlobalFirstsByState() {
@@ -352,6 +357,66 @@ function MostSpecies() {
   );
 }
 
+function MostRecordsByRegion() {
+  const { data: regionData = [], isLoading } = useQuery<RegionRecord[]>({
+    queryKey: ['/api/observations/summary', { aggregate: 'states', dateRange: 'all_time' }],
+    queryFn: async () => {
+      const response = await fetch('/api/observations/summary?aggregate=states&dateRange=all_time');
+      if (!response.ok) throw new Error('Failed to fetch region records');
+      return response.json();
+    }
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-purple-500" />
+          Region - Most Records
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="h-16 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1.5 max-h-72 overflow-y-auto">
+            {regionData.slice(0, 10).map((region, index) => {
+              const isTopThree = index < 3;
+              const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
+              
+              return (
+                <div key={region.state} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
+                      isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <span className={isTopThree ? "font-semibold" : "font-medium"}>{region.state}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className={isTopThree ? "font-bold text-lg" : "font-semibold"}>{region.count.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">records</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="mt-4 pt-4 border-t">
+          <Link href="/geospatial" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            View map →
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Records() {
   return (
     <div className="flex h-screen bg-background">
@@ -370,6 +435,7 @@ export default function Records() {
             <MostStateFirstsByContributor />
             <MostObservations />
             <MostSpecies />
+            <MostRecordsByRegion />
           </div>
         </div>
       </div>
