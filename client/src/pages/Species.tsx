@@ -99,7 +99,7 @@ export default function Species() {
     },
     staleTime: 3 * 60 * 1000, // 3 minutes for dynamic chart data
     gcTime: 10 * 60 * 1000, // 10 minutes cache retention
-    enabled: !!selectedState && showDiscoveryRate, // Only fetch when state is selected and showing discovery rate
+    enabled: !!selectedState, // Always fetch when state is selected (needed for recent discovery rate calculation)
   });
 
   // Filter species based on search and filters
