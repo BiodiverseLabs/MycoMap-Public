@@ -697,9 +697,8 @@ export default function Species() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-xl font-bold text-primary">
-                            {accumulationData.length > 1000 ? 
-                              ((accumulationData[accumulationData.length - 1]?.uniqueSpeciesCount - 
-                                accumulationData[accumulationData.length - 1000]?.uniqueSpeciesCount) / 1000).toFixed(3)
+                            {discoveryRateData.length > 0 ? 
+                              discoveryRateData[discoveryRateData.length - 1]?.newSpeciesCount || 'N/A'
                               : 'N/A'}
                           </div>
                           <p className="text-xs text-slate-600 mt-1">
