@@ -24,6 +24,7 @@ interface Species {
 export default function Species() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedState, setSelectedState] = useState<string>("all");
+  const [selectedRarity, setSelectedRarity] = useState<string | null>(null);
 
   const [extrapolate, setExtrapolate] = useState(false);
   const [showGenera, setShowGenera] = useState(true);
@@ -104,7 +105,7 @@ export default function Species() {
     enabled: !!selectedState, // Always fetch when state is selected (needed for recent discovery rate calculation)
   });
 
-  // Filter species based on search - genus-level filtering now handled by backend
+  // Filter species based on search and rarity - genus-level filtering now handled by backend
   const filteredSpecies = useMemo(() => {
     let filtered = allSpecies;
 
@@ -117,21 +118,42 @@ export default function Species() {
       );
     }
 
+    // Rarity filter
+    if (selectedRarity) {
+      filtered = filtered.filter((species: Species) => {
+        const count = species.observationCount || 0;
+        switch (selectedRarity) {
+          case 'veryCommon':
+            return count >= 50;
+          case 'common':
+            return count >= 11 && count <= 49;
+          case 'uncommon':
+            return count >= 5 && count <= 9;
+          case 'rare':
+            return count >= 2 && count <= 4;
+          case 'veryRare':
+            return count === 1;
+          default:
+            return true;
+        }
+      });
+    }
+
     // Note: State filtering is now handled server-side in the species API endpoint
     // Note: Date filtering removed as it required full observations dataset
 
     return filtered.sort((a, b) => (b.observationCount || 0) - (a.observationCount || 0));
-  }, [allSpecies, searchTerm]);
+  }, [allSpecies, searchTerm, selectedRarity]);
 
-  // Calculate statistics
+  // Calculate statistics based on all species (not filtered) for rarity distribution
   const stats = useMemo(() => {
-    const totalSpecies = filteredSpecies.length;
-    const veryCommon = filteredSpecies.filter(s => (s.observationCount || 0) >= 50).length;
-    const common = filteredSpecies.filter(s => (s.observationCount || 0) >= 11 && (s.observationCount || 0) <= 49).length;
-    const uncommon = filteredSpecies.filter(s => (s.observationCount || 0) >= 5 && (s.observationCount || 0) <= 9).length;
-    const rare = filteredSpecies.filter(s => (s.observationCount || 0) >= 2 && (s.observationCount || 0) <= 4).length;
-    const veryRare = filteredSpecies.filter(s => (s.observationCount || 0) === 1).length;
-    const recentSpecies = filteredSpecies.filter(s => {
+    const totalSpecies = allSpecies.length;
+    const veryCommon = allSpecies.filter(s => (s.observationCount || 0) >= 50).length;
+    const common = allSpecies.filter(s => (s.observationCount || 0) >= 11 && (s.observationCount || 0) <= 49).length;
+    const uncommon = allSpecies.filter(s => (s.observationCount || 0) >= 5 && (s.observationCount || 0) <= 9).length;
+    const rare = allSpecies.filter(s => (s.observationCount || 0) >= 2 && (s.observationCount || 0) <= 4).length;
+    const veryRare = allSpecies.filter(s => (s.observationCount || 0) === 1).length;
+    const recentSpecies = allSpecies.filter(s => {
       if (!s.lastObserved) return false;
       try {
         const threeYearsAgo = new Date();
@@ -144,13 +166,13 @@ export default function Species() {
     }).length;
     
     // Count temporary code names (species with quotes or numerals)
-    const temporaryCodeNames = filteredSpecies.filter(s => {
+    const temporaryCodeNames = allSpecies.filter(s => {
       const name = s.scientificName || '';
       return /['"\d]/.test(name); // Contains single quote, double quote, or numeral
     }).length;
 
     return { totalSpecies, veryCommon, common, uncommon, rare, veryRare, recentSpecies, temporaryCodeNames };
-  }, [filteredSpecies]);
+  }, [allSpecies]);
 
   // Multiple model calculations
   const modelCalculations = useMemo(() => {
@@ -482,31 +504,66 @@ export default function Species() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+              <div 
+                onClick={() => setSelectedRarity(selectedRarity === 'veryCommon' ? null : 'veryCommon')}
+                className={`text-center p-4 rounded-lg border transition-all cursor-pointer hover:scale-105 ${
+                  selectedRarity === 'veryCommon' 
+                    ? 'bg-green-100 border-green-400 ring-2 ring-green-300' 
+                    : 'bg-green-50 border-green-200 hover:bg-green-100'
+                }`}
+              >
                 <div className="text-2xl font-bold text-green-700">{stats.veryCommon}</div>
                 <div className="text-sm font-medium text-green-600">Very Common</div>
                 <div className="text-xs text-green-500">50+ obs.</div>
               </div>
               
-              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div 
+                onClick={() => setSelectedRarity(selectedRarity === 'common' ? null : 'common')}
+                className={`text-center p-4 rounded-lg border transition-all cursor-pointer hover:scale-105 ${
+                  selectedRarity === 'common' 
+                    ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300' 
+                    : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                }`}
+              >
                 <div className="text-2xl font-bold text-blue-700">{stats.common}</div>
                 <div className="text-sm font-medium text-blue-600">Common</div>
                 <div className="text-xs text-blue-500">11-49 obs.</div>
               </div>
               
-              <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div 
+                onClick={() => setSelectedRarity(selectedRarity === 'uncommon' ? null : 'uncommon')}
+                className={`text-center p-4 rounded-lg border transition-all cursor-pointer hover:scale-105 ${
+                  selectedRarity === 'uncommon' 
+                    ? 'bg-yellow-100 border-yellow-400 ring-2 ring-yellow-300' 
+                    : 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
+                }`}
+              >
                 <div className="text-2xl font-bold text-yellow-700">{stats.uncommon}</div>
                 <div className="text-sm font-medium text-yellow-600">Uncommon</div>
-                <div className="text-xs text-yellow-500">5-10 obs.</div>
+                <div className="text-xs text-yellow-500">5-9 obs.</div>
               </div>
               
-              <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <div 
+                onClick={() => setSelectedRarity(selectedRarity === 'rare' ? null : 'rare')}
+                className={`text-center p-4 rounded-lg border transition-all cursor-pointer hover:scale-105 ${
+                  selectedRarity === 'rare' 
+                    ? 'bg-orange-100 border-orange-400 ring-2 ring-orange-300' 
+                    : 'bg-orange-50 border-orange-200 hover:bg-orange-100'
+                }`}
+              >
                 <div className="text-2xl font-bold text-orange-700">{stats.rare}</div>
                 <div className="text-sm font-medium text-orange-600">Rare</div>
                 <div className="text-xs text-orange-500">2-4 obs.</div>
               </div>
               
-              <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+              <div 
+                onClick={() => setSelectedRarity(selectedRarity === 'veryRare' ? null : 'veryRare')}
+                className={`text-center p-4 rounded-lg border transition-all cursor-pointer hover:scale-105 ${
+                  selectedRarity === 'veryRare' 
+                    ? 'bg-red-100 border-red-400 ring-2 ring-red-300' 
+                    : 'bg-red-50 border-red-200 hover:bg-red-100'
+                }`}
+              >
                 <div className="text-2xl font-bold text-red-700">{stats.veryRare}</div>
                 <div className="text-sm font-medium text-red-600">Very Rare</div>
                 <div className="text-xs text-red-500">1 obs.</div>
@@ -514,7 +571,21 @@ export default function Species() {
             </div>
             
             <div className="mt-4 text-sm text-slate-600 text-center">
-              Distribution based on total observation counts per species
+              {selectedRarity ? (
+                <div className="flex items-center justify-center gap-2">
+                  <span>Filtering by rarity category</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedRarity(null)}
+                    className="h-6 px-2 text-xs"
+                  >
+                    Clear Filter
+                  </Button>
+                </div>
+              ) : (
+                "Click a category to filter species by rarity"
+              )}
             </div>
           </CardContent>
         </Card>
@@ -522,7 +593,17 @@ export default function Species() {
         {/* Species List */}
         <Card>
           <CardHeader>
-            <CardTitle>Species Results</CardTitle>
+            <CardTitle>
+              Species Results
+              {selectedRarity && (
+                <span className="ml-2 text-sm font-normal text-slate-600">
+                  (filtered by {selectedRarity === 'veryCommon' ? 'Very Common' : 
+                              selectedRarity === 'common' ? 'Common' :
+                              selectedRarity === 'uncommon' ? 'Uncommon' :
+                              selectedRarity === 'rare' ? 'Rare' : 'Very Rare'})
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {speciesLoading ? (
