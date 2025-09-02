@@ -1099,7 +1099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'ETag': `"species-${Date.now() - (Date.now() % 300000)}"` // ETag updates every 5 minutes
       });
       
-      const { limit, type = 'top', state, name } = req.query;
+      const { limit, type = 'top', state, name, genusOnly } = req.query;
       
       // If searching for a specific species by name
       if (name) {
@@ -1119,21 +1119,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         species = await storage.getTopSpecies(speciesLimit, state as string);
       }
       
-      // Apply genus-level filtering (same logic as frontend was using)
-      const genusFilteredSpecies = species.filter((s: any) => {
-        // Filter out Fungi and Unknown entries
-        if (s.scientificName === 'Fungi' || s.scientificName === 'Unknown') {
-          return false;
-        }
-        
-        // Filter for genus-level identifications only (no species epithets)
-        const parts = s.scientificName.split(' ');
-        // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
-        return parts.length === 1 || 
-               (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
-      });
+      // Apply filtering based on genusOnly parameter
+      let filteredSpecies = species;
       
-      res.json(genusFilteredSpecies);
+      if (genusOnly === 'true') {
+        // Apply genus-level filtering for species needing taxonomic work
+        filteredSpecies = species.filter((s: any) => {
+          // Filter out Fungi and Unknown entries
+          if (s.scientificName === 'Fungi' || s.scientificName === 'Unknown') {
+            return false;
+          }
+          
+          // Filter for genus-level identifications only (no species epithets)
+          const parts = s.scientificName.split(' ');
+          // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
+          return parts.length === 1 || 
+                 (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
+        });
+      } else {
+        // Just filter out basic invalid entries but include all species
+        filteredSpecies = species.filter((s: any) => {
+          return s.scientificName && 
+                 s.scientificName !== 'Fungi' && 
+                 s.scientificName !== 'Unknown' &&
+                 s.scientificName.trim() !== '';
+        });
+      }
+      
+      res.json(filteredSpecies);
     } catch (error) {
       console.error("Error fetching species:", error);
       res.status(500).json({ error: "Failed to fetch species" });
