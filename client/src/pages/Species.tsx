@@ -405,7 +405,10 @@ export default function Species() {
   };
 
   // Download CSV function
-  const downloadCSV = () => {
+  const downloadCSV = async () => {
+    const isVeryRareFilter = selectedRarity === 'veryRare';
+    
+    // Base headers
     const headers = [
       'Scientific Name',
       'Common Name', 
@@ -414,17 +417,58 @@ export default function Species() {
       'Last Observed',
       'State Count'
     ];
+    
+    // Add extra columns for very rare species
+    if (isVeryRareFilter) {
+      headers.push('Database', 'Record ID');
+    }
 
-    const csvContent = [
-      headers.map(h => escapeCsvField(h)).join(','),
-      ...filteredSpecies.map(species => [
+    // Prepare data rows
+    const dataRows = [];
+    
+    for (const species of filteredSpecies) {
+      const baseRow = [
         escapeCsvField(species.scientificName),
         escapeCsvField(species.commonName),
         species.observationCount || 0,
         species.firstObserved ? new Date(species.firstObserved).getFullYear() : '',
         species.lastObserved ? new Date(species.lastObserved).getFullYear() : '',
         species.stateCount || ''
-      ].join(','))
+      ];
+      
+      // For very rare species (1 observation), fetch the observation details
+      if (isVeryRareFilter && species.observationCount === 1) {
+        try {
+          const response = await fetch(`/api/observations?species=${encodeURIComponent(species.scientificName)}&limit=1`);
+          if (response.ok) {
+            const observations = await response.json();
+            if (observations.length > 0) {
+              const obs = observations[0];
+              baseRow.push(
+                escapeCsvField(obs.source || ''),
+                escapeCsvField(obs.observationId || '')
+              );
+            } else {
+              baseRow.push('', '');
+            }
+          } else {
+            baseRow.push('', '');
+          }
+        } catch (error) {
+          console.error('Error fetching observation details:', error);
+          baseRow.push('', '');
+        }
+      } else if (isVeryRareFilter) {
+        // Still add empty columns for consistency
+        baseRow.push('', '');
+      }
+      
+      dataRows.push(baseRow.join(','));
+    }
+
+    const csvContent = [
+      headers.map(h => escapeCsvField(h)).join(','),
+      ...dataRows
     ].join('\n');
 
     // Add BOM for proper UTF-8 encoding in Excel and other programs
@@ -478,6 +522,9 @@ export default function Species() {
           >
             <Download className="w-4 h-4" />
             Download CSV
+            {selectedRarity === 'veryRare' && filteredSpecies.length > 0 && (
+              <span className="text-xs">(+DB info)</span>
+            )}
             {filteredSpecies.length > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {filteredSpecies.length}
