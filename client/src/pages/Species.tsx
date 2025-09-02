@@ -382,6 +382,28 @@ export default function Species() {
   const modelKey = selectedModel === 'michaelis-menten' ? 'michaelisMenten' : selectedModel.replace('-', '');
   const extrapolationData = modelCalculations[modelKey as keyof typeof modelCalculations] || modelCalculations.powerLaw;
 
+  // Helper function to properly escape CSV fields
+  const escapeCsvField = (field: string | undefined | null): string => {
+    if (!field) return '';
+    
+    // Convert to string and handle special characters
+    const str = String(field);
+    
+    // If field contains quotes, commas, or newlines, it needs to be quoted and quotes escaped
+    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+      // Escape quotes by doubling them, then wrap in quotes
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    
+    // If field is just whitespace or empty, quote it
+    if (str.trim() === '') {
+      return '""';
+    }
+    
+    // Otherwise, quote the field to be safe with special characters
+    return `"${str}"`;
+  };
+
   // Download CSV function
   const downloadCSV = () => {
     const headers = [
@@ -394,10 +416,10 @@ export default function Species() {
     ];
 
     const csvContent = [
-      headers.join(','),
+      headers.map(h => escapeCsvField(h)).join(','),
       ...filteredSpecies.map(species => [
-        `"${species.scientificName}"`,
-        species.commonName ? `"${species.commonName}"` : '',
+        escapeCsvField(species.scientificName),
+        escapeCsvField(species.commonName),
         species.observationCount || 0,
         species.firstObserved ? new Date(species.firstObserved).getFullYear() : '',
         species.lastObserved ? new Date(species.lastObserved).getFullYear() : '',
@@ -405,7 +427,9 @@ export default function Species() {
       ].join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Add BOM for proper UTF-8 encoding in Excel and other programs
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
