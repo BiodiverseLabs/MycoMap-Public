@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award, BarChart3 } from "lucide-react";
+import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award, BarChart3, Download } from "lucide-react";
 import { Link } from "wouter";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -374,14 +374,84 @@ export default function Species() {
   const modelKey = selectedModel === 'michaelis-menten' ? 'michaelisMenten' : selectedModel.replace('-', '');
   const extrapolationData = modelCalculations[modelKey as keyof typeof modelCalculations] || modelCalculations.powerLaw;
 
+  // Download CSV function
+  const downloadCSV = () => {
+    const headers = [
+      'Scientific Name',
+      'Common Name', 
+      'Observation Count',
+      'First Observed',
+      'Last Observed',
+      'State Count'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...filteredSpecies.map(species => [
+        `"${species.scientificName}"`,
+        species.commonName ? `"${species.commonName}"` : '',
+        species.observationCount || 0,
+        species.firstObserved ? new Date(species.firstObserved).getFullYear() : '',
+        species.lastObserved ? new Date(species.lastObserved).getFullYear() : '',
+        species.stateCount || ''
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    
+    // Generate filename with current filters
+    let filename = 'species-analysis';
+    if (selectedRarity) {
+      const rarityLabels = {
+        veryCommon: 'very-common',
+        common: 'common', 
+        uncommon: 'uncommon',
+        rare: 'rare',
+        veryRare: 'very-rare'
+      };
+      filename += `-${rarityLabels[selectedRarity as keyof typeof rarityLabels]}`;
+    }
+    if (selectedState !== 'all') {
+      filename += `-${selectedState.toLowerCase().replace(/\s+/g, '-')}`;
+    }
+    if (searchTerm) {
+      filename += `-search-${searchTerm.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    }
+    filename += '.csv';
+    
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Species Analysis</h2>
-          <p className="text-slate-600 mt-1">
-            Search, filter, and analyze macrofungi species observations
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900">Species Analysis</h2>
+            <p className="text-slate-600 mt-1">
+              Search, filter, and analyze macrofungi species observations
+            </p>
+          </div>
+          <Button
+            onClick={downloadCSV}
+            disabled={speciesLoading || filteredSpecies.length === 0}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download CSV
+            {filteredSpecies.length > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {filteredSpecies.length}
+              </Badge>
+            )}
+          </Button>
         </div>
       </header>
 
