@@ -28,24 +28,21 @@ export function SpeciesFrequency({ dateRange, selectedState }: SpeciesFrequencyP
       if (selectedState) {
         params.append('state', selectedState);
       }
+      // Explicitly request all species, not just genus-level identifications
+      params.append('genusOnly', 'false');
       const response = await fetch(`/api/species?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json();
     }
   });
 
-  // Filter out Fungi and Unknown entries, and keep only genus-level identifications
+  // Filter out basic invalid entries but show all species (not just genus-level)
   const species = rawSpecies.filter((s: Species) => {
     // Exclude Fungi and Unknown
-    if (s.scientificName === 'Fungi' || s.scientificName === 'Unknown') {
-      return false;
-    }
-    
-    // Filter for genus-level identifications only (no species epithets)
-    const parts = s.scientificName.split(' ');
-    // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
-    return parts.length === 1 || 
-           (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
+    return s.scientificName && 
+           s.scientificName !== 'Fungi' && 
+           s.scientificName !== 'Unknown' &&
+           s.scientificName.trim() !== '';
   });
 
   const maxCount = species.length > 0 ? species[0].observationCount : 1;
