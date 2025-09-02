@@ -363,22 +363,39 @@ export class DatabaseStorage implements IStorage {
           db.execute(sql`SELECT COUNT(DISTINCT ${observations.state})::int as count FROM ${observations} WHERE ${whereClause} AND ${observations.state} IS NOT NULL`),
 
         // Fully validated observations count - species-level identification with complete data sync
-        db.execute(sql`
-          SELECT COUNT(*)::int as count 
-          FROM ${observations} o
-          LEFT JOIN ${inaturalistData} i ON o.observation_id = i.observation_id
-          WHERE ${whereClause}
-          AND o.source = 'iNaturalist'
-          AND o.scientific_name IS NOT NULL 
-          AND LENGTH(TRIM(o.scientific_name)) > 0
-          AND ARRAY_LENGTH(STRING_TO_ARRAY(TRIM(o.scientific_name), ' '), 1) >= 2
-          AND i.sync_status = 'success'
-          AND o.inat_api_saved = true
-          AND (
-            o.mycomap_blast_url IS NULL 
-            OR (o.mycomap_blast_url IS NOT NULL AND o.blast_files_downloaded = true)
-          )
-        `)
+        // Build specific WHERE clause for this query since it uses table aliases
+        (() => {
+          let joinWhereClause = sql`1=1`;
+          
+          if (startDate && endDate) {
+            joinWhereClause = sql`o.observed_on >= ${startDate} AND o.observed_on <= ${endDate}`;
+          }
+          
+          if (state) {
+            if (startDate && endDate) {
+              joinWhereClause = sql`o.observed_on >= ${startDate} AND o.observed_on <= ${endDate} AND o.state = ${state}`;
+            } else {
+              joinWhereClause = sql`o.state = ${state}`;
+            }
+          }
+          
+          return db.execute(sql`
+            SELECT COUNT(*)::int as count 
+            FROM ${observations} o
+            LEFT JOIN ${inaturalistData} i ON o.observation_id = i.observation_id
+            WHERE ${joinWhereClause}
+            AND o.source = 'iNaturalist'
+            AND o.scientific_name IS NOT NULL 
+            AND LENGTH(TRIM(o.scientific_name)) > 0
+            AND ARRAY_LENGTH(STRING_TO_ARRAY(TRIM(o.scientific_name), ' '), 1) >= 2
+            AND i.sync_status = 'success'
+            AND o.inat_api_saved = true
+            AND (
+              o.mycomap_blast_url IS NULL 
+              OR (o.mycomap_blast_url IS NOT NULL AND o.blast_files_downloaded = true)
+            )
+          `);
+        })()
       ]);
       
       return {
