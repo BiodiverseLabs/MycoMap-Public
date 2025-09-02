@@ -39,6 +39,8 @@ export default function Species() {
       if (selectedState && selectedState !== 'all') {
         params.append('state', selectedState);
       }
+      // Explicitly request all species, not just genus-level identifications
+      params.append('genusOnly', 'false');
       const response = await fetch(`/api/species?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch species');
       return response.json();
