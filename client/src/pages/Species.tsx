@@ -145,15 +145,11 @@ export default function Species() {
     return filtered.sort((a, b) => (b.observationCount || 0) - (a.observationCount || 0));
   }, [allSpecies, searchTerm, selectedRarity]);
 
-  // Calculate statistics based on all species (not filtered) for rarity distribution
+  // Calculate statistics - rarity distribution from all species, other stats from filtered results
   const stats = useMemo(() => {
-    const totalSpecies = allSpecies.length;
-    const veryCommon = allSpecies.filter(s => (s.observationCount || 0) >= 50).length;
-    const common = allSpecies.filter(s => (s.observationCount || 0) >= 11 && (s.observationCount || 0) <= 49).length;
-    const uncommon = allSpecies.filter(s => (s.observationCount || 0) >= 5 && (s.observationCount || 0) <= 9).length;
-    const rare = allSpecies.filter(s => (s.observationCount || 0) >= 2 && (s.observationCount || 0) <= 4).length;
-    const veryRare = allSpecies.filter(s => (s.observationCount || 0) === 1).length;
-    const recentSpecies = allSpecies.filter(s => {
+    // Total species, temp codes, and recent species should reflect current filter
+    const totalSpecies = filteredSpecies.length;
+    const recentSpecies = filteredSpecies.filter(s => {
       if (!s.lastObserved) return false;
       try {
         const threeYearsAgo = new Date();
@@ -165,14 +161,21 @@ export default function Species() {
       }
     }).length;
     
-    // Count temporary code names (species with quotes or numerals)
-    const temporaryCodeNames = allSpecies.filter(s => {
+    // Count temporary code names from filtered species
+    const temporaryCodeNames = filteredSpecies.filter(s => {
       const name = s.scientificName || '';
       return /['"\d]/.test(name); // Contains single quote, double quote, or numeral
     }).length;
 
+    // Rarity distribution always based on all species (for consistent panel counts)
+    const veryCommon = allSpecies.filter(s => (s.observationCount || 0) >= 50).length;
+    const common = allSpecies.filter(s => (s.observationCount || 0) >= 11 && (s.observationCount || 0) <= 49).length;
+    const uncommon = allSpecies.filter(s => (s.observationCount || 0) >= 5 && (s.observationCount || 0) <= 9).length;
+    const rare = allSpecies.filter(s => (s.observationCount || 0) >= 2 && (s.observationCount || 0) <= 4).length;
+    const veryRare = allSpecies.filter(s => (s.observationCount || 0) === 1).length;
+
     return { totalSpecies, veryCommon, common, uncommon, rare, veryRare, recentSpecies, temporaryCodeNames };
-  }, [allSpecies]);
+  }, [allSpecies, filteredSpecies]);
 
   // Multiple model calculations
   const modelCalculations = useMemo(() => {
