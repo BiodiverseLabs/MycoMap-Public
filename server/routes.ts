@@ -1263,8 +1263,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'ETag': `"species-acc-${Date.now() - (Date.now() % 180000)}"` // ETag updates every 3 minutes
       });
       
-      const { state, search } = req.query;
-      const data = await storage.getSpeciesAccumulation(state as string, search as string);
+      const { state, search, rarity } = req.query;
+      const data = await storage.getSpeciesAccumulation(state as string, search as string, rarity as string);
       res.json(data);
     } catch (error) {
       console.error("Error fetching species accumulation data:", error);
@@ -1281,8 +1281,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'ETag': `"species-discovery-${Date.now() - (Date.now() % 180000)}"` // ETag updates every 3 minutes
       });
       
-      const { state, search } = req.query;
-      const data = await storage.getSpeciesDiscoveryRate(state as string, search as string);
+      const { state, search, rarity } = req.query;
+      const data = await storage.getSpeciesDiscoveryRate(state as string, search as string, rarity as string);
       res.json(data);
     } catch (error) {
       console.error("Error fetching species discovery rate data:", error);
@@ -1299,8 +1299,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'ETag': `"genera-acc-${Date.now() - (Date.now() % 180000)}"` // ETag updates every 3 minutes
       });
       
-      const { state, search } = req.query;
-      const data = await storage.getGeneraAccumulation(state as string, search as string);
+      const { state, search, rarity } = req.query;
+      const data = await storage.getGeneraAccumulation(state as string, search as string, rarity as string);
       res.json(data);
     } catch (error) {
       console.error("Error fetching genera accumulation data:", error);

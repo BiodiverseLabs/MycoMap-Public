@@ -66,9 +66,9 @@ export default function Species() {
 
   // Remove the expensive observations fetch - we don't need all 70k+ records for species filtering
 
-  // Fetch species/genera accumulation curve data with search term filter
+  // Fetch species/genera accumulation curve data with search term and rarity filter
   const { data: accumulationData = [], isLoading: accumulationLoading } = useQuery({
-    queryKey: [showGenera ? "/api/genera-accumulation" : "/api/species-accumulation", selectedState, searchTerm],
+    queryKey: [showGenera ? "/api/genera-accumulation" : "/api/species-accumulation", selectedState, searchTerm, selectedRarity],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedState && selectedState !== 'all') {
@@ -76,6 +76,9 @@ export default function Species() {
       }
       if (searchTerm) {
         params.append('search', searchTerm);
+      }
+      if (selectedRarity) {
+        params.append('rarity', selectedRarity);
       }
       const endpoint = showGenera ? '/api/genera-accumulation' : '/api/species-accumulation';
       const response = await fetch(`${endpoint}?${params.toString()}`);
@@ -89,7 +92,7 @@ export default function Species() {
 
   // Fetch species discovery rate data
   const { data: discoveryRateData = [], isLoading: discoveryLoading } = useQuery({
-    queryKey: ["/api/species-discovery-rate", selectedState, searchTerm],
+    queryKey: ["/api/species-discovery-rate", selectedState, searchTerm, selectedRarity],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedState && selectedState !== 'all') {
@@ -97,6 +100,9 @@ export default function Species() {
       }
       if (searchTerm) {
         params.append('search', searchTerm);
+      }
+      if (selectedRarity) {
+        params.append('rarity', selectedRarity);
       }
       const response = await fetch(`/api/species-discovery-rate?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch discovery rate data');

@@ -120,14 +120,19 @@ export interface IStorage {
   }>>;
   
   // Species accumulation curve
-  getSpeciesAccumulation(state?: string, search?: string): Promise<Array<{
+  getSpeciesAccumulation(state?: string, search?: string, rarity?: string): Promise<Array<{
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>>;
 
-  getSpeciesDiscoveryRate(state?: string, search?: string): Promise<Array<{
+  getSpeciesDiscoveryRate(state?: string, search?: string, rarity?: string): Promise<Array<{
     observationChunk: number;
     newSpeciesCount: number;
+  }>>;
+
+  getGeneraAccumulation(state?: string, search?: string, rarity?: string): Promise<Array<{
+    observationNumber: number;
+    uniqueSpeciesCount: number;
   }>>;
   
   // Get unique states
@@ -978,7 +983,7 @@ export class MemoryStorage implements IStorage {
       .sort((a, b) => b.count - a.count);
   }
 
-  async getSpeciesAccumulation(state?: string): Promise<Array<{
+  async getSpeciesAccumulation(state?: string, search?: string, rarity?: string): Promise<Array<{
     observationNumber: number;
     uniqueSpeciesCount: number;
   }>> {
@@ -986,6 +991,43 @@ export class MemoryStorage implements IStorage {
     
     if (state && state !== 'all') {
       filteredObs = filteredObs.filter(obs => obs.state === state);
+    }
+
+    // Apply search filter
+    if (search && search.trim() !== '') {
+      const searchLower = search.toLowerCase();
+      filteredObs = filteredObs.filter(obs => 
+        obs.scientificName.toLowerCase().includes(searchLower) ||
+        (obs.commonName && obs.commonName.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply rarity filter by getting observation counts first
+    if (rarity) {
+      const speciesCounts = new Map<string, number>();
+      this.observations.forEach(obs => {
+        if (obs.scientificName && obs.scientificName.trim() !== '' && obs.source !== 'MycoPortal') {
+          speciesCounts.set(obs.scientificName, (speciesCounts.get(obs.scientificName) || 0) + 1);
+        }
+      });
+
+      filteredObs = filteredObs.filter(obs => {
+        const count = speciesCounts.get(obs.scientificName) || 0;
+        switch (rarity) {
+          case 'veryCommon':
+            return count >= 50;
+          case 'common':
+            return count >= 11 && count <= 49;
+          case 'uncommon':
+            return count >= 5 && count <= 9;
+          case 'rare':
+            return count >= 2 && count <= 4;
+          case 'veryRare':
+            return count === 1;
+          default:
+            return true;
+        }
+      });
     }
     
     // Sort by observed date, then by id for consistent ordering
@@ -1010,12 +1052,85 @@ export class MemoryStorage implements IStorage {
     return result;
   }
 
-  async getSpeciesDiscoveryRate(state?: string, search?: string): Promise<Array<{
+  async getSpeciesDiscoveryRate(state?: string, search?: string, rarity?: string): Promise<Array<{
     observationChunk: number;
     newSpeciesCount: number;
   }>> {
     // Memory storage doesn't implement species discovery rate functionality
     return [];
+  }
+
+  async getGeneraAccumulation(state?: string, search?: string, rarity?: string): Promise<Array<{
+    observationNumber: number;
+    uniqueSpeciesCount: number;
+  }>> {
+    let filteredObs = this.observations.filter(obs => obs.scientificName && obs.scientificName.trim() !== '' && obs.source !== 'MycoPortal');
+    
+    if (state && state !== 'all') {
+      filteredObs = filteredObs.filter(obs => obs.state === state);
+    }
+
+    // Apply search filter
+    if (search && search.trim() !== '') {
+      const searchLower = search.toLowerCase();
+      filteredObs = filteredObs.filter(obs => 
+        obs.scientificName.toLowerCase().includes(searchLower) ||
+        (obs.commonName && obs.commonName.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply rarity filter by getting observation counts first
+    if (rarity) {
+      const speciesCounts = new Map<string, number>();
+      this.observations.forEach(obs => {
+        if (obs.scientificName && obs.scientificName.trim() !== '' && obs.source !== 'MycoPortal') {
+          speciesCounts.set(obs.scientificName, (speciesCounts.get(obs.scientificName) || 0) + 1);
+        }
+      });
+
+      filteredObs = filteredObs.filter(obs => {
+        const count = speciesCounts.get(obs.scientificName) || 0;
+        switch (rarity) {
+          case 'veryCommon':
+            return count >= 50;
+          case 'common':
+            return count >= 11 && count <= 49;
+          case 'uncommon':
+            return count >= 5 && count <= 9;
+          case 'rare':
+            return count >= 2 && count <= 4;
+          case 'veryRare':
+            return count === 1;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // Sort by observed date, then by id for consistent ordering
+    filteredObs.sort((a, b) => {
+      const dateA = a.observedOn ? new Date(a.observedOn) : new Date(0);
+      const dateB = b.observedOn ? new Date(b.observedOn) : new Date(0);
+      const dateCompare = dateA.getTime() - dateB.getTime();
+      return dateCompare !== 0 ? dateCompare : a.id - b.id;
+    });
+    
+    const result: Array<{ observationNumber: number; uniqueSpeciesCount: number }> = [];
+    const seenGenera = new Set<string>();
+    
+    filteredObs.forEach((obs, index) => {
+      // Extract genus (first word) from scientific name
+      const genus = obs.scientificName.split(' ')[0];
+      if (genus && genus !== 'Fungi' && genus !== 'Unknown') {
+        seenGenera.add(genus);
+      }
+      result.push({
+        observationNumber: index + 1,
+        uniqueSpeciesCount: seenGenera.size
+      });
+    });
+    
+    return result;
   }
 
   // iNaturalist data operations (stub implementations for MemoryStorage)
