@@ -104,22 +104,9 @@ export default function Species() {
     enabled: !!selectedState, // Always fetch when state is selected (needed for recent discovery rate calculation)
   });
 
-  // Filter species based on search and filters - show only genus-level identifications
+  // Filter species based on search - genus-level filtering now handled by backend
   const filteredSpecies = useMemo(() => {
     let filtered = allSpecies;
-
-    // Filter out Fungi and Unknown entries
-    filtered = filtered.filter((species: Species) =>
-      species.scientificName !== 'Fungi' && species.scientificName !== 'Unknown'
-    );
-
-    // Filter for genus-level identifications only (no species epithets)
-    filtered = filtered.filter((species: Species) => {
-      const parts = species.scientificName.split(' ');
-      // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
-      return parts.length === 1 || 
-             (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
-    });
 
     // Search filter
     if (searchTerm) {

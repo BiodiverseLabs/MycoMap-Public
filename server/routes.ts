@@ -1119,7 +1119,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         species = await storage.getTopSpecies(speciesLimit, state as string);
       }
       
-      res.json(species);
+      // Apply genus-level filtering (same logic as frontend was using)
+      const genusFilteredSpecies = species.filter((s: any) => {
+        // Filter out Fungi and Unknown entries
+        if (s.scientificName === 'Fungi' || s.scientificName === 'Unknown') {
+          return false;
+        }
+        
+        // Filter for genus-level identifications only (no species epithets)
+        const parts = s.scientificName.split(' ');
+        // Include only: single genus names, or genus + "sp" variants, or genus + quoted sp codes
+        return parts.length === 1 || 
+               (parts.length === 2 && (parts[1].startsWith('"') || parts[1].includes('sp')));
+      });
+      
+      res.json(genusFilteredSpecies);
     } catch (error) {
       console.error("Error fetching species:", error);
       res.status(500).json({ error: "Failed to fetch species" });
