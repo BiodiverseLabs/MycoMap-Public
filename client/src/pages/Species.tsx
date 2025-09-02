@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Search, Calendar, MapPin, TrendingUp, Eye, Clock, Award, BarChart3, Download } from "lucide-react";
 import { Link } from "wouter";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -404,105 +404,124 @@ export default function Species() {
     return `"${str}"`;
   };
 
+  // State for download loading
+  const [isDownloading, setIsDownloading] = React.useState(false);
+
   // Download CSV function
   const downloadCSV = async () => {
-    const isVeryRareFilter = selectedRarity === 'veryRare';
-    
-    // Base headers
-    const headers = [
-      'Scientific Name',
-      'Common Name', 
-      'Observation Count',
-      'First Observed',
-      'Last Observed',
-      'State Count'
-    ];
-    
-    // Add extra columns for very rare species
-    if (isVeryRareFilter) {
-      headers.push('Database', 'Record ID');
-    }
-
-    // Prepare data rows
-    const dataRows = [];
-    
-    for (const species of filteredSpecies) {
-      const baseRow = [
-        escapeCsvField(species.scientificName),
-        escapeCsvField(species.commonName),
-        species.observationCount || 0,
-        species.firstObserved ? new Date(species.firstObserved).getFullYear() : '',
-        species.lastObserved ? new Date(species.lastObserved).getFullYear() : '',
-        species.stateCount || ''
+    try {
+      setIsDownloading(true);
+      console.log('Starting CSV download...');
+      
+      const isVeryRareFilter = selectedRarity === 'veryRare';
+      
+      // Base headers
+      const headers = [
+        'Scientific Name',
+        'Common Name', 
+        'Observation Count',
+        'First Observed',
+        'Last Observed',
+        'State Count'
       ];
       
-      // For very rare species (1 observation), fetch the observation details
-      if (isVeryRareFilter && species.observationCount === 1) {
-        try {
-          const response = await fetch(`/api/observations?species=${encodeURIComponent(species.scientificName)}&limit=1`);
-          if (response.ok) {
-            const observations = await response.json();
-            if (observations.length > 0) {
-              const obs = observations[0];
-              baseRow.push(
-                escapeCsvField(obs.source || ''),
-                escapeCsvField(obs.observationId || '')
-              );
+      // Add extra columns for very rare species
+      if (isVeryRareFilter) {
+        headers.push('Database', 'Record ID');
+      }
+
+      // Prepare data rows
+      const dataRows = [];
+      
+      console.log(`Processing ${filteredSpecies.length} species...`);
+      
+      for (const species of filteredSpecies) {
+        const baseRow = [
+          escapeCsvField(species.scientificName),
+          escapeCsvField(species.commonName),
+          species.observationCount || 0,
+          species.firstObserved ? new Date(species.firstObserved).getFullYear() : '',
+          species.lastObserved ? new Date(species.lastObserved).getFullYear() : '',
+          species.stateCount || ''
+        ];
+        
+        // For very rare species (1 observation), fetch the observation details
+        if (isVeryRareFilter && species.observationCount === 1) {
+          try {
+            const response = await fetch(`/api/observations?species=${encodeURIComponent(species.scientificName)}&limit=1`);
+            if (response.ok) {
+              const observations = await response.json();
+              if (observations.length > 0) {
+                const obs = observations[0];
+                baseRow.push(
+                  escapeCsvField(obs.source || ''),
+                  escapeCsvField(obs.observationId || '')
+                );
+              } else {
+                baseRow.push('', '');
+              }
             } else {
               baseRow.push('', '');
             }
-          } else {
+          } catch (error) {
+            console.error('Error fetching observation details:', error);
             baseRow.push('', '');
           }
-        } catch (error) {
-          console.error('Error fetching observation details:', error);
+        } else if (isVeryRareFilter) {
+          // Still add empty columns for consistency
           baseRow.push('', '');
         }
-      } else if (isVeryRareFilter) {
-        // Still add empty columns for consistency
-        baseRow.push('', '');
+        
+        dataRows.push(baseRow.join(','));
       }
+
+      console.log('Generating CSV content...');
+      const csvContent = [
+        headers.map(h => escapeCsvField(h)).join(','),
+        ...dataRows
+      ].join('\n');
+
+      // Add BOM for proper UTF-8 encoding in Excel and other programs
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
       
-      dataRows.push(baseRow.join(','));
+      // Generate filename with current filters
+      let filename = 'species-analysis';
+      if (selectedRarity) {
+        const rarityLabels = {
+          veryCommon: 'very-common',
+          common: 'common', 
+          uncommon: 'uncommon',
+          rare: 'rare',
+          veryRare: 'very-rare'
+        };
+        filename += `-${rarityLabels[selectedRarity as keyof typeof rarityLabels]}`;
+      }
+      if (selectedState !== 'all') {
+        filename += `-${selectedState.toLowerCase().replace(/\s+/g, '-')}`;
+      }
+      if (searchTerm) {
+        filename += `-search-${searchTerm.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      }
+      filename += '.csv';
+      
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      console.log('Triggering download...');
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      console.log('CSV download completed!');
+    } catch (error) {
+      console.error('Error generating CSV:', error);
+      alert('Error generating CSV. Please try again.');
+    } finally {
+      setIsDownloading(false);
     }
-
-    const csvContent = [
-      headers.map(h => escapeCsvField(h)).join(','),
-      ...dataRows
-    ].join('\n');
-
-    // Add BOM for proper UTF-8 encoding in Excel and other programs
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    
-    // Generate filename with current filters
-    let filename = 'species-analysis';
-    if (selectedRarity) {
-      const rarityLabels = {
-        veryCommon: 'very-common',
-        common: 'common', 
-        uncommon: 'uncommon',
-        rare: 'rare',
-        veryRare: 'very-rare'
-      };
-      filename += `-${rarityLabels[selectedRarity as keyof typeof rarityLabels]}`;
-    }
-    if (selectedState !== 'all') {
-      filename += `-${selectedState.toLowerCase().replace(/\s+/g, '-')}`;
-    }
-    if (searchTerm) {
-      filename += `-search-${searchTerm.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-    }
-    filename += '.csv';
-    
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -517,15 +536,15 @@ export default function Species() {
           </div>
           <Button
             onClick={downloadCSV}
-            disabled={speciesLoading || filteredSpecies.length === 0}
+            disabled={speciesLoading || filteredSpecies.length === 0 || isDownloading}
             className="flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
-            Download CSV
-            {selectedRarity === 'veryRare' && filteredSpecies.length > 0 && (
+            {isDownloading ? 'Generating...' : 'Download CSV'}
+            {selectedRarity === 'veryRare' && filteredSpecies.length > 0 && !isDownloading && (
               <span className="text-xs">(+DB info)</span>
             )}
-            {filteredSpecies.length > 0 && (
+            {filteredSpecies.length > 0 && !isDownloading && (
               <Badge variant="secondary" className="ml-1">
                 {filteredSpecies.length}
               </Badge>
