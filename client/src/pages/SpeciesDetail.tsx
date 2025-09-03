@@ -700,55 +700,6 @@ export default function SpeciesDetail() {
                             alt={`${image.scientificName} observation`}
                             className="w-full h-48 object-cover rounded-t-lg"
                             loading="lazy"
-                            onError={(e) => {
-                              const img = e.target as HTMLImageElement;
-                              const originalUrl = img.src;
-                              
-                              // Try fallback URLs for iNaturalist images
-                              if (originalUrl.includes('static.inaturalist.org') || originalUrl.includes('inaturalist-open-data.s3.amazonaws.com')) {
-                                // If currently medium, try large
-                                if (originalUrl.includes('/medium.')) {
-                                  img.src = originalUrl.replace('/medium.', '/large.');
-                                  return;
-                                }
-                                // If currently large, try small
-                                if (originalUrl.includes('/large.')) {
-                                  img.src = originalUrl.replace('/large.', '/small.');
-                                  return;
-                                }
-                                // If currently small, try square
-                                if (originalUrl.includes('/small.')) {
-                                  img.src = originalUrl.replace('/small.', '/square.');
-                                  return;
-                                }
-                                // If currently square, try original
-                                if (originalUrl.includes('/square.')) {
-                                  img.src = originalUrl.replace('/square.', '/original.');
-                                  return;
-                                }
-                                // Convert static.inaturalist.org to S3 URL
-                                if (originalUrl.includes('static.inaturalist.org')) {
-                                  img.src = originalUrl.replace('static.inaturalist.org', 'inaturalist-open-data.s3.amazonaws.com');
-                                  return;
-                                }
-                              }
-                              
-                              // Final fallback: hide the image
-                              img.style.display = 'none';
-                              const parent = img.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `
-                                  <div class="w-full h-48 bg-slate-200 rounded-t-lg flex items-center justify-center">
-                                    <div class="text-center text-slate-500">
-                                      <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                      </svg>
-                                      <p class="text-xs">Image unavailable</p>
-                                    </div>
-                                  </div>
-                                `;
-                              }
-                            }}
                           />
                           <div className="absolute top-2 right-2">
                             <div className="bg-slate-600 text-white rounded-full p-1 opacity-70">
