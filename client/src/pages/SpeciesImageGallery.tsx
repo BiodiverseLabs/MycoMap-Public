@@ -4,7 +4,9 @@ import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, ExternalLink, MapPin, Calendar, User, X, Edit } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Check, ExternalLink, MapPin, Calendar, User, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -27,13 +29,13 @@ export default function SpeciesImageGallery() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [includeNonValidated, setIncludeNonValidated] = useState(false);
 
   const fieldGuideId = params?.id ? parseInt(params.id) : null;
   const scientificName = params?.scientificName ? decodeURIComponent(params.scientificName) : null;
 
   const { data: images = [], isLoading, error } = useQuery({
-    queryKey: ['/api/field-guides', fieldGuideId, 'species', scientificName, 'images'],
+    queryKey: ['/api/field-guides', fieldGuideId, 'species', scientificName, 'images', includeNonValidated],
     queryFn: async () => {
       if (!fieldGuideId || !scientificName) throw new Error('Missing parameters');
       
@@ -49,6 +51,7 @@ export default function SpeciesImageGallery() {
       
       const params = new URLSearchParams({
         expansion,
+        includeNonValidated: includeNonValidated.toString(),
         ...(monthStart && { monthStart }),
         ...(monthEnd && { monthEnd }),
         ...(finalIncludeInat && { includeInat: 'true' })
@@ -130,13 +133,11 @@ export default function SpeciesImageGallery() {
   });
 
   const handleSelectImage = (image: ObservationImage) => {
-    if (!isEditMode) return;
     selectImageMutation.mutate(image);
   };
 
   const handleRemoveSelection = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the card click
-    if (!isEditMode) return;
     removeSelectionMutation.mutate();
   };
 
@@ -201,6 +202,17 @@ export default function SpeciesImageGallery() {
           <ArrowLeft className="w-4 h-4" />
           Back to Field Guide
         </Button>
+        
+        <div className="flex items-center space-x-2 ml-auto">
+          <Checkbox 
+            id="include-non-validated"
+            checked={includeNonValidated} 
+            onCheckedChange={setIncludeNonValidated} 
+          />
+          <Label htmlFor="include-non-validated" className="text-sm font-medium">
+            Include non-DNA Validated
+          </Label>
+        </div>
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
             <em>{scientificName}</em>
@@ -243,15 +255,6 @@ export default function SpeciesImageGallery() {
                 return id; // Plain ID from main DB
               })).size} observations
             </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditMode(!isEditMode)}
-              className={`flex items-center gap-2 ${isEditMode ? 'bg-primary text-primary-foreground' : ''}`}
-            >
-              <Edit className="w-4 h-4" />
-              {isEditMode ? 'Exit Edit' : 'Edit Images'}
-            </Button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -260,9 +263,7 @@ export default function SpeciesImageGallery() {
                 key={`${image.observationId}-${image.imageUrl.substring(image.imageUrl.lastIndexOf('/'))}`}
                 className={`transition-all hover:shadow-lg ${
                   image.isSelected ? 'ring-2 ring-primary' : ''
-                } ${
-                  isEditMode ? 'cursor-pointer' : ''
-                }`}
+                } cursor-pointer`}
                 onClick={() => handleSelectImage(image)}
               >
                 <CardContent className="p-0">
@@ -278,22 +279,13 @@ export default function SpeciesImageGallery() {
                         <div className="bg-primary text-primary-foreground rounded-full p-1">
                           <Check className="w-4 h-4" />
                         </div>
-                        {isEditMode && (
-                          <button
-                            onClick={handleRemoveSelection}
-                            className="bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
-                            title="Remove selection"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {isEditMode && !image.isSelected && (
-                      <div className="absolute top-2 right-2">
-                        <div className="bg-slate-600 text-white rounded-full p-1 opacity-70">
-                          <Edit className="w-4 h-4" />
-                        </div>
+                        <button
+                          onClick={handleRemoveSelection}
+                          className="bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
+                          title="Remove selection"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     )}
                   </div>

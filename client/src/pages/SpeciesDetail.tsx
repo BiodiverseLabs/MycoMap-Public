@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { FullscreenModal, FullscreenButton } from '@/components/ui/fullscreen-modal';
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
@@ -68,6 +70,7 @@ export default function SpeciesDetail() {
   const [selectedState, setSelectedState] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all_time");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [includeNonValidated, setIncludeNonValidated] = useState(false);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const fullscreenMapRef = useRef<HTMLDivElement>(null);
@@ -110,10 +113,11 @@ export default function SpeciesDetail() {
 
   // Fetch species images
   const { data: speciesImages = [], isLoading: imagesLoading } = useQuery({
-    queryKey: ["/api/species", speciesName, "images", { state: selectedState }],
+    queryKey: ["/api/species", speciesName, "images", { state: selectedState, includeNonValidated }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        limit: '20'
+        limit: '20',
+        includeNonValidated: includeNonValidated.toString()
       });
       
       if (selectedState && selectedState !== "all") {
@@ -515,6 +519,17 @@ export default function SpeciesDetail() {
                         <SelectItem value="recent">Since 2020</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="include-non-validated"
+                      checked={includeNonValidated} 
+                      onCheckedChange={setIncludeNonValidated} 
+                    />
+                    <Label htmlFor="include-non-validated" className="text-sm font-medium">
+                      Include non-DNA Validated
+                    </Label>
                   </div>
                 </div>
                 

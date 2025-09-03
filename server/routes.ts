@@ -5447,15 +5447,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/field-guides/:id/species/:name/images", async (req, res) => {
     try {
       const { id, name } = req.params;
-      const { expansion, monthStart, monthEnd, includeInat } = req.query;
+      const { expansion, monthStart, monthEnd, includeInat, includeNonValidated } = req.query;
       
       const fieldGuideId = parseInt(id);
       const scientificName = decodeURIComponent(name);
       const expansionMiles = expansion ? parseFloat(expansion as string) : 0;
       const includeInatBool = includeInat === 'true';
+      const includeNonValidatedBool = includeNonValidated === 'true';
       
-      console.log(`[Images API] Query params:`, { expansion, monthStart, monthEnd, includeInat });
-      console.log(`[Images API] Parsed values:`, { fieldGuideId, expansionMiles, includeInatBool });
+      console.log(`[Images API] Query params:`, { expansion, monthStart, monthEnd, includeInat, includeNonValidated });
+      console.log(`[Images API] Parsed values:`, { fieldGuideId, expansionMiles, includeInatBool, includeNonValidatedBool });
       
       // Get the field guide to get bounding box coordinates
       const guide = await db.select().from(fieldGuides).where(eq(fieldGuides.id, fieldGuideId)).limit(1);
@@ -6106,10 +6107,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         allImages.push(...inatObservations.rows);
       }
 
-      // Always check iNaturalist cache using same logic as species list endpoint
-      console.log(`[Images API] Checking iNaturalist cache for ${scientificName} observations`);
-      
-      try {
+      // Only check iNaturalist if includeNonValidated is enabled
+      if (includeNonValidatedBool) {
+        console.log(`[Images API] Including non-validated data - checking iNaturalist for ${scientificName}`);
+        
+        try {
         const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
         
         // Check if we have cached data
@@ -6192,8 +6194,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         allImages.push(...inatImages);
         console.log(`[Images API] Added ${inatImages.length} images from iNaturalist for ${scientificName}`);
         
-      } catch (error) {
-        console.error(`[Images API] Error fetching iNaturalist images for ${scientificName}:`, error);
+        } catch (error) {
+          console.error(`[Images API] Error fetching iNaturalist images for ${scientificName}:`, error);
+        }
+      } else {
+        console.log(`[Images API] Only showing DNA-validated observations (database only)`);
       }
 
       // Include MO observations if includeInat is true (using cache-first approach)
@@ -6269,7 +6274,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         isSelected: false
       })).filter(img => img.imageUrl);
       
-      console.log(`[Images API] Returning ${images.length} images for ${scientificName} (expansion: ${expansionMiles}, includeInat: ${includeInatBool}, months: ${monthStart}-${monthEnd})`);
+      console.log(`[Images API] Returning ${images.length} images for ${scientificName} (expansion: ${expansionMiles}, includeNonValidated: ${includeNonValidatedBool}, months: ${monthStart}-${monthEnd})`);
       res.json(images);
     } catch (error) {
       console.error("Error fetching species images:", error);
