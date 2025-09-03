@@ -784,12 +784,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
       
-      // Apply limit if specified (important for production performance)
-      if (limit) {
-        const limitNum = parseInt(limit as string, 10);
-        if (!isNaN(limitNum) && limitNum > 0) {
-          observations = observations.slice(0, limitNum);
-        }
+      // Apply limit - set reasonable default for performance
+      const defaultLimit = species ? 500 : 200; // Higher limit for species-specific requests
+      const limitNum = limit ? parseInt(limit as string, 10) : defaultLimit;
+      
+      if (!isNaN(limitNum) && limitNum > 0) {
+        observations = observations.slice(0, limitNum);
       }
       
       console.log(`[API] Returning ${observations.length} observations`);
@@ -1751,36 +1751,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Species seasonal distribution endpoint
+  // Species seasonal distribution endpoint - OPTIMIZED
   app.get("/api/species/:name/seasonal", async (req, res) => {
     try {
       const speciesName = decodeURIComponent(req.params.name);
-      const observations = await storage.getAllObservations();
+      console.log(`[API] Getting seasonal data for species: ${speciesName}`);
       
-
+      // Use direct database query instead of loading all observations
+      const seasonalData = await storage.getSpeciesSeasonalData(speciesName);
       
-      // Filter observations for the specific species
-      // Use the same logic as the observations endpoint
-      const speciesObservations = observations.filter(obs => {
-        if (!obs.observedOn) return false;
-        return obs.species === speciesName || obs.scientificName === speciesName;
-      });
-      
-      // Initialize month counts
+      // Initialize month counts with proper short names
       const monthCounts = Array.from({ length: 12 }, (_, i) => ({
         month: new Date(0, i).toLocaleString('default', { month: 'short' }),
         monthNumber: i + 1,
         count: 0
       }));
       
-      // Count observations by month
-      speciesObservations.forEach(obs => {
-        if (obs.observedOn) {
-          const month = new Date(obs.observedOn).getMonth();
-          monthCounts[month].count++;
+      // Fill in actual counts from database
+      seasonalData.forEach((row: any) => {
+        const monthIndex = parseInt(row.month) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) {
+          monthCounts[monthIndex].count = parseInt(row.count);
         }
       });
       
+      console.log(`[API] Returning seasonal data for ${speciesName}: ${seasonalData.length} months with data`);
       res.json(monthCounts);
     } catch (error) {
       console.error("Error fetching species seasonal distribution:", error);

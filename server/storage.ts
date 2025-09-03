@@ -71,6 +71,12 @@ export interface IStorage {
     monthNumber: number;
   }>>;
   
+  // Species-specific seasonal data - OPTIMIZED
+  getSpeciesSeasonalData(speciesName: string): Promise<Array<{
+    month: string;
+    count: string;
+  }>>;
+  
   getTopContributors(limit?: number, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]>;
   getAllContributors(): Promise<Contributor[]>;
   getContributorObservationCount(contributorName: string): Promise<number>;
@@ -658,6 +664,11 @@ export class MemoryStorage implements IStorage {
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
+  }
+
+  // Stub implementation for species seasonal data - MemoryStorage doesn't support this
+  async getSpeciesSeasonalData(speciesName: string): Promise<Array<{ month: string; count: string }>> {
+    return [];
   }
 
   async getTopContributors(limit: number = 10): Promise<Contributor[]> {

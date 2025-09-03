@@ -854,6 +854,25 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ month: string; count: number; monthNumber: number }>;
   }
 
+  // OPTIMIZED: Species-specific seasonal data - uses direct DB query instead of loading all observations
+  async getSpeciesSeasonalData(speciesName: string): Promise<Array<{ month: string; count: string }>> {
+    console.log(`[DB] Getting seasonal data for species: ${speciesName}`);
+    
+    const result = await db.execute(sql`
+      SELECT 
+        EXTRACT(MONTH FROM ${observations.observedOn}::date)::text as month,
+        COUNT(*)::text as count
+      FROM ${observations}
+      WHERE ${observations.observedOn} IS NOT NULL
+        AND (${observations.scientificName} = ${speciesName} OR ${observations.species} = ${speciesName})
+      GROUP BY EXTRACT(MONTH FROM ${observations.observedOn}::date)
+      ORDER BY EXTRACT(MONTH FROM ${observations.observedOn}::date)
+    `);
+    
+    console.log(`[DB] Found ${result.rows.length} months with observations for ${speciesName}`);
+    return result.rows as Array<{ month: string; count: string }>;
+  }
+
   async getTopContributors(limit: number = 10, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]> {
     let whereConditions = [sql`${observations.collector} IS NOT NULL AND ${observations.source} != 'MycoPortal'`];
     
