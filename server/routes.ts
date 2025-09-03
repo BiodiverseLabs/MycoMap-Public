@@ -1783,16 +1783,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Species images endpoint
+  // Species images endpoint with comprehensive data support
   app.get("/api/species/:name/images", async (req, res) => {
     try {
       const speciesName = decodeURIComponent(req.params.name);
-      const { state, limit: limitParam } = req.query;
+      const { state, limit: limitParam, comprehensive } = req.query;
       const limit = limitParam ? parseInt(limitParam as string) : 50;
+      const isComprehensive = comprehensive === 'true';
       
-      console.log(`[API] Getting images for species: ${speciesName}`);
+      console.log(`[Species API] Getting images for species: ${speciesName} (comprehensive: ${isComprehensive}, limit: ${limit})`);
       
-      // Get observations for this species with image data
+      let allImages: any[] = [];
+      
+      // Get observations from main database
       const images = await db.execute(sql`
         WITH observation_images AS (
           SELECT DISTINCT
@@ -1828,9 +1831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT ${limit}
       `);
       
-      // Transform results into image gallery format
-      const imageGallery: any[] = [];
-      
+      // Transform main database results
       images.rows.forEach((row: any) => {
         const observationId = row.observation_id;
         const baseData = {
@@ -1844,7 +1845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Add primary image from observations table
         if (row.image_link) {
-          imageGallery.push({
+          allImages.push({
             observationId: observationId,
             imageUrl: row.image_link,
             imageId: `primary-${observationId}`,
@@ -1855,11 +1856,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add photos from iNaturalist data
         if (row.photos && Array.isArray(row.photos)) {
           row.photos.forEach((photoUrl: string, index: number) => {
-            // Convert square URLs to medium for better display
             const imageUrl = photoUrl.includes('square') ? 
               photoUrl.replace('square', 'medium') : photoUrl;
             
-            imageGallery.push({
+            allImages.push({
               observationId: `${observationId}-${index}`,
               imageUrl: imageUrl,
               imageId: `inat-${observationId}-${index}`,
@@ -1869,8 +1869,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      console.log(`[API] Returning ${imageGallery.length} images for ${speciesName}`);
-      res.json(imageGallery);
+      // If comprehensive mode, add additional data sources
+      if (isComprehensive) {
+        console.log(`[Species API] Fetching comprehensive data for ${speciesName}`);
+        
+        // Add Mushroom Observer data (no geographic restrictions)
+        try {
+          console.log(`[Species API] Getting all MO observations for ${speciesName}`);
+          
+          // Query all MO observations for this species
+          const moObservations = await db.execute(sql`
+            SELECT DISTINCT
+              mo_id,
+              scientific_name,
+              common_name,
+              user_name,
+              observed_on,
+              location,
+              place_guess,
+              photos
+            FROM mushroom_observer_observations
+            WHERE LOWER(scientific_name) = LOWER(${speciesName})
+              AND photos IS NOT NULL
+              AND array_length(photos, 1) > 0
+              ${state && state !== 'all' ? sql`AND location = ${state}` : sql``}
+            ORDER BY observed_on DESC NULLS LAST
+          `);
+          
+          // Transform MO observations to image format
+          const moImages: any[] = [];
+          moObservations.rows.forEach((obs: any) => {
+            if (obs.photos && Array.isArray(obs.photos)) {
+              obs.photos.forEach((photoUrl: string, photoIndex: number) => {
+                moImages.push({
+                  observationId: `MO-${obs.mo_id}-${photoIndex}`,
+                  imageUrl: photoUrl,
+                  imageId: `MO-${obs.mo_id}-${photoIndex}`,
+                  scientificName: obs.scientific_name,
+                  observer: obs.user_name,
+                  observedOn: obs.observed_on,
+                  state: obs.location,
+                  placeGuess: obs.place_guess,
+                  source: 'Mushroom Observer'
+                });
+              });
+            }
+          });
+          
+          allImages.push(...moImages);
+          console.log(`[Species API] Added ${moImages.length} images from MO for ${speciesName}`);
+          
+        } catch (error) {
+          console.error(`[Species API] Error fetching MO images for ${speciesName}:`, error);
+        }
+        
+        // Add MyCoPortal data
+        try {
+          console.log(`[Species API] Getting MyCoPortal observations for ${speciesName}`);
+          
+          const mycoObservations = await db.execute(sql`
+            SELECT DISTINCT
+              id,
+              scientific_name,
+              collector,
+              report_date,
+              state,
+              place_guess,
+              image_link
+            FROM mycoportal_observations
+            WHERE LOWER(scientific_name) = LOWER(${speciesName})
+              AND image_link IS NOT NULL
+              ${state && state !== 'all' ? sql`AND state = ${state}` : sql``}
+            ORDER BY report_date DESC NULLS LAST
+          `);
+          
+          const mycoImages = mycoObservations.rows.map((obs: any) => ({
+            observationId: `MyCoPortal-${obs.id}`,
+            imageUrl: obs.image_link,
+            imageId: `MyCoPortal-${obs.id}`,
+            scientificName: obs.scientific_name,
+            observer: obs.collector,
+            observedOn: obs.report_date,
+            state: obs.state,
+            placeGuess: obs.place_guess,
+            source: 'MyCoPortal'
+          }));
+          
+          allImages.push(...mycoImages);
+          console.log(`[Species API] Added ${mycoImages.length} images from MyCoPortal for ${speciesName}`);
+          
+        } catch (error) {
+          console.error(`[Species API] Error fetching MyCoPortal images for ${speciesName}:`, error);
+        }
+      }
+      
+      // Sort by date and remove duplicates
+      const uniqueImages = allImages.filter((img, index, self) => 
+        index === self.findIndex(i => i.imageUrl === img.imageUrl)
+      );
+      
+      uniqueImages.sort((a, b) => {
+        if (!a.observedOn && !b.observedOn) return 0;
+        if (!a.observedOn) return 1;
+        if (!b.observedOn) return -1;
+        return new Date(b.observedOn).getTime() - new Date(a.observedOn).getTime();
+      });
+      
+      const finalImages = uniqueImages.slice(0, limit);
+      
+      console.log(`[Species API] Returning ${finalImages.length} images for ${speciesName} (${allImages.length} total before deduplication/limiting)`);
+      res.json(finalImages);
     } catch (error) {
       console.error("Error fetching species images:", error);
       res.status(500).json({ error: "Failed to fetch species images" });

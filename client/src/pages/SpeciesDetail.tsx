@@ -109,28 +109,22 @@ export default function SpeciesDetail() {
     enabled: !!speciesName
   });
 
-  // Fetch species images using the comprehensive field guide API
+  // Fetch species images using comprehensive species API
   const { data: speciesImages = [], isLoading: imagesLoading } = useQuery({
-    queryKey: ["/api/field-guides/1/species", speciesName, "images", { state: selectedState }],
+    queryKey: ["/api/species", speciesName, "images", { state: selectedState }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        expansion: '0',
-        includeInat: 'true'
+        limit: '200', // Get all observations, not just 50
+        comprehensive: 'true' // Flag for comprehensive data sources
       });
       
-      // Note: field guide API doesn't support state filtering directly
-      // We'll filter on the frontend if needed
-      
-      const response = await fetch(`/api/field-guides/1/species/${encodeURIComponent(speciesName)}/images?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch species images');
-      const allImages = await response.json() as ObservationImage[];
-      
-      // Apply state filtering on frontend if needed
       if (selectedState && selectedState !== "all") {
-        return allImages.filter(img => img.state === selectedState);
+        params.append('state', selectedState);
       }
       
-      return allImages;
+      const response = await fetch(`/api/species/${encodeURIComponent(speciesName)}/images?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch species images');
+      return response.json() as Promise<ObservationImage[]>;
     },
     enabled: !!speciesName
   });
