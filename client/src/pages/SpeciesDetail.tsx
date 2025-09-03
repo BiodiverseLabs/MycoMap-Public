@@ -6,7 +6,7 @@ import { FullscreenModal, FullscreenButton } from '@/components/ui/fullscreen-mo
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3, Camera, ExternalLink } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3, Camera, ExternalLink, TreePine } from "lucide-react";
 
 declare global {
   interface Window {
@@ -44,6 +44,21 @@ interface ObservationImage {
   placeGuess: string | null;
   source: string;
   scientificName: string;
+}
+
+interface TaxonomicClassification {
+  scientificName: string;
+  commonName: string | null;
+  kingdom: string | null;
+  phylum: string | null;
+  class: string | null;
+  order: string | null;
+  family: string | null;
+  genus: string | null;
+  species: string | null;
+  subspecies: string | null;
+  rank: string | null;
+  source: string | null;
 }
 
 export default function SpeciesDetail() {
@@ -108,6 +123,17 @@ export default function SpeciesDetail() {
       const response = await fetch(`/api/species/${encodeURIComponent(speciesName)}/images?${params}`);
       if (!response.ok) throw new Error('Failed to fetch species images');
       return response.json() as Promise<ObservationImage[]>;
+    },
+    enabled: !!speciesName
+  });
+
+  // Fetch species classification
+  const { data: classification, isLoading: classificationLoading } = useQuery({
+    queryKey: ["/api/species", speciesName, "classification"],
+    queryFn: async () => {
+      const response = await fetch(`/api/species/${encodeURIComponent(speciesName)}/classification`);
+      if (!response.ok) throw new Error('Failed to fetch species classification');
+      return response.json() as Promise<TaxonomicClassification>;
     },
     enabled: !!speciesName
   });
@@ -392,6 +418,64 @@ export default function SpeciesDetail() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Taxonomic Classification Panel */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TreePine className="h-5 w-5 text-green-600" />
+              Taxonomic Classification
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {classificationLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+              </div>
+            ) : classification ? (
+              <div className="space-y-4">
+                {classification.commonName && (
+                  <div className="pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-muted-foreground">Common Name</p>
+                    <p className="text-lg font-medium">{classification.commonName}</p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { label: "Kingdom", value: classification.kingdom },
+                    { label: "Phylum", value: classification.phylum },
+                    { label: "Class", value: classification.class },
+                    { label: "Order", value: classification.order },
+                    { label: "Family", value: classification.family },
+                    { label: "Genus", value: classification.genus },
+                    { label: "Species", value: classification.species },
+                    { label: "Subspecies", value: classification.subspecies }
+                  ].map(({ label, value }) => (
+                    value && (
+                      <div key={label} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+                        <p className="text-sm font-medium mt-1">{value}</p>
+                      </div>
+                    )
+                  ))}
+                </div>
+                
+                {classification.source && (
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-xs text-muted-foreground">
+                      Classification source: {classification.source}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center p-8 text-muted-foreground">
+                No taxonomic classification data available for this species.
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Map and Filters */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">

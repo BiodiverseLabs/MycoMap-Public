@@ -1877,6 +1877,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Species taxonomic classification endpoint
+  app.get("/api/species/:name/classification", async (req, res) => {
+    try {
+      const speciesName = decodeURIComponent(req.params.name);
+      console.log(`[API] Getting taxonomic classification for species: ${speciesName}`);
+      
+      // First try to get classification from the iNaturalist cache if available
+      const inatClassification = await db.execute(sql`
+        SELECT 
+          kingdom,
+          phylum,
+          class,
+          "order",
+          family,
+          genus,
+          species,
+          subspecies,
+          taxon_rank,
+          scientific_name,
+          common_name
+        FROM inaturalist_classification_cache 
+        WHERE LOWER(scientific_name) = LOWER(${speciesName})
+          OR LOWER(search_term) = LOWER(${speciesName})
+        ORDER BY lookup_count DESC
+        LIMIT 1
+      `);
+      
+      if (inatClassification.rows.length > 0) {
+        const classification = inatClassification.rows[0];
+        console.log(`[API] Found iNaturalist classification for ${speciesName}`);
+        res.json({
+          scientificName: classification.scientific_name || speciesName,
+          commonName: classification.common_name,
+          kingdom: classification.kingdom,
+          phylum: classification.phylum,
+          class: classification.class,
+          order: classification.order,
+          family: classification.family,
+          genus: classification.genus,
+          species: classification.species,
+          subspecies: classification.subspecies,
+          rank: classification.taxon_rank,
+          source: 'iNaturalist Cache'
+        });
+        return;
+      }
+      
+      // Fallback to observations table data
+      const obsClassification = await db.execute(sql`
+        SELECT DISTINCT
+          scientific_name,
+          common_name,
+          kingdom,
+          phylum,
+          class,
+          "order",
+          family,
+          genus,
+          species,
+          infraspecies
+        FROM observations 
+        WHERE LOWER(scientific_name) = LOWER(${speciesName})
+          AND (kingdom IS NOT NULL OR phylum IS NOT NULL OR family IS NOT NULL)
+        ORDER BY 
+          CASE WHEN kingdom IS NOT NULL THEN 1 ELSE 2 END,
+          CASE WHEN phylum IS NOT NULL THEN 1 ELSE 2 END,
+          CASE WHEN family IS NOT NULL THEN 1 ELSE 2 END
+        LIMIT 1
+      `);
+      
+      if (obsClassification.rows.length > 0) {
+        const classification = obsClassification.rows[0];
+        console.log(`[API] Found observation classification for ${speciesName}`);
+        res.json({
+          scientificName: classification.scientific_name || speciesName,
+          commonName: classification.common_name,
+          kingdom: classification.kingdom,
+          phylum: classification.phylum,
+          class: classification.class,
+          order: classification.order,
+          family: classification.family,
+          genus: classification.genus,
+          species: classification.species,
+          subspecies: classification.infraspecies,
+          rank: null,
+          source: 'Observations Data'
+        });
+        return;
+      }
+      
+      // No classification data found
+      console.log(`[API] No classification data found for ${speciesName}`);
+      res.json({
+        scientificName: speciesName,
+        commonName: null,
+        kingdom: null,
+        phylum: null,
+        class: null,
+        order: null,
+        family: null,
+        genus: null,
+        species: null,
+        subspecies: null,
+        rank: null,
+        source: null
+      });
+      
+    } catch (error) {
+      console.error("Error fetching species classification:", error);
+      res.status(500).json({ error: "Failed to fetch species classification" });
+    }
+  });
+
   // Contributors species endpoint
   app.get("/api/contributors/species", async (req, res) => {
     try {
