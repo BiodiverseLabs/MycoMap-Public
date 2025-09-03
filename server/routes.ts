@@ -6106,6 +6106,215 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         allImages.push(...inatObservations.rows);
       }
 
+      // Always check iNaturalist cache directly for all observations of this species in the geographic bounds
+      console.log(`[Images API] Checking iNaturalist cache directly for ${scientificName} observations`);
+      let directInatObservations;
+      
+      if (monthStart && monthEnd) {
+        const startMonth = parseInt(monthStart as string);
+        const endMonth = parseInt(monthEnd as string);
+        if (startMonth <= endMonth) {
+          directInatObservations = await db.execute(sql`
+            SELECT 
+              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name as observer,
+              observed_on,
+              place_guess as state,
+              place_guess,
+              photo_url as image_link,
+              'iNaturalist' as source,
+              photo_index
+            FROM (
+              SELECT 
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name,
+                observed_on,
+                place_guess,
+                unnest(photos) as photo_url,
+                generate_subscripts(photos, 1) as photo_index
+              FROM inat_observations_cache
+              WHERE latitude IS NOT NULL 
+                AND longitude IS NOT NULL
+                AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+                AND CAST(latitude AS DECIMAL) >= ${querySouth}
+                AND CAST(longitude AS DECIMAL) <= ${queryEast}
+                AND CAST(longitude AS DECIMAL) >= ${queryWest}
+                AND scientific_name = ${scientificName}
+                AND photos IS NOT NULL
+                AND array_length(photos, 1) > 0
+                AND quality_grade = 'research'
+                AND EXTRACT(MONTH FROM observed_on) BETWEEN ${startMonth} AND ${endMonth}
+            ) t
+            ORDER BY observed_on DESC, photo_index
+          `);
+        } else {
+          directInatObservations = await db.execute(sql`
+            SELECT 
+              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name as observer,
+              observed_on,
+              place_guess as state,
+              place_guess,
+              photo_url as image_link,
+              'iNaturalist' as source,
+              photo_index
+            FROM (
+              SELECT 
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name,
+                observed_on,
+                place_guess,
+                unnest(photos) as photo_url,
+                generate_subscripts(photos, 1) as photo_index
+              FROM inat_observations_cache
+              WHERE latitude IS NOT NULL 
+                AND longitude IS NOT NULL
+                AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+                AND CAST(latitude AS DECIMAL) >= ${querySouth}
+                AND CAST(longitude AS DECIMAL) <= ${queryEast}
+                AND CAST(longitude AS DECIMAL) >= ${queryWest}
+                AND scientific_name = ${scientificName}
+                AND photos IS NOT NULL
+                AND array_length(photos, 1) > 0
+                AND quality_grade = 'research'
+                AND (EXTRACT(MONTH FROM observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM observed_on) <= ${endMonth})
+            ) t
+            ORDER BY observed_on DESC, photo_index
+          `);
+        }
+      } else if (monthStart) {
+        const startMonth = parseInt(monthStart as string);
+        directInatObservations = await db.execute(sql`
+          SELECT 
+            'iNat-' || inat_id || '-' || photo_index as observation_id,
+            inat_id,
+            scientific_name,
+            common_name,
+            user_name as observer,
+            observed_on,
+            place_guess as state,
+            place_guess,
+            photo_url as image_link,
+            'iNaturalist' as source,
+            photo_index
+          FROM (
+            SELECT 
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name,
+              observed_on,
+              place_guess,
+              unnest(photos) as photo_url,
+              generate_subscripts(photos, 1) as photo_index
+            FROM inat_observations_cache
+            WHERE latitude IS NOT NULL 
+              AND longitude IS NOT NULL
+              AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+              AND CAST(latitude AS DECIMAL) >= ${querySouth}
+              AND CAST(longitude AS DECIMAL) <= ${queryEast}
+              AND CAST(longitude AS DECIMAL) >= ${queryWest}
+              AND scientific_name = ${scientificName}
+              AND photos IS NOT NULL
+              AND array_length(photos, 1) > 0
+              AND quality_grade = 'research'
+              AND EXTRACT(MONTH FROM observed_on) >= ${startMonth}
+          ) t
+          ORDER BY observed_on DESC, photo_index
+        `);
+      } else if (monthEnd) {
+        const endMonth = parseInt(monthEnd as string);
+        directInatObservations = await db.execute(sql`
+          SELECT 
+            'iNat-' || inat_id || '-' || photo_index as observation_id,
+            inat_id,
+            scientific_name,
+            common_name,
+            user_name as observer,
+            observed_on,
+            place_guess as state,
+            place_guess,
+            photo_url as image_link,
+            'iNaturalist' as source,
+            photo_index
+          FROM (
+            SELECT 
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name,
+              observed_on,
+              place_guess,
+              unnest(photos) as photo_url,
+              generate_subscripts(photos, 1) as photo_index
+            FROM inat_observations_cache
+            WHERE latitude IS NOT NULL 
+              AND longitude IS NOT NULL
+              AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+              AND CAST(latitude AS DECIMAL) >= ${querySouth}
+              AND CAST(longitude AS DECIMAL) <= ${queryEast}
+              AND CAST(longitude AS DECIMAL) >= ${queryWest}
+              AND scientific_name = ${scientificName}
+              AND photos IS NOT NULL
+              AND array_length(photos, 1) > 0
+              AND quality_grade = 'research'
+              AND EXTRACT(MONTH FROM observed_on) <= ${endMonth}
+          ) t
+          ORDER BY observed_on DESC, photo_index
+        `);
+      } else {
+        directInatObservations = await db.execute(sql`
+          SELECT 
+            'iNat-' || inat_id || '-' || photo_index as observation_id,
+            inat_id,
+            scientific_name,
+            common_name,
+            user_name as observer,
+            observed_on,
+            place_guess as state,
+            place_guess,
+            photo_url as image_link,
+            'iNaturalist' as source,
+            photo_index
+          FROM (
+            SELECT 
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name,
+              observed_on,
+              place_guess,
+              unnest(photos) as photo_url,
+              generate_subscripts(photos, 1) as photo_index
+            FROM inat_observations_cache
+            WHERE latitude IS NOT NULL 
+              AND longitude IS NOT NULL
+              AND CAST(latitude AS DECIMAL) <= ${queryNorth}
+              AND CAST(latitude AS DECIMAL) >= ${querySouth}
+              AND CAST(longitude AS DECIMAL) <= ${queryEast}
+              AND CAST(longitude AS DECIMAL) >= ${queryWest}
+              AND scientific_name = ${scientificName}
+              AND photos IS NOT NULL
+              AND array_length(photos, 1) > 0
+              AND quality_grade = 'research'
+          ) t
+          ORDER BY observed_on DESC, photo_index
+        `);
+      }
+      
+      console.log(`[Images API] Found ${directInatObservations.rows.length} direct iNaturalist cache images for ${scientificName}`);
+      allImages.push(...directInatObservations.rows);
+
       // Include MO observations if includeInat is true (using cache-first approach)
       if (includeInatBool) {
         try {
