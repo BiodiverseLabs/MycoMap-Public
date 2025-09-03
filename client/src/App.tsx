@@ -37,6 +37,7 @@ import FieldGuides from "@/pages/FieldGuides";
 import FieldGuideCreate from "@/pages/FieldGuideCreate";
 import FieldGuideDetail from "@/pages/FieldGuideDetail";
 import SpeciesImageGallery from "@/pages/SpeciesImageGallery";
+import ApiDocumentation from "@/pages/ApiDocumentation";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -74,6 +75,7 @@ function Router() {
       <Route path="/admin/upload" component={AdminUpload} />
       <Route path="/admin/redlist" component={AdminRedList} />
       <Route path="/admin/settings" component={AdminSettings} />
+      <Route path="/api-docs" component={ApiDocumentation} />
       <Route path="/species/:name" component={SpeciesDetail} />
       <Route path="/species" component={Species} />
       <Route component={NotFound} />

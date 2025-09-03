@@ -18,7 +18,8 @@ import {
   Upload,
   ChevronDown,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  Code
 } from "lucide-react";
 import { Button } from "./button";
 import { useState, useEffect } from "react";
@@ -46,6 +47,7 @@ export function Sidebar() {
     { href: "/conservation", label: "Conservation", icon: Shield },
     { href: "/contributors", label: "Contributors", icon: Users },
     { href: "/records", label: "Records", icon: Trophy },
+    { href: "/api-docs", label: "API Documentation", icon: Code },
   ];
 
   const adminItems = [
