@@ -6112,7 +6112,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       try {
         const boundingBox = { north: queryNorth, south: querySouth, east: queryEast, west: queryWest };
         
-        // Check if we have cached data (same logic as species list)
+        // Check if we have cached data
         const cachedMetadata = await checkCacheForArea(fieldGuideId, expansionMiles, boundingBox);
         
         let inatObservations = [];
@@ -6121,12 +6121,50 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           console.log(`[Images API] Using cached iNaturalist data`);
           inatObservations = await getCachedObservations(boundingBox, monthStart as string, monthEnd as string);
         } else {
-          // Fetch fresh data and cache it (same as species list)
-          console.log(`[Images API] No cache found, fetching from iNaturalist API`);
-          const progressBroadcast = () => {}; // No-op for images endpoint
-          const freshObs = await fetchAndCacheInatData(fieldGuideId, expansionMiles, boundingBox, monthStart as string, monthEnd as string, progressBroadcast);
-          inatObservations = await getCachedObservations(boundingBox, monthStart as string, monthEnd as string);
-          console.log(`[Images API] Fetched and cached ${inatObservations.length} iNaturalist observations`);
+          // For images endpoint, fetch just this species instead of entire area (much faster!)
+          console.log(`[Images API] No cache found, fetching ${scientificName} specifically from iNaturalist`);
+          
+          // Build URL with species-specific search
+          const params = new URLSearchParams({
+            taxon_name: scientificName,
+            quality_grade: 'research',
+            photos: 'true',
+            nelat: queryNorth.toString(),
+            nelng: queryEast.toString(), 
+            swlat: querySouth.toString(),
+            swlng: queryWest.toString(),
+            per_page: '200'
+          });
+          
+          if (monthStart && monthEnd) {
+            const startMonth = parseInt(monthStart as string);
+            const endMonth = parseInt(monthEnd as string);
+            params.set('month', startMonth <= endMonth ? 
+              `${startMonth},${endMonth}` : 
+              `${startMonth},12,1,${endMonth}`);
+          }
+          
+          const url = `https://api.inaturalist.org/v1/observations?${params.toString()}`;
+          console.log(`[Images API] Fetching: ${url}`);
+          
+          const response = await fetch(url);
+          const data = await response.json();
+          
+          // Transform to cached format
+          inatObservations = data.results?.map((obs: any) => ({
+            inat_id: obs.id,
+            scientific_name: obs.taxon?.name,
+            common_name: obs.taxon?.preferred_common_name,
+            user_name: obs.user?.login,
+            observed_on: obs.observed_on,
+            place_guess: obs.place_guess,
+            photos: obs.photos?.map((p: any) => p.url?.replace('square', 'medium')) || [],
+            quality_grade: obs.quality_grade,
+            latitude: obs.geojson?.coordinates?.[1],
+            longitude: obs.geojson?.coordinates?.[0]
+          })) || [];
+          
+          console.log(`[Images API] Found ${inatObservations.length} ${scientificName} observations from iNaturalist`);
         }
         
         // Filter for our specific species and extract images
