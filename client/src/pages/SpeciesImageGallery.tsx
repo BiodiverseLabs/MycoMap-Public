@@ -188,38 +188,43 @@ export default function SpeciesImageGallery() {
   return (
     <div className="container mx-auto p-4 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          onClick={() => {
-            // Preserve URL parameters when going back
-            const currentParams = new URLSearchParams(window.location.search);
-            const queryString = currentParams.toString() ? `?${currentParams.toString()}` : '';
-            setLocation(`/field-guides/${fieldGuideId}${queryString}`);
-          }}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Field Guide
-        </Button>
-        
-        <div className="flex items-center space-x-2 ml-auto">
-          <Checkbox 
-            id="include-non-validated"
-            checked={includeNonValidated} 
-            onCheckedChange={setIncludeNonValidated} 
-          />
-          <Label htmlFor="include-non-validated" className="text-sm font-medium">
-            Include non-DNA Validated
-          </Label>
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              // Preserve URL parameters when going back
+              const currentParams = new URLSearchParams(window.location.search);
+              const queryString = currentParams.toString() ? `?${currentParams.toString()}` : '';
+              setLocation(`/field-guides/${fieldGuideId}${queryString}`);
+            }}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Field Guide
+          </Button>
+          
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              <em>{scientificName}</em>
+            </h1>
+            <p className="text-slate-600 mt-1">
+              Select a representative image for this species
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            <em>{scientificName}</em>
-          </h1>
-          <p className="text-slate-600 mt-1">
-            Select a representative image for this species
-          </p>
+        
+        <div className="flex justify-end">
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="include-non-validated"
+              checked={includeNonValidated} 
+              onCheckedChange={setIncludeNonValidated} 
+            />
+            <Label htmlFor="include-non-validated" className="text-sm font-medium">
+              Include non-DNA Validated
+            </Label>
+          </div>
         </div>
       </div>
 
