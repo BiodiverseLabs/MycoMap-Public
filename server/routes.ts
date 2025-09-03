@@ -1926,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fallback to observations table data
       const obsClassification = await db.execute(sql`
-        SELECT DISTINCT
+        SELECT 
           scientific_name,
           common_name,
           kingdom,
