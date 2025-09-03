@@ -417,22 +417,23 @@ export default function SpeciesDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="space-y-4 overflow-x-auto">
                     {/* Chart */}
-                    <div className="flex items-end justify-between h-32 gap-1">
+                    <div className="flex items-end justify-between h-32 gap-1 min-w-0 px-1">
                       {seasonalData.map((monthData: any) => {
                         const maxCount = Math.max(...seasonalData.map((m: any) => m.count));
                         const height = maxCount > 0 ? (monthData.count / maxCount) * 100 : 0;
                         
                         return (
-                          <div key={monthData.month} className="flex-1 flex flex-col items-center gap-1">
-                            <div className="text-xs text-slate-600 font-medium h-4">
+                          <div key={monthData.month} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                            <div className="text-xs text-slate-600 font-medium h-4 text-center">
                               {monthData.count > 0 ? monthData.count : ''}
                             </div>
                             <div className="w-full flex justify-center">
                               <div 
-                                className="w-8 bg-blue-500 rounded-sm transition-all duration-300"
+                                className="bg-blue-500 rounded-sm transition-all duration-300 mx-auto"
                                 style={{ 
+                                  width: 'min(32px, calc(100% - 2px))',
                                   height: `${Math.max(height * 0.8, monthData.count > 0 ? 4 : 0)}px`,
                                   maxHeight: '96px'
                                 }}
@@ -444,10 +445,10 @@ export default function SpeciesDetail() {
                     </div>
                     
                     {/* Month labels */}
-                    <div className="flex justify-between">
+                    <div className="flex justify-between px-1">
                       {seasonalData.map((monthData: any) => (
-                        <div key={monthData.month} className="flex-1 text-center">
-                          <div className="text-xs text-slate-600 font-medium">
+                        <div key={monthData.month} className="flex-1 text-center min-w-0">
+                          <div className="text-xs text-slate-600 font-medium truncate">
                             {monthData.month}
                           </div>
                         </div>
