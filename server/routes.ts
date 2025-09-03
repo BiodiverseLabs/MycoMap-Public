@@ -6163,8 +6163,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           });
         });
         
-        allImages.push(...inatImages);
-        console.log(`[Images API] Added ${inatImages.length} images from iNaturalist for ${scientificName}`);
+        // Extract existing iNaturalist IDs from database observations to avoid duplicates
+        const existingInatIds = new Set<string>();
+        allImages.forEach(img => {
+          // Extract base iNaturalist ID from various formats:
+          // "130418033" -> "130418033"
+          // "iNat-130418033-1" -> "130418033"
+          let baseId = img.observation_id;
+          if (baseId.startsWith('iNat-')) {
+            baseId = baseId.split('-')[1]; // Extract middle part from iNat-ID-photoIndex
+          }
+          // Only add if it's a numeric iNaturalist ID
+          if (/^\d+$/.test(baseId)) {
+            existingInatIds.add(baseId);
+          }
+        });
+        
+        // Filter out iNaturalist images that duplicate existing database observations
+        const deduplicatedInatImages = inatImages.filter(img => {
+          const inatId = img.observation_id.split('-')[1]; // Extract ID from "iNat-ID-photoIndex"
+          return !existingInatIds.has(inatId);
+        });
+        
+        allImages.push(...deduplicatedInatImages);
+        console.log(`[Images API] Added ${deduplicatedInatImages.length} images from iNaturalist for ${scientificName} (filtered ${inatImages.length - deduplicatedInatImages.length} duplicates)`);
         
         } catch (error) {
           console.error(`[Images API] Error fetching iNaturalist images for ${scientificName}:`, error);
