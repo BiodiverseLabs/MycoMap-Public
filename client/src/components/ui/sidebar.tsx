@@ -245,7 +245,7 @@ export function Sidebar() {
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4 border-b border-slate-200">
+        <div className="p-4 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
               <Microscope className="w-6 h-6 text-primary" />
@@ -257,29 +257,31 @@ export function Sidebar() {
           </div>
         </div>
         
-        <nav className="flex-1 p-4 space-y-2">
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            
-            return (
-              <Link key={item.href} href={item.href}>
-                <div
-                  className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left cursor-pointer ${
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </div>
-              </Link>
-            );
-          })}
-        </nav>
-        
-        <div className="p-4 border-t border-slate-200 space-y-2">
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          <nav className="p-4 space-y-2">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              
+              return (
+                <Link key={item.href} href={item.href}>
+                  <div
+                    className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left cursor-pointer ${
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </nav>
+          
+          <div className="p-4 border-t border-slate-200 space-y-2">
           <Link href="/updates">
             <div className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left cursor-pointer ${
               location === "/updates" || location.startsWith("/updates")
@@ -341,6 +343,7 @@ export function Sidebar() {
             )}
           </div>
         </div>
+      </div>
       </aside>
     </>
   );
