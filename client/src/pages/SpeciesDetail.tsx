@@ -6,7 +6,7 @@ import { FullscreenModal, FullscreenButton } from '@/components/ui/fullscreen-mo
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3, Camera, ExternalLink, TreePine, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3, Camera, ExternalLink, TreePine } from "lucide-react";
 
 declare global {
   interface Window {
@@ -68,7 +68,6 @@ export default function SpeciesDetail() {
   const [selectedState, setSelectedState] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all_time");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [imagePage, setImagePage] = useState(1);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const fullscreenMapRef = useRef<HTMLDivElement>(null);
@@ -109,12 +108,12 @@ export default function SpeciesDetail() {
     enabled: !!speciesName
   });
 
-  // Fetch species images using standard species API
+  // Fetch species images
   const { data: speciesImages = [], isLoading: imagesLoading } = useQuery({
     queryKey: ["/api/species", speciesName, "images", { state: selectedState }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        limit: '50' // Standard limit for species detail
+        limit: '20'
       });
       
       if (selectedState && selectedState !== "all") {
@@ -138,18 +137,6 @@ export default function SpeciesDetail() {
     },
     enabled: !!speciesName
   });
-
-  // Pagination calculations
-  const imagesPerPage = 8;
-  const totalPages = Math.ceil(speciesImages.length / imagesPerPage);
-  const startIndex = (imagePage - 1) * imagesPerPage;
-  const endIndex = startIndex + imagesPerPage;
-  const paginatedImages = speciesImages.slice(startIndex, endIndex);
-  
-  // Reset to page 1 when state filter changes
-  useEffect(() => {
-    setImagePage(1);
-  }, [selectedState]);
 
   // Get unique states for filter
   const states = useMemo(() => {
@@ -692,11 +679,6 @@ export default function SpeciesDetail() {
                     })
                   ).size} observations
                 </Badge>
-                {totalPages > 1 && (
-                  <div className="text-sm text-slate-600">
-                    Page {imagePage} of {totalPages}
-                  </div>
-                )}
               </div>
 
               {imagesLoading ? (
@@ -705,9 +687,8 @@ export default function SpeciesDetail() {
                   <p className="mt-4 text-slate-600">Loading images...</p>
                 </div>
               ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {paginatedImages.map((image) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {speciesImages.map((image) => (
                     <Card 
                       key={`${image.observationId}-${image.imageId}`}
                       className="transition-all hover:shadow-lg"
@@ -719,6 +700,55 @@ export default function SpeciesDetail() {
                             alt={`${image.scientificName} observation`}
                             className="w-full h-48 object-cover rounded-t-lg"
                             loading="lazy"
+                            onError={(e) => {
+                              const img = e.target as HTMLImageElement;
+                              const originalUrl = img.src;
+                              
+                              // Try fallback URLs for iNaturalist images
+                              if (originalUrl.includes('static.inaturalist.org') || originalUrl.includes('inaturalist-open-data.s3.amazonaws.com')) {
+                                // If currently medium, try large
+                                if (originalUrl.includes('/medium.')) {
+                                  img.src = originalUrl.replace('/medium.', '/large.');
+                                  return;
+                                }
+                                // If currently large, try small
+                                if (originalUrl.includes('/large.')) {
+                                  img.src = originalUrl.replace('/large.', '/small.');
+                                  return;
+                                }
+                                // If currently small, try square
+                                if (originalUrl.includes('/small.')) {
+                                  img.src = originalUrl.replace('/small.', '/square.');
+                                  return;
+                                }
+                                // If currently square, try original
+                                if (originalUrl.includes('/square.')) {
+                                  img.src = originalUrl.replace('/square.', '/original.');
+                                  return;
+                                }
+                                // Convert static.inaturalist.org to S3 URL
+                                if (originalUrl.includes('static.inaturalist.org')) {
+                                  img.src = originalUrl.replace('static.inaturalist.org', 'inaturalist-open-data.s3.amazonaws.com');
+                                  return;
+                                }
+                              }
+                              
+                              // Final fallback: hide the image
+                              img.style.display = 'none';
+                              const parent = img.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `
+                                  <div class="w-full h-48 bg-slate-200 rounded-t-lg flex items-center justify-center">
+                                    <div class="text-center text-slate-500">
+                                      <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                      </svg>
+                                      <p class="text-xs">Image unavailable</p>
+                                    </div>
+                                  </div>
+                                `;
+                              }
+                            }}
                           />
                           <div className="absolute top-2 right-2">
                             <div className="bg-slate-600 text-white rounded-full p-1 opacity-70">
@@ -772,59 +802,6 @@ export default function SpeciesDetail() {
                     </Card>
                   ))}
                 </div>
-                
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 mt-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setImagePage(Math.max(1, imagePage - 1))}
-                      disabled={imagePage === 1}
-                      className="flex items-center gap-1"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      Previous
-                    </Button>
-                    
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, index) => index + 1)
-                        .filter(page => {
-                          // Show current page, first, last, and pages around current
-                          return page === 1 || 
-                                 page === totalPages || 
-                                 Math.abs(page - imagePage) <= 1;
-                        })
-                        .map((page, index, filteredPages) => (
-                          <div key={page} className="flex items-center">
-                            {index > 0 && filteredPages[index - 1] !== page - 1 && (
-                              <span className="text-slate-400 px-2">...</span>
-                            )}
-                            <Button
-                              variant={page === imagePage ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setImagePage(page)}
-                              className="w-8 h-8 p-0"
-                            >
-                              {page}
-                            </Button>
-                          </div>
-                        ))}
-                    </div>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setImagePage(Math.min(totalPages, imagePage + 1))}
-                      disabled={imagePage === totalPages}
-                      className="flex items-center gap-1"
-                    >
-                      Next
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-                </>
               )}
               
               {!imagesLoading && speciesImages.length === 0 && (
