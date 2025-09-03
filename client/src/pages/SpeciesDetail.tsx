@@ -6,7 +6,7 @@ import { FullscreenModal, FullscreenButton } from '@/components/ui/fullscreen-mo
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3, Camera, ExternalLink, TreePine } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3, Camera, ExternalLink, TreePine, ChevronLeft, ChevronRight } from "lucide-react";
 
 declare global {
   interface Window {
@@ -68,6 +68,7 @@ export default function SpeciesDetail() {
   const [selectedState, setSelectedState] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all_time");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [imagePage, setImagePage] = useState(1);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const fullscreenMapRef = useRef<HTMLDivElement>(null);
@@ -137,6 +138,18 @@ export default function SpeciesDetail() {
     },
     enabled: !!speciesName
   });
+
+  // Pagination calculations
+  const imagesPerPage = 8;
+  const totalPages = Math.ceil(speciesImages.length / imagesPerPage);
+  const startIndex = (imagePage - 1) * imagesPerPage;
+  const endIndex = startIndex + imagesPerPage;
+  const paginatedImages = speciesImages.slice(startIndex, endIndex);
+  
+  // Reset to page 1 when state filter changes
+  useEffect(() => {
+    setImagePage(1);
+  }, [selectedState]);
 
   // Get unique states for filter
   const states = useMemo(() => {
@@ -679,6 +692,11 @@ export default function SpeciesDetail() {
                     })
                   ).size} observations
                 </Badge>
+                {totalPages > 1 && (
+                  <div className="text-sm text-slate-600">
+                    Page {imagePage} of {totalPages}
+                  </div>
+                )}
               </div>
 
               {imagesLoading ? (
@@ -687,8 +705,9 @@ export default function SpeciesDetail() {
                   <p className="mt-4 text-slate-600">Loading images...</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {speciesImages.map((image) => (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {paginatedImages.map((image) => (
                     <Card 
                       key={`${image.observationId}-${image.imageId}`}
                       className="transition-all hover:shadow-lg"
@@ -802,6 +821,59 @@ export default function SpeciesDetail() {
                     </Card>
                   ))}
                 </div>
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setImagePage(Math.max(1, imagePage - 1))}
+                      disabled={imagePage === 1}
+                      className="flex items-center gap-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, index) => index + 1)
+                        .filter(page => {
+                          // Show current page, first, last, and pages around current
+                          return page === 1 || 
+                                 page === totalPages || 
+                                 Math.abs(page - imagePage) <= 1;
+                        })
+                        .map((page, index, filteredPages) => (
+                          <div key={page} className="flex items-center">
+                            {index > 0 && filteredPages[index - 1] !== page - 1 && (
+                              <span className="text-slate-400 px-2">...</span>
+                            )}
+                            <Button
+                              variant={page === imagePage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setImagePage(page)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {page}
+                            </Button>
+                          </div>
+                        ))}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setImagePage(Math.min(totalPages, imagePage + 1))}
+                      disabled={imagePage === totalPages}
+                      className="flex items-center gap-1"
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                </>
               )}
               
               {!imagesLoading && speciesImages.length === 0 && (
