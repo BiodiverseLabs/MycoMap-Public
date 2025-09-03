@@ -6,7 +6,7 @@ import { FullscreenModal, FullscreenButton } from '@/components/ui/fullscreen-mo
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, TrendingUp, Users, Eye, Clock, BarChart3, Camera, ExternalLink } from "lucide-react";
 
 declare global {
   interface Window {
@@ -32,6 +32,18 @@ interface SpeciesDetailData {
   firstObserved: string | null;
   lastObserved: string | null;
   stateCount: number | null;
+}
+
+interface ObservationImage {
+  observationId: string;
+  imageUrl: string;
+  imageId: string;
+  observer: string | null;
+  observedOn: string | null;
+  state: string | null;
+  placeGuess: string | null;
+  source: string;
+  scientificName: string;
 }
 
 export default function SpeciesDetail() {
@@ -77,6 +89,25 @@ export default function SpeciesDetail() {
       if (!response.ok) throw new Error('Failed to fetch species details');
       const data = await response.json();
       return data[0] || null;
+    },
+    enabled: !!speciesName
+  });
+
+  // Fetch species images
+  const { data: speciesImages = [], isLoading: imagesLoading } = useQuery({
+    queryKey: ["/api/species", speciesName, "images", { state: selectedState }],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: '20'
+      });
+      
+      if (selectedState && selectedState !== "all") {
+        params.append('state', selectedState);
+      }
+      
+      const response = await fetch(`/api/species/${encodeURIComponent(speciesName)}/images?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch species images');
+      return response.json() as Promise<ObservationImage[]>;
     },
     enabled: !!speciesName
   });
@@ -163,6 +194,16 @@ export default function SpeciesDetail() {
       statesCount: Object.keys(stateDistribution).length
     };
   }, [observations]);
+
+  // Helper function to format dates
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Unknown date';
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch {
+      return dateStr;
+    }
+  };
 
   // Function to create and initialize a map instance
   const createMapInstance = (container: HTMLDivElement, mapInstance: React.MutableRefObject<any>) => {
@@ -530,6 +571,118 @@ export default function SpeciesDetail() {
             )}
           </div>
         </div>
+
+        {/* Observation Images Gallery */}
+        {speciesImages.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                Observation Images
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between mb-6">
+                <Badge variant="secondary" className="text-sm">
+                  {speciesImages.length} images from {new Set(
+                    speciesImages.map(img => {
+                      // Extract base observation ID
+                      const id = img.observationId;
+                      if (id.includes('-')) {
+                        return id.split('-')[0];
+                      }
+                      return id;
+                    })
+                  ).size} observations
+                </Badge>
+              </div>
+
+              {imagesLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-4 text-slate-600">Loading images...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {speciesImages.map((image) => (
+                    <Card 
+                      key={`${image.observationId}-${image.imageId}`}
+                      className="transition-all hover:shadow-lg"
+                    >
+                      <CardContent className="p-0">
+                        <div className="relative">
+                          <img
+                            src={image.imageUrl}
+                            alt={`${image.scientificName} observation`}
+                            className="w-full h-48 object-cover rounded-t-lg"
+                            loading="lazy"
+                          />
+                          <div className="absolute top-2 right-2">
+                            <div className="bg-slate-600 text-white rounded-full p-1 opacity-70">
+                              <Camera className="w-3 h-3" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-3 space-y-2">
+                          {/* Platform and Link */}
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-xs">
+                              {image.source}
+                            </Badge>
+                            {image.source === 'iNaturalist' && (
+                              <a 
+                                href={`https://www.inaturalist.org/observations/${
+                                  image.observationId.includes('-') 
+                                    ? image.observationId.split('-')[0]
+                                    : image.observationId
+                                }`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                          
+                          {/* Observer */}
+                          {image.observer && (
+                            <div className="text-xs text-slate-600 truncate">
+                              <strong>Observer:</strong> {image.observer}
+                            </div>
+                          )}
+                          
+                          {/* Date */}
+                          <div className="text-xs text-slate-600">
+                            <strong>Date:</strong> {formatDate(image.observedOn)}
+                          </div>
+                          
+                          {/* Location */}
+                          {image.state && (
+                            <div className="text-xs text-slate-600 truncate">
+                              <strong>Location:</strong> {image.placeGuess || image.state}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              
+              {!imagesLoading && speciesImages.length === 0 && (
+                <div className="text-center py-8">
+                  <Camera className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No images found</h3>
+                  <p className="text-slate-600">
+                    No observations with images were found for <em>{speciesName}</em>{selectedState !== 'all' ? ` in ${selectedState}` : ''}.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Fullscreen Modal */}
         <FullscreenModal

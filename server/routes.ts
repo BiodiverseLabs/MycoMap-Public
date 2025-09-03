@@ -1783,6 +1783,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Species images endpoint
+  app.get("/api/species/:name/images", async (req, res) => {
+    try {
+      const speciesName = decodeURIComponent(req.params.name);
+      const { state, limit: limitParam } = req.query;
+      const limit = limitParam ? parseInt(limitParam as string) : 50;
+      
+      console.log(`[API] Getting images for species: ${speciesName}`);
+      
+      // Get observations for this species with image data
+      const images = await db.execute(sql`
+        WITH observation_images AS (
+          SELECT DISTINCT
+            o.observation_id,
+            o.scientific_name,
+            o.state,
+            o.observed_on,
+            o.place_guess,
+            o.collector as observer,
+            o.source,
+            o.image_link,
+            ind.photos,
+            ROW_NUMBER() OVER (PARTITION BY o.observation_id ORDER BY o.id) as rn
+          FROM observations o
+          LEFT JOIN inaturalist_data ind ON o.observation_id = ind.observation_id
+          WHERE LOWER(o.scientific_name) = LOWER(${speciesName})
+            AND (o.image_link IS NOT NULL OR ind.photos IS NOT NULL)
+            ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
+        )
+        SELECT 
+          observation_id,
+          scientific_name,
+          state,
+          observed_on,
+          place_guess,
+          observer,
+          source,
+          image_link,
+          photos
+        FROM observation_images 
+        WHERE rn = 1
+        ORDER BY observed_on DESC NULLS LAST
+        LIMIT ${limit}
+      `);
+      
+      // Transform results into image gallery format
+      const imageGallery: any[] = [];
+      
+      images.rows.forEach((row: any) => {
+        const observationId = row.observation_id;
+        const baseData = {
+          scientificName: row.scientific_name,
+          state: row.state,
+          observedOn: row.observed_on,
+          placeGuess: row.place_guess,
+          observer: row.observer,
+          source: row.source
+        };
+        
+        // Add primary image from observations table
+        if (row.image_link) {
+          imageGallery.push({
+            observationId: observationId,
+            imageUrl: row.image_link,
+            imageId: `primary-${observationId}`,
+            ...baseData
+          });
+        }
+        
+        // Add photos from iNaturalist data
+        if (row.photos && Array.isArray(row.photos)) {
+          row.photos.forEach((photoUrl: string, index: number) => {
+            // Convert square URLs to medium for better display
+            const imageUrl = photoUrl.includes('square') ? 
+              photoUrl.replace('square', 'medium') : photoUrl;
+            
+            imageGallery.push({
+              observationId: `${observationId}-${index}`,
+              imageUrl: imageUrl,
+              imageId: `inat-${observationId}-${index}`,
+              ...baseData
+            });
+          });
+        }
+      });
+      
+      console.log(`[API] Returning ${imageGallery.length} images for ${speciesName}`);
+      res.json(imageGallery);
+    } catch (error) {
+      console.error("Error fetching species images:", error);
+      res.status(500).json({ error: "Failed to fetch species images" });
+    }
+  });
+
   // Contributors species endpoint
   app.get("/api/contributors/species", async (req, res) => {
     try {
