@@ -5517,8 +5517,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
               AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
               AND o.scientific_name = ${scientificName}
-              AND o.image_link IS NOT NULL
-              AND o.image_link != ''
               AND EXTRACT(MONTH FROM o.observed_on) BETWEEN ${startMonth} AND ${endMonth}
             ORDER BY o.observed_on DESC
           `);
@@ -5547,8 +5545,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
               AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
               AND o.scientific_name = ${scientificName}
-              AND o.image_link IS NOT NULL
-              AND o.image_link != ''
               AND (EXTRACT(MONTH FROM o.observed_on) >= ${startMonth} OR EXTRACT(MONTH FROM o.observed_on) <= ${endMonth})
             ORDER BY o.observed_on DESC
           `);
@@ -5564,13 +5560,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             o.observed_on,
             o.state,
             o.place_guess,
-            o.image_link,
-            CASE 
-              WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
-              WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
-              WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
-              ELSE 'Database'
-            END as source
+'Database' as source
           FROM observations o
           WHERE o.latitude IS NOT NULL 
             AND o.longitude IS NOT NULL
@@ -5579,8 +5569,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
             AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
             AND o.scientific_name = ${scientificName}
-            AND o.image_link IS NOT NULL
-            AND o.image_link != ''
             AND EXTRACT(MONTH FROM o.observed_on) >= ${startMonth}
           ORDER BY o.observed_on DESC
         `);
@@ -5595,13 +5583,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             o.observed_on,
             o.state,
             o.place_guess,
-            o.image_link,
-            CASE 
-              WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
-              WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
-              WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
-              ELSE 'Database'
-            END as source
+'Database' as source
           FROM observations o
           WHERE o.latitude IS NOT NULL 
             AND o.longitude IS NOT NULL
@@ -5610,8 +5592,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
             AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
             AND o.scientific_name = ${scientificName}
-            AND o.image_link IS NOT NULL
-            AND o.image_link != ''
             AND EXTRACT(MONTH FROM o.observed_on) <= ${endMonth}
           ORDER BY o.observed_on DESC
         `);
@@ -5625,13 +5605,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             o.observed_on,
             o.state,
             o.place_guess,
-            o.image_link,
-            CASE 
-              WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
-              WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
-              WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
-              ELSE 'Database'
-            END as source
+'Database' as source
           FROM observations o
           WHERE o.latitude IS NOT NULL 
             AND o.longitude IS NOT NULL
@@ -5640,17 +5614,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             AND CAST(o.longitude AS DECIMAL) <= ${queryEast}
             AND CAST(o.longitude AS DECIMAL) >= ${queryWest}
             AND o.scientific_name = ${scientificName}
-            AND o.image_link IS NOT NULL
-            AND o.image_link != ''
           ORDER BY o.observed_on DESC
         `);
       }
 
       let allImages = [...speciesObservations.rows];
 
-      // Always check iNaturalist cache for additional photos from iNaturalist observations in main table
+      // Check database observations that are iNaturalist IDs (numeric) and fetch their images from iNaturalist
       const inatObservationsInMainTable = speciesObservations.rows
-        .filter(row => row.source === 'iNaturalist')
+        .filter(row => row.source === 'Database' && /^\d+$/.test(row.observation_id))
         .map(row => row.observation_id);
       
       if (inatObservationsInMainTable.length > 0) {
@@ -5844,10 +5816,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         // Smart fallback: Keep main DB images when cache is empty, replace when cache has data
         if (allInatCachePhotos.length > 0) {
-          // Cache has photos - replace main DB images with detailed cache versions
-          allImages = allImages.filter(img => img.source !== 'iNaturalist');
+          // Cache has photos - replace database observations (that are iNaturalist IDs) with detailed cache versions
+          allImages = allImages.filter(img => !(img.source === 'Database' && /^\d+$/.test(img.observation_id)));
           allImages.push(...allInatCachePhotos);
-          console.log(`[Images API] Replaced main DB images with ${allInatCachePhotos.length} photos from iNaturalist cache`);
+          console.log(`[Images API] Replaced database iNaturalist observations with ${allInatCachePhotos.length} photos from iNaturalist cache`);
         } else {
           // Cache is empty - fetch fresh data from iNaturalist API
           console.log(`[Images API] Cache empty for ${inatObservationsInMainTable.length} observations - fetching fresh data from API`);
@@ -5882,8 +5854,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             }
             
             if (freshInatData.length > 0) {
-              // Replace main DB images with fresh API data
-              allImages = allImages.filter(img => img.source !== 'iNaturalist');
+              // Replace database observations (that are iNaturalist IDs) with fresh API data
+              allImages = allImages.filter(img => !(img.source === 'Database' && /^\d+$/.test(img.observation_id)));
               allImages.push(...freshInatData);
               console.log(`[Images API] Fetched ${freshInatData.length} fresh photos from iNaturalist API`);
             } else {
