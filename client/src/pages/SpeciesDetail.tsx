@@ -111,7 +111,7 @@ export default function SpeciesDetail() {
 
   // Fetch species images using comprehensive species API
   const { data: speciesImages = [], isLoading: imagesLoading } = useQuery({
-    queryKey: ["/api/species", speciesName, "images", { state: selectedState }],
+    queryKey: ["/api/species", speciesName, "images", { state: selectedState, comprehensive: true }],
     queryFn: async () => {
       const params = new URLSearchParams({
         limit: '200', // Get all observations, not just 50
