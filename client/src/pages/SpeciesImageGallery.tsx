@@ -208,9 +208,7 @@ export default function SpeciesImageGallery() {
             <h1 className="text-3xl font-bold text-slate-900">
               <em>{scientificName}</em>
             </h1>
-            <p className="text-slate-600 mt-1">
-              Select a representative image for this species
-            </p>
+            <p className="text-slate-600 mt-1">Examine the DNA-validated images of this species</p>
           </div>
         </div>
         
@@ -227,8 +225,6 @@ export default function SpeciesImageGallery() {
           </div>
         </div>
       </div>
-
-
       {/* Images Grid */}
       {images.length === 0 ? (
         <Card>
