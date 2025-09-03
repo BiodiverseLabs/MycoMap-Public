@@ -109,13 +109,12 @@ export default function SpeciesDetail() {
     enabled: !!speciesName
   });
 
-  // Fetch species images using comprehensive species API
+  // Fetch species images using standard species API
   const { data: speciesImages = [], isLoading: imagesLoading } = useQuery({
-    queryKey: ["/api/species", speciesName, "images", { state: selectedState, comprehensive: true }],
+    queryKey: ["/api/species", speciesName, "images", { state: selectedState }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        limit: '200', // Get all observations, not just 50
-        comprehensive: 'true' // Flag for comprehensive data sources
+        limit: '50' // Standard limit for species detail
       });
       
       if (selectedState && selectedState !== "all") {
