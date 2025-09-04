@@ -2013,7 +2013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY o.observed_on DESC NULLS LAST, o.observation_id
       `;
       
-      const cacheResults = await db.query(cacheQuery, [decodeURIComponent(req.params.speciesName)]);
+      const cacheResults = await pool.query(cacheQuery, [decodeURIComponent(req.params.speciesName)]);
       
       for (const row of cacheResults.rows) {
         if (row.cached_photos && Array.isArray(row.cached_photos) && row.cached_photos.length > 0) {
@@ -2036,25 +2036,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           successCount++;
         } else {
-          // ❌ DEPRECATED FALLBACK - image_link contains stale URLs - this should be eliminated
-          const fallbackRow = allObservations.rows.find(obs => obs.observation_id === row.observation_id);
-          if (fallbackRow?.image_link) {
-            expandedImages.push({
-              observationId: row.observation_id,
-              imageUrl: fallbackRow.image_link,
-              imageId: row.observation_id,
-              observer: row.observer,
-              observedOn: row.observed_on,
-              state: row.state,
-              placeGuess: row.place_guess,
-              source: row.source,
-              scientificName: row.scientific_name,
-              isSelected: false
-            });
-            successCount++;
-          } else {
-            errorCount++;
-          }
+          // NO FALLBACK - if no cached photos exist, skip this observation entirely
+          errorCount++;
         }
       }
       
