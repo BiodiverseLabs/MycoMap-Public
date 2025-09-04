@@ -1,16 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Download, ExternalLink, MapPin } from "lucide-react";
+import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useMemo } from "react";
 import type { Observation } from "@shared/schema";
 
 export default function Updates() {
   const { data: nameUpdates = [], isLoading: nameLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations/name-updates"]
   });
+
+  // State for Name Updates filtering and sorting
+  const [nameUpdateSourceFilter, setNameUpdateSourceFilter] = useState<string>('all');
+  const [nameUpdateSortOrder, setNameUpdateSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const { data: classificationUpdates = [], isLoading: classificationLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations/classification-updates"]
@@ -23,6 +29,32 @@ export default function Updates() {
   const { data: missingGPS = [], isLoading: gpsLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations/missing-gps"]
   });
+
+  // Filtered and sorted name updates
+  const filteredAndSortedNameUpdates = useMemo(() => {
+    let filtered = nameUpdates;
+    
+    // Apply source filter
+    if (nameUpdateSourceFilter !== 'all') {
+      filtered = nameUpdates.filter(record => record.source === nameUpdateSourceFilter);
+    }
+    
+    // Apply sorting by source
+    filtered.sort((a, b) => {
+      const sourceA = a.source || 'Unknown';
+      const sourceB = b.source || 'Unknown';
+      const comparison = sourceA.localeCompare(sourceB);
+      return nameUpdateSortOrder === 'asc' ? comparison : -comparison;
+    });
+    
+    return filtered;
+  }, [nameUpdates, nameUpdateSourceFilter, nameUpdateSortOrder]);
+
+  // Get unique sources from nameUpdates
+  const availableSources = useMemo(() => {
+    const sources = Array.from(new Set(nameUpdates.map(record => record.source).filter((source): source is string => Boolean(source))));
+    return sources.sort();
+  }, [nameUpdates]);
 
   const downloadRecords = (records: Observation[], type: string) => {
     const csv = convertToCSV(records);
@@ -95,18 +127,47 @@ export default function Updates() {
               <div className="flex items-center space-x-2">
                 <CardTitle className="text-xl">Name Updates Needed</CardTitle>
                 <Badge variant="destructive" className="ml-2">
-                  {nameLoading ? "..." : nameUpdates.length}
+                  {nameLoading ? "..." : filteredAndSortedNameUpdates.length}
                 </Badge>
+                {nameUpdateSourceFilter !== 'all' && (
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {nameUpdateSourceFilter} only
+                  </Badge>
+                )}
               </div>
-              <Button
-                onClick={() => downloadRecords(nameUpdates, 'name')}
-                disabled={nameLoading || nameUpdates.length === 0}
-                size="sm"
-                variant="outline"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download Records
-              </Button>
+              <div className="flex items-center gap-2">
+                <Select value={nameUpdateSourceFilter} onValueChange={setNameUpdateSourceFilter}>
+                  <SelectTrigger className="w-40">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    {availableSources.map((source) => (
+                      <SelectItem key={source} value={source}>
+                        {source}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => setNameUpdateSortOrder(nameUpdateSortOrder === 'asc' ? 'desc' : 'asc')}
+                  variant="ghost"
+                  size="sm"
+                >
+                  <ArrowUpDown className="w-4 h-4 mr-2" />
+                  Sort {nameUpdateSortOrder === 'asc' ? '↑' : '↓'}
+                </Button>
+                <Button
+                  onClick={() => downloadRecords(filteredAndSortedNameUpdates, 'name')}
+                  disabled={nameLoading || filteredAndSortedNameUpdates.length === 0}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Records
+                </Button>
+              </div>
             </div>
             <CardDescription>
               Records missing species or variety identification requiring taxonomic name updates
@@ -117,9 +178,11 @@ export default function Updates() {
               <div className="flex items-center justify-center py-8">
                 <div className="text-slate-500">Loading records...</div>
               </div>
-            ) : nameUpdates.length === 0 ? (
+            ) : filteredAndSortedNameUpdates.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <div className="text-slate-500">No name updates needed</div>
+                <div className="text-slate-500">
+                  {nameUpdateSourceFilter === 'all' ? 'No name updates needed' : `No name updates needed for ${nameUpdateSourceFilter}`}
+                </div>
               </div>
             ) : (
               <ScrollArea className="h-96">
@@ -136,7 +199,7 @@ export default function Updates() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {nameUpdates.slice(0, 100).map((record) => (
+                    {filteredAndSortedNameUpdates.slice(0, 100).map((record) => (
                       <TableRow key={record.id}>
                         <TableCell className="font-mono text-sm">
                           {record.observationId}
@@ -170,9 +233,9 @@ export default function Updates() {
                     ))}
                   </TableBody>
                 </Table>
-                {nameUpdates.length > 100 && (
+                {filteredAndSortedNameUpdates.length > 100 && (
                   <div className="mt-4 text-center text-sm text-slate-500">
-                    Showing first 100 of {nameUpdates.length} records. Download for complete list.
+                    Showing first 100 of {filteredAndSortedNameUpdates.length} records. Download for complete list.
                   </div>
                 )}
               </ScrollArea>
@@ -482,12 +545,12 @@ export default function Updates() {
                         return (
                           <TableRow key={record.id}>
                             <TableCell className="font-mono text-sm">
-                              {record.observation_id || record.observationId}
+                              {record.observationId}
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium">{record.scientific_name || record.scientificName}</div>
-                              {(record.common_name || record.commonName) && (
-                                <div className="text-sm text-slate-500">{record.common_name || record.commonName}</div>
+                              <div className="font-medium">{record.scientificName}</div>
+                              {record.commonName && (
+                                <div className="text-sm text-slate-500">{record.commonName}</div>
                               )}
                             </TableCell>
                             <TableCell>
