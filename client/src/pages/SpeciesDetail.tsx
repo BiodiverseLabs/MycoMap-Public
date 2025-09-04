@@ -126,17 +126,9 @@ export default function SpeciesDetail() {
       }
       
       const url = `/api/species/${encodeURIComponent(speciesName)}/images?${params}`;
-      console.log(`[SpeciesDetail] Fetching images from: ${url}`);
-      
       const response = await fetch(url);
-      if (!response.ok) {
-        console.error(`[SpeciesDetail] Failed to fetch images: ${response.status} ${response.statusText}`);
-        throw new Error('Failed to fetch species images');
-      }
-      
-      const data = await response.json();
-      console.log(`[SpeciesDetail] Received ${data?.length || 0} images for ${speciesName}`, data);
-      return data as ObservationImage[];
+      if (!response.ok) throw new Error('Failed to fetch species images');
+      return response.json() as Promise<ObservationImage[]>;
     },
     enabled: !!speciesName
   });
@@ -699,10 +691,6 @@ export default function SpeciesDetail() {
         </div>
 
         {/* Observation Images Gallery */}
-        {(() => {
-          console.log(`[SpeciesDetail] Rendering check - speciesImages.length: ${speciesImages.length}, imagesLoading: ${imagesLoading}, speciesImages:`, speciesImages);
-          return null;
-        })()}
         {speciesImages.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
