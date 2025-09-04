@@ -144,7 +144,7 @@ export default function SpeciesDetail() {
       if (!response.ok) throw new Error('Failed to fetch species images');
       return response.json();
     },
-    getNextPageParam: (lastPage) => {
+    getNextPageParam: (lastPage: any) => {
       return lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined;
     },
     initialPageParam: 1,
@@ -152,9 +152,9 @@ export default function SpeciesDetail() {
   });
 
   // Flatten all loaded images from all pages
-  const speciesImages = speciesImagesData?.pages.flatMap(page => page.images) || [];
-  const totalImages = speciesImagesData?.pages[0]?.total || 0;
-  const totalObservations = speciesImagesData?.pages[0]?.totalObservations || 0;
+  const speciesImages = speciesImagesData?.pages?.flatMap((page: any) => page.images) || [];
+  const totalImages = speciesImagesData?.pages?.[0]?.total || 0;
+  const totalObservations = speciesImagesData?.pages?.[0]?.totalObservations || 0;
 
   // Fetch species classification
   const { data: classification, isLoading: classificationLoading } = useQuery({
