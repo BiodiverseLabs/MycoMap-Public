@@ -1990,6 +1990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // FIELD GUIDE PROTOCOL: Check cache first, then bulk API for missing data
+      // JOIN on actual iNaturalist ID stored in inaturalist_data.inat_id, not observation_id
       const cacheQuery = `
         SELECT 
           o.observation_id,
@@ -2006,9 +2007,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ELSE NULL
           END as cached_photos
         FROM observations o
-        LEFT JOIN inaturalist_data inat ON o.observation_id = inat.observation_id AND o.source = 'iNaturalist'
-        LEFT JOIN mushroom_observer_data mo ON o.observation_id = mo.observation_id AND o.source = 'Mushroom Observer'  
-        LEFT JOIN mycoportal_data myco ON o.observation_id = myco.observation_id AND o.source = 'MyCoPortal'
+        LEFT JOIN inaturalist_data inat ON o.observation_id = inat.inat_id AND o.source = 'iNaturalist'
+        LEFT JOIN mushroom_observer_data mo ON o.observation_id = mo.mo_id AND o.source = 'Mushroom Observer'  
+        LEFT JOIN mycoportal_data myco ON o.observation_id = myco.catalog_number AND o.source = 'MyCoPortal'
         WHERE o.scientific_name = $1
         ORDER BY o.observed_on DESC NULLS LAST, o.observation_id
       `;
