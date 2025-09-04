@@ -2004,20 +2004,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API Results] Success: ${successCount}/${allObservations.rows.length} (${Math.round(successCount/allObservations.rows.length*100)}%) - Errors: ${errorCount}`);
       
-      // Apply pagination to the final expandedImages array
-      const startIndex = (page - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      const paginatedImages = expandedImages.slice(startIndex, endIndex);
-      
-      console.log(`[Species Images API] Returning ${paginatedImages.length} images for ${scientificName} (page ${page}/${Math.ceil(expandedImages.length / itemsPerPage)}) - Total expanded: ${expandedImages.length} images`);
-      
-      res.json({
-        images: paginatedImages,
-        totalPages: Math.ceil(expandedImages.length / itemsPerPage),
-        currentPage: page,
-        totalImages: expandedImages.length,
-        totalObservations: allObservations.rows.length
-      });
       const sortedImages = expandedImages
         .sort((a, b) => {
           // Sort order: iNaturalist first, Database/Sequences second, MO/MycoPortal last
