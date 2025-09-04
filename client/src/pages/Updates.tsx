@@ -45,23 +45,29 @@ export default function Updates() {
 
   // Load cached data for iNaturalist observations on page load
   useEffect(() => {
+    console.log('[Auto-load] useEffect triggered, nameUpdates.length:', nameUpdates.length);
     if (nameUpdates.length > 0) {
       const inatObservationIds = nameUpdates
         .filter(record => record.source === 'iNaturalist')
         .map(record => record.observationId);
       
+      console.log('[Auto-load] iNaturalist observation IDs found:', inatObservationIds);
+      
       if (inatObservationIds.length > 0) {
+        console.log('[Auto-load] Making API call to get cached data');
         apiRequest('POST', '/api/observations/get-cached-data', { observationIds: inatObservationIds })
         .then(async (response) => {
           const data = await response.json();
+          console.log('[Auto-load] Received cached data:', data);
           if (data.cachedData) {
+            console.log('[Auto-load] Setting API data:', data.cachedData);
             setApiData(prev => ({
               ...prev,
               ...data.cachedData
             }));
           }
         }).catch((error) => {
-          console.error('Failed to load cached data:', error);
+          console.error('[Auto-load] Failed to load cached data:', error);
         });
       }
     }
