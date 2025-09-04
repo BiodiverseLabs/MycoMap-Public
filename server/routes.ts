@@ -1968,19 +1968,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Species Images API] Found ${speciesImages.rows.length} images for ${scientificName} (page ${page})`);
       let allImages = [...speciesImages.rows];
 
-      // Step 2: Format response directly from paginated results
-      const images = speciesImages.rows.map((row: any) => ({
-        observationId: row.observation_id,
-        imageUrl: row.image_link,
-        imageId: row.observation_id,
-        observer: row.observer,
-        observedOn: row.observed_on,
-        state: row.state,
-        placeGuess: row.place_guess,
-        source: row.source,
-        scientificName: row.scientific_name,
-        isSelected: false
-      })).filter(img => img.imageUrl)
+      // Step 2: Format response and expand iNaturalist observations with multiple images
+      const images = [];
+      
+      for (const row of speciesImages.rows) {
+        if (row.source === 'iNaturalist') {
+          // For iNaturalist observations, fetch additional images from API
+          try {
+            const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`);
+            if (inatResponse.ok) {
+              const inatData = await inatResponse.json();
+              if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
+                const photos = inatData.results[0].photos;
+                // Add each photo as a separate image
+                photos.forEach((photo: any, index: number) => {
+                  images.push({
+                    observationId: row.observation_id,
+                    imageUrl: photo.url.replace('square', 'large'),
+                    imageId: `${row.observation_id}-${index}`,
+                    observer: row.observer,
+                    observedOn: row.observed_on,
+                    state: row.state,
+                    placeGuess: row.place_guess,
+                    source: row.source,
+                    scientificName: row.scientific_name,
+                    isSelected: false
+                  });
+                });
+              } else {
+                // Fallback to single image if no photos in API
+                images.push({
+                  observationId: row.observation_id,
+                  imageUrl: row.image_link,
+                  imageId: row.observation_id,
+                  observer: row.observer,
+                  observedOn: row.observed_on,
+                  state: row.state,
+                  placeGuess: row.place_guess,
+                  source: row.source,
+                  scientificName: row.scientific_name,
+                  isSelected: false
+                });
+              }
+            } else {
+              // API failed, use original image
+              images.push({
+                observationId: row.observation_id,
+                imageUrl: row.image_link,
+                imageId: row.observation_id,
+                observer: row.observer,
+                observedOn: row.observed_on,
+                state: row.state,
+                placeGuess: row.place_guess,
+                source: row.source,
+                scientificName: row.scientific_name,
+                isSelected: false
+              });
+            }
+          } catch (error) {
+            console.error(`Error fetching iNaturalist images for ${row.observation_id}:`, error);
+            // Fallback to original image
+            images.push({
+              observationId: row.observation_id,
+              imageUrl: row.image_link,
+              imageId: row.observation_id,
+              observer: row.observer,
+              observedOn: row.observed_on,
+              state: row.state,
+              placeGuess: row.place_guess,
+              source: row.source,
+              scientificName: row.scientific_name,
+              isSelected: false
+            });
+          }
+        } else {
+          // Non-iNaturalist sources, keep single image
+          images.push({
+            observationId: row.observation_id,
+            imageUrl: row.image_link,
+            imageId: row.observation_id,
+            observer: row.observer,
+            observedOn: row.observed_on,
+            state: row.state,
+            placeGuess: row.place_guess,
+            source: row.source,
+            scientificName: row.scientific_name,
+            isSelected: false
+          });
+        }
+      }
+      
+      // Apply original sorting
+      const sortedImages = images.filter(img => img.imageUrl)
         .sort((a, b) => {
           // Sort order: iNaturalist first, Database/Sequences second, MO/MycoPortal last
           const getSourcePriority = (source: string) => {
@@ -1992,9 +2071,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return getSourcePriority(a.source) - getSourcePriority(b.source);
         });
       
-      console.log(`[Species Images API] Returning ${images.length} images for ${scientificName} (page ${page}/${Math.ceil(totalImages/pageSize)})`);
+      console.log(`[Species Images API] Returning ${sortedImages.length} images for ${scientificName} (page ${page}/${Math.ceil(totalImages/pageSize)})`);
       res.json({
-        images,
+        images: sortedImages,
         total: totalImages,
         totalObservations: totalObservations,
         page,
