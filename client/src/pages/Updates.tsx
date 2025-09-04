@@ -223,10 +223,26 @@ export default function Updates() {
       const response = await apiRequest('GET', '/api/observations/name-updates');
       const allNameUpdates = await response.json();
       const allInatRecords = allNameUpdates.filter((record: any) => record.source === 'iNaturalist');
-      const allObservationIds = allInatRecords.map((record: any) => record.observationId);
+      
+      // Skip records that have recent cache data (updated within last 24 hours)
+      const recordsNeedingRefresh = allInatRecords.filter((record: any) => {
+        // Skip if API was saved recently and successfully
+        if (record.inatApiSaved && record.inatApiSaveDate) {
+          const saveDate = new Date(record.inatApiSaveDate);
+          const hoursSinceUpdate = (Date.now() - saveDate.getTime()) / (1000 * 60 * 60);
+          return hoursSinceUpdate > 24; // Only refresh if older than 24 hours
+        }
+        return true; // Needs refresh if no API data saved
+      });
+      
+      const allObservationIds = recordsNeedingRefresh.map((record: any) => record.observationId);
+      const skippedCount = allInatRecords.length - recordsNeedingRefresh.length;
       
       if (allObservationIds.length === 0) {
-        toast({ title: "Info", description: "No iNaturalist records to refresh" });
+        const message = skippedCount > 0 
+          ? `All ${skippedCount} iNaturalist records have been updated within the last 24 hours`
+          : "No iNaturalist records to refresh";
+        toast({ title: "Info", description: message });
         return;
       }
       
@@ -235,9 +251,10 @@ export default function Updates() {
       const totalBatches = Math.ceil(allObservationIds.length / batchSize);
       let processedBatches = 0;
       
+      const skipMessage = skippedCount > 0 ? ` (${skippedCount} skipped - updated recently)` : "";
       toast({ 
         title: "Starting Bulk Refresh", 
-        description: `Processing ${allObservationIds.length} iNaturalist records in ${totalBatches} batches...` 
+        description: `Processing ${allObservationIds.length} iNaturalist records in ${totalBatches} batches${skipMessage}...` 
       });
       
       for (let i = 0; i < allObservationIds.length; i += batchSize) {
