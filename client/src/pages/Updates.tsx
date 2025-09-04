@@ -459,8 +459,8 @@ export default function Updates() {
                   Sort {nameUpdateSortOrder === 'asc' ? '↑' : '↓'}
                 </Button>
                 <Button
-                  onClick={handleRefreshAll}
-                  disabled={refreshBulkMutation.isPending || filteredAndSortedNameUpdates.filter(r => r.source === 'iNaturalist').length === 0}
+                  onClick={handleBulkRefresh}
+                  disabled={isRefreshing || filteredAndSortedNameUpdates.filter(r => r.source === 'iNaturalist').length === 0}
                   size="sm"
                   variant="secondary"
                 >
