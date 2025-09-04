@@ -360,6 +360,21 @@ export default function SpeciesDetail() {
     }
   });
 
+  // Fetch species stats (OPTIMIZED - much faster than loading all observations)
+  const { data: speciesStats, isLoading: statsLoading } = useQuery({
+    queryKey: ["/api/species", speciesName, "stats"],
+    queryFn: async () => {
+      const response = await fetch(`/api/species/${encodeURIComponent(speciesName)}/stats`);
+      if (!response.ok) throw new Error("Failed to fetch species stats");
+      return response.json() as Promise<{
+        totalObservations: number;
+        uniqueStates: number;
+        uniqueContributors: number;
+      }>;
+    },
+    enabled: !!speciesName
+  });
+
   // Fetch species observations
   const { data: observations = [], isLoading: observationsLoading } = useQuery({
     queryKey: ["/api/observations", { species: speciesName }],
@@ -383,8 +398,8 @@ export default function SpeciesDetail() {
     enabled: !!speciesName
   });
 
-  // Use the existing observations query for count (it's already being fetched)
-  const totalObservations = observations?.length || 0;
+  // Use optimized stats instead of calculating from full observations array
+  const totalObservations = speciesStats?.totalObservations || 0;
 
   // Fetch species classification
   const { data: classification, isLoading: classificationLoading } = useQuery({
@@ -448,7 +463,8 @@ export default function SpeciesDetail() {
       return acc;
     }, {});
 
-    const contributors = new Set(observations.map((obs: any) => obs.collector || obs.observer)).size;
+    // Use optimized stats instead of calculating from full observations array
+    const contributors = speciesStats?.uniqueContributors || 0;
     
     const yearDistribution = observations.reduce((acc: { [key: string]: number }, obs: Observation) => {
       const year = new Date(obs.observedOn).getFullYear().toString();
@@ -475,10 +491,10 @@ export default function SpeciesDetail() {
       yearDistribution,
       sourceDistribution,
       collectorDistribution,
-      totalObservations: observations.length,
-      statesCount: Object.keys(stateDistribution).length
+      totalObservations: speciesStats?.totalObservations || 0,
+      statesCount: speciesStats?.uniqueStates || Object.keys(stateDistribution).length
     };
-  }, [observations]);
+  }, [observations, speciesStats]);
 
   
   // Simple "Show More" button approach - much more reliable than infinite scroll

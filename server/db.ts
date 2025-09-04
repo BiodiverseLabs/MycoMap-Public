@@ -873,6 +873,36 @@ export class DatabaseStorage implements IStorage {
     return result.rows as Array<{ month: string; count: string }>;
   }
 
+  // OPTIMIZED: Species stats - gets aggregated metrics without loading all observation data
+  async getSpeciesStats(speciesName: string): Promise<{
+    totalObservations: number;
+    uniqueStates: number;
+    uniqueContributors: number;
+  }> {
+    console.log(`[DB] Getting aggregated stats for species: ${speciesName}`);
+    
+    const result = await db.execute(sql`
+      SELECT 
+        COUNT(*) as total_observations,
+        COUNT(DISTINCT ${observations.state}) as unique_states,
+        COUNT(DISTINCT ${observations.collector}) as unique_contributors
+      FROM ${observations}
+      WHERE (${observations.scientificName} = ${speciesName} OR ${observations.species} = ${speciesName})
+        AND ${observations.state} IS NOT NULL
+        AND ${observations.collector} IS NOT NULL
+    `);
+    
+    const stats = result.rows[0] as any;
+    const formattedStats = {
+      totalObservations: parseInt(stats.total_observations) || 0,
+      uniqueStates: parseInt(stats.unique_states) || 0,
+      uniqueContributors: parseInt(stats.unique_contributors) || 0
+    };
+    
+    console.log(`[DB] Stats for ${speciesName}:`, formattedStats);
+    return formattedStats;
+  }
+
   async getTopContributors(limit: number = 10, startDate?: string, endDate?: string, state?: string): Promise<Contributor[]> {
     let whereConditions = [sql`${observations.collector} IS NOT NULL AND ${observations.source} != 'MycoPortal'`];
     

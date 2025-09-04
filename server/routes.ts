@@ -1839,6 +1839,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Species stats endpoint - OPTIMIZED (for quick loading of metrics)
+  app.get("/api/species/:name/stats", async (req, res) => {
+    try {
+      const speciesName = decodeURIComponent(req.params.name);
+      console.log(`[API] Getting species stats for: ${speciesName}`);
+      
+      // Get aggregated metrics from database (much faster than loading all observations)
+      const stats = await storage.getSpeciesStats(speciesName);
+      
+      console.log(`[API] Returning stats for ${speciesName}:`, stats);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching species stats:", error);
+      res.status(500).json({ error: "Failed to fetch species stats" });
+    }
+  });
+
   // Species images endpoint - comprehensive method (like field guide)
   app.get("/api/species/:name/images", async (req, res) => {
     try {
