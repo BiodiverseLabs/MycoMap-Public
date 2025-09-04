@@ -752,9 +752,9 @@ export default function SpeciesDetail() {
                               {image.source}
                             </Badge>
                             {/* Platform-specific links */}
-                            {image.source === 'iNaturalist' && image.observationId.startsWith('iNat-') && (
+                            {image.source === 'iNaturalist' && (
                               <a 
-                                href={`https://www.inaturalist.org/observations/${image.observationId.split('-')[1]}`}
+                                href={`https://www.inaturalist.org/observations/${image.observationId}`}
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 transition-colors"
