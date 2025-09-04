@@ -19,9 +19,12 @@ import {
   ChevronDown,
   ChevronRight,
   BookOpen,
-  Code
+  Code,
+  Lock
 } from "lucide-react";
 import { Button } from "./button";
+import { Input } from "./input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./dialog";
 import { useState, useEffect } from "react";
 
 export function Sidebar() {
@@ -29,6 +32,10 @@ export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAdminExpanded, setIsAdminExpanded] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
   // Auto-collapse on field guide pages (including species detail pages)
   useEffect(() => {
@@ -61,9 +68,46 @@ export function Sidebar() {
   // Check if admin section should be expanded
   useEffect(() => {
     if (location.startsWith('/admin')) {
-      setIsAdminExpanded(true);
+      if (isAuthenticated) {
+        setIsAdminExpanded(true);
+      } else {
+        // Redirect to dashboard if trying to access admin without auth
+        window.location.href = '/';
+      }
     }
-  }, [location]);
+  }, [location, isAuthenticated]);
+
+  // Password authentication functions
+  const handlePasswordSubmit = () => {
+    if (password === "mycotalab") {
+      setIsAuthenticated(true);
+      setIsPasswordDialogOpen(false);
+      setPassword("");
+      setPasswordError("");
+      setIsAdminExpanded(true);
+    } else {
+      setPasswordError("Incorrect password. Please try again.");
+      setPassword("");
+    }
+  };
+
+  const handleAdminAccess = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      setIsPasswordDialogOpen(true);
+    } else {
+      setIsAdminExpanded(!isAdminExpanded);
+    }
+  };
+
+  const handleAdminLinkClick = (e: React.MouseEvent, href: string) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      setIsPasswordDialogOpen(true);
+    } else {
+      window.location.href = href;
+    }
+  };
 
   // Close mobile menu when location changes
   useEffect(() => {
@@ -174,22 +218,23 @@ export function Sidebar() {
             </div>
           </Link>
 
-          {/* Admin Section */}
+          {/* Admin Section - Protected */}
           {!isCollapsed ? (
             <div className="space-y-1">
               <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
-                  location.startsWith('/admin')
+                  location.startsWith('/admin') && isAuthenticated
                     ? "bg-primary/10 text-primary"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}>
-                <Link href="/admin" className="flex-1">
-                  <div className="flex items-center space-x-3 px-3 py-2">
+                <div className="flex-1" onClick={(e) => handleAdminLinkClick(e, '/admin')}>
+                  <div className="flex items-center space-x-3 px-3 py-2 cursor-pointer">
                     <Settings className="w-5 h-5" />
                     <span>Admin</span>
+                    {!isAuthenticated && <Lock className="w-4 h-4 ml-auto" />}
                   </div>
-                </Link>
+                </div>
                 <button
-                  onClick={() => setIsAdminExpanded(!isAdminExpanded)}
+                  onClick={handleAdminAccess}
                   className="px-2 py-2 hover:bg-slate-200 rounded-r-lg"
                 >
                   {isAdminExpanded ? (
@@ -200,14 +245,14 @@ export function Sidebar() {
                 </button>
               </div>
               
-              {isAdminExpanded && (
+              {isAdminExpanded && isAuthenticated && (
                 <div className="ml-6 space-y-1 bg-white">
                   {adminItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = location === item.href;
                     
                     return (
-                      <Link key={item.href} href={item.href}>
+                      <div key={item.href} onClick={(e) => handleAdminLinkClick(e, item.href)}>
                         <div
                           className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
                             isActive
@@ -218,23 +263,24 @@ export function Sidebar() {
                           <Icon className="w-4 h-4" />
                           <span>{item.label}</span>
                         </div>
-                      </Link>
+                      </div>
                     );
                   })}
                 </div>
               )}
             </div>
           ) : (
-            <Link href="/admin">
+            <div onClick={(e) => handleAdminLinkClick(e, '/admin')}>
               <div className={`flex items-center justify-center px-2 py-2 rounded-lg font-medium w-full text-left cursor-pointer ${
-                location.startsWith('/admin')
+                location.startsWith('/admin') && isAuthenticated
                   ? "bg-primary/10 text-primary"
                   : "text-slate-600 hover:bg-slate-100"
               }`}
               title="Admin">
                 <Settings className="w-5 h-5 flex-shrink-0" />
+                {!isAuthenticated && <Lock className="w-3 h-3 absolute bottom-1 right-1" />}
               </div>
-            </Link>
+            </div>
           )}
         </div>
       </aside>
@@ -293,21 +339,22 @@ export function Sidebar() {
             </div>
           </Link>
 
-          {/* Admin Section - Mobile */}
+          {/* Admin Section - Mobile Protected */}
           <div className="space-y-1">
             <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
-                location.startsWith('/admin')
+                location.startsWith('/admin') && isAuthenticated
                   ? "bg-primary/10 text-primary"
                   : "text-slate-600 hover:bg-slate-100"
               }`}>
-              <Link href="/admin" className="flex-1">
-                <div className="flex items-center space-x-3 px-3 py-3">
+              <div className="flex-1" onClick={(e) => handleAdminLinkClick(e, '/admin')}>
+                <div className="flex items-center space-x-3 px-3 py-3 cursor-pointer">
                   <Settings className="w-5 h-5" />
                   <span>Admin</span>
+                  {!isAuthenticated && <Lock className="w-4 h-4 ml-auto" />}
                 </div>
-              </Link>
+              </div>
               <button
-                onClick={() => setIsAdminExpanded(!isAdminExpanded)}
+                onClick={handleAdminAccess}
                 className="px-2 py-3 hover:bg-slate-200 rounded-r-lg"
               >
                 {isAdminExpanded ? (
@@ -318,14 +365,14 @@ export function Sidebar() {
               </button>
             </div>
             
-            {isAdminExpanded && (
+            {isAdminExpanded && isAuthenticated && (
               <div className="ml-6 space-y-1">
                 {adminItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
                   
                   return (
-                    <Link key={item.href} href={item.href}>
+                    <div key={item.href} onClick={(e) => handleAdminLinkClick(e, item.href)}>
                       <div
                         className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
                           isActive
@@ -336,7 +383,7 @@ export function Sidebar() {
                         <Icon className="w-4 h-4" />
                         <span>{item.label}</span>
                       </div>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
@@ -345,6 +392,59 @@ export function Sidebar() {
         </div>
       </div>
       </aside>
+
+      {/* Password Protection Dialog */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Admin Access Required
+            </DialogTitle>
+            <DialogDescription>
+              Please enter the admin password to access the admin panel and its features.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handlePasswordSubmit();
+                  }
+                }}
+                placeholder="Enter admin password"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="text-sm text-red-600">{passwordError}</p>
+              )}
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsPasswordDialogOpen(false);
+                  setPassword("");
+                  setPasswordError("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handlePasswordSubmit}>
+                Access Admin
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
