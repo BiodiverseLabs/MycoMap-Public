@@ -2025,53 +2025,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // PROPER FIELD GUIDE PROTOCOL: Cache first, then API for missing observations
-      const cacheQuery = `
-        SELECT 
-          o.observation_id,
-          o.observer,
-          o.observed_on,
-          o.state,
-          o.place_guess,
-          o.source,
-          o.scientific_name,
-          inat.photos as cached_photos
-        FROM observations o
-        LEFT JOIN inaturalist_data inat ON o.observation_id = inat.inat_id AND o.source = 'iNaturalist'
-        WHERE o.scientific_name = $1
-        ORDER BY o.observed_on DESC NULLS LAST, o.observation_id
-      `;
-      
-      const cacheResults = await pool.query(cacheQuery, [decodeURIComponent(req.params.speciesName)]);
+      // PROPER FIELD GUIDE PROTOCOL: Use the working allObservations, then check cache
       const missingFromCache = [];
       
-      // Process cached results and identify missing observations
-      for (const row of cacheResults.rows) {
-        if (row.cached_photos && Array.isArray(row.cached_photos) && row.cached_photos.length > 0) {
-          // Use cached photos - multiple photos per observation
-          row.cached_photos.forEach((photoUrl: string, index: number) => {
-            if (photoUrl && photoUrl.trim()) {
-              expandedImages.push({
-                observationId: row.observation_id,
-                imageUrl: photoUrl.trim(),
-                imageId: `${row.observation_id}-${index}`,
-                observer: row.observer,
-                observedOn: row.observed_on,
-                state: row.state,
-                placeGuess: row.place_guess,
-                source: row.source,
-                scientificName: row.scientific_name,
-                isSelected: false
-              });
-            }
-          });
-          successCount++;
-        } else if (row.source === 'iNaturalist') {
-          // iNaturalist observation not in cache - fetch from API
-          console.log(`[Cache Miss] Adding ${row.observation_id} to missing list (no cached photos)`);
-          missingFromCache.push(row);
+      // Step 1: Check each observation against cache
+      for (const row of allObservations.rows) {
+        if (row.source === 'iNaturalist') {
+          // Check if this iNaturalist observation is cached
+          const cacheResult = await pool.query(
+            'SELECT photos FROM inaturalist_data WHERE inat_id = $1',
+            [row.observation_id]
+          );
+          
+          if (cacheResult.rows.length > 0 && cacheResult.rows[0].photos && cacheResult.rows[0].photos.length > 0) {
+            // Use cached photos
+            const cachedPhotos = cacheResult.rows[0].photos;
+            cachedPhotos.forEach((photoUrl: string, index: number) => {
+              if (photoUrl && photoUrl.trim()) {
+                expandedImages.push({
+                  observationId: row.observation_id,
+                  imageUrl: photoUrl.trim(),
+                  imageId: `${row.observation_id}-${index}`,
+                  observer: row.observer,
+                  observedOn: row.observed_on,
+                  state: row.state,
+                  placeGuess: row.place_guess,
+                  source: row.source,
+                  scientificName: row.scientific_name,
+                  isSelected: false
+                });
+              }
+            });
+            successCount++;
+          } else {
+            // Not in cache - add to missing list
+            console.log(`[Cache Miss] Adding ${row.observation_id} to missing list (no cached photos)`);
+            missingFromCache.push(row);
+          }
         } else {
-          // Non-iNaturalist observation without cache - show placeholder
+          // Non-iNaturalist observation - show placeholder
           expandedImages.push({
             observationId: row.observation_id,
             imageUrl: null,
@@ -2088,7 +2080,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`[Cache Debug] Found ${cacheResults.rows.length} observations, ${missingFromCache.length} missing from cache`);
+      
+      console.log(`[Cache Debug] Found ${allObservations.rows.length} total observations, ${missingFromCache.length} missing from cache`);
       
       // Fetch missing observations from iNaturalist API and cache them
       if (missingFromCache.length > 0) {
