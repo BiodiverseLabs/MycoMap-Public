@@ -1940,23 +1940,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (inatResponse.ok) {
               const inatData = await inatResponse.json();
-              if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
-                const photos = inatData.results[0].photos;
-                successCount++;
-                return photos.map((photo: any, index: number) => ({
-                  observationId: row.observation_id,
-                  imageUrl: photo.url.replace('square', 'large'),
-                  imageId: `${row.observation_id}-${photo.id || index}`,
-                  observer: row.observer,
-                  observedOn: row.observed_on,
-                  state: row.state,
-                  placeGuess: row.place_guess,
-                  source: row.source,
-                  scientificName: row.scientific_name,
-                  isSelected: false
-                }));
+              if (inatData.results && inatData.results[0]) {
+                const observation = inatData.results[0];
+                const photos = observation.photos || [];
+                
+                // CACHE THE API RESULTS - This was missing!
+                try {
+                  const photoUrls = photos.map((photo: any) => photo.url.replace('square', 'large'));
+                  
+                  await db.insert(inaturalistData).values({
+                    observationId: `cache_${row.observation_id}`, // Internal ID
+                    inatId: row.observation_id, // Actual iNaturalist ID
+                    inatUuid: observation.uuid,
+                    quality: observation.quality_grade,
+                    captive: observation.captive || false,
+                    observedOnString: observation.observed_on,
+                    photos: photoUrls, // Cache the photo URLs
+                    taxon: JSON.stringify(observation.taxon),
+                    user: JSON.stringify(observation.user),
+                    syncStatus: 'success',
+                    lastSyncedAt: new Date()
+                  }).onConflictDoUpdate({
+                    target: inaturalistData.observationId,
+                    set: {
+                      photos: photoUrls,
+                      syncStatus: 'success',
+                      lastSyncedAt: new Date()
+                    }
+                  });
+                  
+                  console.log(`✅ Cached ${photoUrls.length} photos for observation ${row.observation_id}`);
+                } catch (cacheError) {
+                  console.error(`❌ Failed to cache observation ${row.observation_id}:`, cacheError);
+                }
+                
+                if (photos.length > 0) {
+                  successCount++;
+                  return photos.map((photo: any, index: number) => ({
+                    observationId: row.observation_id,
+                    imageUrl: photo.url.replace('square', 'large'),
+                    imageId: `${row.observation_id}-${photo.id || index}`,
+                    observer: row.observer,
+                    observedOn: row.observed_on,
+                    state: row.state,
+                    placeGuess: row.place_guess,
+                    source: row.source,
+                    scientificName: row.scientific_name,
+                    isSelected: false
+                  }));
+                } else {
+                  console.log(`⚠️ iNaturalist observation ${row.observation_id} has no photos`);
+                }
               } else {
-                console.log(`⚠️ iNaturalist observation ${row.observation_id} has no photos`);
+                console.log(`⚠️ iNaturalist observation ${row.observation_id} has no data`);
               }
             } else {
               console.error(`❌ iNaturalist API HTTP ${inatResponse.status} for ${row.observation_id}`);
@@ -1989,22 +2025,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // Cache tables don't have data for these observations - return all with placeholders
-      allObservations.rows.forEach(row => {
-        expandedImages.push({
-          observationId: row.observation_id,
-          imageUrl: null, // Frontend will show "photo not available"
-          imageId: row.observation_id,
-          observer: row.observer,
-          observedOn: row.observed_on,
-          state: row.state,
-          placeGuess: row.place_guess,
-          source: row.source,
-          scientificName: row.scientific_name,
-          isSelected: false
-        });
-        errorCount++; // Count as "error" since no photo available
-      });
+      // PROPER FIELD GUIDE PROTOCOL: Cache first, then API for missing observations
+      const cacheQuery = `
+        SELECT 
+          o.observation_id,
+          o.observer,
+          o.observed_on,
+          o.state,
+          o.place_guess,
+          o.source,
+          o.scientific_name,
+          inat.photos as cached_photos
+        FROM observations o
+        LEFT JOIN inaturalist_data inat ON o.observation_id = inat.inat_id AND o.source = 'iNaturalist'
+        WHERE o.scientific_name = $1
+        ORDER BY o.observed_on DESC NULLS LAST, o.observation_id
+      `;
+      
+      const cacheResults = await pool.query(cacheQuery, [decodeURIComponent(req.params.speciesName)]);
+      const missingFromCache = [];
+      
+      // Process cached results and identify missing observations
+      for (const row of cacheResults.rows) {
+        if (row.cached_photos && Array.isArray(row.cached_photos) && row.cached_photos.length > 0) {
+          // Use cached photos - multiple photos per observation
+          row.cached_photos.forEach((photoUrl: string, index: number) => {
+            if (photoUrl && photoUrl.trim()) {
+              expandedImages.push({
+                observationId: row.observation_id,
+                imageUrl: photoUrl.trim(),
+                imageId: `${row.observation_id}-${index}`,
+                observer: row.observer,
+                observedOn: row.observed_on,
+                state: row.state,
+                placeGuess: row.place_guess,
+                source: row.source,
+                scientificName: row.scientific_name,
+                isSelected: false
+              });
+            }
+          });
+          successCount++;
+        } else if (row.source === 'iNaturalist') {
+          // iNaturalist observation not in cache - fetch from API
+          missingFromCache.push(row);
+        } else {
+          // Non-iNaturalist observation without cache - show placeholder
+          expandedImages.push({
+            observationId: row.observation_id,
+            imageUrl: null,
+            imageId: row.observation_id,
+            observer: row.observer,
+            observedOn: row.observed_on,
+            state: row.state,
+            placeGuess: row.place_guess,
+            source: row.source,
+            scientificName: row.scientific_name,
+            isSelected: false
+          });
+          errorCount++;
+        }
+      }
+      
+      // Fetch missing observations from iNaturalist API and cache them
+      if (missingFromCache.length > 0) {
+        console.log(`[Cache Miss] Fetching ${missingFromCache.length} observations from iNaturalist API`);
+        
+        for (const row of missingFromCache) {
+          const apiImages = await fetchInatData(row);
+          if (Array.isArray(apiImages) && apiImages.length > 0) {
+            expandedImages.push(...apiImages);
+            successCount++;
+          } else {
+            // API failed - show placeholder
+            expandedImages.push({
+              observationId: row.observation_id,
+              imageUrl: null,
+              imageId: row.observation_id,
+              observer: row.observer,
+              observedOn: row.observed_on,
+              state: row.state,
+              placeGuess: row.place_guess,
+              source: row.source,
+              scientificName: row.scientific_name,
+              isSelected: false
+            });
+            errorCount++;
+          }
+          
+          // Rate limiting for API calls
+          if (row !== missingFromCache[missingFromCache.length - 1]) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
       
       // Results are already processed above
       
