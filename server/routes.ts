@@ -1927,7 +1927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Smart fallback: Keep main DB images when cache is empty, replace when cache has data
         if (allInatCachePhotos.length > 0) {
           // Cache has photos - replace database observations (that are iNaturalist IDs) with detailed cache versions
-          allImages = allImages.filter(img => !(img.source === 'Database' && /^\d+$/.test(img.observation_id)));
+          allImages = allImages.filter(img => !((img.source === 'Database' || img.source === 'iNaturalist') && /^\d+$/.test(img.observation_id)));
           allImages.push(...allInatCachePhotos);
           console.log(`[Species Images API] Replaced database iNaturalist observations with ${allInatCachePhotos.length} photos from iNaturalist cache`);
         } else if (shouldIncludeNonValidated) {
@@ -1965,7 +1965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (freshInatData.length > 0) {
               // Replace database observations (that are iNaturalist IDs) with fresh API data
-              allImages = allImages.filter(img => !(img.source === 'Database' && /^\d+$/.test(img.observation_id)));
+              allImages = allImages.filter(img => !((img.source === 'Database' || img.source === 'iNaturalist') && /^\d+$/.test(img.observation_id)));
               allImages.push(...freshInatData);
               console.log(`[Species Images API] Fetched ${freshInatData.length} fresh photos from iNaturalist API`);
             } else {
@@ -6370,7 +6370,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Smart fallback: Keep main DB images when cache is empty, replace when cache has data
         if (allInatCachePhotos.length > 0) {
           // Cache has photos - replace database observations (that are iNaturalist IDs) with detailed cache versions
-          allImages = allImages.filter(img => !(img.source === 'Database' && /^\d+$/.test(img.observation_id)));
+          allImages = allImages.filter(img => !((img.source === 'Database' || img.source === 'iNaturalist') && /^\d+$/.test(img.observation_id)));
           allImages.push(...allInatCachePhotos);
           console.log(`[Images API] Replaced database iNaturalist observations with ${allInatCachePhotos.length} photos from iNaturalist cache`);
         } else {
@@ -6408,7 +6408,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             
             if (freshInatData.length > 0) {
               // Replace database observations (that are iNaturalist IDs) with fresh API data
-              allImages = allImages.filter(img => !(img.source === 'Database' && /^\d+$/.test(img.observation_id)));
+              allImages = allImages.filter(img => !((img.source === 'Database' || img.source === 'iNaturalist') && /^\d+$/.test(img.observation_id)));
               allImages.push(...freshInatData);
               console.log(`[Images API] Fetched ${freshInatData.length} fresh photos from iNaturalist API`);
             } else {

@@ -71,6 +71,7 @@ export default function SpeciesDetail() {
   const [dateFilter, setDateFilter] = useState<string>("all_time");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [includeNonValidated, setIncludeNonValidated] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const fullscreenMapRef = useRef<HTMLDivElement>(null);
@@ -224,6 +225,23 @@ export default function SpeciesDetail() {
       statesCount: Object.keys(stateDistribution).length
     };
   }, [observations]);
+
+  // Pagination logic
+  const { paginatedImages, totalPages, imagesPerPage } = useMemo(() => {
+    const isMobile = window.innerWidth < 768;
+    const imagesPerPage = isMobile ? 8 : 16;
+    const totalPages = Math.ceil(speciesImages.length / imagesPerPage);
+    const startIndex = (currentPage - 1) * imagesPerPage;
+    const endIndex = startIndex + imagesPerPage;
+    const paginatedImages = speciesImages.slice(startIndex, endIndex);
+    
+    return { paginatedImages, totalPages, imagesPerPage };
+  }, [speciesImages, currentPage]);
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedState, includeNonValidated]);
 
   // Helper function to format dates
   const formatDate = (dateStr: string | null) => {
@@ -683,7 +701,7 @@ export default function SpeciesDetail() {
             <CardContent>
               <div className="flex items-center justify-between mb-6">
                 <Badge variant="secondary" className="text-sm">
-                  {speciesImages.length} images from {new Set(
+                  {speciesImages.length} total images from {new Set(
                     speciesImages.map(img => {
                       // Extract base observation ID
                       const id = img.observationId;
@@ -694,6 +712,9 @@ export default function SpeciesDetail() {
                     })
                   ).size} observations
                 </Badge>
+                <div className="text-sm text-slate-600">
+                  Page {currentPage} of {totalPages} ({imagesPerPage} per page)
+                </div>
               </div>
 
               {imagesLoading ? (
@@ -703,7 +724,7 @@ export default function SpeciesDetail() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {speciesImages.map((image) => (
+                  {paginatedImages.map((image) => (
                     <Card 
                       key={`${image.observationId}-${image.imageId}`}
                       className="transition-all hover:shadow-lg"
@@ -767,6 +788,49 @@ export default function SpeciesDetail() {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              )}
+              
+              {/* Pagination Controls */}
+              {!imagesLoading && speciesImages.length > 0 && totalPages > 1 && (
+                <div className="flex items-center justify-center mt-6 gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                      const page = i + 1;
+                      const isCurrentPage = page === currentPage;
+                      
+                      return (
+                        <Button
+                          key={page}
+                          variant={isCurrentPage ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className={isCurrentPage ? "" : ""}
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+                    {totalPages > 5 && <span className="px-2 text-slate-500">...</span>}
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
                 </div>
               )}
               
