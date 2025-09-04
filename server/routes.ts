@@ -1966,10 +1966,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const speciesImages = await db.execute(allImagesQuery);
       console.log(`[Species Images API] Found ${speciesImages.rows.length} images for ${scientificName} (page ${page})`);
-      let allImages = [...speciesImages.rows];
 
       // Step 2: Format response and expand iNaturalist observations with multiple images
-      const images = [];
+      const expandedImages = [];
       
       for (const row of speciesImages.rows) {
         if (row.source === 'iNaturalist') {
@@ -1982,7 +1981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const photos = inatData.results[0].photos;
                 // Add each photo as a separate image
                 photos.forEach((photo: any, index: number) => {
-                  images.push({
+                  expandedImages.push({
                     observationId: row.observation_id,
                     imageUrl: photo.url.replace('square', 'large'),
                     imageId: `${row.observation_id}-${index}`,
@@ -1997,7 +1996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 });
               } else {
                 // Fallback to single image if no photos in API
-                images.push({
+                expandedImages.push({
                   observationId: row.observation_id,
                   imageUrl: row.image_link,
                   imageId: row.observation_id,
@@ -2012,7 +2011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             } else {
               // API failed, use original image
-              images.push({
+              expandedImages.push({
                 observationId: row.observation_id,
                 imageUrl: row.image_link,
                 imageId: row.observation_id,
@@ -2028,7 +2027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (error) {
             console.error(`Error fetching iNaturalist images for ${row.observation_id}:`, error);
             // Fallback to original image
-            images.push({
+            expandedImages.push({
               observationId: row.observation_id,
               imageUrl: row.image_link,
               imageId: row.observation_id,
@@ -2043,7 +2042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } else {
           // Non-iNaturalist sources, keep single image
-          images.push({
+          expandedImages.push({
             observationId: row.observation_id,
             imageUrl: row.image_link,
             imageId: row.observation_id,
@@ -2058,8 +2057,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Apply original sorting
-      const sortedImages = images.filter(img => img.imageUrl)
+      // Apply original sorting and then paginate by individual images
+      const sortedImages = expandedImages.filter(img => img.imageUrl)
         .sort((a, b) => {
           // Sort order: iNaturalist first, Database/Sequences second, MO/MycoPortal last
           const getSourcePriority = (source: string) => {
@@ -2071,14 +2070,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return getSourcePriority(a.source) - getSourcePriority(b.source);
         });
       
-      console.log(`[Species Images API] Returning ${sortedImages.length} images for ${scientificName} (page ${page}/${Math.ceil(totalImages/pageSize)})`);
+      // Now paginate by individual images (exactly pageSize images per page)
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedImages = sortedImages.slice(startIndex, endIndex);
+      
+      console.log(`[Species Images API] Returning ${paginatedImages.length} images for ${scientificName} (page ${page}/${Math.ceil(sortedImages.length/pageSize)}) - Total expanded: ${sortedImages.length} images`);
       res.json({
-        images: sortedImages,
-        total: totalImages,
+        images: paginatedImages,
+        total: sortedImages.length,
         totalObservations: totalObservations,
         page,
         pageSize,
-        totalPages: Math.ceil(totalImages / pageSize)
+        totalPages: Math.ceil(sortedImages.length / pageSize)
       });
     } catch (error) {
       console.error("Error fetching species images:", error);
