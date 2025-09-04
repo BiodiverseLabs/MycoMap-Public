@@ -154,7 +154,9 @@ export default function SpeciesDetail() {
   // Flatten all loaded images from all pages
   const speciesImages = speciesImagesData?.pages?.flatMap((page: any) => page.images) || [];
   const totalImages = speciesImagesData?.pages?.[0]?.total || 0;
-  const totalObservations = speciesImagesData?.pages?.[0]?.totalObservations || 0;
+  
+  // Use the existing observations query for count (it's already being fetched)
+  const totalObservations = observations?.length || 0;
 
   // Fetch species classification
   const { data: classification, isLoading: classificationLoading } = useQuery({
@@ -423,6 +425,9 @@ export default function SpeciesDetail() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">{totalObservations}</div>
+                <p className="text-sm text-slate-600 mt-1">
+                  unique observations
+                </p>
               </CardContent>
             </Card>
 
