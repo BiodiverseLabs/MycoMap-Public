@@ -1928,54 +1928,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let successCount = 0;
       let errorCount = 0;
       
-      const fetchWithRetry = async (row: any, retries = 2) => {
+      // Simplified approach - remove complex retry logic that might be causing issues
+      const fetchInatData = async (row: any) => {
         if (row.source === 'iNaturalist') {
-          for (let attempt = 0; attempt <= retries; attempt++) {
-            try {
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout
-              
-              const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
-                signal: controller.signal,
-                headers: {
-                  'User-Agent': 'MacroFungi-Research-App/1.0',
-                  'Accept': 'application/json'
-                }
-              });
-              
-              clearTimeout(timeoutId);
-              
-              if (inatResponse.ok) {
-                const inatData = await inatResponse.json();
-                if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
-                  const photos = inatData.results[0].photos;
-                  successCount++;
-                  return photos.map((photo: any, index: number) => ({
-                    observationId: row.observation_id,
-                    imageUrl: photo.url.replace('square', 'large'),
-                    imageId: `${row.observation_id}-${photo.id || index}`, // Use photo.id for uniqueness
-                    observer: row.observer,
-                    observedOn: row.observed_on,
-                    state: row.state,
-                    placeGuess: row.place_guess,
-                    source: row.source,
-                    scientificName: row.scientific_name,
-                    isSelected: false
-                  }));
-                }
+          try {
+            const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
+              headers: {
+                'User-Agent': 'MacroFungi-Research-App/1.0'
               }
-            } catch (error: any) {
-              if (attempt < retries) {
-                // Wait before retry: 500ms, then 1s, then 1.5s
-                await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
-                continue;
+            });
+            
+            if (inatResponse.ok) {
+              const inatData = await inatResponse.json();
+              if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
+                const photos = inatData.results[0].photos;
+                successCount++;
+                return photos.map((photo: any, index: number) => ({
+                  observationId: row.observation_id,
+                  imageUrl: photo.url.replace('square', 'large'),
+                  imageId: `${row.observation_id}-${photo.id || index}`,
+                  observer: row.observer,
+                  observedOn: row.observed_on,
+                  state: row.state,
+                  placeGuess: row.place_guess,
+                  source: row.source,
+                  scientificName: row.scientific_name,
+                  isSelected: false
+                }));
+              } else {
+                console.log(`⚠️ iNaturalist observation ${row.observation_id} has no photos`);
               }
-              console.error(`❌ iNaturalist API failed for ${row.observation_id} after ${retries + 1} attempts:`, error.message);
-              console.error(`   URL: https://api.inaturalist.org/v1/observations/${row.observation_id}`);
+            } else {
+              console.error(`❌ iNaturalist API HTTP ${inatResponse.status} for ${row.observation_id}`);
               errorCount++;
             }
+          } catch (error: any) {
+            console.error(`❌ iNaturalist fetch error for ${row.observation_id}:`, error.message);
+            errorCount++;
           }
-          
           return [];
         } else {
           // Non-iNaturalist sources (Mushroom Observer, MyCoPortal) - these database URLs work
@@ -1998,8 +1988,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      const fetchPromises = allObservations.rows.map(row => fetchWithRetry(row));
-      const results = await Promise.all(fetchPromises);
+      // Process iNaturalist requests in smaller batches to avoid overwhelming API
+      const inatObservations = allObservations.rows.filter(row => row.source === 'iNaturalist');
+      const otherObservations = allObservations.rows.filter(row => row.source !== 'iNaturalist');
+      
+      // Process non-iNaturalist sources immediately
+      const otherResults = await Promise.all(otherObservations.map(row => fetchInatData(row)));
+      
+      // Process iNaturalist in batches of 10 with delays
+      const inatResults = [];
+      const batchSize = 10;
+      for (let i = 0; i < inatObservations.length; i += batchSize) {
+        const batch = inatObservations.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(row => fetchInatData(row)));
+        inatResults.push(...batchResults);
+        
+        // Small delay between batches
+        if (i + batchSize < inatObservations.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      
+      const results = [...otherResults, ...inatResults];
       
       results.forEach(result => {
         if (Array.isArray(result)) {
