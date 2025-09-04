@@ -224,13 +224,16 @@ export default function Updates() {
       const allNameUpdates = await response.json();
       const allInatRecords = allNameUpdates.filter((record: any) => record.source === 'iNaturalist');
       
+      console.log(`[Bulk Refresh] Found ${allInatRecords.length} total iNaturalist records`);
+      console.log(`[Bulk Refresh] Sample record:`, allInatRecords[0]);
+      
       // Separate records into two groups: fresh API calls vs database updates only
       const recordsNeedingFreshApi: any[] = [];
       const recordsNeedingDbUpdate: any[] = [];
       
       allInatRecords.forEach((record: any) => {
-        if (record.inatApiSaved && record.inatApiSaveDate) {
-          const saveDate = new Date(record.inatApiSaveDate);
+        if (record.lastRefreshed) {
+          const saveDate = new Date(record.lastRefreshed);
           const daysSinceUpdate = (Date.now() - saveDate.getTime()) / (1000 * 60 * 60 * 24);
           
           if (daysSinceUpdate <= 180) {
@@ -248,6 +251,9 @@ export default function Updates() {
       
       const freshApiIds = recordsNeedingFreshApi.map((record: any) => record.observationId);
       const dbUpdateIds = recordsNeedingDbUpdate.map((record: any) => record.observationId);
+      
+      console.log(`[Bulk Refresh] Records needing fresh API: ${freshApiIds.length}`);
+      console.log(`[Bulk Refresh] Records needing DB update: ${dbUpdateIds.length}`);
       
       if (freshApiIds.length === 0 && dbUpdateIds.length === 0) {
         toast({ title: "Info", description: "No iNaturalist records to refresh" });
