@@ -423,9 +423,6 @@ export default function SpeciesDetail() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-primary">{totalObservations}</div>
-                <p className="text-sm text-slate-600 mt-1">
-                  {totalImages} total images
-                </p>
               </CardContent>
             </Card>
 
