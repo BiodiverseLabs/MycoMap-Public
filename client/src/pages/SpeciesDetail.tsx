@@ -257,44 +257,25 @@ export default function SpeciesDetail() {
   
   // Infinite scroll detection
   useEffect(() => {
-    console.log('Setting up scroll listener:', { hasNextPage, isFetchingNextPage });
-    
     const handleScroll = () => {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
-      
-      console.log('Scroll check:', {
-        scrollTop,
-        windowHeight,
-        documentHeight,
-        distanceFromBottom,
-        hasNextPage,
-        isFetchingNextPage,
-        shouldTrigger: distanceFromBottom < 1000 && hasNextPage && !isFetchingNextPage
-      });
+      const isScrollable = documentHeight > windowHeight;
       
       if (
         distanceFromBottom < 1000 && // Load when 1000px from bottom
         hasNextPage && 
-        !isFetchingNextPage
+        !isFetchingNextPage &&
+        isScrollable // Only trigger if page is actually scrollable
       ) {
-        console.log('🚀 Triggering fetchNextPage!');
         fetchNextPage();
       }
     };
 
-    // Add scroll listener
     window.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Test initial scroll position
-    handleScroll();
-    
-    return () => {
-      console.log('Removing scroll listener');
-      window.removeEventListener('scroll', handleScroll);
-    };
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // Helper function to format dates

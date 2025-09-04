@@ -1,0 +1,154 @@
+﻿
+37
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+37
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+37
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+/t/the-research-store:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+/t/the-research-store:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+/t/the-research-store:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+_app-ed957290dfbc6b7b.js:38 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-ed957290dfbc6b7b.js:38 [LaunchDarkly] LaunchDarkly client initialized
+/t/the-research-store:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/t/the-research-store:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+2
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+26
+Error handling response: TypeError: Cannot read properties of undefined (reading 'isCheckout')
+    at <URL>
+26
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+attached_assets/imag…1756958268524.png:1 
+ Failed to load resource: the server responded with a status of 404 ()
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+_app-ed957290dfbc6b7b.js:38 task queue exceeded allotted deadline by 76ms
+26
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'ambient-light-sensor'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'battery'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'layout-animations'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'legacy-image-formats'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'navigation-override'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'oversized-images'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'publickey-credentials'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'speaker-selection'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'unoptimized-images'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'unsized-media'.
+framework-d12711ff36e2d472.js:1 Unrecognized feature: 'pointer-lock'.
+framework-d12711ff36e2d472.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+framework-d12711ff36e2d472.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+2
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+3
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+_app-ed957290dfbc6b7b.js:38 task queue exceeded allotted deadline by 34ms
+2
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+stallwart.build.js:1 stallwart: failed ping 1
+19
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+_app-ed957290dfbc6b7b.js:38 task queue exceeded allotted deadline by 31ms
+9
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+stallwart.build.js:1 stallwart: failed ping 1
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'battery'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.htm…la&id=%3Ar2aj%3A:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+Network.js:227 WebSocket connection to 'wss://e20af904-8583-409a-8a9e-51ad07e0801f-00-bod08psk07oj.riker.replit.dev/?token=01-JssXGAAFH' failed: 
+Network.js:227 Uncaught (in promise) SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=01-JssXGAAFH' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+Console.js:61 Removing scroll listener
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+Console.js:61 🚀 Triggering fetchNextPage!
+Console.js:61 Removing scroll listener
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+Console.js:61 Removing scroll listener
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+Console.js:61 🚀 Triggering fetchNextPage!
+Console.js:61 Removing scroll listener
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+Console.js:61 Removing scroll listener
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+Console.js:61 🚀 Triggering fetchNextPage!
+Console.js:61 Removing scroll listener
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+Console.js:61 Removing scroll listener
+Console.js:61 Setting up scroll listener: 
+Object
+Console.js:61 Scroll check: 
+Object
+serv.biokic.asu.edu/…F-10620_I1_lg.jpg:1 
+ Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+Console.js:61 Failed to load image: https://storage.idigbio.org/mich/mycology/00010/MICH-F-10620_I1_lg.jpg
+serv.biokic.asu.edu/…H-F-135018_lg.jpg:1 
+ Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+Console.js:61 Failed to load image: https://storage.idigbio.org/mich/mycology/00135/MICH-F-135018_lg.jpg
+serv.biokic.asu.edu/…H-F-123880_lg.jpg:1 
+ Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+Console.js:61 Failed to load image: https://storage.idigbio.org/mich/mycology/00123/MICH-F-123880_lg.jpg
+serv.biokic.asu.edu/…H-F-123856_lg.jpg:1 
+ Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+2
+Console.js:61 Failed to load image: https://storage.idigbio.org/mich/mycology/00123/MICH-F-123856_lg.jpg
+serv.biokic.asu.edu/…F-30508_W1_lg.jpg:1 
+ Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+Console.js:61 Failed to load image: https://storage.idigbio.org/mich/mycology/00030/MICH-F-30508_W1_lg.jpg
+content-script.js:1 cornhusk, shared-service, error: TypeError: Failed to construct 'URL': Invalid URLInvalid url: 
+extractOriginPath	@	content-script.js:1
+fingerprintPage	@	content-script.js:1
+observeCheckoutMutations	@	content-script.js:1
