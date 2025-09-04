@@ -115,22 +115,19 @@ export default function SpeciesDetail() {
   // Calculate images per page
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const imagesPerPage = isMobile ? 8 : 16;
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch species images with infinite scroll
-  const {
-    data: speciesImagesData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: imagesLoading
-  } = useInfiniteQuery({
+  // Fetch species images (back to working version first)
+  const { data: speciesImagesResponse, isLoading: imagesLoading } = useQuery({
     queryKey: ["/api/species", speciesName, "images", { 
       state: selectedState, 
-      includeNonValidated
+      includeNonValidated, 
+      page: currentPage, 
+      pageSize: imagesPerPage 
     }],
-    queryFn: async ({ pageParam = 1 }) => {
+    queryFn: async () => {
       const params = new URLSearchParams({
-        page: pageParam.toString(),
+        page: currentPage.toString(),
         pageSize: imagesPerPage.toString(),
         includeNonValidated: includeNonValidated.toString()
       });
@@ -144,17 +141,13 @@ export default function SpeciesDetail() {
       if (!response.ok) throw new Error('Failed to fetch species images');
       return response.json();
     },
-    getNextPageParam: (lastPage: any) => {
-      return lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined;
-    },
-    initialPageParam: 1,
     enabled: !!speciesName
   });
 
-  // Flatten all loaded images from all pages
-  const speciesImages = speciesImagesData?.pages?.flatMap((page: any) => page.images) || [];
-  const totalImages = speciesImagesData?.pages?.[0]?.total || 0;
-  const totalObservations = speciesImagesData?.pages?.[0]?.totalObservations || 0;
+  const speciesImages = speciesImagesResponse?.images || [];
+  const totalImages = speciesImagesResponse?.total || 0;
+  const totalObservations = speciesImagesResponse?.totalObservations || 0;
+  const totalPages = speciesImagesResponse?.totalPages || 0;
 
   // Fetch species classification
   const { data: classification, isLoading: classificationLoading } = useQuery({
@@ -253,22 +246,10 @@ export default function SpeciesDetail() {
   // All loaded images (accumulated from infinite scroll)
   const paginatedImages = speciesImages;
   
-  // Infinite scroll detection
+  // Reset pagination when filters change
   useEffect(() => {
-    const handleScroll = () => {
-      if (
-        window.innerHeight + document.documentElement.scrollTop >= 
-        document.documentElement.offsetHeight - 1000 && // Load when 1000px from bottom
-        hasNextPage && 
-        !isFetchingNextPage
-      ) {
-        fetchNextPage();
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+    setCurrentPage(1);
+  }, [selectedState, includeNonValidated]);
 
   // Helper function to format dates
   const formatDate = (dateStr: string | null) => {
@@ -734,7 +715,7 @@ export default function SpeciesDetail() {
                   {totalImages} total images from {totalObservations} observations
                 </Badge>
                 <div className="text-sm text-slate-600">
-                  Showing {speciesImages.length} of {totalImages} images
+                  Page {currentPage} of {totalPages} ({imagesPerPage} per page)
                 </div>
               </div>
 
@@ -829,18 +810,45 @@ export default function SpeciesDetail() {
                 </div>
               )}
               
-              {/* Loading more images indicator */}
-              {isFetchingNextPage && (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="mt-4 text-slate-600">Loading more images...</p>
-                </div>
-              )}
-              
-              {/* End of data indicator */}
-              {!hasNextPage && speciesImages.length > 0 && (
-                <div className="text-center py-8 text-slate-600">
-                  <p>You've reached the end! No more images to load.</p>
+              {/* Pagination Controls */}
+              {!imagesLoading && speciesImages.length > 0 && totalPages > 1 && (
+                <div className="flex items-center justify-center mt-6 gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                      const page = i + 1;
+                      const isCurrentPage = page === currentPage;
+                      
+                      return (
+                        <Button
+                          key={page}
+                          variant={isCurrentPage ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+                    {totalPages > 5 && <span className="px-2 text-slate-500">...</span>}
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
                 </div>
               )}
               
