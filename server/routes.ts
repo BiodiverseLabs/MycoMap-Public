@@ -1988,21 +1988,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // API calls with very simple sequential approach to get fresh URLs
-      for (const row of allObservations.rows) {
-        const images = await fetchInatData(row);
-        if (Array.isArray(images) && images.length > 0) {
-          expandedImages.push(...images);
+      // FAST APPROACH: Use database URLs directly, let frontend handle any broken images
+      allObservations.rows.forEach(row => {
+        if (row.image_link) {
+          expandedImages.push({
+            observationId: row.observation_id,
+            imageUrl: row.image_link,
+            imageId: row.observation_id,
+            observer: row.observer,
+            observedOn: row.observed_on,
+            state: row.state,
+            placeGuess: row.place_guess,
+            source: row.source,
+            scientificName: row.scientific_name,
+            isSelected: false
+          });
           successCount++;
         } else {
           errorCount++;
         }
-        
-        // Simple delay between ALL requests (not just iNaturalist)
-        if (row.source === 'iNaturalist') {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between iNat calls
-        }
-      }
+      });
       
       // Results are already processed above
       
