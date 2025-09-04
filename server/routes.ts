@@ -1928,12 +1928,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let successCount = 0;
       let errorCount = 0;
       
-      const fetchWithRetry = async (row: any, retries = 1) => {
+      const fetchWithRetry = async (row: any, retries = 2) => {
         if (row.source === 'iNaturalist') {
           for (let attempt = 0; attempt <= retries; attempt++) {
             try {
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 6000);
+              const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout
               
               const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
                 signal: controller.signal,
@@ -1953,7 +1953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   return photos.map((photo: any, index: number) => ({
                     observationId: row.observation_id,
                     imageUrl: photo.url.replace('square', 'large'),
-                    imageId: `${row.observation_id}-${index}`,
+                    imageId: `${row.observation_id}-${photo.id || index}`, // Use photo.id for uniqueness
                     observer: row.observer,
                     observedOn: row.observed_on,
                     state: row.state,

@@ -857,7 +857,7 @@ export default function SpeciesDetail() {
                     variant="outline"
                     className="px-8"
                   >
-                    Show More Images ({totalImages - speciesImages.length} remaining)
+                    Show More Images ({Math.max(0, totalImages - speciesImages.length)} remaining)
                   </Button>
                 </div>
               )}
