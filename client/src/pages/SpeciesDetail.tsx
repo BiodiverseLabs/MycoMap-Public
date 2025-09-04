@@ -738,6 +738,27 @@ export default function SpeciesDetail() {
                             alt={`${image.scientificName} observation`}
                             className="w-full h-48 object-cover rounded-t-lg"
                             loading="lazy"
+                            onError={(e) => {
+                              console.error('Failed to load image:', image.imageUrl);
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent && !parent.querySelector('.image-error')) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'image-error flex items-center justify-center h-48 bg-slate-100 rounded-t-lg';
+                                errorDiv.innerHTML = `
+                                  <div class="text-center text-slate-500">
+                                    <div class="w-16 h-16 mx-auto mb-2 opacity-30">
+                                      <svg fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+                                      </svg>
+                                    </div>
+                                    <p class="text-xs">Image unavailable</p>
+                                  </div>
+                                `;
+                                parent.insertBefore(errorDiv, target);
+                              }
+                            }}
                           />
                           <div className="absolute top-2 right-2">
                             <div className="bg-slate-600 text-white rounded-full p-1 opacity-70">
