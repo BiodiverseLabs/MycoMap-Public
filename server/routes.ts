@@ -1966,17 +1966,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             } catch (error: any) {
               if (attempt < retries) {
-                // Wait before retry: 500ms, then 1s
+                // Wait before retry: 500ms, then 1s, then 1.5s
                 await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
                 continue;
               }
-              console.error(`Failed fetching iNaturalist images for ${row.observation_id} after ${retries + 1} attempts:`, error.message);
+              console.error(`❌ iNaturalist API failed for ${row.observation_id} after ${retries + 1} attempts:`, error.message);
+              console.error(`   URL: https://api.inaturalist.org/v1/observations/${row.observation_id}`);
               errorCount++;
             }
           }
+          
+          // If iNaturalist API failed completely, fall back to database URL
+          if (row.image_link && row.image_link.includes('static.inaturalist.org')) {
+            console.log(`📷 Using iNaturalist database URL fallback for ${row.observation_id}`);
+            successCount++;
+            return [{
+              observationId: row.observation_id,
+              imageUrl: row.image_link,
+              imageId: `${row.observation_id}-fallback`,
+              observer: row.observer,
+              observedOn: row.observed_on,
+              state: row.state,
+              placeGuess: row.place_guess,
+              source: row.source,
+              scientificName: row.scientific_name,
+              isSelected: false
+            }];
+          }
+          
           return [];
         } else {
-          // Non-iNaturalist sources
+          // Non-iNaturalist sources  
           if (row.image_link && !row.image_link.includes('inaturalist.org')) {
             successCount++;
             return [{
