@@ -2068,6 +2068,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           successCount++;
         } else if (row.source === 'iNaturalist') {
           // iNaturalist observation not in cache - fetch from API
+          console.log(`[Cache Miss] Adding ${row.observation_id} to missing list (no cached photos)`);
           missingFromCache.push(row);
         } else {
           // Non-iNaturalist observation without cache - show placeholder
@@ -2086,6 +2087,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errorCount++;
         }
       }
+      
+      console.log(`[Cache Debug] Found ${cacheResults.rows.length} observations, ${missingFromCache.length} missing from cache`);
       
       // Fetch missing observations from iNaturalist API and cache them
       if (missingFromCache.length > 0) {
