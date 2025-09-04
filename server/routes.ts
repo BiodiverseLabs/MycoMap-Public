@@ -2041,7 +2041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: row.source,
         scientificName: row.scientific_name,
         isSelected: false
-      })).filter(img => img.imageUrl && img.source !== 'Mushroom Observer' && img.source !== 'MycoPortal');
+      })).filter(img => img.imageUrl && img.source !== 'MO Observations' && img.source !== 'MycoPortal');
       
       console.log(`[Species Images API] Returning ${images.length} images for ${scientificName}`);
       res.json(images);
