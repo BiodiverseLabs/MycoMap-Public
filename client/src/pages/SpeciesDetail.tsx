@@ -255,8 +255,10 @@ export default function SpeciesDetail() {
   // All loaded images (accumulated from infinite scroll)
   const paginatedImages = speciesImages;
   
-  // Infinite scroll detection
+  // Infinite scroll detection with debugging
   useEffect(() => {
+    console.log('🔧 Setting up infinite scroll - hasNextPage:', hasNextPage, 'isFetchingNextPage:', isFetchingNextPage);
+    
     const handleScroll = () => {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
@@ -264,18 +266,36 @@ export default function SpeciesDetail() {
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
       const isScrollable = documentHeight > windowHeight;
       
+      // Debug every scroll event
+      if (scrollTop > 0) { // Only log when actually scrolling
+        console.log('📜 Scroll:', {
+          scrollTop: Math.round(scrollTop),
+          distanceFromBottom: Math.round(distanceFromBottom),
+          documentHeight,
+          windowHeight,
+          isScrollable,
+          hasNextPage,
+          isFetchingNextPage,
+          shouldTrigger: distanceFromBottom < 1000 && hasNextPage && !isFetchingNextPage && isScrollable
+        });
+      }
+      
       if (
         distanceFromBottom < 1000 && // Load when 1000px from bottom
         hasNextPage && 
         !isFetchingNextPage &&
         isScrollable // Only trigger if page is actually scrollable
       ) {
+        console.log('🚀 TRIGGERING fetchNextPage!');
         fetchNextPage();
       }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      console.log('🗑️ Removing scroll listener');
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // Helper function to format dates
