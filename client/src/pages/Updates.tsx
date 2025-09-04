@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown, RefreshCw, Save, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown, RefreshCw, Save, ChevronDown, ChevronUp, Clock, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,6 +21,7 @@ export default function Updates() {
   // State for Name Updates filtering and sorting
   const [nameUpdateSourceFilter, setNameUpdateSourceFilter] = useState<string>('all');
   const [nameUpdateSortOrder, setNameUpdateSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [dbUpdateStatusFilter, setDbUpdateStatusFilter] = useState<string>('all');
   
   // State for API refresh functionality
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
@@ -48,7 +49,21 @@ export default function Updates() {
     
     // Apply source filter
     if (nameUpdateSourceFilter !== 'all') {
-      filtered = nameUpdates.filter(record => record.source === nameUpdateSourceFilter);
+      filtered = filtered.filter(record => record.source === nameUpdateSourceFilter);
+    }
+    
+    // Apply database update status filter
+    if (dbUpdateStatusFilter !== 'all') {
+      filtered = filtered.filter(record => {
+        const refreshData = apiData[record.observationId];
+        const hasDbUpdate = refreshData?.lastDbUpdate;
+        if (dbUpdateStatusFilter === 'updated') {
+          return hasDbUpdate;
+        } else if (dbUpdateStatusFilter === 'not_updated') {
+          return !hasDbUpdate;
+        }
+        return true;
+      });
     }
     
     // Apply sorting by source
@@ -60,7 +75,7 @@ export default function Updates() {
     });
     
     return filtered;
-  }, [nameUpdates, nameUpdateSourceFilter, nameUpdateSortOrder]);
+  }, [nameUpdates, nameUpdateSourceFilter, nameUpdateSortOrder, dbUpdateStatusFilter, apiData]);
 
   // Get unique sources from nameUpdates
   const availableSources = useMemo(() => {
@@ -250,6 +265,11 @@ export default function Updates() {
                     {nameUpdateSourceFilter} only
                   </Badge>
                 )}
+                {dbUpdateStatusFilter !== 'all' && (
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {dbUpdateStatusFilter === 'updated' ? 'DB Updated Only' : 'Not Updated Only'}
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Select value={nameUpdateSourceFilter} onValueChange={setNameUpdateSourceFilter}>
@@ -264,6 +284,17 @@ export default function Updates() {
                         {source}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={dbUpdateStatusFilter} onValueChange={setDbUpdateStatusFilter}>
+                  <SelectTrigger className="w-44">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Records</SelectItem>
+                    <SelectItem value="updated">Database Updated</SelectItem>
+                    <SelectItem value="not_updated">Not Updated</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button
@@ -337,10 +368,17 @@ export default function Updates() {
                               {record.observationId}
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium">{record.scientificName}</div>
-                              {record.genus && record.genus !== record.scientificName && (
-                                <div className="text-sm text-slate-500">{record.genus}</div>
-                              )}
+                              <div className="flex items-center gap-2">
+                                <div>
+                                  <div className="font-medium">{record.scientificName}</div>
+                                  {record.genus && record.genus !== record.scientificName && (
+                                    <div className="text-sm text-slate-500">{record.genus}</div>
+                                  )}
+                                </div>
+                                {refreshData?.lastDbUpdate && (
+                                  <CheckCircle className="w-5 h-5 text-green-500" title="Successfully updated in database" />
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-xs">
