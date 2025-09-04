@@ -1930,8 +1930,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allImages = allImages.filter(img => !((img.source === 'Database' || img.source === 'iNaturalist') && /^\d+$/.test(img.observation_id)));
           allImages.push(...allInatCachePhotos);
           console.log(`[Species Images API] Replaced database iNaturalist observations with ${allInatCachePhotos.length} photos from iNaturalist cache`);
-        } else if (shouldIncludeNonValidated) {
-          // Cache is empty and includeNonValidated is true - fetch fresh data from iNaturalist API
+        } else {
+          // Cache is empty - fetch fresh data from iNaturalist API to get multiple photos per observation
           console.log(`[Species Images API] Cache empty for ${inatObservationsInMainTable.length} observations - fetching fresh data from API`);
           
           try {
