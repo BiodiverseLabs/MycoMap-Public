@@ -145,7 +145,8 @@ export default function SpeciesDetail() {
 
   const speciesImages = speciesImagesResponse?.images || [];
   const totalImages = speciesImagesResponse?.total || 0;
-  const totalPages = Math.ceil(totalImages / imagesPerPage);
+  const totalObservations = speciesImagesResponse?.totalObservations || 0;
+  const totalPages = speciesImagesResponse?.totalPages || 0;
 
   // Fetch species classification
   const { data: classification, isLoading: classificationLoading } = useQuery({
@@ -391,9 +392,9 @@ export default function SpeciesDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-primary">{metrics?.totalObservations || 0}</div>
+                <div className="text-3xl font-bold text-primary">{totalObservations}</div>
                 <p className="text-sm text-slate-600 mt-1">
-                  {filteredObservations.length} matching filters
+                  {totalImages} total images
                 </p>
               </CardContent>
             </Card>
@@ -710,16 +711,7 @@ export default function SpeciesDetail() {
             <CardContent>
               <div className="flex items-center justify-between mb-6">
                 <Badge variant="secondary" className="text-sm">
-                  {speciesImages.length} total images from {new Set(
-                    speciesImages.map(img => {
-                      // Extract base observation ID
-                      const id = img.observationId;
-                      if (id.includes('-')) {
-                        return id.split('-')[1];
-                      }
-                      return id;
-                    })
-                  ).size} observations
+                  {totalImages} total images from {totalObservations} observations
                 </Badge>
                 <div className="text-sm text-slate-600">
                   Page {currentPage} of {totalPages} ({imagesPerPage} per page)

@@ -1857,14 +1857,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Species Images API] Fetching images for page ${page} of ${scientificName} (${pageSize} per page)`);
 
-      // Step 0: Get total count for pagination
+      // Step 0: Get total counts for pagination (all observations across all pages)
       const totalCountResult = await db.execute(sql`
-        SELECT COUNT(*) as total
+        SELECT COUNT(*) as total_observations
         FROM observations o
         WHERE o.scientific_name = ${scientificName}
           ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
       `);
-      const totalCount = parseInt(totalCountResult.rows[0].total.toString());
+      const totalObservations = parseInt(totalCountResult.rows[0].total_observations.toString());
+
+      // Get total image count across all pages by including iNaturalist cache
+      const totalImageCountResult = await db.execute(sql`
+        SELECT COUNT(*) as total_images
+        FROM (
+          SELECT o.observation_id
+          FROM observations o
+          WHERE o.scientific_name = ${scientificName}
+            ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
+            AND o.image_link IS NOT NULL
+          
+          UNION ALL
+          
+          SELECT DISTINCT 'iNat-cache-' || inat_id || '-' || photo_index
+          FROM (
+            SELECT 
+              inat_id,
+              unnest(photos) as photo_url,
+              generate_subscripts(photos, 1) as photo_index
+            FROM inat_observations_cache
+            WHERE LOWER(scientific_name) = LOWER(${scientificName})
+              AND photos IS NOT NULL
+              AND array_length(photos, 1) > 0
+          ) t
+          ${shouldIncludeNonValidated ? sql`` : sql`WHERE 1=0`}
+        ) combined_images
+      `);
+      const totalImages = parseInt(totalImageCountResult.rows[0].total_images.toString());
 
       // Step 1: Get paginated observations for this species
       const speciesObservations = await db.execute(sql`
@@ -2070,13 +2098,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return getSourcePriority(a.source) - getSourcePriority(b.source);
         });
       
-      console.log(`[Species Images API] Returning ${images.length} images for ${scientificName} (page ${page}/${Math.ceil(totalCount/pageSize)})`);
+      console.log(`[Species Images API] Returning ${images.length} images for ${scientificName} (page ${page}/${Math.ceil(totalObservations/pageSize)})`);
       res.json({
         images,
-        total: totalCount,
+        total: totalImages,
+        totalObservations: totalObservations,
         page,
         pageSize,
-        totalPages: Math.ceil(totalCount / pageSize)
+        totalPages: Math.ceil(totalObservations / pageSize)
       });
     } catch (error) {
       console.error("Error fetching species images:", error);
