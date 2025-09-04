@@ -306,10 +306,12 @@ export const inaturalistApiCache = pgTable("inaturalist_api_cache", {
   qualityGrade: text("quality_grade"), // research, needs_id, casual
   apiResponseRaw: text("api_response_raw"), // Full JSON response for debugging
   lastRefreshed: timestamp("last_refreshed").defaultNow(),
+  lastDbUpdate: timestamp("last_db_update"), // When the database was last updated with this data
   cacheExpiresAt: timestamp("cache_expires_at"), // For cache invalidation
 }, (table) => ({
   observationIdIdx: index("inat_cache_observation_id_idx").on(table.observationId),
   lastRefreshedIdx: index("inat_cache_last_refreshed_idx").on(table.lastRefreshed),
+  lastDbUpdateIdx: index("inat_cache_last_db_update_idx").on(table.lastDbUpdate),
   cacheExpiresIdx: index("inat_cache_expires_idx").on(table.cacheExpiresAt),
 }));
 

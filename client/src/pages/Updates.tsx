@@ -119,9 +119,11 @@ export default function Updates() {
       const response = await apiRequest('POST', `/api/observations/update-inat-data`, { observationId, inatName, provisionalName, speciesNameOverride });
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast({ title: "Success", description: "Database updated successfully" });
       queryClient.invalidateQueries({ queryKey: ['/api/observations/name-updates'] });
+      // Refresh the iNaturalist data to get updated timestamps
+      queryClient.invalidateQueries({ queryKey: ['/api/observations/inat-data', variables.observationId] });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update database", variant: "destructive" });
@@ -418,18 +420,24 @@ export default function Updates() {
                                           speciesNameOverride: refreshData.speciesNameOverride
                                         });
                                       }}
-                                      disabled={updateDbMutation.isPending}
+                                      disabled={updateDbMutation.isPending || !!refreshData.lastDbUpdate}
+                                      variant={refreshData.lastDbUpdate ? "secondary" : "default"}
                                     >
                                       <Save className="w-4 h-4 mr-2" />
-                                      Update DB
+                                      {refreshData.lastDbUpdate ? "DB Updated" : "Update DB"}
                                     </Button>
-                                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                                      <div>Last refreshed: {new Date(refreshData.lastRefreshed).toLocaleString()}</div>
-                                      {refreshData.fromCache && (
-                                        <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                                          <Clock className="w-3 h-3 mr-1" />
-                                          Cached
-                                        </Badge>
+                                    <div className="flex flex-col gap-1 text-xs text-slate-500">
+                                      <div className="flex items-center gap-2">
+                                        <span>Last API Refresh: {new Date(refreshData.lastRefreshed).toLocaleString()}</span>
+                                        {refreshData.fromCache && (
+                                          <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                                            <Clock className="w-3 h-3 mr-1" />
+                                            Cached
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {refreshData.lastDbUpdate && (
+                                        <div>Last Database Update: {new Date(refreshData.lastDbUpdate).toLocaleString()}</div>
                                       )}
                                     </div>
                                   </div>

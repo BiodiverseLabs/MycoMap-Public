@@ -2127,6 +2127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           speciesNameOverride: cached.speciesNameOverride,
           qualityGrade: cached.qualityGrade,
           lastRefreshed: cached.lastRefreshed?.toISOString(),
+          lastDbUpdate: cached.lastDbUpdate?.toISOString(),
           fromCache: true
         };
       }
@@ -2346,6 +2347,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update the database record with the selected name (priority: override > provisional > inat)
       if (inatName) {
         await db.execute(sql`UPDATE observations SET scientific_name = ${inatName} WHERE observation_id = ${observationId}`);
+        
+        // Also update the cache table with the database update timestamp
+        await db
+          .update(inaturalistApiCache)
+          .set({ lastDbUpdate: new Date() })
+          .where(eq(inaturalistApiCache.observationId, observationId));
+        
+        console.log(`[iNat Update] Database updated for observation ${observationId} with name: ${inatName}`);
       }
 
       res.json({ success: true, message: "Observation updated successfully" });
