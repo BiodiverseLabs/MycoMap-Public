@@ -202,7 +202,7 @@ export default function Updates() {
   // Helper functions
   const handleRefreshSingle = async (observationId: string) => {
     console.log(`[Frontend] Refreshing observation: ${observationId}`);
-    setRefreshingRecords(prev => new Set([...prev, observationId]));
+    setRefreshingRecords(prev => new Set([...Array.from(prev), observationId]));
     
     try {
       await refreshSingleMutation.mutateAsync(observationId);
@@ -225,8 +225,8 @@ export default function Updates() {
       const allInatRecords = allNameUpdates.filter((record: any) => record.source === 'iNaturalist');
       
       // Separate records into two groups: fresh API calls vs database updates only
-      const recordsNeedingFreshApi = [];
-      const recordsNeedingDbUpdate = [];
+      const recordsNeedingFreshApi: any[] = [];
+      const recordsNeedingDbUpdate: any[] = [];
       
       allInatRecords.forEach((record: any) => {
         if (record.inatApiSaved && record.inatApiSaveDate) {
@@ -256,6 +256,7 @@ export default function Updates() {
       
       let totalOperations = 0;
       let completedOperations = 0;
+      let dbBatchesCompleted = 0;
       
       // Process database updates first (faster, no API calls)
       if (dbUpdateIds.length > 0) {
@@ -287,7 +288,8 @@ export default function Updates() {
             }));
             
             completedOperations++;
-            console.log(`[DB Update] Batch ${completedOperations}/${dbBatches} completed (${batch.length} records)`);
+            dbBatchesCompleted++;
+            console.log(`[DB Update] Batch ${dbBatchesCompleted}/${dbBatches} completed (${batch.length} records)`);
             
           } catch (error) {
             console.error(`[DB Update] Batch failed:`, error);
@@ -315,19 +317,19 @@ export default function Updates() {
           const batch = freshApiIds.slice(i, i + apiBatchSize);
           completedOperations++;
           
-          console.log(`[API Refresh] Processing batch ${completedOperations - dbBatches}/${apiBatches} (${batch.length} records)`);
+          console.log(`[API Refresh] Processing batch ${completedOperations - dbBatchesCompleted}/${apiBatches} (${batch.length} records)`);
           
           try {
             await refreshBulkMutation.mutateAsync(batch);
             toast({ 
               title: "API Batch Completed", 
-              description: `API batch ${completedOperations - dbBatches}/${apiBatches} completed (${batch.length} records)` 
+              description: `API batch ${completedOperations - dbBatchesCompleted}/${apiBatches} completed (${batch.length} records)` 
             });
           } catch (error) {
             console.error(`[API Refresh] Batch failed:`, error);
             toast({ 
               title: "API Batch Failed", 
-              description: `API batch ${completedOperations - dbBatches}/${apiBatches} failed. Continuing...`,
+              description: `API batch ${completedOperations - dbBatchesCompleted}/${apiBatches} failed. Continuing...`,
               variant: "destructive"
             });
           }
