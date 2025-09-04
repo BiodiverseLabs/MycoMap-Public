@@ -2399,8 +2399,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const [existing] = await db
             .select()
-            .from(iNaturalistApiCache)
-            .where(eq(iNaturalistApiCache.observationId, observationId));
+            .from(inaturalistApiCache)
+            .where(eq(inaturalistApiCache.observationId, observationId));
           
           if (existing) {
             cachedData[observationId] = {
