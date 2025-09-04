@@ -57,7 +57,7 @@ export const observations = pgTable("observations", {
   notes: text("notes"),
   moNotes: text("mo_notes"),
   reportLink: text("report_link"),
-  imageLink: text("image_link"),
+  imageLink: text("image_link"), // ❌ DO NOT USE - CONTAINS STALE URLS - Use cache tables (inaturalistData.photos, etc.) instead
   firstGenbankRecord: boolean("first_genbank_record").default(false),
   
   isFirstStateRecord: boolean("is_first_state_record").default(false),
@@ -640,7 +640,7 @@ export const biorecords = pgTable("biorecords", {
   notes: text("notes"),
   moNotes: text("mo_notes"),
   reportLink: text("report_link"),
-  imageLink: text("image_link"),
+  imageLink: text("image_link"), // ❌ DO NOT USE - CONTAINS STALE URLS - Use cache tables (inaturalistData.photos, etc.) instead
   firstGenbankRecord: boolean("first_genbank_record").default(false),
   
   isFirstStateRecord: boolean("is_first_state_record").default(false),

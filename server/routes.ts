@@ -1969,6 +1969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return [];
         } else {
           // Non-iNaturalist sources (Mushroom Observer, MyCoPortal) - these database URLs work
+          // ❌ DO NOT USE - image_link has stale URLs - use cached photos instead
           if (row.image_link && !row.image_link.includes('inaturalist.org')) {
             successCount++;
             return [{
@@ -2012,7 +2013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY o.observed_on DESC NULLS LAST, o.observation_id
       `;
       
-      const cacheResults = await db.query(cacheQuery, [speciesName]);
+      const cacheResults = await db.query(cacheQuery, [decodeURIComponent(req.params.speciesName)]);
       
       for (const row of cacheResults.rows) {
         if (row.cached_photos && Array.isArray(row.cached_photos) && row.cached_photos.length > 0) {
@@ -2035,7 +2036,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           successCount++;
         } else {
-          // Fallback to image_link from original observations table
+          // ❌ DEPRECATED FALLBACK - image_link contains stale URLs - this should be eliminated
           const fallbackRow = allObservations.rows.find(obs => obs.observation_id === row.observation_id);
           if (fallbackRow?.image_link) {
             expandedImages.push({
