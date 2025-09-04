@@ -1890,7 +1890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const inatId of inatObservationsInMainTable) {
           const inatCachePhotos = await db.execute(sql`
             SELECT 
-              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id as observation_id,
               inat_id,
               scientific_name,
               common_name,
@@ -1946,7 +1946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   // Add each photo as separate entry  
                   obs.photos.forEach((photo: any, photoIndex: number) => {
                     freshInatData.push({
-                      observation_id: `iNat-${obs.id}-${photoIndex + 1}`,
+                      observation_id: obs.id.toString(), // Use raw iNaturalist ID
                       scientific_name: obs.taxon?.name || scientificName,
                       common_name: obs.taxon?.preferred_common_name || null,
                       observer: obs.user?.name || obs.user?.login,
@@ -6203,7 +6203,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             if (startMonth <= endMonth) {
               inatCachePhotos = await db.execute(sql`
                 SELECT 
-                  'iNat-' || inat_id || '-' || photo_index as observation_id,
+                  inat_id as observation_id,
                   inat_id,
                   scientific_name,
                   common_name,
@@ -6237,7 +6237,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             } else {
               inatCachePhotos = await db.execute(sql`
                 SELECT 
-                  'iNat-' || inat_id || '-' || photo_index as observation_id,
+                  inat_id as observation_id,
                   inat_id,
                   scientific_name,
                   common_name,
@@ -6273,7 +6273,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const startMonth = parseInt(monthStart as string);
             inatCachePhotos = await db.execute(sql`
               SELECT 
-                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id as observation_id,
                 inat_id,
                 scientific_name,
                 common_name,
@@ -6308,7 +6308,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const endMonth = parseInt(monthEnd as string);
             inatCachePhotos = await db.execute(sql`
               SELECT 
-                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id as observation_id,
                 inat_id,
                 scientific_name,
                 common_name,
@@ -6342,7 +6342,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           } else {
             inatCachePhotos = await db.execute(sql`
               SELECT 
-                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id as observation_id,
                 inat_id,
                 scientific_name,
                 common_name,
@@ -6399,7 +6399,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   // Add each photo as separate entry  
                   obs.photos.forEach((photo: any, photoIndex: number) => {
                     freshInatData.push({
-                      observation_id: `iNat-${obs.id}-${photoIndex + 1}`,
+                      observation_id: obs.id.toString(), // Use raw iNaturalist ID
                       scientific_name: obs.taxon?.name || scientificName,
                       common_name: obs.taxon?.preferred_common_name || null,
                       observer: obs.user?.name || obs.user?.login,
@@ -6443,7 +6443,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (startMonth <= endMonth) {
             inatObservations = await db.execute(sql`
               SELECT 
-                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id as observation_id,
                 inat_id,
                 scientific_name,
                 common_name,
@@ -6482,7 +6482,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           } else {
             inatObservations = await db.execute(sql`
               SELECT 
-                'iNat-' || inat_id || '-' || photo_index as observation_id,
+                inat_id as observation_id,
                 inat_id,
                 scientific_name,
                 common_name,
@@ -6523,7 +6523,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const startMonth = parseInt(monthStart as string);
           inatObservations = await db.execute(sql`
             SELECT 
-              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id as observation_id,
               inat_id,
               scientific_name,
               common_name,
@@ -6563,7 +6563,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const endMonth = parseInt(monthEnd as string);
           inatObservations = await db.execute(sql`
             SELECT 
-              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id as observation_id,
               inat_id,
               scientific_name,
               common_name,
@@ -6602,7 +6602,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         } else {
           inatObservations = await db.execute(sql`
             SELECT 
-              'iNat-' || inat_id || '-' || photo_index as observation_id,
+              inat_id as observation_id,
               inat_id,
               scientific_name,
               common_name,
@@ -6713,7 +6713,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         speciesObservations.forEach((obs: any) => {
           obs.photos.forEach((photoUrl: string, photoIndex: number) => {
             inatImages.push({
-              observation_id: `iNat-${obs.inat_id}-${photoIndex}`,
+              observation_id: obs.inat_id.toString(),
               scientific_name: obs.scientific_name,
               common_name: obs.common_name,
               observer: obs.user_name,
