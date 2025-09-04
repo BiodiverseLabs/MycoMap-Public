@@ -260,21 +260,11 @@ export default function SpeciesDetail() {
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
       
-      console.log('Scroll debug:', {
-        scrollTop,
-        windowHeight,
-        documentHeight,
-        distanceFromBottom: documentHeight - (scrollTop + windowHeight),
-        hasNextPage,
-        isFetchingNextPage
-      });
-      
       if (
         documentHeight - (scrollTop + windowHeight) < 1000 && // Load when 1000px from bottom
         hasNextPage && 
         !isFetchingNextPage
       ) {
-        console.log('Triggering fetchNextPage');
         fetchNextPage();
       }
     };
@@ -287,6 +277,13 @@ export default function SpeciesDetail() {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Unknown date';
     try {
+      // Handle date-only strings (YYYY-MM-DD) without timezone conversion
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [year, month, day] = dateStr.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        return date.toLocaleDateString();
+      }
+      // Handle full timestamps normally
       return new Date(dateStr).toLocaleDateString();
     } catch {
       return dateStr;
