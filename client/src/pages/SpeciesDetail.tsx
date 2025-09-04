@@ -116,7 +116,7 @@ export default function SpeciesDetail() {
     queryKey: ["/api/species", speciesName, "images", { state: selectedState, includeNonValidated }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        limit: '20',
+        limit: '200',
         includeNonValidated: includeNonValidated.toString()
       });
       

@@ -1843,8 +1843,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/species/:name/images", async (req, res) => {
     try {
       const scientificName = decodeURIComponent(req.params.name);
-      const { state, limit: limitParam } = req.query;
+      const { state, limit: limitParam, includeNonValidated = 'false' } = req.query;
       const limit = limitParam ? parseInt(limitParam as string) : 200;
+      const shouldIncludeNonValidated = includeNonValidated === 'true';
       
       console.log(`[Species Images API] Fetching images for: ${scientificName}`);
 
@@ -1875,9 +1876,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Species Images API] Found ${speciesObservations.rows.length} total observations for ${scientificName}`);
       let allImages = [...speciesObservations.rows];
 
-      // Step 2: Find database observations that are iNaturalist IDs (numeric) and fetch their images from cache
+      // Step 2: Find observations that are iNaturalist IDs (numeric) and fetch their images from cache
       const inatObservationsInMainTable = speciesObservations.rows
-        .filter(row => row.source === 'Database' && /^\d+$/.test(row.observation_id))
+        .filter(row => (row.source === 'Database' || row.source === 'iNaturalist') && /^\d+$/.test(row.observation_id))
         .map(row => row.observation_id);
       
       if (inatObservationsInMainTable.length > 0) {
@@ -1929,8 +1930,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allImages = allImages.filter(img => !(img.source === 'Database' && /^\d+$/.test(img.observation_id)));
           allImages.push(...allInatCachePhotos);
           console.log(`[Species Images API] Replaced database iNaturalist observations with ${allInatCachePhotos.length} photos from iNaturalist cache`);
-        } else {
-          // Cache is empty - fetch fresh data from iNaturalist API
+        } else if (shouldIncludeNonValidated) {
+          // Cache is empty and includeNonValidated is true - fetch fresh data from iNaturalist API
           console.log(`[Species Images API] Cache empty for ${inatObservationsInMainTable.length} observations - fetching fresh data from API`);
           
           try {
@@ -1979,7 +1980,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Species Images API] Using ${allImages.filter(img => img.source === 'iNaturalist').length} iNaturalist images`);
       }
 
-      // Step 3: Format response consistently with field guide method
+      // Step 3: Add additional iNaturalist cache data if includeNonValidated is enabled
+      if (shouldIncludeNonValidated) {
+        console.log(`[Species Images API] Including non-validated data - checking iNaturalist cache for ${scientificName}`);
+        
+        try {
+          const additionalInatImages = await db.execute(sql`
+            SELECT 
+              'iNat-cache-' || inat_id || '-' || photo_index as observation_id,
+              inat_id,
+              scientific_name,
+              common_name,
+              user_name as observer,
+              observed_on,
+              place_guess as state,
+              place_guess,
+              photo_url as image_link,
+              'iNaturalist' as source,
+              photo_index
+            FROM (
+              SELECT 
+                inat_id,
+                scientific_name,
+                common_name,
+                user_name,
+                observed_on,
+                place_guess,
+                unnest(photos) as photo_url,
+                generate_subscripts(photos, 1) as photo_index
+              FROM inat_observations_cache
+              WHERE LOWER(scientific_name) = LOWER(${scientificName})
+                AND photos IS NOT NULL
+                AND array_length(photos, 1) > 0
+            ) t
+            ORDER BY observed_on DESC, photo_index
+            LIMIT 100
+          `);
+          
+          if (additionalInatImages.rows.length > 0) {
+            // Add additional iNaturalist cache images (avoiding duplicates)
+            const existingIds = new Set(allImages.map(img => img.observation_id));
+            const newImages = additionalInatImages.rows.filter(row => !existingIds.has(row.observation_id));
+            allImages.push(...newImages);
+            console.log(`[Species Images API] Added ${newImages.length} additional photos from iNaturalist cache`);
+          }
+        } catch (error) {
+          console.error(`[Species Images API] Error fetching additional iNaturalist cache data:`, error);
+        }
+      }
+
+      // Step 4: Format response consistently with field guide method
       const images = allImages.map((row: any) => ({
         observationId: row.observation_id,
         imageUrl: row.image_link,
