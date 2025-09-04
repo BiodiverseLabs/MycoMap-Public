@@ -2223,8 +2223,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Extract observation fields for Provisional Name (10675) and Species Name Override (20259)
       const observationFields = obs.ofvs || [];
-      const provisionalName = observationFields.find((field: any) => field.observation_field_id === 10675)?.value || null;
-      const speciesNameOverride = observationFields.find((field: any) => field.observation_field_id === 20259)?.value || null;
+      const provisionalName = observationFields.find((field: any) => field.field_id === 10675)?.value || null;
+      const speciesNameOverride = observationFields.find((field: any) => field.field_id === 20259)?.value || null;
 
       const refreshedData = {
         inatName: obs.taxon?.name || obs.species_guess || null,
@@ -2303,8 +2303,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 try {
                   const observationFields = obs.ofvs || [];
-                  const provisionalName = observationFields.find((field: any) => field.observation_field_id === 10675)?.value || null;
-                  const speciesNameOverride = observationFields.find((field: any) => field.observation_field_id === 20259)?.value || null;
+                  const provisionalName = observationFields.find((field: any) => field.field_id === 10675)?.value || null;
+                  const speciesNameOverride = observationFields.find((field: any) => field.field_id === 20259)?.value || null;
 
                   const refreshedData = {
                     inatName: obs.taxon?.name || obs.species_guess || null,
