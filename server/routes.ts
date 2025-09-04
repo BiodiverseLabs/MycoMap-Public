@@ -2041,7 +2041,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: row.source,
         scientificName: row.scientific_name,
         isSelected: false
-      })).filter(img => img.imageUrl && img.source !== 'Mushroom Observer' && img.source !== 'MyCoPortal');
+      })).filter(img => img.imageUrl)
+        .sort((a, b) => {
+          // Sort order: iNaturalist first, Database/Sequences second, MO/MycoPortal last
+          const getSourcePriority = (source: string) => {
+            if (source === 'iNaturalist') return 1;
+            if (source === 'Database' || source === 'Sequences') return 2;
+            if (source === 'Mushroom Observer' || source === 'MyCoPortal') return 3;
+            return 2;
+          };
+          return getSourcePriority(a.source) - getSourcePriority(b.source);
+        });
       
       console.log(`[Species Images API] Returning ${images.length} images for ${scientificName}`);
       res.json(images);
