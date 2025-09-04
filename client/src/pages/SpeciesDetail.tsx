@@ -256,17 +256,30 @@ export default function SpeciesDetail() {
   // Infinite scroll detection
   useEffect(() => {
     const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      console.log('Scroll debug:', {
+        scrollTop,
+        windowHeight,
+        documentHeight,
+        distanceFromBottom: documentHeight - (scrollTop + windowHeight),
+        hasNextPage,
+        isFetchingNextPage
+      });
+      
       if (
-        window.innerHeight + document.documentElement.scrollTop >= 
-        document.documentElement.offsetHeight - 1000 && // Load when 1000px from bottom
+        documentHeight - (scrollTop + windowHeight) < 1000 && // Load when 1000px from bottom
         hasNextPage && 
         !isFetchingNextPage
       ) {
+        console.log('Triggering fetchNextPage');
         fetchNextPage();
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
@@ -838,9 +851,13 @@ export default function SpeciesDetail() {
                           </div>
                           
                           {/* Location */}
-                          {image.state && (
+                          {(image.placeGuess || image.state) && (
                             <div className="text-xs text-slate-600 truncate">
-                              <strong>Location:</strong> {image.placeGuess || image.state}
+                              <strong>Location:</strong> {
+                                image.placeGuess && image.state && image.placeGuess !== image.state
+                                  ? `${image.placeGuess}, ${image.state}`
+                                  : image.placeGuess || image.state
+                              }
                             </div>
                           )}
                         </div>
