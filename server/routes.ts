@@ -7023,7 +7023,57 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       allImages.push(...dbObservationsWithImages);
       console.log(`[Species Images API] Added ${dbObservationsWithImages.length} database observations with image links`);
       
-      // Step 5: Format response (same as Field Guide)
+      // Step 5: Additional iNaturalist search if includeNonValidated is true
+      if (includeNonValidatedBool) {
+        console.log(`[Species Images API] Including non-validated data - searching iNaturalist directly for ${scientificName}`);
+        
+        try {
+          // Build iNaturalist API parameters for broader search
+          const inatParams = new URLSearchParams({
+            taxon_name: scientificName,
+            photos: 'true',
+            per_page: '200',
+            order: 'desc',
+            order_by: 'created_at'
+          });
+          
+          if (selectedState && selectedState !== "all") {
+            // Use state name directly for iNaturalist search
+            inatParams.set('place_guess', selectedState);
+          }
+          
+          const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations?${inatParams}`);
+          if (inatResponse.ok) {
+            const inatData = await inatResponse.json();
+            console.log(`[Species Images API] Found ${inatData.results?.length || 0} additional iNaturalist observations`);
+            
+            if (inatData.results && inatData.results.length > 0) {
+              const additionalImages = inatData.results
+                .filter((obs: any) => obs.photos && obs.photos.length > 0)
+                .flatMap((obs: any) => 
+                  obs.photos.map((photo: any, index: number) => ({
+                    observation_id: `iNat-${obs.id}-${index}`,
+                    scientific_name: obs.taxon?.name || scientificName,
+                    common_name: obs.taxon?.preferred_common_name,
+                    observer: obs.user?.name || obs.user?.login,
+                    observed_on: obs.observed_on,
+                    state: obs.place_guess?.includes(',') ? obs.place_guess.split(',').pop()?.trim() : obs.place_guess,
+                    place_guess: obs.place_guess,
+                    image_link: photo.url?.replace('square', 'medium'),
+                    source: 'iNaturalist'
+                  }))
+                );
+              
+              allImages.push(...additionalImages);
+              console.log(`[Species Images API] Added ${additionalImages.length} additional iNaturalist images`);
+            }
+          }
+        } catch (error) {
+          console.error(`[Species Images API] Error fetching additional iNaturalist data:`, error);
+        }
+      }
+      
+      // Step 6: Format response (same as Field Guide)
       const images = allImages.map((row: any) => ({
         observationId: row.observation_id,
         imageUrl: row.image_link,
