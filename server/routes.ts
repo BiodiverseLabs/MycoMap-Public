@@ -2280,9 +2280,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`[iNat Bulk] Fetching batch of ${batch.length} observations from API:`, batch);
           
           try {
-            // Make single batch API call
+            // Make single batch API call with rate limit handling
             const batchUrl = `https://api.inaturalist.org/v1/observations?id=${batch.join(',')}`;
-            const response = await fetch(batchUrl);
+            let response = await fetch(batchUrl);
+            
+            // Handle rate limiting (HTTP 429)
+            let retryCount = 0;
+            while (response.status === 429 && retryCount < 3) {
+              const retryAfter = response.headers.get('Retry-After');
+              const delayMs = retryAfter ? parseInt(retryAfter) * 1000 : 60000; // Default 1 minute
+              console.log(`[iNat Rate Limit] Hit rate limit, waiting ${delayMs}ms before retry ${retryCount + 1}/3`);
+              
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              response = await fetch(batchUrl);
+              retryCount++;
+            }
             
             if (response.ok) {
               const data = await response.json();
@@ -2350,9 +2362,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            // Rate limit between batches (much less delay needed now)
+            // Rate limit between batches: iNaturalist allows max 100 requests/minute
+            // Using 1.2 second delay = 50 requests/minute for safety margin
             if (i + batchSize < uncachedIds.length) {
-              await new Promise(resolve => setTimeout(resolve, 500));
+              await new Promise(resolve => setTimeout(resolve, 1200));
             }
             
           } catch (error) {

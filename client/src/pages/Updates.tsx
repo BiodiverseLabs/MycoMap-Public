@@ -261,9 +261,10 @@ export default function Updates() {
           });
         }
         
-        // Small delay between batches to prevent API rate limiting
+        // Rate limiting: iNaturalist allows max 100 requests/minute (1.67/sec)
+        // Using 1.5 second delay between frontend batches for extra safety
         if (i + batchSize < allObservationIds.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
       }
       
