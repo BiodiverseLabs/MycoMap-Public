@@ -1995,17 +1995,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process non-iNaturalist sources immediately
       const otherResults = await Promise.all(otherObservations.map(row => fetchInatData(row)));
       
-      // Process iNaturalist in batches of 10 with delays
+      // Process iNaturalist with MUCH more conservative rate limiting to avoid HTTP 429
       const inatResults = [];
-      const batchSize = 10;
+      const batchSize = 5; // Smaller batches
       for (let i = 0; i < inatObservations.length; i += batchSize) {
         const batch = inatObservations.slice(i, i + batchSize);
         const batchResults = await Promise.all(batch.map(row => fetchInatData(row)));
         inatResults.push(...batchResults);
         
-        // Small delay between batches
+        // Much longer delay between batches to respect rate limits
         if (i + batchSize < inatObservations.length) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          console.log(`⏱️ Processed ${i + batchSize}/${inatObservations.length} iNaturalist observations, waiting...`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
         }
       }
       
