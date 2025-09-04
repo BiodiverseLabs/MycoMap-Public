@@ -2258,11 +2258,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (cachedData) {
             console.log(`[iNat Bulk Cache] Using cached data for observation ${observationId}`);
             
-            // Update the main species field in observations table when using cached data
-            const selectedName = cachedData.speciesNameOverride || cachedData.provisionalName || cachedData.inatName;
-            if (selectedName) {
+            // Update the main species field in observations table when using cached data (same logic as individual button)
+            if (cachedData.inatName) {
               try {
-                await db.execute(sql`UPDATE observations SET scientific_name = ${selectedName} WHERE observation_id = ${observationId}`);
+                await db.execute(sql`UPDATE observations SET scientific_name = ${cachedData.inatName} WHERE observation_id = ${observationId}`);
                 
                 // Also update the cache table with the database update timestamp  
                 await db
@@ -2270,10 +2269,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   .set({ lastDbUpdate: new Date() })
                   .where(eq(inaturalistApiCache.observationId, observationId));
                 
-                console.log(`[iNat Bulk Update] Database updated for observation ${observationId} with name: ${selectedName}`);
+                console.log(`[iNat Bulk Update] Database updated for observation ${observationId} with name: ${cachedData.inatName}`);
               } catch (updateError) {
                 console.error(`[iNat Bulk Update] Failed to update database for observation ${observationId}:`, updateError);
               }
+            } else {
+              console.log(`[iNat Bulk Update] No inatName found for observation ${observationId}, skipping database update`);
             }
             
             results.push({
