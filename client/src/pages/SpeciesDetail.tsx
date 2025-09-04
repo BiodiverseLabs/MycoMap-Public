@@ -706,7 +706,7 @@ export default function SpeciesDetail() {
                       // Extract base observation ID
                       const id = img.observationId;
                       if (id.includes('-')) {
-                        return id.split('-')[0];
+                        return id.split('-')[1];
                       }
                       return id;
                     })
@@ -754,7 +754,7 @@ export default function SpeciesDetail() {
                               <a 
                                 href={`https://www.inaturalist.org/observations/${
                                   image.observationId.includes('-') 
-                                    ? image.observationId.split('-')[0]
+                                    ? image.observationId.split('-')[1]
                                     : image.observationId
                                 }`}
                                 target="_blank" 
