@@ -2255,11 +2255,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const results = [];
+      const uncachedIds = [];
       
-      // Process observations, checking cache first
+      // First, check cache for all observations
       for (const observationId of observationIds) {
         try {
-          // Check cache first
           const cachedData = await getCachedApiData(observationId);
           
           if (cachedData) {
@@ -2269,66 +2269,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
               success: true,
               data: cachedData
             });
-            continue; // Skip API call and delay
-          }
-
-          // If not in cache, fetch from API
-          console.log(`[iNat Bulk] Fetching from API for observation ${observationId}`);
-          const inatUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
-          const response = await fetch(inatUrl);
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            if (data.results && data.results.length > 0) {
-              const obs = data.results[0];
-              const observationFields = obs.ofvs || [];
-              const provisionalName = observationFields.find((field: any) => field.observation_field_id === 10675)?.value || null;
-              const speciesNameOverride = observationFields.find((field: any) => field.observation_field_id === 20259)?.value || null;
-
-              const refreshedData = {
-                inatName: obs.taxon?.name || obs.species_guess || null,
-                provisionalName,
-                speciesNameOverride,
-                qualityGrade: obs.quality_grade,
-                lastRefreshed: new Date().toISOString(),
-                fromCache: false
-              };
-
-              // Save to cache
-              await saveCacheData(observationId, refreshedData, JSON.stringify(data));
-
-              results.push({
-                observationId,
-                success: true,
-                data: refreshedData
-              });
-            } else {
-              results.push({
-                observationId,
-                success: false,
-                error: "Observation not found"
-              });
-            }
           } else {
-            results.push({
-              observationId,
-              success: false,
-              error: `API error: ${response.status}`
-            });
+            uncachedIds.push(observationId);
           }
-          
-          // Rate limit: 1.1 second delay between API requests only (not cached data)
-          await new Promise(resolve => setTimeout(resolve, 1100));
         } catch (error) {
-          results.push({
-            observationId,
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
+          console.error(`[iNat Bulk] Error checking cache for ${observationId}:`, error);
+          uncachedIds.push(observationId);
         }
       }
 
+      // If there are uncached observations, fetch them in batch
+      if (uncachedIds.length > 0) {
+        const batchSize = 50; // iNaturalist API supports batches up to 50
+        
+        for (let i = 0; i < uncachedIds.length; i += batchSize) {
+          const batch = uncachedIds.slice(i, i + batchSize);
+          console.log(`[iNat Bulk] Fetching batch of ${batch.length} observations from API:`, batch);
+          
+          try {
+            // Make single batch API call
+            const batchUrl = `https://api.inaturalist.org/v1/observations?id=${batch.join(',')}`;
+            const response = await fetch(batchUrl);
+            
+            if (response.ok) {
+              const data = await response.json();
+              const observations = data.results || [];
+              
+              console.log(`[iNat Batch] Received ${observations.length} observations from batch API call`);
+              
+              // Process each observation from the batch response
+              for (const obs of observations) {
+                const observationId = obs.id.toString();
+                
+                try {
+                  const observationFields = obs.ofvs || [];
+                  const provisionalName = observationFields.find((field: any) => field.observation_field_id === 10675)?.value || null;
+                  const speciesNameOverride = observationFields.find((field: any) => field.observation_field_id === 20259)?.value || null;
+
+                  const refreshedData = {
+                    inatName: obs.taxon?.name || obs.species_guess || null,
+                    provisionalName,
+                    speciesNameOverride,
+                    qualityGrade: obs.quality_grade,
+                    lastRefreshed: new Date().toISOString(),
+                    fromCache: false
+                  };
+
+                  // Save to cache
+                  await saveCacheData(observationId, refreshedData, JSON.stringify({ results: [obs] }));
+
+                  results.push({
+                    observationId,
+                    success: true,
+                    data: refreshedData
+                  });
+                } catch (error) {
+                  console.error(`[iNat Batch] Error processing observation ${obs.id}:`, error);
+                  results.push({
+                    observationId: obs.id.toString(),
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Processing error'
+                  });
+                }
+              }
+              
+              // Handle observations that weren't found in the batch response
+              const foundIds = observations.map(obs => obs.id.toString());
+              const missingIds = batch.filter(id => !foundIds.includes(id));
+              
+              for (const missingId of missingIds) {
+                results.push({
+                  observationId: missingId,
+                  success: false,
+                  error: "Observation not found"
+                });
+              }
+              
+            } else {
+              console.error(`[iNat Batch] API error: ${response.status}`);
+              // If batch fails, mark all observations in this batch as failed
+              for (const observationId of batch) {
+                results.push({
+                  observationId,
+                  success: false,
+                  error: `API error: ${response.status}`
+                });
+              }
+            }
+            
+            // Rate limit between batches (much less delay needed now)
+            if (i + batchSize < uncachedIds.length) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+          } catch (error) {
+            console.error(`[iNat Batch] Error fetching batch:`, error);
+            // If batch fails, mark all observations in this batch as failed
+            for (const observationId of batch) {
+              results.push({
+                observationId,
+                success: false,
+                error: error instanceof Error ? error.message : 'Batch fetch error'
+              });
+            }
+          }
+        }
+      }
+
+      console.log(`[iNat Bulk] Completed bulk refresh: ${results.length} total results, ${results.filter(r => r.success).length} successful`);
       res.json({ results });
     } catch (error) {
       console.error("Error bulk refreshing iNaturalist data:", error);
