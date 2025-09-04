@@ -224,13 +224,13 @@ export default function Updates() {
       const allNameUpdates = await response.json();
       const allInatRecords = allNameUpdates.filter((record: any) => record.source === 'iNaturalist');
       
-      // Skip records that have recent cache data (updated within last 24 hours)
+      // Skip records that have recent cache data (updated within last 180 days)
       const recordsNeedingRefresh = allInatRecords.filter((record: any) => {
         // Skip if API was saved recently and successfully
         if (record.inatApiSaved && record.inatApiSaveDate) {
           const saveDate = new Date(record.inatApiSaveDate);
-          const hoursSinceUpdate = (Date.now() - saveDate.getTime()) / (1000 * 60 * 60);
-          return hoursSinceUpdate > 24; // Only refresh if older than 24 hours
+          const daysSinceUpdate = (Date.now() - saveDate.getTime()) / (1000 * 60 * 60 * 24);
+          return daysSinceUpdate > 180; // Only refresh if older than 180 days
         }
         return true; // Needs refresh if no API data saved
       });
@@ -240,7 +240,7 @@ export default function Updates() {
       
       if (allObservationIds.length === 0) {
         const message = skippedCount > 0 
-          ? `All ${skippedCount} iNaturalist records have been updated within the last 24 hours`
+          ? `All ${skippedCount} iNaturalist records have been updated within the last 180 days`
           : "No iNaturalist records to refresh";
         toast({ title: "Info", description: message });
         return;
