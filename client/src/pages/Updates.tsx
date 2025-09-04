@@ -71,11 +71,8 @@ export default function Updates() {
   // Mutations for API refresh
   const refreshSingleMutation = useMutation({
     mutationFn: async (observationId: string) => {
-      return await apiRequest(`/api/observations/refresh-inat-data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ observationId })
-      });
+      const response = await apiRequest('POST', `/api/observations/refresh-inat-data`, { observationId });
+      return await response.json();
     },
     onSuccess: (data, observationId) => {
       setApiData(prev => ({ ...prev, [observationId]: data }));
@@ -89,11 +86,8 @@ export default function Updates() {
 
   const refreshBulkMutation = useMutation({
     mutationFn: async (observationIds: string[]) => {
-      return await apiRequest(`/api/observations/refresh-inat-data-bulk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ observationIds })
-      });
+      const response = await apiRequest('POST', `/api/observations/refresh-inat-data-bulk`, { observationIds });
+      return await response.json();
     },
     onSuccess: (data) => {
       const newApiData = { ...apiData };
@@ -122,11 +116,8 @@ export default function Updates() {
       provisionalName: string | null;
       speciesNameOverride: string | null;
     }) => {
-      return await apiRequest(`/api/observations/update-inat-data`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ observationId, inatName, provisionalName, speciesNameOverride })
-      });
+      const response = await apiRequest('POST', `/api/observations/update-inat-data`, { observationId, inatName, provisionalName, speciesNameOverride });
+      return await response.json();
     },
     onSuccess: () => {
       toast({ title: "Success", description: "Database updated successfully" });
