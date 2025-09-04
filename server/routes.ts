@@ -1926,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const row of allObservations.rows) {
         if (row.source === 'iNaturalist') {
-          // For iNaturalist observations, fetch additional images from API
+          // For iNaturalist observations, ONLY use API - no fallback to broken database URLs
           try {
             const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`);
             if (inatResponse.ok) {
@@ -1948,39 +1948,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     isSelected: false
                   });
                 });
-              } else {
-                // Fallback to single image if no photos in API
-                expandedImages.push({
-                  observationId: row.observation_id,
-                  imageUrl: row.image_link,
-                  imageId: row.observation_id,
-                  observer: row.observer,
-                  observedOn: row.observed_on,
-                  state: row.state,
-                  placeGuess: row.place_guess,
-                  source: row.source,
-                  scientificName: row.scientific_name,
-                  isSelected: false
-                });
               }
-            } else {
-              // API failed, use original image
-              expandedImages.push({
-                observationId: row.observation_id,
-                imageUrl: row.image_link,
-                imageId: row.observation_id,
-                observer: row.observer,
-                observedOn: row.observed_on,
-                state: row.state,
-                placeGuess: row.place_guess,
-                source: row.source,
-                scientificName: row.scientific_name,
-                isSelected: false
-              });
+              // If no photos in API response, skip this observation entirely
             }
+            // If API call fails, skip this observation entirely - no fallback
           } catch (error) {
             console.error(`Error fetching iNaturalist images for ${row.observation_id}:`, error);
-            // Fallback to original image
+            // Skip this observation entirely - no fallback to broken database URLs
+          }
+        } else {
+          // For non-iNaturalist sources (Mushroom Observer, MyCoPortal), use database URL
+          // These are typically working URLs unlike the broken iNaturalist ones
+          if (row.image_link && !row.image_link.includes('inaturalist.org')) {
             expandedImages.push({
               observationId: row.observation_id,
               imageUrl: row.image_link,
@@ -1994,20 +1973,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               isSelected: false
             });
           }
-        } else {
-          // Non-iNaturalist sources, keep single image
-          expandedImages.push({
-            observationId: row.observation_id,
-            imageUrl: row.image_link,
-            imageId: row.observation_id,
-            observer: row.observer,
-            observedOn: row.observed_on,
-            state: row.state,
-            placeGuess: row.place_guess,
-            source: row.source,
-            scientificName: row.scientific_name,
-            isSelected: false
-          });
         }
       }
       
