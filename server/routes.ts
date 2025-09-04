@@ -1894,8 +1894,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
       const totalImages = parseInt(totalImageCountResult.rows[0].total_images.toString());
 
-      // Step 1: Get ALL images (flattened) and paginate by individual images
-      let allImagesQuery = sql`
+      // Step 1: Get ALL observations (no pagination yet) to expand all images
+      let allObservationsQuery = sql`
         SELECT 
           o.observation_id,
           o.scientific_name,
@@ -1910,67 +1910,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
             WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
             ELSE 'Database'
-          END as source,
-          ROW_NUMBER() OVER (ORDER BY o.observed_on DESC) as row_num
+          END as source
         FROM observations o
         WHERE o.scientific_name = ${scientificName}
           ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
           AND o.image_link IS NOT NULL
+        ORDER BY o.observed_on DESC
       `;
 
-      // Add non-validated images if requested
-      if (shouldIncludeNonValidated) {
-        allImagesQuery = sql`
-          SELECT * FROM (
-            ${allImagesQuery}
-            
-            UNION ALL
-            
-            SELECT 
-              'iNat-cache-' || inat_id || '-' || photo_index as observation_id,
-              scientific_name,
-              common_name,
-              user_name as observer,
-              observed_on,
-              place_guess as state,
-              place_guess,
-              photo_url as image_link,
-              'iNaturalist' as source,
-              ROW_NUMBER() OVER (ORDER BY observed_on DESC) + 10000 as row_num
-            FROM (
-              SELECT 
-                inat_id,
-                scientific_name,
-                common_name,
-                user_name,
-                observed_on,
-                place_guess,
-                unnest(photos) as photo_url,
-                generate_subscripts(photos, 1) as photo_index
-              FROM inat_observations_cache
-              WHERE LOWER(scientific_name) = LOWER(${scientificName})
-                AND photos IS NOT NULL
-                AND array_length(photos, 1) > 0
-            ) t
-          ) combined
-          ORDER BY row_num
-          LIMIT ${pageSize} OFFSET ${offset}
-        `;
-      } else {
-        allImagesQuery = sql`
-          SELECT * FROM (${allImagesQuery}) t
-          ORDER BY row_num
-          LIMIT ${pageSize} OFFSET ${offset}
-        `;
-      }
-
-      const speciesImages = await db.execute(allImagesQuery);
-      console.log(`[Species Images API] Found ${speciesImages.rows.length} images for ${scientificName} (page ${page})`);
+      const allObservations = await db.execute(allObservationsQuery);
+      console.log(`[Species Images API] Found ${allObservations.rows.length} observations for ${scientificName} - expanding to all images`);
 
       // Step 2: Format response and expand iNaturalist observations with multiple images
       const expandedImages = [];
       
-      for (const row of speciesImages.rows) {
+      for (const row of allObservations.rows) {
         if (row.source === 'iNaturalist') {
           // For iNaturalist observations, fetch additional images from API
           try {
