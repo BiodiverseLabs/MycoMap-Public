@@ -2010,8 +2010,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API Results] Success: ${successCount}/${allObservations.rows.length} (${Math.round(successCount/allObservations.rows.length*100)}%) - Errors: ${errorCount}`);
       
-      // Apply original sorting and then paginate by individual images
-      const sortedImages = expandedImages.filter(img => img.imageUrl)
+      // Apply original sorting and then paginate by individual images (include null images)
+      const sortedImages = expandedImages
         .sort((a, b) => {
           // Sort order: iNaturalist first, Database/Sequences second, MO/MycoPortal last
           const getSourcePriority = (source: string) => {
