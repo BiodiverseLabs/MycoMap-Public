@@ -296,6 +296,23 @@ export const inaturalistClassificationCache = pgTable("inaturalist_classificatio
   lookupCountIdx: index("inat_classification_lookup_count_idx").on(table.lookupCount),
 }));
 
+// iNaturalist API cache table for refresh functionality
+export const inaturalistApiCache = pgTable("inaturalist_api_cache", {
+  id: serial("id").primaryKey(),
+  observationId: text("observation_id").notNull().unique(), // iNaturalist observation ID
+  inatName: text("inat_name"), // Main scientific name from iNaturalist
+  provisionalName: text("provisional_name"), // Field 10675: Provisional Species Name
+  speciesNameOverride: text("species_name_override"), // Field 20259: Species Name Override
+  qualityGrade: text("quality_grade"), // research, needs_id, casual
+  apiResponseRaw: text("api_response_raw"), // Full JSON response for debugging
+  lastRefreshed: timestamp("last_refreshed").defaultNow(),
+  cacheExpiresAt: timestamp("cache_expires_at"), // For cache invalidation
+}, (table) => ({
+  observationIdIdx: index("inat_cache_observation_id_idx").on(table.observationId),
+  lastRefreshedIdx: index("inat_cache_last_refreshed_idx").on(table.lastRefreshed),
+  cacheExpiresIdx: index("inat_cache_expires_idx").on(table.cacheExpiresAt),
+}));
+
 // iNaturalist data table for validation and detailed records
 export const inaturalistData = pgTable("inaturalist_data", {
   id: serial("id").primaryKey(),
@@ -523,6 +540,11 @@ export const insertInaturalistClassificationCacheSchema = createInsertSchema(ina
   updatedAt: true,
 });
 
+export const insertInaturalistApiCacheSchema = createInsertSchema(inaturalistApiCache).omit({
+  id: true,
+  lastRefreshed: true,
+});
+
 // Types
 export type InsertObservation = z.infer<typeof insertObservationSchema>;
 export type Observation = typeof observations.$inferSelect;
@@ -553,6 +575,9 @@ export type MushroomObserverData = typeof mushroomObserverData.$inferSelect;
 
 export type InsertInaturalistClassificationCache = z.infer<typeof insertInaturalistClassificationCacheSchema>;
 export type InaturalistClassificationCache = typeof inaturalistClassificationCache.$inferSelect;
+
+export type InsertInaturalistApiCache = z.infer<typeof insertInaturalistApiCacheSchema>;
+export type InaturalistApiCache = typeof inaturalistApiCache.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

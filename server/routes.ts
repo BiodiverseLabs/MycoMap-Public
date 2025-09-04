@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -2110,6 +2110,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cache helper functions for iNaturalist API
+  async function getCachedApiData(observationId: string) {
+    try {
+      const [cached] = await db
+        .select()
+        .from(inaturalistApiCache)
+        .where(eq(inaturalistApiCache.observationId, observationId));
+      
+      // Check if cache is fresh (24 hours)
+      if (cached && cached.cacheExpiresAt && cached.cacheExpiresAt > new Date()) {
+        console.log(`[iNat Cache] Using cached data for observation ${observationId}`);
+        return {
+          inatName: cached.inatName,
+          provisionalName: cached.provisionalName,
+          speciesNameOverride: cached.speciesNameOverride,
+          qualityGrade: cached.qualityGrade,
+          lastRefreshed: cached.lastRefreshed?.toISOString(),
+          fromCache: true
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`[iNat Cache] Error checking cache for ${observationId}:`, error);
+      return null;
+    }
+  }
+
+  async function saveCacheData(observationId: string, data: any, apiResponseRaw: string) {
+    try {
+      const cacheExpiresAt = new Date();
+      cacheExpiresAt.setHours(cacheExpiresAt.getHours() + 24); // 24 hour cache
+      
+      await db
+        .insert(inaturalistApiCache)
+        .values({
+          observationId,
+          inatName: data.inatName,
+          provisionalName: data.provisionalName,
+          speciesNameOverride: data.speciesNameOverride,
+          qualityGrade: data.qualityGrade,
+          apiResponseRaw,
+          cacheExpiresAt
+        })
+        .onConflictDoUpdate({
+          target: inaturalistApiCache.observationId,
+          set: {
+            inatName: data.inatName,
+            provisionalName: data.provisionalName,
+            speciesNameOverride: data.speciesNameOverride,
+            qualityGrade: data.qualityGrade,
+            apiResponseRaw,
+            lastRefreshed: new Date(),
+            cacheExpiresAt
+          }
+        });
+      
+      console.log(`[iNat Cache] Saved cache data for observation ${observationId}`);
+    } catch (error) {
+      console.error(`[iNat Cache] Error saving cache for ${observationId}:`, error);
+    }
+  }
+
   // iNaturalist API refresh endpoints
   app.post("/api/observations/refresh-inat-data", async (req, res) => {
     try {
@@ -2121,7 +2184,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Observation ID is required" });
       }
 
-      // Fetch observation data from iNaturalist API
+      // Check cache first
+      const cachedData = await getCachedApiData(observationId);
+      if (cachedData) {
+        console.log(`[iNat Refresh] Returning cached data for observation ${observationId}`);
+        return res.json(cachedData);
+      }
+
+      // If not in cache or expired, fetch from API
+      console.log(`[iNat Refresh] No cached data found, fetching from API for observation ${observationId}`);
+      
       const inatUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
       console.log(`[iNat Refresh] Fetching from URL: ${inatUrl}`);
       const response = await fetch(inatUrl);
@@ -2158,10 +2230,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         provisionalName,
         speciesNameOverride,
         qualityGrade: obs.quality_grade,
-        lastRefreshed: new Date().toISOString()
+        lastRefreshed: new Date().toISOString(),
+        fromCache: false
       };
 
-      console.log(`[iNat Refresh] Sending response:`, refreshedData);
+      // Save to cache
+      await saveCacheData(observationId, refreshedData, JSON.stringify(data));
+
+      console.log(`[iNat Refresh] Sending fresh API response:`, refreshedData);
       res.json(refreshedData);
     } catch (error) {
       console.error("Error refreshing iNaturalist data:", error);
@@ -2179,9 +2255,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const results = [];
       
-      // Process observations in batches to respect rate limits
+      // Process observations, checking cache first
       for (const observationId of observationIds) {
         try {
+          // Check cache first
+          const cachedData = await getCachedApiData(observationId);
+          
+          if (cachedData) {
+            console.log(`[iNat Bulk Cache] Using cached data for observation ${observationId}`);
+            results.push({
+              observationId,
+              success: true,
+              data: cachedData
+            });
+            continue; // Skip API call and delay
+          }
+
+          // If not in cache, fetch from API
+          console.log(`[iNat Bulk] Fetching from API for observation ${observationId}`);
           const inatUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
           const response = await fetch(inatUrl);
           
@@ -2194,16 +2285,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const provisionalName = observationFields.find((field: any) => field.observation_field_id === 10675)?.value || null;
               const speciesNameOverride = observationFields.find((field: any) => field.observation_field_id === 20259)?.value || null;
 
+              const refreshedData = {
+                inatName: obs.taxon?.name || obs.species_guess || null,
+                provisionalName,
+                speciesNameOverride,
+                qualityGrade: obs.quality_grade,
+                lastRefreshed: new Date().toISOString(),
+                fromCache: false
+              };
+
+              // Save to cache
+              await saveCacheData(observationId, refreshedData, JSON.stringify(data));
+
               results.push({
                 observationId,
                 success: true,
-                data: {
-                  inatName: obs.taxon?.name || obs.species_guess || null,
-                  provisionalName,
-                  speciesNameOverride,
-                  qualityGrade: obs.quality_grade,
-                  lastRefreshed: new Date().toISOString()
-                }
+                data: refreshedData
               });
             } else {
               results.push({
@@ -2220,7 +2317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
-          // Rate limit: 1.1 second delay between requests (54 requests/minute)
+          // Rate limit: 1.1 second delay between API requests only (not cached data)
           await new Promise(resolve => setTimeout(resolve, 1100));
         } catch (error) {
           results.push({

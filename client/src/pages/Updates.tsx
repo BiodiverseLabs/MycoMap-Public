@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown, RefreshCw, Save, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown, RefreshCw, Save, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -423,8 +423,14 @@ export default function Updates() {
                                       <Save className="w-4 h-4 mr-2" />
                                       Update DB
                                     </Button>
-                                    <div className="text-xs text-slate-500">
-                                      Last refreshed: {new Date(refreshData.lastRefreshed).toLocaleString()}
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                      <div>Last refreshed: {new Date(refreshData.lastRefreshed).toLocaleString()}</div>
+                                      {refreshData.fromCache && (
+                                        <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                                          <Clock className="w-3 h-3 mr-1" />
+                                          Cached
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
