@@ -1988,35 +1988,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // Process iNaturalist requests in smaller batches to avoid overwhelming API
-      const inatObservations = allObservations.rows.filter(row => row.source === 'iNaturalist');
-      const otherObservations = allObservations.rows.filter(row => row.source !== 'iNaturalist');
-      
-      // Process non-iNaturalist sources immediately
-      const otherResults = await Promise.all(otherObservations.map(row => fetchInatData(row)));
-      
-      // Process iNaturalist with MUCH more conservative rate limiting to avoid HTTP 429
-      const inatResults = [];
-      const batchSize = 5; // Smaller batches
-      for (let i = 0; i < inatObservations.length; i += batchSize) {
-        const batch = inatObservations.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch.map(row => fetchInatData(row)));
-        inatResults.push(...batchResults);
-        
-        // Much longer delay between batches to respect rate limits
-        if (i + batchSize < inatObservations.length) {
-          console.log(`⏱️ Processed ${i + batchSize}/${inatObservations.length} iNaturalist observations, waiting...`);
-          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+      // SIMPLE APPROACH: Use database URLs directly - this has worked before
+      for (const row of allObservations.rows) {
+        if (row.image_link) {
+          expandedImages.push({
+            observationId: row.observation_id,
+            imageUrl: row.image_link,
+            imageId: row.observation_id,
+            observer: row.observer,
+            observedOn: row.observed_on,
+            state: row.state,
+            placeGuess: row.place_guess,
+            source: row.source,
+            scientificName: row.scientific_name,
+            isSelected: false
+          });
+          successCount++;
         }
       }
       
-      const results = [...otherResults, ...inatResults];
-      
-      results.forEach(result => {
-        if (Array.isArray(result)) {
-          expandedImages.push(...result);
-        }
-      });
+      // Results are already processed above
       
       console.log(`[API Results] Success: ${successCount}/${allObservations.rows.length} (${Math.round(successCount/allObservations.rows.length*100)}%) - Errors: ${errorCount}`);
       
