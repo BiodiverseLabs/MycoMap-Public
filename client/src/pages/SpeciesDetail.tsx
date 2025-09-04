@@ -374,131 +374,134 @@ export default function SpeciesDetail() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                Total Observations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-primary">{metrics?.totalObservations || 0}</div>
-              <p className="text-sm text-slate-600 mt-1">
-                {filteredObservations.length} matching filters
-              </p>
-            </CardContent>
-          </Card>
+        {/* Metrics Cards and Taxonomic Classification */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Left Side - Metrics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Total Observations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-primary">{metrics?.totalObservations || 0}</div>
+                <p className="text-sm text-slate-600 mt-1">
+                  {filteredObservations.length} matching filters
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                Geographic Range
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{metrics?.statesCount || 0}</div>
-              <p className="text-sm text-slate-600 mt-1">
-                states/provinces
-              </p>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Geographic Range
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-600">{metrics?.statesCount || 0}</div>
+                <p className="text-sm text-slate-600 mt-1">
+                  states/provinces
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Contributors
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{metrics?.contributors || 0}</div>
-              <p className="text-sm text-slate-600 mt-1">
-                unique observers
-              </p>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Contributors
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-600">{metrics?.contributors || 0}</div>
+                <p className="text-sm text-slate-600 mt-1">
+                  unique observers
+                </p>
+              </CardContent>
+            </Card>
 
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Observation Period
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-bold text-orange-600">
+                  {speciesData?.firstObserved && speciesData?.lastObserved ? 
+                    `${new Date(speciesData.firstObserved).getFullYear()} - ${new Date(speciesData.lastObserved).getFullYear()}` :
+                    'Unknown'
+                  }
+                </div>
+                <p className="text-sm text-slate-600 mt-1">
+                  first to last observed
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Side - Taxonomic Classification */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Observation Period
+              <CardTitle className="flex items-center gap-2">
+                <TreePine className="h-5 w-5 text-green-600" />
+                Taxonomic Classification
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold text-orange-600">
-                {speciesData?.firstObserved && speciesData?.lastObserved ? 
-                  `${new Date(speciesData.firstObserved).getFullYear()} - ${new Date(speciesData.lastObserved).getFullYear()}` :
-                  'Unknown'
-                }
-              </div>
-              <p className="text-sm text-slate-600 mt-1">
-                first to last observed
-              </p>
+              {classificationLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                </div>
+              ) : classification ? (
+                <div className="space-y-4">
+                  {classification.commonName && (
+                    <div className="pb-2 border-b border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-muted-foreground">Common Name</p>
+                      <p className="text-lg font-medium">{classification.commonName}</p>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    {[
+                      { label: "Kingdom", value: classification.kingdom },
+                      { label: "Phylum", value: classification.phylum },
+                      { label: "Class", value: classification.class },
+                      { label: "Order", value: classification.order },
+                      { label: "Family", value: classification.family },
+                      { label: "Genus", value: classification.genus },
+                      { label: "Species", value: classification.species },
+                      { label: "Subspecies", value: classification.subspecies }
+                    ].map(({ label, value }) => (
+                      value && (
+                        <div key={label} className="flex justify-between items-center py-1">
+                          <span className="text-sm font-medium text-muted-foreground">{label}:</span>
+                          <span className="text-sm font-medium">{value}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                  
+                  {classification.source && (
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-muted-foreground">
+                        Classification source: {classification.source}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center p-8 text-muted-foreground">
+                  No taxonomic classification data available for this species.
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-
-        {/* Taxonomic Classification Panel */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TreePine className="h-5 w-5 text-green-600" />
-              Taxonomic Classification
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {classificationLoading ? (
-              <div className="flex items-center justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-              </div>
-            ) : classification ? (
-              <div className="space-y-4">
-                {classification.commonName && (
-                  <div className="pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-muted-foreground">Common Name</p>
-                    <p className="text-lg font-medium">{classification.commonName}</p>
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  {[
-                    { label: "Kingdom", value: classification.kingdom },
-                    { label: "Phylum", value: classification.phylum },
-                    { label: "Class", value: classification.class },
-                    { label: "Order", value: classification.order },
-                    { label: "Family", value: classification.family },
-                    { label: "Genus", value: classification.genus },
-                    { label: "Species", value: classification.species },
-                    { label: "Subspecies", value: classification.subspecies }
-                  ].map(({ label, value }) => (
-                    value && (
-                      <div key={label} className="flex justify-between items-center py-1">
-                        <span className="text-sm font-medium text-muted-foreground">{label}:</span>
-                        <span className="text-sm font-medium">{value}</span>
-                      </div>
-                    )
-                  ))}
-                </div>
-                
-                {classification.source && (
-                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-muted-foreground">
-                      Classification source: {classification.source}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center p-8 text-muted-foreground">
-                No taxonomic classification data available for this species.
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Map and Filters */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
