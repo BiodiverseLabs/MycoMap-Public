@@ -51,24 +51,48 @@ export default function Updates() {
         .filter(record => record.source === 'iNaturalist')
         .map(record => record.observationId);
       
-      console.log('[Auto-load] iNaturalist observation IDs found:', inatObservationIds);
+      console.log('[Auto-load] iNaturalist observation IDs found:', inatObservationIds.length);
       
       if (inatObservationIds.length > 0) {
-        console.log('[Auto-load] Making API call to get cached data');
-        apiRequest('POST', '/api/observations/get-cached-data', { observationIds: inatObservationIds })
-        .then(async (response) => {
-          const data = await response.json();
-          console.log('[Auto-load] Received cached data:', data);
-          if (data.cachedData) {
-            console.log('[Auto-load] Setting API data:', data.cachedData);
-            setApiData(prev => ({
-              ...prev,
-              ...data.cachedData
-            }));
+        // Process in batches of 100 to prevent overwhelming the server
+        const batchSize = 100;
+        const batches = [];
+        for (let i = 0; i < inatObservationIds.length; i += batchSize) {
+          batches.push(inatObservationIds.slice(i, i + batchSize));
+        }
+        
+        console.log(`[Auto-load] Processing ${batches.length} batches of cached data`);
+        
+        // Process batches sequentially to avoid overwhelming the server
+        const processBatches = async () => {
+          for (let i = 0; i < batches.length; i++) {
+            const batch = batches[i];
+            console.log(`[Auto-load] Processing batch ${i + 1}/${batches.length} with ${batch.length} IDs`);
+            
+            try {
+              const response = await apiRequest('POST', '/api/observations/get-cached-data', { observationIds: batch });
+              const data = await response.json();
+              
+              if (data.cachedData && Object.keys(data.cachedData).length > 0) {
+                console.log(`[Auto-load] Batch ${i + 1} returned ${Object.keys(data.cachedData).length} cached records`);
+                setApiData(prev => ({
+                  ...prev,
+                  ...data.cachedData
+                }));
+              }
+            } catch (error) {
+              console.error(`[Auto-load] Failed to load cached data for batch ${i + 1}:`, error);
+            }
+            
+            // Small delay between batches to prevent rate limiting
+            if (i < batches.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
           }
-        }).catch((error) => {
-          console.error('[Auto-load] Failed to load cached data:', error);
-        });
+          console.log('[Auto-load] Completed loading all cached data');
+        };
+        
+        processBatches();
       }
     }
   }, [nameUpdates]);

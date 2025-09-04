@@ -2395,27 +2395,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const cachedData: Record<string, any> = {};
       
-      for (const observationId of observationIds) {
-        try {
-          const [existing] = await db
-            .select()
-            .from(inaturalistApiCache)
-            .where(eq(inaturalistApiCache.observationId, observationId));
-          
-          if (existing) {
-            cachedData[observationId] = {
-              inatName: existing.inatName,
-              provisionalName: existing.provisionalName,
-              speciesNameOverride: existing.speciesNameOverride,
-              qualityGrade: existing.qualityGrade,
-              lastRefreshed: existing.lastRefreshed,
-              lastDbUpdate: existing.lastDbUpdate,
-              fromCache: true
-            };
-          }
-        } catch (error) {
-          console.error(`Error getting cached data for ${observationId}:`, error);
-        }
+      // Fetch all cached records in a single query instead of looping
+      const cachedRecords = await db
+        .select()
+        .from(inaturalistApiCache)
+        .where(sql`observation_id = ANY(${observationIds})`);
+        
+      console.log(`[Cache Query] Found ${cachedRecords.length} cached records for ${observationIds.length} requested IDs`);
+      
+      // Convert to lookup map
+      for (const record of cachedRecords) {
+        cachedData[record.observationId] = {
+          inatName: record.inatName,
+          provisionalName: record.provisionalName,
+          speciesNameOverride: record.speciesNameOverride,
+          qualityGrade: record.qualityGrade,
+          lastRefreshed: record.lastRefreshed,
+          lastDbUpdate: record.lastDbUpdate,
+          fromCache: true
+        };
       }
       
       res.json({ cachedData });
