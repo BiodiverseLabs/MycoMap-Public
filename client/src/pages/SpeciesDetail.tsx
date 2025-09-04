@@ -205,7 +205,7 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
               // "130418033" -> "130418033"
               // "iNat-130418033-1" -> "130418033"  
               // "MO-12345-0" -> "12345"
-              const id = img.observationId;
+              const id = String(img.observationId || '');
               if (id.startsWith('iNat-')) {
                 return id.split('-')[1]; // Extract middle part from iNat-ID-photoIndex
               } else if (id.startsWith('MO-')) {
@@ -252,8 +252,8 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
                     {image.source === 'iNaturalist' ? (
                       <a 
                         href={`https://www.inaturalist.org/observations/${
-                          image.observationId.startsWith('iNat-') 
-                            ? image.observationId.split('-')[1] 
+                          String(image.observationId || '').startsWith('iNat-') 
+                            ? String(image.observationId).split('-')[1] 
                             : image.observationId
                         }`}
                         target="_blank"
@@ -262,8 +262,8 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
                         onClick={(e) => e.stopPropagation()}
                       >
                         iNat #{
-                          image.observationId.startsWith('iNat-') 
-                            ? image.observationId.split('-')[1] 
+                          String(image.observationId || '').startsWith('iNat-') 
+                            ? String(image.observationId).split('-')[1] 
                             : image.observationId
                         }
                       </a>
