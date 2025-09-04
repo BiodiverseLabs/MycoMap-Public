@@ -257,6 +257,8 @@ export default function SpeciesDetail() {
   
   // Infinite scroll detection
   useEffect(() => {
+    console.log('Setting up scroll listener:', { hasNextPage, isFetchingNextPage });
+    
     const handleScroll = () => {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
@@ -264,6 +266,9 @@ export default function SpeciesDetail() {
       const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
       
       console.log('Scroll check:', {
+        scrollTop,
+        windowHeight,
+        documentHeight,
         distanceFromBottom,
         hasNextPage,
         isFetchingNextPage,
@@ -275,13 +280,21 @@ export default function SpeciesDetail() {
         hasNextPage && 
         !isFetchingNextPage
       ) {
-        console.log('Triggering fetchNextPage!');
+        console.log('🚀 Triggering fetchNextPage!');
         fetchNextPage();
       }
     };
 
+    // Add scroll listener
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    
+    // Test initial scroll position
+    handleScroll();
+    
+    return () => {
+      console.log('Removing scroll listener');
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // Helper function to format dates
