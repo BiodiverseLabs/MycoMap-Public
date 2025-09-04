@@ -255,76 +255,7 @@ export default function SpeciesDetail() {
   // All loaded images (accumulated from infinite scroll)
   const paginatedImages = speciesImages;
   
-  // Debug scrollability and fix scroll detection
-  useEffect(() => {
-    const checkScrollability = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      const isScrollable = documentHeight > windowHeight;
-      
-      console.log('🔧 PAGE INFO:', {
-        windowHeight,
-        documentHeight,
-        isScrollable,
-        hasNextPage,
-        isFetchingNextPage,
-        totalImages: speciesImagesData?.pages?.[0]?.total
-      });
-      
-      return { isScrollable, documentHeight, windowHeight };
-    };
-    
-    const handleScroll = () => {
-      console.log('📜 SCROLL EVENT FIRED!'); // Key test - this MUST appear when scrolling
-      
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
-      
-      console.log('📊 Scroll state:', {
-        scrollTop: Math.round(scrollTop),
-        distanceFromBottom: Math.round(distanceFromBottom),
-        hasNextPage,
-        isFetchingNextPage
-      });
-      
-      // More aggressive triggering - within 300px of bottom
-      if (distanceFromBottom < 300 && hasNextPage && !isFetchingNextPage) {
-        console.log('🚀 LOADING NEXT PAGE!');
-        fetchNextPage();
-      }
-    };
-
-    // Check initial scrollability
-    const { isScrollable } = checkScrollability();
-    
-    if (isScrollable) {
-      console.log('✅ Page is scrollable - adding listeners');
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      document.addEventListener('scroll', handleScroll, { passive: true });
-    } else {
-      console.log('⚠️ Page not scrollable yet - will check again');
-      // If not scrollable, try again in 1 second after images load
-      setTimeout(() => {
-        const { isScrollable: isScrollableNow } = checkScrollability();
-        if (isScrollableNow) {
-          console.log('✅ Page now scrollable - adding delayed listeners');
-          window.addEventListener('scroll', handleScroll, { passive: true });
-          document.addEventListener('scroll', handleScroll, { passive: true });
-        } else {
-          console.log('❌ Page still not scrollable - check image count');
-        }
-      }, 1000);
-    }
-    
-    return () => {
-      console.log('🗑️ Cleaning up scroll listeners');
-      window.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('scroll', handleScroll);
-    };
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, speciesImagesData]);
+  // Simple "Show More" button approach - much more reliable than infinite scroll
 
   // Helper function to format dates
   const formatDate = (dateStr: string | null) => {
@@ -914,6 +845,20 @@ export default function SpeciesDetail() {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              )}
+              
+              {/* Show More button */}
+              {hasNextPage && !isFetchingNextPage && (
+                <div className="text-center py-8">
+                  <Button 
+                    onClick={() => fetchNextPage()}
+                    size="lg"
+                    variant="outline"
+                    className="px-8"
+                  >
+                    Show More Images ({totalImages - speciesImages.length} remaining)
+                  </Button>
                 </div>
               )}
               
