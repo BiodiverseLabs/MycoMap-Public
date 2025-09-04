@@ -663,7 +663,13 @@ export default function SpeciesDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-green-600">{metrics?.statesCount || 0}</div>
+                {statsLoading ? (
+                  <div className="text-3xl font-bold text-slate-400">Loading...</div>
+                ) : (
+                  <div className="text-3xl font-bold text-green-600">
+                    {speciesStats?.uniqueStates || 0}
+                  </div>
+                )}
                 <p className="text-sm text-slate-600 mt-1">
                   states/provinces
                 </p>
@@ -678,7 +684,11 @@ export default function SpeciesDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-blue-600">{metrics?.contributors || 0}</div>
+                {statsLoading ? (
+                  <div className="text-3xl font-bold text-slate-400">Loading...</div>
+                ) : (
+                  <div className="text-3xl font-bold text-blue-600">{speciesStats?.uniqueContributors || 0}</div>
+                )}
                 <p className="text-sm text-slate-600 mt-1">
                   unique observers
                 </p>

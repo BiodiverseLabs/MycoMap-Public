@@ -884,12 +884,10 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         COUNT(*) as total_observations,
-        COUNT(DISTINCT ${observations.state}) as unique_states,
-        COUNT(DISTINCT ${observations.collector}) as unique_contributors
+        COUNT(DISTINCT CASE WHEN ${observations.state} IS NOT NULL THEN ${observations.state} END) as unique_states,
+        COUNT(DISTINCT CASE WHEN ${observations.collector} IS NOT NULL THEN ${observations.collector} END) as unique_contributors
       FROM ${observations}
       WHERE (${observations.scientificName} = ${speciesName} OR ${observations.species} = ${speciesName})
-        AND ${observations.state} IS NOT NULL
-        AND ${observations.collector} IS NOT NULL
     `);
     
     const stats = result.rows[0] as any;
