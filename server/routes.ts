@@ -1874,7 +1874,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           FROM observations o
           WHERE o.scientific_name = ${scientificName}
             ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
-            AND o.image_link IS NOT NULL
           
           UNION ALL
           
@@ -1904,17 +1903,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           o.observed_on,
           o.state,
           o.place_guess,
-          o.image_link,
-          CASE 
-            WHEN o.image_link LIKE '%inaturalist%' THEN 'iNaturalist'
-            WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
-            WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
-            ELSE 'Database'
-          END as source
+          o.source
         FROM observations o
         WHERE o.scientific_name = ${scientificName}
           ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
-          AND o.image_link IS NOT NULL
         ORDER BY o.observed_on DESC
       `;
 
@@ -1928,199 +1920,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let successCount = 0;
       let errorCount = 0;
       
-      // Simplified approach - remove complex retry logic that might be causing issues
-      const fetchInatData = async (row: any) => {
-        if (row.source === 'iNaturalist') {
+      // PROPER FIELD GUIDE PROTOCOL: Use batch API calls like Field Guide
+      if (missingFromCache.length > 0) {
+        console.log(`[Cache Miss] Fetching ${missingFromCache.length} observations from iNaturalist API using BATCH requests`);
+        
+        // Process in batches of 30 (conservative for rate limiting)
+        const batchSize = 30;
+        for (let i = 0; i < missingFromCache.length; i += batchSize) {
+          const batch = missingFromCache.slice(i, i + batchSize).map(row => row.observation_id);
+          
           try {
-            const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
-              headers: {
-                'User-Agent': 'MacroFungi-Research-App/1.0'
-              }
+            // Make single batch API call with rate limit handling
+            const batchUrl = `https://api.inaturalist.org/v1/observations?id=${batch.join(',')}`;
+            let response = await fetch(batchUrl, {
+              headers: { 'User-Agent': 'MacroFungi-Research-App/1.0' }
             });
             
-            if (inatResponse.ok) {
-              const inatData = await inatResponse.json();
-              if (inatData.results && inatData.results[0]) {
-                const observation = inatData.results[0];
-                const photos = observation.photos || [];
+            // Handle rate limiting (HTTP 429)
+            if (response.status === 429) {
+              console.log(`⏳ Rate limited for batch ${i/batchSize + 1}, waiting 2 seconds...`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              response = await fetch(batchUrl, {
+                headers: { 'User-Agent': 'MacroFungi-Research-App/1.0' }
+              });
+            }
+            
+            if (response.ok) {
+              const batchData = await response.json();
+              
+              // Process each observation in the batch
+              for (const observation of batchData.results || []) {
+                const photos = observation.photos?.map((p: any) => p.url.replace('square', 'medium')) || [];
                 
-                // CACHE THE API RESULTS - This was missing!
-                try {
-                  const photoUrls = photos.map((photo: any) => photo.url.replace('square', 'large'));
-                  
-                  await db.insert(inaturalistData).values({
-                    observationId: `cache_${row.observation_id}`, // Internal ID
-                    inatId: row.observation_id, // Actual iNaturalist ID
-                    inatUuid: observation.uuid,
-                    quality: observation.quality_grade,
-                    captive: observation.captive || false,
-                    observedOnString: observation.observed_on,
-                    photos: photoUrls, // Cache the photo URLs
-                    taxon: JSON.stringify(observation.taxon),
-                    user: JSON.stringify(observation.user),
-                    syncStatus: 'success',
-                    lastSyncedAt: new Date()
-                  }).onConflictDoUpdate({
-                    target: inaturalistData.observationId,
-                    set: {
-                      photos: photoUrls,
-                      syncStatus: 'success',
-                      lastSyncedAt: new Date()
-                    }
-                  });
-                  
-                  console.log(`✅ Cached ${photoUrls.length} photos for observation ${row.observation_id}`);
-                } catch (cacheError) {
-                  console.error(`❌ Failed to cache observation ${row.observation_id}:`, cacheError);
-                }
-                
+                // Cache the API results in inaturalist_data table
                 if (photos.length > 0) {
-                  successCount++;
-                  return photos.map((photo: any, index: number) => ({
-                    observationId: row.observation_id,
-                    imageUrl: photo.url.replace('square', 'large'),
-                    imageId: `${row.observation_id}-${photo.id || index}`,
-                    observer: row.observer,
-                    observedOn: row.observed_on,
-                    state: row.state,
-                    placeGuess: row.place_guess,
-                    source: row.source,
-                    scientificName: row.scientific_name,
-                    isSelected: false
-                  }));
-                } else {
-                  console.log(`⚠️ iNaturalist observation ${row.observation_id} has no photos`);
+                  await pool.query(
+                    `INSERT INTO inaturalist_data (inat_id, photos) 
+                     VALUES ($1, $2) 
+                     ON CONFLICT (inat_id) DO UPDATE SET photos = $2`,
+                    [observation.id, photos]
+                  );
+                  console.log(`✅ Cached ${photos.length} photos for observation ${observation.id}`);
+                  
+                  // Add to expandedImages for immediate display
+                  const originalRow = missingFromCache.find(row => row.observation_id == observation.id);
+                  if (originalRow) {
+                    photos.forEach((photoUrl: string, index: number) => {
+                      if (photoUrl && photoUrl.trim()) {
+                        expandedImages.push({
+                          observationId: originalRow.observation_id,
+                          imageUrl: photoUrl.trim(),
+                          imageId: `${originalRow.observation_id}-${index}`,
+                          observer: originalRow.observer,
+                          observedOn: originalRow.observed_on,
+                          state: originalRow.state,
+                          placeGuess: originalRow.place_guess,
+                          source: originalRow.source,
+                          scientificName: originalRow.scientific_name,
+                          isSelected: false
+                        });
+                      }
+                    });
+                    successCount++;
+                  }
                 }
-              } else {
-                console.log(`⚠️ iNaturalist observation ${row.observation_id} has no data`);
               }
             } else {
-              console.error(`❌ iNaturalist API HTTP ${inatResponse.status} for ${row.observation_id}`);
-              errorCount++;
+              console.log(`❌ iNaturalist API HTTP ${response.status} for batch ${i/batchSize + 1}`);
+              errorCount += batch.length;
             }
-          } catch (error: any) {
-            console.error(`❌ iNaturalist fetch error for ${row.observation_id}:`, error.message);
-            errorCount++;
-          }
-          return [];
-        } else {
-          // Non-iNaturalist sources (Mushroom Observer, MyCoPortal) - these database URLs work
-          // ❌ DO NOT USE - image_link has stale URLs - use cached photos instead
-          if (row.image_link && !row.image_link.includes('inaturalist.org')) {
-            successCount++;
-            return [{
-              observationId: row.observation_id,
-              imageUrl: row.image_link,
-              imageId: row.observation_id,
-              observer: row.observer,
-              observedOn: row.observed_on,
-              state: row.state,
-              placeGuess: row.place_guess,
-              source: row.source,
-              scientificName: row.scientific_name,
-              isSelected: false
-            }];
-          }
-          return [];
-        }
-      };
-
-      // PROPER FIELD GUIDE PROTOCOL: Use the working allObservations, then check cache
-      const missingFromCache = [];
-      
-      // Step 1: Check each observation against cache
-      for (const row of allObservations.rows) {
-        if (row.source === 'iNaturalist') {
-          // Check if this iNaturalist observation is cached
-          const cacheResult = await pool.query(
-            'SELECT photos FROM inaturalist_data WHERE inat_id = $1',
-            [row.observation_id]
-          );
-          
-          if (cacheResult.rows.length > 0 && cacheResult.rows[0].photos && cacheResult.rows[0].photos.length > 0) {
-            // Use cached photos
-            const cachedPhotos = cacheResult.rows[0].photos;
-            cachedPhotos.forEach((photoUrl: string, index: number) => {
-              if (photoUrl && photoUrl.trim()) {
-                expandedImages.push({
-                  observationId: row.observation_id,
-                  imageUrl: photoUrl.trim(),
-                  imageId: `${row.observation_id}-${index}`,
-                  observer: row.observer,
-                  observedOn: row.observed_on,
-                  state: row.state,
-                  placeGuess: row.place_guess,
-                  source: row.source,
-                  scientificName: row.scientific_name,
-                  isSelected: false
-                });
-              }
-            });
-            successCount++;
-          } else {
-            // Not in cache - add to missing list
-            console.log(`[Cache Miss] Adding ${row.observation_id} to missing list (no cached photos)`);
-            missingFromCache.push(row);
-          }
-        } else {
-          // Non-iNaturalist observation - show placeholder
-          expandedImages.push({
-            observationId: row.observation_id,
-            imageUrl: null,
-            imageId: row.observation_id,
-            observer: row.observer,
-            observedOn: row.observed_on,
-            state: row.state,
-            placeGuess: row.place_guess,
-            source: row.source,
-            scientificName: row.scientific_name,
-            isSelected: false
-          });
-          errorCount++;
-        }
-      }
-      
-      
-      console.log(`[Cache Debug] Found ${allObservations.rows.length} total observations, ${missingFromCache.length} missing from cache`);
-      
-      // Fetch missing observations from iNaturalist API and cache them
-      if (missingFromCache.length > 0) {
-        console.log(`[Cache Miss] Fetching ${missingFromCache.length} observations from iNaturalist API`);
-        
-        for (const row of missingFromCache) {
-          const apiImages = await fetchInatData(row);
-          if (Array.isArray(apiImages) && apiImages.length > 0) {
-            expandedImages.push(...apiImages);
-            successCount++;
-          } else {
-            // API failed - show placeholder
-            expandedImages.push({
-              observationId: row.observation_id,
-              imageUrl: null,
-              imageId: row.observation_id,
-              observer: row.observer,
-              observedOn: row.observed_on,
-              state: row.state,
-              placeGuess: row.place_guess,
-              source: row.source,
-              scientificName: row.scientific_name,
-              isSelected: false
-            });
-            errorCount++;
-          }
-          
-          // Rate limiting for API calls
-          if (row !== missingFromCache[missingFromCache.length - 1]) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Rate limiting delay between batches
+            if (i + batchSize < missingFromCache.length) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+          } catch (error) {
+            console.log(`❌ Error fetching batch ${i/batchSize + 1}:`, error);
+            errorCount += batch.length;
           }
         }
       }
-      
-      // Results are already processed above
       
       console.log(`[API Results] Success: ${successCount}/${allObservations.rows.length} (${Math.round(successCount/allObservations.rows.length*100)}%) - Errors: ${errorCount}`);
       
-      // Apply original sorting and then paginate by individual images (include null images)
+      // Apply pagination to the final expandedImages array
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedImages = expandedImages.slice(startIndex, endIndex);
+      
+      console.log(`[Species Images API] Returning ${paginatedImages.length} images for ${scientificName} (page ${page}/${Math.ceil(expandedImages.length / itemsPerPage)}) - Total expanded: ${expandedImages.length} images`);
+      
+      res.json({
+        images: paginatedImages,
+        totalPages: Math.ceil(expandedImages.length / itemsPerPage),
+        currentPage: page,
+        totalImages: expandedImages.length,
+        totalObservations: allObservations.rows.length
+      });
       const sortedImages = expandedImages
         .sort((a, b) => {
           // Sort order: iNaturalist first, Database/Sequences second, MO/MycoPortal last
