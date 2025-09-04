@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
 import { db, pool } from "./db";
-import { sql, eq, desc, and, gte, lte } from "drizzle-orm";
+import { sql, eq, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { WebSocketServer } from "ws";
@@ -2399,7 +2399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cachedRecords = await db
         .select()
         .from(inaturalistApiCache)
-        .where(sql`observation_id = ANY(${observationIds})`);
+        .where(inArray(inaturalistApiCache.observationId, observationIds));
         
       console.log(`[Cache Query] Found ${cachedRecords.length} cached records for ${observationIds.length} requested IDs`);
       
