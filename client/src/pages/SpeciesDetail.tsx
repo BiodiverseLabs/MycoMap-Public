@@ -125,9 +125,18 @@ export default function SpeciesDetail() {
         params.append('state', selectedState);
       }
       
-      const response = await fetch(`/api/species/${encodeURIComponent(speciesName)}/images?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch species images');
-      return response.json() as Promise<ObservationImage[]>;
+      const url = `/api/species/${encodeURIComponent(speciesName)}/images?${params}`;
+      console.log(`[SpeciesDetail] Fetching images from: ${url}`);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`[SpeciesDetail] Failed to fetch images: ${response.status} ${response.statusText}`);
+        throw new Error('Failed to fetch species images');
+      }
+      
+      const data = await response.json();
+      console.log(`[SpeciesDetail] Received ${data.length} images for ${speciesName}`);
+      return data as ObservationImage[];
     },
     enabled: !!speciesName
   });
