@@ -135,7 +135,7 @@ export default function SpeciesDetail() {
       }
       
       const data = await response.json();
-      console.log(`[SpeciesDetail] Received ${data.length} images for ${speciesName}`);
+      console.log(`[SpeciesDetail] Received ${data?.length || 0} images for ${speciesName}`, data);
       return data as ObservationImage[];
     },
     enabled: !!speciesName
@@ -699,6 +699,10 @@ export default function SpeciesDetail() {
         </div>
 
         {/* Observation Images Gallery */}
+        {(() => {
+          console.log(`[SpeciesDetail] Rendering check - speciesImages.length: ${speciesImages.length}, imagesLoading: ${imagesLoading}, speciesImages:`, speciesImages);
+          return null;
+        })()}
         {speciesImages.length > 0 && (
           <Card className="mb-8">
             <CardHeader>
