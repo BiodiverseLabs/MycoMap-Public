@@ -464,7 +464,7 @@ export default function SpeciesDetail() {
                   </div>
                 )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
                   {[
                     { label: "Kingdom", value: classification.kingdom },
                     { label: "Phylum", value: classification.phylum },
@@ -476,9 +476,9 @@ export default function SpeciesDetail() {
                     { label: "Subspecies", value: classification.subspecies }
                   ].map(({ label, value }) => (
                     value && (
-                      <div key={label} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-                        <p className="text-sm font-medium mt-1">{value}</p>
+                      <div key={label} className="flex justify-between items-center py-1">
+                        <span className="text-sm font-medium text-muted-foreground">{label}:</span>
+                        <span className="text-sm font-medium">{value}</span>
                       </div>
                     )
                   ))}
