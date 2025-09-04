@@ -201,17 +201,8 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
         <div className="flex items-center justify-between mb-6">
           <Badge variant="secondary" className="text-sm">
             Showing {displayedImages.length} of {images.length} images from {new Set(images.map(img => {
-              // Extract base observation ID from different formats:
-              // "130418033" -> "130418033"
-              // "iNat-130418033-1" -> "130418033"  
-              // "MO-12345-0" -> "12345"
-              const id = String(img.observationId || '');
-              if (id.startsWith('iNat-')) {
-                return id.split('-')[1]; // Extract middle part from iNat-ID-photoIndex
-              } else if (id.startsWith('MO-')) {
-                return `MO-${id.split('-')[1]}`; // Keep MO- prefix with ID
-              }
-              return id; // Plain ID from main DB
+              // Use the raw observationId for deduplication since the API handles the formatting
+              return String(img.observationId || '');
             })).size} observations
           </Badge>
         </div>
