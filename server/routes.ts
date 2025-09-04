@@ -1894,8 +1894,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
       const totalImages = parseInt(totalImageCountResult.rows[0].total_images.toString());
 
-      // Step 1: Get paginated observations for this species
-      const speciesObservations = await db.execute(sql`
+      // Step 1: Get ALL images (flattened) and paginate by individual images
+      let allImagesQuery = sql`
         SELECT 
           o.observation_id,
           o.scientific_name,
@@ -1910,130 +1910,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHEN o.image_link LIKE '%mushroomobserver%' THEN 'Mushroom Observer'
             WHEN o.image_link LIKE '%myco%' THEN 'MyCoPortal'
             ELSE 'Database'
-          END as source
+          END as source,
+          ROW_NUMBER() OVER (ORDER BY o.observed_on DESC) as row_num
         FROM observations o
         WHERE o.scientific_name = ${scientificName}
           ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
-        ORDER BY o.observed_on DESC
-        LIMIT ${pageSize} OFFSET ${offset}
-      `);
+          AND o.image_link IS NOT NULL
+      `;
 
-      console.log(`[Species Images API] Found ${speciesObservations.rows.length} total observations for ${scientificName}`);
-      let allImages = [...speciesObservations.rows];
-
-      // Step 2: Find observations that are iNaturalist IDs (numeric) and fetch their images from cache
-      const inatObservationsInMainTable = speciesObservations.rows
-        .filter(row => (row.source === 'Database' || row.source === 'iNaturalist') && /^\d+$/.test(row.observation_id))
-        .map(row => row.observation_id);
-      
-      if (inatObservationsInMainTable.length > 0) {
-        console.log(`[Species Images API] Found ${inatObservationsInMainTable.length} iNaturalist observations in main table`);
-        
-        // Get all photos for each iNaturalist observation from cache
-        const allInatCachePhotos = [];
-        
-        for (const inatId of inatObservationsInMainTable) {
-          const inatCachePhotos = await db.execute(sql`
-            SELECT 
-              inat_id as observation_id,
-              inat_id,
-              scientific_name,
-              common_name,
-              user_name as observer,
-              observed_on,
-              place_guess as state,
-              place_guess,
-              photo_url as image_link,
-              'iNaturalist' as source,
-              photo_index
-            FROM (
-              SELECT 
-                inat_id,
-                scientific_name,
-                common_name,
-                user_name,
-                observed_on,
-                place_guess,
-                unnest(photos) as photo_url,
-                generate_subscripts(photos, 1) as photo_index
-              FROM inat_observations_cache
-              WHERE inat_id = ${inatId}
-                AND scientific_name = ${scientificName}
-                AND photos IS NOT NULL
-                AND array_length(photos, 1) > 0
-                AND quality_grade = 'research'
-            ) t
-            ORDER BY observed_on DESC, photo_index
-          `);
-          
-          allInatCachePhotos.push(...inatCachePhotos.rows);
-        }
-        
-        // Smart fallback: Keep main DB images when cache is empty, replace when cache has data
-        if (allInatCachePhotos.length > 0) {
-          // Cache has photos - replace database observations (that are iNaturalist IDs) with detailed cache versions
-          allImages = allImages.filter(img => !((img.source === 'Database' || img.source === 'iNaturalist') && /^\d+$/.test(img.observation_id)));
-          allImages.push(...allInatCachePhotos);
-          console.log(`[Species Images API] Replaced database iNaturalist observations with ${allInatCachePhotos.length} photos from iNaturalist cache`);
-        } else {
-          // Cache is empty - fetch fresh data from iNaturalist API to get multiple photos per observation
-          console.log(`[Species Images API] Cache empty for ${inatObservationsInMainTable.length} observations - fetching fresh data from API`);
-          
-          try {
-            // Batch API call for missing observations
-            const freshInatData: any[] = [];
-            for (const inatId of inatObservationsInMainTable) {
-              const response = await fetch(`https://api.inaturalist.org/v1/observations/${inatId}`);
-              if (response.ok) {
-                const data = await response.json();
-                const obs = data.results[0];
-                if (obs && obs.photos && obs.photos.length > 0) {
-                  // Add each photo as separate entry  
-                  obs.photos.forEach((photo: any, photoIndex: number) => {
-                    freshInatData.push({
-                      observation_id: obs.id.toString(), // Use raw iNaturalist ID
-                      scientific_name: obs.taxon?.name || scientificName,
-                      common_name: obs.taxon?.preferred_common_name || null,
-                      observer: obs.user?.name || obs.user?.login,
-                      observed_on: obs.observed_on,
-                      state: obs.place_guess,
-                      place_guess: obs.place_guess,
-                      image_link: photo.url.replace('square', 'large'), // Get large version
-                      source: 'iNaturalist'
-                    });
-                  });
-                }
-              }
-              // Small delay to be respectful to iNaturalist API
-              await new Promise(resolve => setTimeout(resolve, 100));
-            }
-            
-            if (freshInatData.length > 0) {
-              // Replace database observations (that are iNaturalist IDs) with fresh API data
-              allImages = allImages.filter(img => !((img.source === 'Database' || img.source === 'iNaturalist') && /^\d+$/.test(img.observation_id)));
-              allImages.push(...freshInatData);
-              console.log(`[Species Images API] Fetched ${freshInatData.length} fresh photos from iNaturalist API`);
-            } else {
-              console.log(`[Species Images API] No valid photos found via API fallback`);
-            }
-          } catch (error) {
-            console.error(`[Species Images API] Error fetching fresh iNaturalist data:`, error);
-            console.log(`[Species Images API] Keeping main DB images as fallback`);
-          }
-        }
-        
-        console.log(`[Species Images API] Using ${allImages.filter(img => img.source === 'iNaturalist').length} iNaturalist images`);
-      }
-
-      // Step 3: Add additional iNaturalist cache data if includeNonValidated is enabled
+      // Add non-validated images if requested
       if (shouldIncludeNonValidated) {
-        console.log(`[Species Images API] Including non-validated data - checking iNaturalist cache for ${scientificName}`);
-        
-        try {
-          const additionalInatImages = await db.execute(sql`
+        allImagesQuery = sql`
+          SELECT * FROM (
+            ${allImagesQuery}
+            
+            UNION ALL
+            
             SELECT 
               'iNat-cache-' || inat_id || '-' || photo_index as observation_id,
-              inat_id,
               scientific_name,
               common_name,
               user_name as observer,
@@ -2042,7 +1936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               place_guess,
               photo_url as image_link,
               'iNaturalist' as source,
-              photo_index
+              ROW_NUMBER() OVER (ORDER BY observed_on DESC) + 10000 as row_num
             FROM (
               SELECT 
                 inat_id,
@@ -2058,24 +1952,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 AND photos IS NOT NULL
                 AND array_length(photos, 1) > 0
             ) t
-            ORDER BY observed_on DESC, photo_index
-            LIMIT 100
-          `);
-          
-          if (additionalInatImages.rows.length > 0) {
-            // Add additional iNaturalist cache images (avoiding duplicates)
-            const existingIds = new Set(allImages.map(img => img.observation_id));
-            const newImages = additionalInatImages.rows.filter(row => !existingIds.has(row.observation_id));
-            allImages.push(...newImages);
-            console.log(`[Species Images API] Added ${newImages.length} additional photos from iNaturalist cache`);
-          }
-        } catch (error) {
-          console.error(`[Species Images API] Error fetching additional iNaturalist cache data:`, error);
-        }
+          ) combined
+          ORDER BY row_num
+          LIMIT ${pageSize} OFFSET ${offset}
+        `;
+      } else {
+        allImagesQuery = sql`
+          SELECT * FROM (${allImagesQuery}) t
+          ORDER BY row_num
+          LIMIT ${pageSize} OFFSET ${offset}
+        `;
       }
 
-      // Step 4: Format response consistently with field guide method
-      const images = allImages.map((row: any) => ({
+      const speciesImages = await db.execute(allImagesQuery);
+      console.log(`[Species Images API] Found ${speciesImages.rows.length} images for ${scientificName} (page ${page})`);
+      let allImages = [...speciesImages.rows];
+
+      // Step 2: Format response directly from paginated results
+      const images = speciesImages.rows.map((row: any) => ({
         observationId: row.observation_id,
         imageUrl: row.image_link,
         imageId: row.observation_id,
@@ -2098,14 +1992,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return getSourcePriority(a.source) - getSourcePriority(b.source);
         });
       
-      console.log(`[Species Images API] Returning ${images.length} images for ${scientificName} (page ${page}/${Math.ceil(totalObservations/pageSize)})`);
+      console.log(`[Species Images API] Returning ${images.length} images for ${scientificName} (page ${page}/${Math.ceil(totalImages/pageSize)})`);
       res.json({
         images,
         total: totalImages,
         totalObservations: totalObservations,
         page,
         pageSize,
-        totalPages: Math.ceil(totalObservations / pageSize)
+        totalPages: Math.ceil(totalImages / pageSize)
       });
     } catch (error) {
       console.error("Error fetching species images:", error);
