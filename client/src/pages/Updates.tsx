@@ -218,15 +218,68 @@ export default function Updates() {
   };
 
   const handleRefreshAll = async () => {
-    const inatRecords = filteredAndSortedNameUpdates.filter(record => record.source === 'iNaturalist');
-    const observationIds = inatRecords.map(record => record.observationId);
-    
-    if (observationIds.length === 0) {
-      toast({ title: "Info", description: "No iNaturalist records to refresh" });
-      return;
+    try {
+      // Fetch ALL iNaturalist records from the server, not just displayed ones
+      const response = await apiRequest('GET', '/api/observations/name-updates');
+      const allNameUpdates = await response.json();
+      const allInatRecords = allNameUpdates.filter((record: any) => record.source === 'iNaturalist');
+      const allObservationIds = allInatRecords.map((record: any) => record.observationId);
+      
+      if (allObservationIds.length === 0) {
+        toast({ title: "Info", description: "No iNaturalist records to refresh" });
+        return;
+      }
+      
+      // Process in batches to avoid overwhelming the server
+      const batchSize = 50; // iNaturalist API supports batches of 50
+      const totalBatches = Math.ceil(allObservationIds.length / batchSize);
+      let processedBatches = 0;
+      
+      toast({ 
+        title: "Starting Bulk Refresh", 
+        description: `Processing ${allObservationIds.length} iNaturalist records in ${totalBatches} batches...` 
+      });
+      
+      for (let i = 0; i < allObservationIds.length; i += batchSize) {
+        const batch = allObservationIds.slice(i, i + batchSize);
+        processedBatches++;
+        
+        console.log(`[Bulk Refresh] Processing batch ${processedBatches}/${totalBatches} (${batch.length} records)`);
+        
+        try {
+          await refreshBulkMutation.mutateAsync(batch);
+          toast({ 
+            title: "Batch Completed", 
+            description: `Batch ${processedBatches}/${totalBatches} completed (${batch.length} records)` 
+          });
+        } catch (error) {
+          console.error(`[Bulk Refresh] Batch ${processedBatches} failed:`, error);
+          toast({ 
+            title: "Batch Failed", 
+            description: `Batch ${processedBatches}/${totalBatches} failed. Continuing with next batch...`,
+            variant: "destructive"
+          });
+        }
+        
+        // Small delay between batches to prevent API rate limiting
+        if (i + batchSize < allObservationIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      toast({ 
+        title: "Bulk Refresh Complete", 
+        description: `Successfully processed all ${totalBatches} batches (${allObservationIds.length} total records)` 
+      });
+      
+    } catch (error) {
+      console.error('[Bulk Refresh] Failed to fetch all records:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to start bulk refresh. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    await refreshBulkMutation.mutateAsync(observationIds);
   };
 
   const toggleExpanded = (observationId: string) => {
