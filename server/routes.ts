@@ -2185,15 +2185,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Observation ID is required" });
       }
 
-      // Check cache first
-      const cachedData = await getCachedApiData(observationId);
-      if (cachedData) {
-        console.log(`[iNat Refresh] Returning cached data for observation ${observationId}`);
-        return res.json(cachedData);
-      }
-
-      // If not in cache or expired, fetch from API
-      console.log(`[iNat Refresh] No cached data found, fetching from API for observation ${observationId}`);
+      // Force fresh API call for refresh (bypass cache)
+      console.log(`[iNat Refresh] Forcing fresh API call for observation ${observationId}`);
       
       const inatUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
       console.log(`[iNat Refresh] Fetching from URL: ${inatUrl}`);
