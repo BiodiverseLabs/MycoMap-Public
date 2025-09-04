@@ -2017,7 +2017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const row of cacheResults.rows) {
         if (row.cached_photos && Array.isArray(row.cached_photos) && row.cached_photos.length > 0) {
-          // Use cached photos
+          // Use cached photos - multiple photos per observation
           row.cached_photos.forEach((photoUrl: string, index: number) => {
             if (photoUrl && photoUrl.trim()) {
               expandedImages.push({
@@ -2036,7 +2036,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           successCount++;
         } else {
-          // NO FALLBACK - if no cached photos exist, skip this observation entirely
+          // Show observation with metadata but no photo (frontend will show "photo not available")
+          expandedImages.push({
+            observationId: row.observation_id,
+            imageUrl: null, // Frontend will handle placeholder
+            imageId: row.observation_id,
+            observer: row.observer,
+            observedOn: row.observed_on,
+            state: row.state,
+            placeGuess: row.place_guess,
+            source: row.source,
+            scientificName: row.scientific_name,
+            isSelected: false
+          });
           errorCount++;
         }
       }
