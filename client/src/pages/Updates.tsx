@@ -51,14 +51,13 @@ export default function Updates() {
         .map(record => record.observationId);
       
       if (inatObservationIds.length > 0) {
-        apiRequest('/api/observations/get-cached-data', {
-          method: 'POST',
-          body: { observationIds: inatObservationIds }
-        }).then((response) => {
-          if (response.cachedData) {
+        apiRequest('POST', '/api/observations/get-cached-data', { observationIds: inatObservationIds })
+        .then(async (response) => {
+          const data = await response.json();
+          if (data.cachedData) {
             setApiData(prev => ({
               ...prev,
-              ...response.cachedData
+              ...data.cachedData
             }));
           }
         }).catch((error) => {
