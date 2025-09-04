@@ -70,6 +70,8 @@ interface ObservationImagesGalleryProps {
 }
 
 function ObservationImagesGallery({ speciesName, selectedState, includeNonValidated }: ObservationImagesGalleryProps) {
+  const [displayedCount, setDisplayedCount] = useState(0);
+  
   const { data: images = [], isLoading, error } = useQuery({
     queryKey: ["/api/species", speciesName, "images-v2", { 
       state: selectedState, 
@@ -91,6 +93,29 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
     },
     enabled: !!speciesName
   });
+
+  // Calculate images per page - 16 on desktop, 8 on mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const imagesPerPage = isMobile ? 8 : 16;
+  
+  // Initialize displayed count when images load
+  useEffect(() => {
+    if (images.length > 0 && displayedCount === 0) {
+      setDisplayedCount(Math.min(imagesPerPage, images.length));
+    }
+  }, [images.length, displayedCount, imagesPerPage]);
+
+  // Reset displayed count when filters change
+  useEffect(() => {
+    setDisplayedCount(Math.min(imagesPerPage, images.length));
+  }, [selectedState, includeNonValidated, imagesPerPage, images.length]);
+
+  const handleShowMore = () => {
+    setDisplayedCount(prev => Math.min(prev + imagesPerPage, images.length));
+  };
+
+  const displayedImages = images.slice(0, displayedCount);
+  const hasMore = displayedCount < images.length;
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Unknown date';
@@ -175,7 +200,7 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
       <CardContent>
         <div className="flex items-center justify-between mb-6">
           <Badge variant="secondary" className="text-sm">
-            {images.length} images from {new Set(images.map(img => {
+            Showing {displayedImages.length} of {images.length} images from {new Set(images.map(img => {
               // Extract base observation ID from different formats:
               // "130418033" -> "130418033"
               // "iNat-130418033-1" -> "130418033"  
@@ -192,9 +217,17 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {images.map((image, index) => (
+          {displayedImages.map((image, index) => {
+            // Create a truly unique key using observation ID, index, and image URL hash
+            const imageUrlHash = image.imageUrl.split('').reduce((a, b) => {
+              a = ((a << 5) - a) + b.charCodeAt(0);
+              return a & a;
+            }, 0);
+            const uniqueKey = `img-${image.observationId}-${index}-${Math.abs(imageUrlHash)}`;
+            
+            return (
             <Card 
-              key={`${image.observationId}-${image.imageUrl.substring(image.imageUrl.lastIndexOf('/'))}`}
+              key={uniqueKey}
               className="transition-all hover:shadow-lg"
             >
               <CardContent className="p-0">
@@ -281,8 +314,30 @@ function ObservationImagesGallery({ speciesName, selectedState, includeNonValida
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
+        
+        {/* Show More button */}
+        {hasMore && (
+          <div className="text-center py-8">
+            <Button 
+              onClick={handleShowMore}
+              size="lg"
+              variant="outline"
+              className="px-8"
+            >
+              Show More Images ({images.length - displayedCount} remaining)
+            </Button>
+          </div>
+        )}
+        
+        {/* End of data indicator */}
+        {!hasMore && images.length > imagesPerPage && (
+          <div className="text-center py-8 text-slate-600">
+            <p>You've reached the end! Showing all {images.length} images.</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
