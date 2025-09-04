@@ -224,70 +224,119 @@ export default function Updates() {
       const allNameUpdates = await response.json();
       const allInatRecords = allNameUpdates.filter((record: any) => record.source === 'iNaturalist');
       
-      // Skip records that have recent cache data (updated within last 180 days)
-      const recordsNeedingRefresh = allInatRecords.filter((record: any) => {
-        // Skip if API was saved recently and successfully
+      // Separate records into two groups: fresh API calls vs database updates only
+      const recordsNeedingFreshApi = [];
+      const recordsNeedingDbUpdate = [];
+      
+      allInatRecords.forEach((record: any) => {
         if (record.inatApiSaved && record.inatApiSaveDate) {
           const saveDate = new Date(record.inatApiSaveDate);
           const daysSinceUpdate = (Date.now() - saveDate.getTime()) / (1000 * 60 * 60 * 24);
-          return daysSinceUpdate > 180; // Only refresh if older than 180 days
+          
+          if (daysSinceUpdate <= 180) {
+            // Has recent API data - just needs database update
+            recordsNeedingDbUpdate.push(record);
+          } else {
+            // Old API data - needs fresh API call
+            recordsNeedingFreshApi.push(record);
+          }
+        } else {
+          // No API data saved - needs fresh API call
+          recordsNeedingFreshApi.push(record);
         }
-        return true; // Needs refresh if no API data saved
       });
       
-      const allObservationIds = recordsNeedingRefresh.map((record: any) => record.observationId);
-      const skippedCount = allInatRecords.length - recordsNeedingRefresh.length;
+      const freshApiIds = recordsNeedingFreshApi.map((record: any) => record.observationId);
+      const dbUpdateIds = recordsNeedingDbUpdate.map((record: any) => record.observationId);
       
-      if (allObservationIds.length === 0) {
-        const message = skippedCount > 0 
-          ? `All ${skippedCount} iNaturalist records have been updated within the last 180 days`
-          : "No iNaturalist records to refresh";
-        toast({ title: "Info", description: message });
+      if (freshApiIds.length === 0 && dbUpdateIds.length === 0) {
+        toast({ title: "Info", description: "No iNaturalist records to refresh" });
         return;
       }
       
-      // Process in batches to avoid overwhelming the server
-      const batchSize = 50; // iNaturalist API supports batches of 50
-      const totalBatches = Math.ceil(allObservationIds.length / batchSize);
-      let processedBatches = 0;
+      let totalOperations = 0;
+      let completedOperations = 0;
       
-      const skipMessage = skippedCount > 0 ? ` (${skippedCount} skipped - updated recently)` : "";
-      toast({ 
-        title: "Starting Bulk Refresh", 
-        description: `Processing ${allObservationIds.length} iNaturalist records in ${totalBatches} batches${skipMessage}...` 
-      });
-      
-      for (let i = 0; i < allObservationIds.length; i += batchSize) {
-        const batch = allObservationIds.slice(i, i + batchSize);
-        processedBatches++;
+      // Process database updates first (faster, no API calls)
+      if (dbUpdateIds.length > 0) {
+        console.log(`[Bulk Refresh] Processing ${dbUpdateIds.length} database updates from cached data`);
+        toast({ 
+          title: "Updating Database", 
+          description: `Updating ${dbUpdateIds.length} records using cached API data...` 
+        });
         
-        console.log(`[Bulk Refresh] Processing batch ${processedBatches}/${totalBatches} (${batch.length} records)`);
+        // Process DB updates in batches (these are fast since no API calls)
+        const dbBatchSize = 100;
+        const dbBatches = Math.ceil(dbUpdateIds.length / dbBatchSize);
+        totalOperations += dbBatches;
         
-        try {
-          await refreshBulkMutation.mutateAsync(batch);
-          toast({ 
-            title: "Batch Completed", 
-            description: `Batch ${processedBatches}/${totalBatches} completed (${batch.length} records)` 
-          });
-        } catch (error) {
-          console.error(`[Bulk Refresh] Batch ${processedBatches} failed:`, error);
-          toast({ 
-            title: "Batch Failed", 
-            description: `Batch ${processedBatches}/${totalBatches} failed. Continuing with next batch...`,
-            variant: "destructive"
-          });
+        for (let i = 0; i < dbUpdateIds.length; i += dbBatchSize) {
+          const batch = dbUpdateIds.slice(i, i + dbBatchSize);
+          
+          try {
+            // Use database update endpoint for each record in batch
+            await Promise.all(batch.map(async (observationId) => {
+              const response = await apiRequest('POST', `/api/observations/update-inat-data`, { observationId });
+              return await response.json();
+            }));
+            
+            completedOperations++;
+            console.log(`[DB Update] Batch ${completedOperations}/${dbBatches} completed (${batch.length} records)`);
+            
+          } catch (error) {
+            console.error(`[DB Update] Batch failed:`, error);
+          }
         }
         
-        // Rate limiting: iNaturalist allows max 100 requests/minute (1.67/sec)
-        // Using 1.5 second delay between frontend batches for extra safety
-        if (i + batchSize < allObservationIds.length) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+        toast({ 
+          title: "Database Updates Complete", 
+          description: `Updated ${dbUpdateIds.length} records using cached data` 
+        });
+      }
+      
+      // Process fresh API calls (slower, rate limited)
+      if (freshApiIds.length > 0) {
+        const apiBatchSize = 50; // iNaturalist API supports batches of 50
+        const apiBatches = Math.ceil(freshApiIds.length / apiBatchSize);
+        totalOperations += apiBatches;
+        
+        toast({ 
+          title: "Starting API Refresh", 
+          description: `Fetching fresh data for ${freshApiIds.length} records in ${apiBatches} batches...` 
+        });
+        
+        for (let i = 0; i < freshApiIds.length; i += apiBatchSize) {
+          const batch = freshApiIds.slice(i, i + apiBatchSize);
+          completedOperations++;
+          
+          console.log(`[API Refresh] Processing batch ${completedOperations - dbBatches}/${apiBatches} (${batch.length} records)`);
+          
+          try {
+            await refreshBulkMutation.mutateAsync(batch);
+            toast({ 
+              title: "API Batch Completed", 
+              description: `API batch ${completedOperations - dbBatches}/${apiBatches} completed (${batch.length} records)` 
+            });
+          } catch (error) {
+            console.error(`[API Refresh] Batch failed:`, error);
+            toast({ 
+              title: "API Batch Failed", 
+              description: `API batch ${completedOperations - dbBatches}/${apiBatches} failed. Continuing...`,
+              variant: "destructive"
+            });
+          }
+          
+          // Rate limiting: iNaturalist allows max 100 requests/minute (1.67/sec)
+          // Using 1.5 second delay between frontend batches for extra safety
+          if (i + apiBatchSize < freshApiIds.length) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
         }
       }
       
       toast({ 
         title: "Bulk Refresh Complete", 
-        description: `Successfully processed all ${totalBatches} batches (${allObservationIds.length} total records)` 
+        description: `Successfully processed ${dbUpdateIds.length + freshApiIds.length} records (${dbUpdateIds.length} from cache, ${freshApiIds.length} fresh API calls)` 
       });
       
     } catch (error) {
