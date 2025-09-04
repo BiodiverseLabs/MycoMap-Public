@@ -202,6 +202,19 @@ export interface IStorage {
     family: string | null;
     observationCount: number;
   } | null>;
+
+  // Get species summary for species list (compatible with frontend Species type)
+  getSpeciesSummary(scientificName: string): Promise<{
+    scientificName: string;
+    commonName: string | null;
+    observationCount: number;
+    genus: string | null;
+    family: string | null;
+    order: string | null;
+    class: string | null;
+    phylum: string | null;
+    lastObserved: string | null;
+  } | null>;
   
   // Update observation taxonomy
   updateObservationTaxonomy(id: number, taxonomyData: {
@@ -941,6 +954,47 @@ export class MemoryStorage implements IStorage {
       order: firstObs.order,
       family: firstObs.family,
       observationCount: matchingObservations.length
+    };
+  }
+
+  async getSpeciesSummary(scientificName: string): Promise<{
+    scientificName: string;
+    commonName: string | null;
+    observationCount: number;
+    genus: string | null;
+    family: string | null;
+    order: string | null;
+    class: string | null;
+    phylum: string | null;
+    lastObserved: string | null;
+  } | null> {
+    const matchingObservations = this.observations.filter(obs => 
+      obs.scientificName === scientificName
+    );
+    
+    if (matchingObservations.length === 0) {
+      return null;
+    }
+    
+    // Get taxonomic data from the first matching observation
+    const firstObs = matchingObservations[0];
+    
+    // Get the most recent observation date
+    const lastObserved = matchingObservations
+      .filter(obs => obs.observedOn)
+      .map(obs => obs.observedOn!)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
+    
+    return {
+      scientificName,
+      commonName: firstObs.commonName,
+      observationCount: matchingObservations.length,
+      genus: firstObs.genus,
+      family: firstObs.family,
+      order: firstObs.order,
+      class: firstObs.class,
+      phylum: firstObs.phylum,
+      lastObserved
     };
   }
 

@@ -1153,6 +1153,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search species by observation ID
+  app.get("/api/species/search-by-observation", async (req, res) => {
+    try {
+      const { observation_id } = req.query;
+      
+      if (!observation_id) {
+        return res.status(400).json({ error: "observation_id parameter is required" });
+      }
+      
+      console.log(`[API] Searching for observation ID: ${observation_id}`);
+      
+      // Search in main observations table and iNaturalist cache
+      const [mainObs, cacheObs] = await Promise.all([
+        db.select({
+          scientificName: observations.scientificName,
+          commonName: observations.commonName,
+          observationId: observations.observationId,
+          observer: observations.observer,
+          observedOn: observations.observedOn,
+          state: observations.state
+        })
+        .from(observations)
+        .where(eq(observations.observationId, observation_id as string))
+        .limit(1),
+        
+        db.select({
+          scientificName: sql<string>`scientific_name`,
+          commonName: sql<string>`common_name`,  
+          observationId: sql<string>`inat_id::text`,
+          observer: sql<string>`user_name`,
+          observedOn: sql<string>`observed_on::text`,
+          state: sql<string>`place_guess`
+        })
+        .from(inatObservationsCache)
+        .where(eq(sql`inat_id::text`, observation_id as string))
+        .limit(1)
+      ]);
+      
+      const foundObservation = mainObs[0] || cacheObs[0];
+      
+      if (!foundObservation) {
+        return res.json([]);
+      }
+      
+      // Get species summary for the found species name
+      const speciesSummary = await storage.getSpeciesSummary(foundObservation.scientificName);
+      
+      console.log(`[API] Found observation ${observation_id} for species: ${foundObservation.scientificName}`);
+      res.json([speciesSummary]);
+      
+    } catch (error) {
+      console.error("Error searching by observation ID:", error);
+      res.status(500).json({ error: "Failed to search by observation ID" });
+    }
+  });
+
   app.get("/api/state-records", async (req, res) => {
     try {
       const { limit = '10' } = req.query;

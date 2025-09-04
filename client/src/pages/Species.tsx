@@ -23,6 +23,7 @@ interface Species {
 
 export default function Species() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [observationIdSearch, setObservationIdSearch] = useState("");
   const [selectedState, setSelectedState] = useState<string>("all");
   const [selectedRarity, setSelectedRarity] = useState<string | null>(null);
 
@@ -47,6 +48,19 @@ export default function Species() {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - species data is relatively stable
     gcTime: 15 * 60 * 1000, // 15 minutes cache retention
+  });
+
+  // Search for species by observation ID
+  const { data: observationSearchResults = [], isLoading: observationSearchLoading } = useQuery({
+    queryKey: ["/api/species/search-by-observation", observationIdSearch.trim()],
+    queryFn: async () => {
+      const response = await fetch(`/api/species/search-by-observation?observation_id=${encodeURIComponent(observationIdSearch.trim())}`);
+      if (!response.ok) throw new Error('Failed to search by observation ID');
+      return response.json();
+    },
+    enabled: !!observationIdSearch.trim() && observationIdSearch.trim().length > 0,
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes cache retention
   });
 
   // Fetch state counts for efficient filtering using optimized endpoint
@@ -117,8 +131,11 @@ export default function Species() {
   const filteredSpecies = useMemo(() => {
     let filtered = allSpecies;
 
-    // Search filter
-    if (searchTerm) {
+    // Search filter - prioritize observation ID search over species name search
+    if (observationIdSearch.trim()) {
+      // Use observation search results when searching by ID
+      filtered = observationSearchResults;
+    } else if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter((species: Species) =>
         species.scientificName.toLowerCase().includes(searchLower) ||
@@ -151,7 +168,7 @@ export default function Species() {
     // Note: Date filtering removed as it required full observations dataset
 
     return filtered.sort((a, b) => (b.observationCount || 0) - (a.observationCount || 0));
-  }, [allSpecies, searchTerm, selectedRarity]);
+  }, [allSpecies, searchTerm, selectedRarity, observationIdSearch, observationSearchResults]);
 
   // Calculate statistics - rarity distribution from all species, other stats from filtered results
   const stats = useMemo(() => {
@@ -588,6 +605,17 @@ export default function Species() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Observation ID Search */}
+            <div className="relative">
+              <Eye className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <Input
+                placeholder="Search by iNaturalist/MO/MycoPortal observation number..."
+                value={observationIdSearch}
+                onChange={(e) => setObservationIdSearch(e.target.value)}
+                className="pl-10"
+              />
             </div>
 
             {/* Filter Summary */}
