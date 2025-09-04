@@ -261,12 +261,21 @@ export default function SpeciesDetail() {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
+      const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
+      
+      console.log('Scroll check:', {
+        distanceFromBottom,
+        hasNextPage,
+        isFetchingNextPage,
+        shouldTrigger: distanceFromBottom < 1000 && hasNextPage && !isFetchingNextPage
+      });
       
       if (
-        documentHeight - (scrollTop + windowHeight) < 1000 && // Load when 1000px from bottom
+        distanceFromBottom < 1000 && // Load when 1000px from bottom
         hasNextPage && 
         !isFetchingNextPage
       ) {
+        console.log('Triggering fetchNextPage!');
         fetchNextPage();
       }
     };
