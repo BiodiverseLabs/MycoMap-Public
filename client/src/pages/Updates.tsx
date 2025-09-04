@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown, RefreshCw, Save, ChevronDown, ChevronUp } from "lucide-react";
@@ -138,13 +139,20 @@ export default function Updates() {
 
   // Helper functions
   const handleRefreshSingle = async (observationId: string) => {
+    console.log(`[Frontend] Refreshing observation: ${observationId}`);
     setRefreshingRecords(prev => new Set([...prev, observationId]));
-    await refreshSingleMutation.mutateAsync(observationId);
-    setRefreshingRecords(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(observationId);
-      return newSet;
-    });
+    
+    try {
+      await refreshSingleMutation.mutateAsync(observationId);
+    } catch (error) {
+      console.error(`[Frontend] Refresh failed for ${observationId}:`, error);
+    } finally {
+      setRefreshingRecords(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(observationId);
+        return newSet;
+      });
+    }
   };
 
   const handleRefreshAll = async () => {
@@ -330,8 +338,8 @@ export default function Updates() {
                       const isInat = record.source === 'iNaturalist';
                       
                       return (
-                        <>
-                          <TableRow key={record.id}>
+                        <React.Fragment key={record.id}>
+                          <TableRow>
                             <TableCell className="font-mono text-sm">
                               {record.observationId}
                             </TableCell>
@@ -432,7 +440,7 @@ export default function Updates() {
                               </TableCell>
                             </TableRow>
                           )}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                   </TableBody>

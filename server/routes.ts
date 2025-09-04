@@ -2113,27 +2113,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // iNaturalist API refresh endpoints
   app.post("/api/observations/refresh-inat-data", async (req, res) => {
     try {
+      console.log(`[iNat Refresh] Starting refresh for request:`, req.body);
       const { observationId } = req.body;
       
       if (!observationId) {
+        console.log(`[iNat Refresh] Error: No observation ID provided`);
         return res.status(400).json({ error: "Observation ID is required" });
       }
 
       // Fetch observation data from iNaturalist API
       const inatUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
+      console.log(`[iNat Refresh] Fetching from URL: ${inatUrl}`);
       const response = await fetch(inatUrl);
       
       if (!response.ok) {
+        console.log(`[iNat Refresh] API response not OK: ${response.status} ${response.statusText}`);
         return res.status(404).json({ error: `Failed to fetch observation from iNaturalist: ${response.status}` });
       }
 
       const data = await response.json();
+      console.log(`[iNat Refresh] API response received:`, { hasResults: !!data.results, resultCount: data.results?.length });
       
       if (!data.results || data.results.length === 0) {
+        console.log(`[iNat Refresh] No results found for observation ${observationId}`);
         return res.status(404).json({ error: "Observation not found on iNaturalist" });
       }
 
       const obs = data.results[0];
+      console.log(`[iNat Refresh] Observation data:`, { 
+        taxonName: obs.taxon?.name, 
+        speciesGuess: obs.species_guess,
+        qualityGrade: obs.quality_grade,
+        hasOfvs: !!obs.ofvs,
+        ofvsCount: obs.ofvs?.length || 0
+      });
       
       // Extract observation fields for Provisional Name (10675) and Species Name Override (20259)
       const observationFields = obs.ofvs || [];
@@ -2148,6 +2161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastRefreshed: new Date().toISOString()
       };
 
+      console.log(`[iNat Refresh] Sending response:`, refreshedData);
       res.json(refreshedData);
     } catch (error) {
       console.error("Error refreshing iNaturalist data:", error);
