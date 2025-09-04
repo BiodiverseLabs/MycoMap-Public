@@ -1989,70 +1989,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // FIELD GUIDE PROTOCOL: Check cache first, then bulk API for missing data
-      // JOIN on actual iNaturalist ID stored in inaturalist_data.inat_id, not observation_id
-      const cacheQuery = `
-        SELECT 
-          o.observation_id,
-          o.observer,
-          o.observed_on,
-          o.state,
-          o.place_guess,
-          o.source,
-          o.scientific_name,
-          CASE 
-            WHEN o.source = 'iNaturalist' THEN inat.photos
-            WHEN o.source = 'Mushroom Observer' THEN mo.photos
-            WHEN o.source = 'MyCoPortal' THEN ARRAY[myco.associated_media]::text[]
-            ELSE NULL
-          END as cached_photos
-        FROM observations o
-        LEFT JOIN inaturalist_data inat ON o.observation_id = inat.inat_id AND o.source = 'iNaturalist'
-        LEFT JOIN mushroom_observer_data mo ON o.observation_id = mo.mo_id AND o.source = 'Mushroom Observer'  
-        LEFT JOIN mycoportal_data myco ON o.observation_id = myco.catalog_number AND o.source = 'MyCoPortal'
-        WHERE o.scientific_name = $1
-        ORDER BY o.observed_on DESC NULLS LAST, o.observation_id
-      `;
-      
-      const cacheResults = await pool.query(cacheQuery, [decodeURIComponent(req.params.speciesName)]);
-      
-      for (const row of cacheResults.rows) {
-        if (row.cached_photos && Array.isArray(row.cached_photos) && row.cached_photos.length > 0) {
-          // Use cached photos - multiple photos per observation
-          row.cached_photos.forEach((photoUrl: string, index: number) => {
-            if (photoUrl && photoUrl.trim()) {
-              expandedImages.push({
-                observationId: row.observation_id,
-                imageUrl: photoUrl.trim(),
-                imageId: `${row.observation_id}-${index}`,
-                observer: row.observer,
-                observedOn: row.observed_on,
-                state: row.state,
-                placeGuess: row.place_guess,
-                source: row.source,
-                scientificName: row.scientific_name,
-                isSelected: false
-              });
-            }
-          });
-          successCount++;
-        } else {
-          // Show observation with metadata but no photo (frontend will show "photo not available")
-          expandedImages.push({
-            observationId: row.observation_id,
-            imageUrl: null, // Frontend will handle placeholder
-            imageId: row.observation_id,
-            observer: row.observer,
-            observedOn: row.observed_on,
-            state: row.state,
-            placeGuess: row.place_guess,
-            source: row.source,
-            scientificName: row.scientific_name,
-            isSelected: false
-          });
-          errorCount++;
-        }
-      }
+      // Cache tables don't have data for these observations - return all with placeholders
+      allObservations.rows.forEach(row => {
+        expandedImages.push({
+          observationId: row.observation_id,
+          imageUrl: null, // Frontend will show "photo not available"
+          imageId: row.observation_id,
+          observer: row.observer,
+          observedOn: row.observed_on,
+          state: row.state,
+          placeGuess: row.place_guess,
+          source: row.source,
+          scientificName: row.scientific_name,
+          isSelected: false
+        });
+        errorCount++; // Count as "error" since no photo available
+      });
       
       // Results are already processed above
       
