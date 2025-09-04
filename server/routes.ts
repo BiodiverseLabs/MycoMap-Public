@@ -1988,22 +1988,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      // SIMPLE APPROACH: Use database URLs directly - this has worked before
+      // API calls with very simple sequential approach to get fresh URLs
       for (const row of allObservations.rows) {
-        if (row.image_link) {
-          expandedImages.push({
-            observationId: row.observation_id,
-            imageUrl: row.image_link,
-            imageId: row.observation_id,
-            observer: row.observer,
-            observedOn: row.observed_on,
-            state: row.state,
-            placeGuess: row.place_guess,
-            source: row.source,
-            scientificName: row.scientific_name,
-            isSelected: false
-          });
+        const images = await fetchInatData(row);
+        if (Array.isArray(images) && images.length > 0) {
+          expandedImages.push(...images);
           successCount++;
+        } else {
+          errorCount++;
+        }
+        
+        // Simple delay between ALL requests (not just iNaturalist)
+        if (row.source === 'iNaturalist') {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between iNat calls
         }
       }
       
