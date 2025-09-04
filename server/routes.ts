@@ -1843,13 +1843,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/species/:name/images", async (req, res) => {
     try {
       const scientificName = decodeURIComponent(req.params.name);
-      const { state, limit: limitParam, includeNonValidated = 'false' } = req.query;
-      const limit = limitParam ? parseInt(limitParam as string) : 200;
+      const { 
+        state, 
+        page: pageParam = '1', 
+        pageSize: pageSizeParam = '16',
+        includeNonValidated = 'false' 
+      } = req.query;
+      
+      const page = parseInt(pageParam as string);
+      const pageSize = parseInt(pageSizeParam as string);
+      const offset = (page - 1) * pageSize;
       const shouldIncludeNonValidated = includeNonValidated === 'true';
       
-      console.log(`[Species Images API] Fetching images for: ${scientificName}`);
+      console.log(`[Species Images API] Fetching images for page ${page} of ${scientificName} (${pageSize} per page)`);
 
-      // Step 1: Get ALL observations for this species (no image filtering)
+      // Step 0: Get total count for pagination
+      const totalCountResult = await db.execute(sql`
+        SELECT COUNT(*) as total
+        FROM observations o
+        WHERE o.scientific_name = ${scientificName}
+          ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
+      `);
+      const totalCount = parseInt(totalCountResult.rows[0].total.toString());
+
+      // Step 1: Get paginated observations for this species
       const speciesObservations = await db.execute(sql`
         SELECT 
           o.observation_id,
@@ -1870,7 +1887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE o.scientific_name = ${scientificName}
           ${state && state !== 'all' ? sql`AND o.state = ${state}` : sql``}
         ORDER BY o.observed_on DESC
-        LIMIT ${limit}
+        LIMIT ${pageSize} OFFSET ${offset}
       `);
 
       console.log(`[Species Images API] Found ${speciesObservations.rows.length} total observations for ${scientificName}`);
@@ -2053,8 +2070,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return getSourcePriority(a.source) - getSourcePriority(b.source);
         });
       
-      console.log(`[Species Images API] Returning ${images.length} images for ${scientificName}`);
-      res.json(images);
+      console.log(`[Species Images API] Returning ${images.length} images for ${scientificName} (page ${page}/${Math.ceil(totalCount/pageSize)})`);
+      res.json({
+        images,
+        total: totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize)
+      });
     } catch (error) {
       console.error("Error fetching species images:", error);
       res.status(500).json({ error: "Failed to fetch species images" });

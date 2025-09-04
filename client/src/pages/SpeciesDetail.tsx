@@ -112,12 +112,22 @@ export default function SpeciesDetail() {
     enabled: !!speciesName
   });
 
-  // Fetch species images
-  const { data: speciesImages = [], isLoading: imagesLoading } = useQuery({
-    queryKey: ["/api/species", speciesName, "images", { state: selectedState, includeNonValidated }],
+  // Calculate images per page
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const imagesPerPage = isMobile ? 8 : 16;
+
+  // Fetch species images with server-side pagination
+  const { data: speciesImagesResponse, isLoading: imagesLoading } = useQuery({
+    queryKey: ["/api/species", speciesName, "images", { 
+      state: selectedState, 
+      includeNonValidated, 
+      page: currentPage, 
+      pageSize: imagesPerPage 
+    }],
     queryFn: async () => {
       const params = new URLSearchParams({
-        limit: '200',
+        page: currentPage.toString(),
+        pageSize: imagesPerPage.toString(),
         includeNonValidated: includeNonValidated.toString()
       });
       
@@ -128,10 +138,14 @@ export default function SpeciesDetail() {
       const url = `/api/species/${encodeURIComponent(speciesName)}/images?${params}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch species images');
-      return response.json() as Promise<ObservationImage[]>;
+      return response.json();
     },
     enabled: !!speciesName
   });
+
+  const speciesImages = speciesImagesResponse?.images || [];
+  const totalImages = speciesImagesResponse?.total || 0;
+  const totalPages = Math.ceil(totalImages / imagesPerPage);
 
   // Fetch species classification
   const { data: classification, isLoading: classificationLoading } = useQuery({
@@ -227,17 +241,8 @@ export default function SpeciesDetail() {
     };
   }, [observations]);
 
-  // Pagination logic
-  const { paginatedImages, totalPages, imagesPerPage } = useMemo(() => {
-    const isMobile = window.innerWidth < 768;
-    const imagesPerPage = isMobile ? 8 : 16;
-    const totalPages = Math.ceil(speciesImages.length / imagesPerPage);
-    const startIndex = (currentPage - 1) * imagesPerPage;
-    const endIndex = startIndex + imagesPerPage;
-    const paginatedImages = speciesImages.slice(startIndex, endIndex);
-    
-    return { paginatedImages, totalPages, imagesPerPage };
-  }, [speciesImages, currentPage]);
+  // No client-side pagination needed - server handles it
+  const paginatedImages = speciesImages;
   
   // Reset pagination when filters change
   useEffect(() => {
