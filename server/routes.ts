@@ -2110,6 +2110,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // iNaturalist API refresh endpoints
+  app.post("/api/observations/refresh-inat-data", async (req, res) => {
+    try {
+      const { observationId } = req.body;
+      
+      if (!observationId) {
+        return res.status(400).json({ error: "Observation ID is required" });
+      }
+
+      // Fetch observation data from iNaturalist API
+      const inatUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
+      const response = await fetch(inatUrl);
+      
+      if (!response.ok) {
+        return res.status(404).json({ error: `Failed to fetch observation from iNaturalist: ${response.status}` });
+      }
+
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) {
+        return res.status(404).json({ error: "Observation not found on iNaturalist" });
+      }
+
+      const obs = data.results[0];
+      
+      // Extract observation fields for Provisional Name (10675) and Species Name Override (20259)
+      const observationFields = obs.ofvs || [];
+      const provisionalName = observationFields.find((field: any) => field.observation_field_id === 10675)?.value || null;
+      const speciesNameOverride = observationFields.find((field: any) => field.observation_field_id === 20259)?.value || null;
+
+      const refreshedData = {
+        inatName: obs.taxon?.name || obs.species_guess || null,
+        provisionalName,
+        speciesNameOverride,
+        qualityGrade: obs.quality_grade,
+        lastRefreshed: new Date().toISOString()
+      };
+
+      res.json(refreshedData);
+    } catch (error) {
+      console.error("Error refreshing iNaturalist data:", error);
+      res.status(500).json({ error: "Failed to refresh iNaturalist data" });
+    }
+  });
+
+  app.post("/api/observations/refresh-inat-data-bulk", async (req, res) => {
+    try {
+      const { observationIds } = req.body;
+      
+      if (!observationIds || !Array.isArray(observationIds)) {
+        return res.status(400).json({ error: "Array of observation IDs is required" });
+      }
+
+      const results = [];
+      
+      // Process observations in batches to respect rate limits
+      for (const observationId of observationIds) {
+        try {
+          const inatUrl = `https://api.inaturalist.org/v1/observations/${observationId}`;
+          const response = await fetch(inatUrl);
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data.results && data.results.length > 0) {
+              const obs = data.results[0];
+              const observationFields = obs.ofvs || [];
+              const provisionalName = observationFields.find((field: any) => field.observation_field_id === 10675)?.value || null;
+              const speciesNameOverride = observationFields.find((field: any) => field.observation_field_id === 20259)?.value || null;
+
+              results.push({
+                observationId,
+                success: true,
+                data: {
+                  inatName: obs.taxon?.name || obs.species_guess || null,
+                  provisionalName,
+                  speciesNameOverride,
+                  qualityGrade: obs.quality_grade,
+                  lastRefreshed: new Date().toISOString()
+                }
+              });
+            } else {
+              results.push({
+                observationId,
+                success: false,
+                error: "Observation not found"
+              });
+            }
+          } else {
+            results.push({
+              observationId,
+              success: false,
+              error: `API error: ${response.status}`
+            });
+          }
+          
+          // Rate limit: 1.1 second delay between requests (54 requests/minute)
+          await new Promise(resolve => setTimeout(resolve, 1100));
+        } catch (error) {
+          results.push({
+            observationId,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      res.json({ results });
+    } catch (error) {
+      console.error("Error bulk refreshing iNaturalist data:", error);
+      res.status(500).json({ error: "Failed to bulk refresh iNaturalist data" });
+    }
+  });
+
+  app.post("/api/observations/update-inat-data", async (req, res) => {
+    try {
+      const { observationId, inatName, provisionalName, speciesNameOverride } = req.body;
+      
+      if (!observationId) {
+        return res.status(400).json({ error: "Observation ID is required" });
+      }
+
+      // Update the database record with the selected name (priority: override > provisional > inat)
+      if (inatName) {
+        await db.execute(sql`UPDATE observations SET scientific_name = ${inatName} WHERE observation_id = ${observationId}`);
+      }
+
+      res.json({ success: true, message: "Observation updated successfully" });
+    } catch (error) {
+      console.error("Error updating observation with iNaturalist data:", error);
+      res.status(500).json({ error: "Failed to update observation" });
+    }
+  });
+
   // Upload endpoints
   app.get("/api/uploads", async (req, res) => {
     try {

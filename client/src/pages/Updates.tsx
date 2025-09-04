@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown } from "lucide-react";
+import { AlertTriangle, Download, ExternalLink, MapPin, Filter, ArrowUpDown, RefreshCw, Save, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import type { Observation } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Updates() {
   const { data: nameUpdates = [], isLoading: nameLoading } = useQuery<Observation[]>({
@@ -17,6 +20,14 @@ export default function Updates() {
   // State for Name Updates filtering and sorting
   const [nameUpdateSourceFilter, setNameUpdateSourceFilter] = useState<string>('all');
   const [nameUpdateSortOrder, setNameUpdateSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  // State for API refresh functionality
+  const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
+  const [apiData, setApiData] = useState<Record<string, any>>({});
+  const [refreshingRecords, setRefreshingRecords] = useState<Set<string>>(new Set());
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: classificationUpdates = [], isLoading: classificationLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations/classification-updates"]
@@ -55,6 +66,110 @@ export default function Updates() {
     const sources = Array.from(new Set(nameUpdates.map(record => record.source).filter((source): source is string => Boolean(source))));
     return sources.sort();
   }, [nameUpdates]);
+
+  // Mutations for API refresh
+  const refreshSingleMutation = useMutation({
+    mutationFn: async (observationId: string) => {
+      return await apiRequest(`/api/observations/refresh-inat-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observationId })
+      });
+    },
+    onSuccess: (data, observationId) => {
+      setApiData(prev => ({ ...prev, [observationId]: data }));
+      setExpandedRecords(prev => new Set([...prev, observationId]));
+      toast({ title: "Success", description: "iNaturalist data refreshed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to refresh iNaturalist data", variant: "destructive" });
+    }
+  });
+
+  const refreshBulkMutation = useMutation({
+    mutationFn: async (observationIds: string[]) => {
+      return await apiRequest(`/api/observations/refresh-inat-data-bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observationIds })
+      });
+    },
+    onSuccess: (data) => {
+      const newApiData = { ...apiData };
+      const newExpanded = new Set(expandedRecords);
+      
+      data.results.forEach((result: any) => {
+        if (result.success) {
+          newApiData[result.observationId] = result.data;
+          newExpanded.add(result.observationId);
+        }
+      });
+      
+      setApiData(newApiData);
+      setExpandedRecords(newExpanded);
+      toast({ title: "Success", description: `Refreshed ${data.results.filter((r: any) => r.success).length} records` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to bulk refresh iNaturalist data", variant: "destructive" });
+    }
+  });
+
+  const updateDbMutation = useMutation({
+    mutationFn: async ({ observationId, inatName, provisionalName, speciesNameOverride }: {
+      observationId: string;
+      inatName: string | null;
+      provisionalName: string | null;
+      speciesNameOverride: string | null;
+    }) => {
+      return await apiRequest(`/api/observations/update-inat-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observationId, inatName, provisionalName, speciesNameOverride })
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Database updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/observations/name-updates'] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update database", variant: "destructive" });
+    }
+  });
+
+  // Helper functions
+  const handleRefreshSingle = async (observationId: string) => {
+    setRefreshingRecords(prev => new Set([...prev, observationId]));
+    await refreshSingleMutation.mutateAsync(observationId);
+    setRefreshingRecords(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(observationId);
+      return newSet;
+    });
+  };
+
+  const handleRefreshAll = async () => {
+    const inatRecords = filteredAndSortedNameUpdates.filter(record => record.source === 'iNaturalist');
+    const observationIds = inatRecords.map(record => record.observationId);
+    
+    if (observationIds.length === 0) {
+      toast({ title: "Info", description: "No iNaturalist records to refresh" });
+      return;
+    }
+    
+    await refreshBulkMutation.mutateAsync(observationIds);
+  };
+
+  const toggleExpanded = (observationId: string) => {
+    setExpandedRecords(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(observationId)) {
+        newSet.delete(observationId);
+      } else {
+        newSet.add(observationId);
+      }
+      return newSet;
+    });
+  };
 
   const downloadRecords = (records: Observation[], type: string) => {
     const csv = convertToCSV(records);
@@ -135,7 +250,7 @@ export default function Updates() {
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Select value={nameUpdateSourceFilter} onValueChange={setNameUpdateSourceFilter}>
                   <SelectTrigger className="w-40">
                     <Filter className="w-4 h-4 mr-2" />
@@ -157,6 +272,15 @@ export default function Updates() {
                 >
                   <ArrowUpDown className="w-4 h-4 mr-2" />
                   Sort {nameUpdateSortOrder === 'asc' ? '↑' : '↓'}
+                </Button>
+                <Button
+                  onClick={handleRefreshAll}
+                  disabled={refreshBulkMutation.isPending || filteredAndSortedNameUpdates.filter(r => r.source === 'iNaturalist').length === 0}
+                  size="sm"
+                  variant="secondary"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  API Refresh All
                 </Button>
                 <Button
                   onClick={() => downloadRecords(filteredAndSortedNameUpdates, 'name')}
@@ -195,42 +319,122 @@ export default function Updates() {
                       <TableHead>Collector</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Date</TableHead>
-                      <TableHead>Action</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAndSortedNameUpdates.slice(0, 100).map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-mono text-sm">
-                          {record.observationId}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{record.scientificName}</div>
-                          {record.genus && record.genus !== record.scientificName && (
-                            <div className="text-sm text-slate-500">{record.genus}</div>
+                    {filteredAndSortedNameUpdates.slice(0, 100).map((record) => {
+                      const isExpanded = expandedRecords.has(record.observationId);
+                      const refreshData = apiData[record.observationId];
+                      const isRefreshing = refreshingRecords.has(record.observationId);
+                      const isInat = record.source === 'iNaturalist';
+                      
+                      return (
+                        <>
+                          <TableRow key={record.id}>
+                            <TableCell className="font-mono text-sm">
+                              {record.observationId}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{record.scientificName}</div>
+                              {record.genus && record.genus !== record.scientificName && (
+                                <div className="text-sm text-slate-500">{record.genus}</div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {record.source || 'Unknown'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{record.collector || record.observer || 'Unknown'}</TableCell>
+                            <TableCell>{record.state}</TableCell>
+                            <TableCell>{record.observedOn}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {isInat && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRefreshSingle(record.observationId)}
+                                      disabled={isRefreshing}
+                                    >
+                                      <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                    </Button>
+                                    {refreshData && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => toggleExpanded(record.observationId)}
+                                      >
+                                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                                {record.sourceUrl && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open(record.sourceUrl!, '_blank')}
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {isInat && isExpanded && refreshData && (
+                            <TableRow key={`${record.id}-expanded`}>
+                              <TableCell colSpan={7} className="bg-slate-50 dark:bg-slate-800">
+                                <div className="p-4 space-y-3">
+                                  <div className="text-sm font-medium text-slate-700 dark:text-slate-300">iNaturalist API Data:</div>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                    <div>
+                                      <span className="font-medium">iNat Name:</span>
+                                      <div className="text-slate-600 dark:text-slate-400">{refreshData.inatName || 'None'}</div>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Provisional Name Field:</span>
+                                      <div className="text-slate-600 dark:text-slate-400">{refreshData.provisionalName || 'None'}</div>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Species Name Override Field:</span>
+                                      <div className="text-slate-600 dark:text-slate-400">{refreshData.speciesNameOverride || 'None'}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        // Priority order: Species Name Override > Provisional Name > iNat Name
+                                        const selectedName = refreshData.speciesNameOverride || 
+                                                            refreshData.provisionalName || 
+                                                            refreshData.inatName;
+                                        
+                                        updateDbMutation.mutate({
+                                          observationId: record.observationId,
+                                          inatName: selectedName,
+                                          provisionalName: refreshData.provisionalName,
+                                          speciesNameOverride: refreshData.speciesNameOverride
+                                        });
+                                      }}
+                                      disabled={updateDbMutation.isPending}
+                                    >
+                                      <Save className="w-4 h-4 mr-2" />
+                                      Update DB
+                                    </Button>
+                                    <div className="text-xs text-slate-500">
+                                      Last refreshed: {new Date(refreshData.lastRefreshed).toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {record.source || 'Unknown'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{record.collector || record.observer || 'Unknown'}</TableCell>
-                        <TableCell>{record.state}</TableCell>
-                        <TableCell>{record.observedOn}</TableCell>
-                        <TableCell>
-                          {record.sourceUrl && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => window.open(record.sourceUrl!, '_blank')}
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                        </>
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 {filteredAndSortedNameUpdates.length > 100 && (
