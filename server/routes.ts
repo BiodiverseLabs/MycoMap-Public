@@ -1924,83 +1924,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Step 2: Format response and expand iNaturalist observations with multiple images
       const expandedImages = [];
       
-      // Process observations in smaller batches to reduce concurrent API calls
-      const batchSize = 10;
-      const batches = [];
-      for (let i = 0; i < allObservations.rows.length; i += batchSize) {
-        batches.push(allObservations.rows.slice(i, i + batchSize));
-      }
-      
-      for (const batch of batches) {
-        const batchPromises = batch.map(async (row) => {
-          if (row.source === 'iNaturalist') {
-            // For iNaturalist observations with retry logic
-            try {
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-              
-              const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
-                signal: controller.signal,
-                headers: {
-                  'User-Agent': 'MacroFungi-Research-App/1.0'
-                }
-              });
-              
-              clearTimeout(timeoutId);
-              
-              if (inatResponse.ok) {
-                const inatData = await inatResponse.json();
-                if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
-                  const photos = inatData.results[0].photos;
-                  return photos.map((photo: any, index: number) => ({
-                    observationId: row.observation_id,
-                    imageUrl: photo.url.replace('square', 'large'),
-                    imageId: `${row.observation_id}-${index}`,
-                    observer: row.observer,
-                    observedOn: row.observed_on,
-                    state: row.state,
-                    placeGuess: row.place_guess,
-                    source: row.source,
-                    scientificName: row.scientific_name,
-                    isSelected: false
-                  }));
-                }
+      // Revert to simpler parallel processing - batch processing made things worse
+      const fetchPromises = allObservations.rows.map(async (row) => {
+        if (row.source === 'iNaturalist') {
+          // For iNaturalist observations, ONLY use API - no fallback to broken database URLs
+          try {
+            const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
+              headers: {
+                'User-Agent': 'MacroFungi-Research-App/1.0'
               }
-            } catch (error) {
-              console.error(`Error fetching iNaturalist images for ${row.observation_id}:`, error.message);
+            });
+            if (inatResponse.ok) {
+              const inatData = await inatResponse.json();
+              if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
+                const photos = inatData.results[0].photos;
+                // Add each photo as a separate image
+                return photos.map((photo: any, index: number) => ({
+                  observationId: row.observation_id,
+                  imageUrl: photo.url.replace('square', 'large'),
+                  imageId: `${row.observation_id}-${index}`,
+                  observer: row.observer,
+                  observedOn: row.observed_on,
+                  state: row.state,
+                  placeGuess: row.place_guess,
+                  source: row.source,
+                  scientificName: row.scientific_name,
+                  isSelected: false
+                }));
+              }
             }
-            return [];
-          } else {
-            // For non-iNaturalist sources
-            if (row.image_link && !row.image_link.includes('inaturalist.org')) {
-              return [{
-                observationId: row.observation_id,
-                imageUrl: row.image_link,
-                imageId: row.observation_id,
-                observer: row.observer,
-                observedOn: row.observed_on,
-                state: row.state,
-                placeGuess: row.place_guess,
-                source: row.source,
-                scientificName: row.scientific_name,
-                isSelected: false
-              }];
-            }
-            return [];
+            // If API call fails, skip this observation entirely - no fallback
+          } catch (error) {
+            console.error(`Error fetching iNaturalist images for ${row.observation_id}:`, error.message);
+            // Skip this observation entirely - no fallback to broken database URLs
           }
-        });
-        
-        // Process batch and flatten results
-        const batchResults = await Promise.all(batchPromises);
-        batchResults.forEach(result => {
-          if (Array.isArray(result)) {
-            expandedImages.push(...result);
+          return [];
+        } else {
+          // For non-iNaturalist sources (Mushroom Observer, MyCoPortal), use database URL
+          // These are typically working URLs unlike the broken iNaturalist ones
+          if (row.image_link && !row.image_link.includes('inaturalist.org')) {
+            return [{
+              observationId: row.observation_id,
+              imageUrl: row.image_link,
+              imageId: row.observation_id,
+              observer: row.observer,
+              observedOn: row.observed_on,
+              state: row.state,
+              placeGuess: row.place_guess,
+              source: row.source,
+              scientificName: row.scientific_name,
+              isSelected: false
+            }];
           }
-        });
-        
-        // Small delay between batches to reduce server load
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+          return [];
+        }
+      });
+
+      const results = await Promise.all(fetchPromises);
+      results.forEach(result => {
+        if (Array.isArray(result)) {
+          expandedImages.push(...result);
+        }
+      });
       
       // Apply original sorting and then paginate by individual images
       const sortedImages = expandedImages.filter(img => img.imageUrl)
