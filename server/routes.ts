@@ -1924,45 +1924,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Step 2: Format response and expand iNaturalist observations with multiple images
       const expandedImages = [];
       
-      // Revert to simpler parallel processing - batch processing made things worse
-      const fetchPromises = allObservations.rows.map(async (row) => {
+      // Add retry logic with proper timeout and better error handling
+      let successCount = 0;
+      let errorCount = 0;
+      
+      const fetchWithRetry = async (row: any, retries = 1) => {
         if (row.source === 'iNaturalist') {
-          // For iNaturalist observations, ONLY use API - no fallback to broken database URLs
-          try {
-            const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
-              headers: {
-                'User-Agent': 'MacroFungi-Research-App/1.0'
+          for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 6000);
+              
+              const inatResponse = await fetch(`https://api.inaturalist.org/v1/observations/${row.observation_id}`, {
+                signal: controller.signal,
+                headers: {
+                  'User-Agent': 'MacroFungi-Research-App/1.0',
+                  'Accept': 'application/json'
+                }
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (inatResponse.ok) {
+                const inatData = await inatResponse.json();
+                if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
+                  const photos = inatData.results[0].photos;
+                  successCount++;
+                  return photos.map((photo: any, index: number) => ({
+                    observationId: row.observation_id,
+                    imageUrl: photo.url.replace('square', 'large'),
+                    imageId: `${row.observation_id}-${index}`,
+                    observer: row.observer,
+                    observedOn: row.observed_on,
+                    state: row.state,
+                    placeGuess: row.place_guess,
+                    source: row.source,
+                    scientificName: row.scientific_name,
+                    isSelected: false
+                  }));
+                }
               }
-            });
-            if (inatResponse.ok) {
-              const inatData = await inatResponse.json();
-              if (inatData.results && inatData.results[0] && inatData.results[0].photos) {
-                const photos = inatData.results[0].photos;
-                // Add each photo as a separate image
-                return photos.map((photo: any, index: number) => ({
-                  observationId: row.observation_id,
-                  imageUrl: photo.url.replace('square', 'large'),
-                  imageId: `${row.observation_id}-${index}`,
-                  observer: row.observer,
-                  observedOn: row.observed_on,
-                  state: row.state,
-                  placeGuess: row.place_guess,
-                  source: row.source,
-                  scientificName: row.scientific_name,
-                  isSelected: false
-                }));
+            } catch (error: any) {
+              if (attempt < retries) {
+                // Wait before retry: 500ms, then 1s
+                await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+                continue;
               }
+              console.error(`Failed fetching iNaturalist images for ${row.observation_id} after ${retries + 1} attempts:`, error.message);
+              errorCount++;
             }
-            // If API call fails, skip this observation entirely - no fallback
-          } catch (error) {
-            console.error(`Error fetching iNaturalist images for ${row.observation_id}:`, error.message);
-            // Skip this observation entirely - no fallback to broken database URLs
           }
           return [];
         } else {
-          // For non-iNaturalist sources (Mushroom Observer, MyCoPortal), use database URL
-          // These are typically working URLs unlike the broken iNaturalist ones
+          // Non-iNaturalist sources
           if (row.image_link && !row.image_link.includes('inaturalist.org')) {
+            successCount++;
             return [{
               observationId: row.observation_id,
               imageUrl: row.image_link,
@@ -1978,14 +1994,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           return [];
         }
-      });
+      };
 
+      const fetchPromises = allObservations.rows.map(row => fetchWithRetry(row));
       const results = await Promise.all(fetchPromises);
+      
       results.forEach(result => {
         if (Array.isArray(result)) {
           expandedImages.push(...result);
         }
       });
+      
+      console.log(`[API Results] Success: ${successCount}/${allObservations.rows.length} (${Math.round(successCount/allObservations.rows.length*100)}%) - Errors: ${errorCount}`);
       
       // Apply original sorting and then paginate by individual images
       const sortedImages = expandedImages.filter(img => img.imageUrl)
