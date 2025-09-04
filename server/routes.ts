@@ -2395,11 +2395,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const cachedData: Record<string, any> = {};
       
-      // Fetch all cached records in a single query instead of looping
-      const cachedRecords = await db
-        .select()
-        .from(inaturalistApiCache)
-        .where(inArray(inaturalistApiCache.observationId, observationIds));
+      // Fetch cached records with individual queries (reliable approach)
+      const cachedRecords: any[] = [];
+      
+      for (const observationId of observationIds) {
+        try {
+          const [existing] = await db
+            .select()
+            .from(inaturalistApiCache)
+            .where(eq(inaturalistApiCache.observationId, observationId));
+          
+          if (existing) {
+            cachedRecords.push(existing);
+          }
+        } catch (error) {
+          console.error(`Error getting cached data for ${observationId}:`, error);
+        }
+      }
         
       console.log(`[Cache Query] Found ${cachedRecords.length} cached records for ${observationIds.length} requested IDs`);
       
