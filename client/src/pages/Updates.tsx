@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { Observation } from "@shared/schema";
@@ -42,6 +42,31 @@ export default function Updates() {
   const { data: missingGPS = [], isLoading: gpsLoading } = useQuery<Observation[]>({
     queryKey: ["/api/observations/missing-gps"]
   });
+
+  // Load cached data for iNaturalist observations on page load
+  useEffect(() => {
+    if (nameUpdates.length > 0) {
+      const inatObservationIds = nameUpdates
+        .filter(record => record.source === 'iNaturalist')
+        .map(record => record.observationId);
+      
+      if (inatObservationIds.length > 0) {
+        apiRequest('/api/observations/get-cached-data', {
+          method: 'POST',
+          body: { observationIds: inatObservationIds }
+        }).then((response) => {
+          if (response.cachedData) {
+            setApiData(prev => ({
+              ...prev,
+              ...response.cachedData
+            }));
+          }
+        }).catch((error) => {
+          console.error('Failed to load cached data:', error);
+        });
+      }
+    }
+  }, [nameUpdates]);
 
   // Filtered and sorted name updates
   const filteredAndSortedNameUpdates = useMemo(() => {

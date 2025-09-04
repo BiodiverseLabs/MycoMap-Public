@@ -2384,6 +2384,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get cached refresh data for specific observations
+  app.post("/api/observations/get-cached-data", async (req, res) => {
+    try {
+      const { observationIds } = req.body;
+      
+      if (!Array.isArray(observationIds)) {
+        return res.status(400).json({ error: 'observationIds must be an array' });
+      }
+      
+      const cachedData: Record<string, any> = {};
+      
+      for (const observationId of observationIds) {
+        try {
+          const [existing] = await db
+            .select()
+            .from(iNaturalistApiCache)
+            .where(eq(iNaturalistApiCache.observationId, observationId));
+          
+          if (existing) {
+            cachedData[observationId] = {
+              inatName: existing.inatName,
+              provisionalName: existing.provisionalName,
+              speciesNameOverride: existing.speciesNameOverride,
+              qualityGrade: existing.qualityGrade,
+              lastRefreshed: existing.lastRefreshed,
+              lastDbUpdate: existing.lastDbUpdate,
+              fromCache: true
+            };
+          }
+        } catch (error) {
+          console.error(`Error getting cached data for ${observationId}:`, error);
+        }
+      }
+      
+      res.json({ cachedData });
+    } catch (error) {
+      console.error('Error getting cached data:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   app.post("/api/observations/update-inat-data", async (req, res) => {
     try {
       const { observationId, inatName, provisionalName, speciesNameOverride } = req.body;
