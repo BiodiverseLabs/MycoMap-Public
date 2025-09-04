@@ -2272,6 +2272,61 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getSpeciesSummary(scientificName: string): Promise<{
+    scientificName: string;
+    commonName: string | null;
+    observationCount: number;
+    genus: string | null;
+    family: string | null;
+    order: string | null;
+    class: string | null;
+    phylum: string | null;
+    lastObserved: string | null;
+  } | null> {
+    const { observations } = schema;
+    
+    const results = await db.select({
+      scientificName: observations.scientificName,
+      commonName: observations.commonName,
+      genus: observations.genus,
+      family: observations.family,
+      order: observations.order,
+      class: observations.class,
+      phylum: observations.phylum,
+      count: sql<number>`count(*)`.as('count'),
+      lastObserved: sql<string>`max(observed_on)`.as('lastObserved')
+    })
+    .from(observations)
+    .where(eq(observations.scientificName, scientificName))
+    .groupBy(
+      observations.scientificName,
+      observations.commonName,
+      observations.genus,
+      observations.family,
+      observations.order,
+      observations.class,
+      observations.phylum
+    )
+    .limit(1);
+    
+    if (results.length === 0) {
+      return null;
+    }
+    
+    const result = results[0];
+    return {
+      scientificName: result.scientificName,
+      commonName: result.commonName,
+      observationCount: result.count,
+      genus: result.genus,
+      family: result.family,
+      order: result.order,
+      class: result.class,
+      phylum: result.phylum,
+      lastObserved: result.lastObserved
+    };
+  }
+
   async getObservationsWithEncodingIssues(): Promise<Observation[]> {
     const { observations } = schema;
     return await db.select()

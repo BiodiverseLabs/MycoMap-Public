@@ -605,17 +605,17 @@ export default function Species() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
 
-            {/* Observation ID Search */}
-            <div className="relative">
-              <Eye className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <Input
-                placeholder="Search by iNaturalist/MO/MycoPortal observation number..."
-                value={observationIdSearch}
-                onChange={(e) => setObservationIdSearch(e.target.value)}
-                className="pl-10"
-              />
+              {/* Observation ID Search */}
+              <div className="relative md:col-span-2">
+                <Eye className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder="Search by iNaturalist/MO/MycoPortal observation number..."
+                  value={observationIdSearch}
+                  onChange={(e) => setObservationIdSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
 
             {/* Filter Summary */}
