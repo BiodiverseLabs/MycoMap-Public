@@ -225,133 +225,98 @@ export default function Updates() {
       const allInatRecords = allNameUpdates.filter((record: any) => record.source === 'iNaturalist');
       
       console.log(`[Bulk Refresh] Found ${allInatRecords.length} total iNaturalist records`);
-      console.log(`[Bulk Refresh] Sample record:`, allInatRecords[0]);
       
-      // Separate records into two groups: fresh API calls vs database updates only
-      const recordsNeedingFreshApi: any[] = [];
-      const recordsNeedingDbUpdate: any[] = [];
-      
-      allInatRecords.forEach((record: any) => {
-        if (record.lastRefreshed) {
-          const saveDate = new Date(record.lastRefreshed);
-          const daysSinceUpdate = (Date.now() - saveDate.getTime()) / (1000 * 60 * 60 * 24);
-          
-          if (daysSinceUpdate <= 180) {
-            // Has recent API data - just needs database update
-            recordsNeedingDbUpdate.push(record);
-          } else {
-            // Old API data - needs fresh API call
-            recordsNeedingFreshApi.push(record);
-          }
-        } else {
-          // No API data saved - needs fresh API call
-          recordsNeedingFreshApi.push(record);
-        }
-      });
-      
-      const freshApiIds = recordsNeedingFreshApi.map((record: any) => record.observationId);
-      const dbUpdateIds = recordsNeedingDbUpdate.map((record: any) => record.observationId);
-      
-      console.log(`[Bulk Refresh] Records needing fresh API: ${freshApiIds.length}`);
-      console.log(`[Bulk Refresh] Records needing DB update: ${dbUpdateIds.length}`);
-      
-      if (freshApiIds.length === 0 && dbUpdateIds.length === 0) {
+      if (allInatRecords.length === 0) {
         toast({ title: "Info", description: "No iNaturalist records to refresh" });
         return;
       }
+
+      // Let the server handle the 180-day logic - send all records through bulk refresh
+      const allObservationIds = allInatRecords.map((record: any) => record.observationId);
       
-      let totalOperations = 0;
-      let completedOperations = 0;
-      let dbBatchesCompleted = 0;
-      
-      // Process database updates first (faster, no API calls)
-      if (dbUpdateIds.length > 0) {
-        console.log(`[Bulk Refresh] Processing ${dbUpdateIds.length} database updates from cached data`);
-        toast({ 
-          title: "Updating Database", 
-          description: `Updating ${dbUpdateIds.length} records using cached API data...` 
-        });
-        
-        // Process DB updates in batches (these are fast since no API calls)
-        const dbBatchSize = 100;
-        const dbBatches = Math.ceil(dbUpdateIds.length / dbBatchSize);
-        totalOperations += dbBatches;
-        
-        for (let i = 0; i < dbUpdateIds.length; i += dbBatchSize) {
-          const batch = dbUpdateIds.slice(i, i + dbBatchSize);
-          
-          try {
-            // Use database update endpoint for each record in batch with cached data
-            await Promise.all(batch.map(async (observationId) => {
-              const record = recordsNeedingDbUpdate.find(r => r.observationId === observationId);
-              const response = await apiRequest('POST', `/api/observations/update-inat-data`, { 
-                observationId,
-                inatName: record?.inatName,
-                provisionalName: record?.provisionalName,
-                speciesNameOverride: record?.speciesNameOverride
-              });
-              return await response.json();
-            }));
-            
-            completedOperations++;
-            dbBatchesCompleted++;
-            console.log(`[DB Update] Batch ${dbBatchesCompleted}/${dbBatches} completed (${batch.length} records)`);
-            
-          } catch (error) {
-            console.error(`[DB Update] Batch failed:`, error);
-          }
-        }
-        
-        toast({ 
-          title: "Database Updates Complete", 
-          description: `Updated ${dbUpdateIds.length} records using cached data` 
-        });
-      }
-      
-      // Process fresh API calls (slower, rate limited)
-      if (freshApiIds.length > 0) {
-        const apiBatchSize = 50; // iNaturalist API supports batches of 50
-        const apiBatches = Math.ceil(freshApiIds.length / apiBatchSize);
-        totalOperations += apiBatches;
-        
-        toast({ 
-          title: "Starting API Refresh", 
-          description: `Fetching fresh data for ${freshApiIds.length} records in ${apiBatches} batches...` 
-        });
-        
-        for (let i = 0; i < freshApiIds.length; i += apiBatchSize) {
-          const batch = freshApiIds.slice(i, i + apiBatchSize);
-          completedOperations++;
-          
-          console.log(`[API Refresh] Processing batch ${completedOperations - dbBatchesCompleted}/${apiBatches} (${batch.length} records)`);
-          
-          try {
-            await refreshBulkMutation.mutateAsync(batch);
-            toast({ 
-              title: "API Batch Completed", 
-              description: `API batch ${completedOperations - dbBatchesCompleted}/${apiBatches} completed (${batch.length} records)` 
-            });
-          } catch (error) {
-            console.error(`[API Refresh] Batch failed:`, error);
-            toast({ 
-              title: "API Batch Failed", 
-              description: `API batch ${completedOperations - dbBatchesCompleted}/${apiBatches} failed. Continuing...`,
-              variant: "destructive"
-            });
-          }
-          
-          // Rate limiting: iNaturalist allows max 100 requests/minute (1.67/sec)
-          // Using 1.5 second delay between frontend batches for extra safety
-          if (i + apiBatchSize < freshApiIds.length) {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-          }
-        }
-      }
+      let totalProcessed = 0;
+      let totalErrors = 0;
+      let totalFreshApiCalls = 0;
+      let totalCachedUsed = 0;
+
+      console.log(`[Bulk Refresh] Processing ${allObservationIds.length} records through server's bulk endpoint`);
       
       toast({ 
-        title: "Bulk Refresh Complete", 
-        description: `Successfully processed ${dbUpdateIds.length + freshApiIds.length} records (${dbUpdateIds.length} from cache, ${freshApiIds.length} fresh API calls)` 
+        title: "Starting Bulk Refresh", 
+        description: `Processing ${allObservationIds.length} records (server will auto-skip recent cache data)...` 
       });
+      
+      // Process in batches - server handles 180-day logic internally
+      const batchSize = 50;
+      const totalBatches = Math.ceil(allObservationIds.length / batchSize);
+      
+      for (let i = 0; i < allObservationIds.length; i += batchSize) {
+        const batch = allObservationIds.slice(i, i + batchSize);
+        const batchNumber = Math.floor(i / batchSize) + 1;
+        
+        console.log(`[Bulk Refresh] Processing batch ${batchNumber}/${totalBatches} (${batch.length} records)`);
+        
+        try {
+          const result = await refreshBulkMutation.mutateAsync(batch);
+          const successful = result.results.filter((r: any) => r.success);
+          const failed = result.results.filter((r: any) => !r.success);
+          
+          totalProcessed += successful.length;
+          totalErrors += failed.length;
+          
+          // Count fresh API vs cached based on the fromCache flag
+          successful.forEach((r: any) => {
+            if (r.data && r.data.fromCache === false) {
+              totalFreshApiCalls++;
+            } else {
+              totalCachedUsed++;
+            }
+          });
+          
+          console.log(`[Bulk Refresh] Batch ${batchNumber}: ${successful.length} success, ${failed.length} errors`);
+          console.log(`[Bulk Refresh] Running totals: ${totalCachedUsed} cached, ${totalFreshApiCalls} fresh API`);
+          
+          if (batchNumber % 5 === 0) {  // Update every 5 batches
+            toast({ 
+              title: "Batch Progress", 
+              description: `Completed ${batchNumber}/${totalBatches} batches. ${totalCachedUsed} cached, ${totalFreshApiCalls} fresh API` 
+            });
+          }
+          
+        } catch (error) {
+          console.error(`[Bulk Refresh] Batch ${batchNumber} failed:`, error);
+          totalErrors += batch.length;
+          toast({ 
+            title: "Batch Failed", 
+            description: `Batch ${batchNumber}/${totalBatches} failed. Continuing...`,
+            variant: "destructive"
+          });
+        }
+        
+        // Rate limiting between batches
+        if (i + batchSize < allObservationIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between batches
+        }
+      }
+      
+      // Refresh the UI
+      queryClient.invalidateQueries({ queryKey: ['/api/observations/name-updates'] });
+      
+      const message = `Processed ${totalProcessed} records: ${totalFreshApiCalls} fresh API calls, ${totalCachedUsed} used cached data (skipped API)`;
+      console.log(`[Bulk Refresh] Final results: ${message}`);
+      
+      if (totalErrors > 0) {
+        toast({ 
+          title: "Completed with errors", 
+          description: `${message}. ${totalErrors} errors occurred.`, 
+          variant: "destructive" 
+        });
+      } else {
+        toast({ 
+          title: "Bulk Refresh Complete", 
+          description: message 
+        });
+      }
       
     } catch (error) {
       console.error('[Bulk Refresh] Failed to fetch all records:', error);
