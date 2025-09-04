@@ -274,9 +274,15 @@ export default function Updates() {
           const batch = dbUpdateIds.slice(i, i + dbBatchSize);
           
           try {
-            // Use database update endpoint for each record in batch
+            // Use database update endpoint for each record in batch with cached data
             await Promise.all(batch.map(async (observationId) => {
-              const response = await apiRequest('POST', `/api/observations/update-inat-data`, { observationId });
+              const record = recordsNeedingDbUpdate.find(r => r.observationId === observationId);
+              const response = await apiRequest('POST', `/api/observations/update-inat-data`, { 
+                observationId,
+                inatName: record?.inatName,
+                provisionalName: record?.provisionalName,
+                speciesNameOverride: record?.speciesNameOverride
+              });
               return await response.json();
             }));
             
