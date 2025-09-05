@@ -592,28 +592,30 @@ export default function FieldGuideDetail() {
           </CardTitle>
           
           {/* Search Filter and Controls */}
-          <div className="flex gap-3 items-center justify-between w-full">
-            <div className="flex gap-3 items-center">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <Input
-                  placeholder="Filter by scientific name..."
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  className="pl-10 pr-10"
-                />
-                {searchFilter && (
-                  <button
-                    onClick={() => setSearchFilter('')}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    type="button"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between w-full">
+            {/* Search Bar - Full width on mobile */}
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <Input
+                placeholder="Filter by scientific name..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="pl-10 pr-10 w-full"
+              />
+              {searchFilter && (
+                <button
+                  onClick={() => setSearchFilter('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  type="button"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {/* Filters Row - Stack on mobile */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
               {/* Month Range Filter */}
               <div className="flex items-center gap-2">
                 <label className="text-sm text-slate-600 whitespace-nowrap">
@@ -669,27 +671,27 @@ export default function FieldGuideDetail() {
                   </button>
                 )}
               </div>
-            </div>
-            
-            {/* Expansion Control - moved to the right */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-600 whitespace-nowrap">
-                Expand by
-              </label>
-              <Input
-                type="number"
-                min="0"
-                max="500"
-                value={expansionRadius}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val) && val >= 0 && val <= 500) {
-                    setExpansionRadius(val);
-                  }
-                }}
-                className="w-20 text-center"
-              />
-              <span className="text-sm text-slate-600">miles</span>
+              
+              {/* Expansion Control */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-slate-600 whitespace-nowrap">
+                  Expand by
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="500"
+                  value={expansionRadius}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 0 && val <= 500) {
+                      setExpansionRadius(val);
+                    }
+                  }}
+                  className="w-20 text-center"
+                />
+                <span className="text-sm text-slate-600">miles</span>
+              </div>
             </div>
             
             {/* Include iNaturalist Checkbox */}
