@@ -480,10 +480,8 @@ function MostSequenceOwners() {
             })}
           </div>
         )}
-        <div className="mt-4 pt-4 border-t">
-          <Link href="/records/sequence-owners" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-            See all records →
-          </Link>
+        <div className="mt-4 pt-4 border-t text-xs text-slate-500">
+          Showing sequence owners for {sequenceData.reduce((sum, owner) => sum + owner.sequenceCount, 0).toLocaleString()} DNA sequences
         </div>
       </CardContent>
     </Card>
