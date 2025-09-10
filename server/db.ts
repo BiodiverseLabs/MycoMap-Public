@@ -2115,6 +2115,53 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getSequenceOwners(limit: number = 10, filterState?: string): Promise<Array<{
+    id: string;
+    name: string;
+    sequenceCount: number;
+    percentage: number;
+  }>> {
+    try {
+      let sqlQuery = `
+        SELECT 
+          COALESCE(sequence_owner_2, 'Unknown') as name,
+          COUNT(*) as sequence_count
+        FROM observations 
+        WHERE sequence_owner_2 IS NOT NULL 
+          AND sequence_owner_2 != ''
+      `;
+      
+      const params: any[] = [];
+      if (filterState) {
+        sqlQuery += ` AND state = $${params.length + 1}`;
+        params.push(filterState);
+      }
+      
+      sqlQuery += `
+        GROUP BY sequence_owner_2
+        ORDER BY COUNT(*) DESC
+        LIMIT $${params.length + 1}
+      `;
+      params.push(limit);
+
+      const results = await pool.query(sqlQuery, params);
+      const rows = results.rows;
+      
+      // Calculate total sequences for percentage calculation
+      const totalSequences = rows.reduce((sum: number, item: any) => sum + parseInt(item.sequence_count), 0);
+      
+      return rows.map((item: any, index: number) => ({
+        id: `sequence_owner_${index + 1}`,
+        name: item.name,
+        sequenceCount: parseInt(item.sequence_count),
+        percentage: totalSequences > 0 ? (parseInt(item.sequence_count) / totalSequences) * 100 : 0
+      }));
+    } catch (error) {
+      console.error('Error fetching sequence owners:', error);
+      return [];
+    }
+  }
+
   async clearAllData(): Promise<void> {
     const { 
       gpsIndex, 

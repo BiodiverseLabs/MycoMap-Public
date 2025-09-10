@@ -2167,6 +2167,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Contributors species endpoint
+  app.get("/api/contributors/sequence-owners", async (req, res) => {
+    try {
+      const { state, limit } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 10;
+      
+      const sequenceOwners = await storage.getSequenceOwners(limitNum, state as string);
+      res.json(sequenceOwners);
+    } catch (error) {
+      console.error("Error fetching sequence owners:", error);
+      res.status(500).json({ error: "Failed to fetch sequence owners" });
+    }
+  });
+
   app.get("/api/contributors/species", async (req, res) => {
     try {
       const { state, limit } = req.query;

@@ -44,6 +44,13 @@ interface RegionRecord {
   count: number;
 }
 
+interface SequenceOwner {
+  id: string;
+  name: string;
+  sequenceCount: number;
+  percentage: number;
+}
+
 function MostGlobalFirstsByState() {
   const { data: stateData = [], isLoading } = useQuery<StateRecord[]>({
     queryKey: ['/api/states/global-firsts'],
@@ -417,6 +424,72 @@ function MostRecordsByRegion() {
   );
 }
 
+function MostSequenceOwners() {
+  const { data: sequenceData = [], isLoading } = useQuery<SequenceOwner[]>({
+    queryKey: ['/api/contributors/sequence-owners'],
+    queryFn: async () => {
+      const response = await fetch('/api/contributors/sequence-owners?limit=10');
+      if (!response.ok) throw new Error('Failed to fetch sequence owners');
+      return response.json();
+    }
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Dna className="h-5 w-5 text-teal-500" />
+          Sequence Owners
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="h-16 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
+        ) : sequenceData.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No sequence owners found
+          </div>
+        ) : (
+          <div className="space-y-1.5 max-h-72 overflow-y-auto">
+            {sequenceData.slice(0, 10).map((owner, index) => {
+              const isTopThree = index < 3;
+              const badgeColors = ['bg-blue-500', 'bg-blue-500', 'bg-blue-500'];
+              
+              return (
+                <div key={owner.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className={`flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold ${
+                      isTopThree ? badgeColors[index] : 'bg-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className={`${isTopThree ? "font-semibold" : "font-medium"} truncate text-sm`}>{owner.name}</div>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className={isTopThree ? "font-bold text-sm" : "font-semibold text-sm"}>{owner.sequenceCount.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">{owner.percentage.toFixed(1)}%</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="mt-4 pt-4 border-t">
+          <Link href="/records/sequence-owners" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            See all records →
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Records() {
   return (
     <div className="flex h-screen bg-background">
@@ -436,6 +509,7 @@ export default function Records() {
             <MostObservations />
             <MostSpecies />
             <MostRecordsByRegion />
+            <MostSequenceOwners />
           </div>
         </div>
       </div>

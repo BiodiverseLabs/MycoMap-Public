@@ -188,6 +188,13 @@ export interface IStorage {
     globalFirstCount: number;
     percentage: number;
   }>>;
+
+  getSequenceOwners(limit?: number, filterState?: string): Promise<Array<{
+    id: string;
+    name: string;
+    sequenceCount: number;
+    percentage: number;
+  }>>;
   
   // Update flags
   getObservationsWithNameUpdates(): Promise<Observation[]>;
@@ -1227,6 +1234,41 @@ export class MemoryStorage implements IStorage {
   async createInaturalistData(data: InsertInaturalistData): Promise<InaturalistData> {
     // Memory storage doesn't implement iNaturalist functionality
     throw new Error('iNaturalist operations not supported in memory storage');
+  }
+
+  async getSequenceOwners(limit: number = 10, filterState?: string): Promise<Array<{
+    id: string;
+    name: string;
+    sequenceCount: number;
+    percentage: number;
+  }>> {
+    // Group observations by sequence owner
+    const sequenceOwnerCounts = new Map<string, number>();
+    
+    let filteredObs = this.observations.filter(obs => obs.sequenceOwner2 && obs.sequenceOwner2.trim() !== '');
+    
+    if (filterState) {
+      filteredObs = filteredObs.filter(obs => obs.state === filterState);
+    }
+    
+    filteredObs.forEach(obs => {
+      const owner = obs.sequenceOwner2 || 'Unknown';
+      sequenceOwnerCounts.set(owner, (sequenceOwnerCounts.get(owner) || 0) + 1);
+    });
+    
+    // Convert to array and sort
+    const sortedOwners = Array.from(sequenceOwnerCounts.entries())
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, limit);
+    
+    const totalSequences = Array.from(sequenceOwnerCounts.values()).reduce((sum, count) => sum + count, 0);
+    
+    return sortedOwners.map(([name, count], index) => ({
+      id: `sequence_owner_${index + 1}`,
+      name,
+      sequenceCount: count,
+      percentage: totalSequences > 0 ? (count / totalSequences) * 100 : 0
+    }));
   }
 
   async updateInaturalistData(observationId: string, data: Partial<InsertInaturalistData>): Promise<void> {
