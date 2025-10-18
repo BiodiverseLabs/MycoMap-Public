@@ -3784,7 +3784,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // Serve original Excel file for download
   app.get("/api/export/original", (req, res) => {
     try {
-      const filePath = path.join(__dirname, '../attached_assets/Validated Observations05.30.25.xlsx');
+      const filePath = path.join(process.cwd(), 'attached_assets/Validated Observations05.30.25.xlsx');
       const fileName = 'Validated_Observations_05.30.25.xlsx';
       
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
