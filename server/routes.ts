@@ -13,7 +13,7 @@ import { sql, eq, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { WebSocketServer } from "ws";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, requireSubscription, setSubscriptionChecker } from "./replit_integrations/auth";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -685,6 +685,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Replit Auth (must be before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+  
+  // Initialize subscription checker with storage method
+  setSubscriptionChecker((userId: string) => storage.getUserSubscription(userId));
+
+  // =============================================
+  // SUBSCRIPTION API ENDPOINTS  
+  // =============================================
+
+  // Initialize Stripe if key is available
+  let stripe: any = null;
+  if (process.env.STRIPE_SECRET_KEY) {
+    const Stripe = require('stripe');
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-12-18.acacia'
+    });
+  }
+
+  // Get all subscription plans (public)
+  app.get("/api/subscriptions/plans", async (req, res) => {
+    try {
+      const plans = await storage.getSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching subscription plans:", error);
+      res.status(500).json({ error: "Failed to fetch subscription plans" });
+    }
+  });
+
+  // Get user's current subscription status (requires auth)
+  app.get("/api/subscriptions/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const subscription = await storage.getUserSubscription(userId);
+      res.json({ 
+        hasActiveSubscription: !!subscription,
+        subscription 
+      });
+    } catch (error) {
+      console.error("Error fetching subscription status:", error);
+      res.status(500).json({ error: "Failed to fetch subscription status" });
+    }
+  });
+
+  // Create Stripe checkout session
+  app.post("/api/subscriptions/checkout/stripe", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripe) {
+        return res.status(503).json({ error: "Stripe is not configured" });
+      }
+
+      const userId = req.user?.id;
+      const userEmail = req.user?.email;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { planSlug, amountCents } = req.body;
+      
+      const plan = await storage.getSubscriptionPlanBySlug(planSlug);
+      if (!plan) {
+        return res.status(404).json({ error: "Plan not found" });
+      }
+
+      // Validate amount is within plan range
+      const amount = Math.max(plan.priceMinCents, Math.min(plan.priceMaxCents, amountCents || plan.priceDefaultCents));
+
+      // Create Stripe checkout session
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        customer_email: userEmail,
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `MycoMap ${plan.name}`,
+              description: plan.description || `Monthly membership supporting fungal biodiversity research`,
+            },
+            unit_amount: amount,
+            recurring: {
+              interval: 'month',
+            },
+          },
+          quantity: 1,
+        }],
+        metadata: {
+          userId,
+          planId: plan.id.toString(),
+          planSlug: plan.slug,
+        },
+        success_url: `${req.headers.origin || 'https://mycomap.com'}/membership/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.origin || 'https://mycomap.com'}/membership`,
+      });
+
+      res.json({ url: session.url, sessionId: session.id });
+    } catch (error: any) {
+      console.error("Error creating Stripe checkout:", error);
+      res.status(500).json({ error: error.message || "Failed to create checkout session" });
+    }
+  });
+
+  // PayPal/Venmo checkout (placeholder - requires PayPal SDK setup)
+  app.post("/api/subscriptions/checkout/paypal", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // PayPal integration requires additional setup with PayPal SDK
+      // For now, return a message indicating setup is needed
+      if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+        return res.status(503).json({ 
+          error: "PayPal is not yet configured. Please use credit card payment or contact support." 
+        });
+      }
+
+      const { planSlug, amountCents } = req.body;
+      
+      const plan = await storage.getSubscriptionPlanBySlug(planSlug);
+      if (!plan) {
+        return res.status(404).json({ error: "Plan not found" });
+      }
+
+      // TODO: Implement PayPal subscription creation
+      // This would involve:
+      // 1. Creating a PayPal billing agreement
+      // 2. Getting approval URL
+      // 3. Handling webhook for payment confirmation
+      
+      res.status(503).json({ error: "PayPal checkout coming soon" });
+    } catch (error: any) {
+      console.error("Error creating PayPal checkout:", error);
+      res.status(500).json({ error: error.message || "Failed to create checkout session" });
+    }
+  });
+
+  // Stripe webhook handler
+  app.post("/api/webhooks/stripe", async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe is not configured" });
+    }
+
+    const sig = req.headers['stripe-signature'];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+
+    try {
+      if (endpointSecret && sig) {
+        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+      } else {
+        event = req.body;
+      }
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object;
+          const { userId, planId, planSlug } = session.metadata || {};
+          
+          if (userId && planId) {
+            // Create subscription record
+            const subscription = await storage.createUserSubscription({
+              userId,
+              planId: parseInt(planId),
+              status: 'active',
+              provider: 'stripe',
+              providerSubscriptionId: session.subscription,
+              providerCustomerId: session.customer,
+              amountCents: session.amount_total,
+              currency: session.currency?.toUpperCase() || 'USD',
+              currentPeriodStart: new Date(),
+              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            });
+
+            // Log transaction
+            await storage.createPaymentTransaction({
+              userId,
+              subscriptionId: subscription.id,
+              provider: 'stripe',
+              providerTransactionId: session.payment_intent,
+              type: 'subscription_created',
+              status: 'succeeded',
+              amountCents: session.amount_total,
+              currency: session.currency?.toUpperCase() || 'USD',
+            });
+
+            console.log(`Subscription created for user ${userId}: ${planSlug}`);
+          }
+          break;
+        }
+
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object;
+          // Handle subscription updates/cancellations here
+          console.log(`Subscription ${event.type}:`, subscription.id);
+          break;
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Webhook processing error:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
 
   // =============================================
   // CMS API ENDPOINTS

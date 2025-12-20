@@ -10,6 +10,7 @@ import MycoBlitzPage from "@/pages/MycoBlitzPage";
 import NetworkPage from "@/pages/NetworkPage";
 import HabitatPage from "@/pages/HabitatPage";
 import ProtocolsPage from "@/pages/ProtocolsPage";
+import MembershipPage from "@/pages/MembershipPage";
 import Dashboard from "@/pages/Dashboard";
 import ActivityFeed from "@/pages/ActivityFeed";
 import Geospatial from "@/pages/Geospatial";
@@ -46,7 +47,7 @@ import ApiDocumentation from "@/pages/ApiDocumentation";
 import NotFound from "@/pages/not-found";
 
 const publicPaths = [
-  '/', '/network', '/mycoblitz', '/habitat', '/protocols',
+  '/', '/network', '/mycoblitz', '/habitat', '/protocols', '/membership',
   '/about', '/partners', '/contact', '/edna', '/barcoding', '/join'
 ];
 
@@ -67,6 +68,7 @@ function AppRouter() {
         <Route path="/mycoblitz" component={MycoBlitzPage} />
         <Route path="/habitat" component={HabitatPage} />
         <Route path="/protocols" component={ProtocolsPage} />
+        <Route path="/membership" component={MembershipPage} />
         <Route path="/about"><CMSPage slug="about" /></Route>
         <Route path="/partners"><CMSPage slug="partners" /></Route>
         <Route path="/contact"><CMSPage slug="contact" /></Route>

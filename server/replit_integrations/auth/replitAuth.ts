@@ -158,3 +158,54 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return;
   }
 };
+
+// Middleware to check for active subscription
+// Requires the storage to be passed in since this module doesn't import it
+let subscriptionChecker: ((userId: string) => Promise<any>) | null = null;
+
+export const setSubscriptionChecker = (checker: (userId: string) => Promise<any>) => {
+  subscriptionChecker = checker;
+};
+
+export const requireSubscription: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user) {
+    return res.status(401).json({ message: "Unauthorized", requiresAuth: true });
+  }
+
+  // Get user ID from session
+  const userId = user.id || user.claims?.sub;
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized", requiresAuth: true });
+  }
+
+  // Check subscription in database
+  if (!subscriptionChecker) {
+    console.error('Subscription checker not initialized');
+    return res.status(500).json({ message: "Subscription service unavailable" });
+  }
+
+  try {
+    const subscription = await subscriptionChecker(userId);
+    
+    if (subscription && subscription.status === 'active') {
+      // Check if subscription is still within its period
+      const now = new Date();
+      const periodEnd = subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null;
+      
+      if (!periodEnd || now < periodEnd) {
+        return next();
+      }
+    }
+
+    return res.status(402).json({ 
+      message: "Active subscription required",
+      requiresSubscription: true,
+      redirectTo: '/membership'
+    });
+  } catch (error) {
+    console.error('Error checking subscription:', error);
+    return res.status(500).json({ message: "Error checking subscription status" });
+  }
+};
