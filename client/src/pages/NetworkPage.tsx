@@ -1,23 +1,55 @@
+import { useState } from "react";
 import { PublicLayout } from "@/components/PublicLayout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
 import { 
   Dna, MapPin, Users, ArrowRight, Leaf, Globe, 
   CheckCircle, Camera, Package, Mail, FlaskConical,
-  Calendar, Clock, ExternalLink, Quote
+  Calendar, Clock, ExternalLink, Quote, Search, Plus
 } from "lucide-react";
 
 export default function NetworkPage() {
-  const regions = [
-    { code: "MI", name: "Michigan", status: "active", specimens: "5,000+" },
-    { code: "CA", name: "California", status: "active", specimens: "3,200+" },
-    { code: "BC", name: "British Columbia", status: "active", specimens: "2,800+" },
-    { code: "FL", name: "Florida", status: "active", specimens: "1,500+" },
-    { code: "MO", name: "Missouri", status: "active", specimens: "1,200+" },
-    { code: "IN", name: "Indiana", status: "active", specimens: "900+" },
-    { code: "AZ", name: "Arizona", status: "active", specimens: "600+" },
-    { code: "AC", name: "Atlantic Canada", status: "active", specimens: "800+" },
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const allRegions = [
+    { code: "MI", name: "Michigan", specimens: 5000, status: "active" },
+    { code: "CA", name: "California", specimens: 3200, status: "active" },
+    { code: "BC", name: "British Columbia", specimens: 2800, status: "active" },
+    { code: "FL", name: "Florida", specimens: 1500, status: "active" },
+    { code: "MO", name: "Missouri", specimens: 1200, status: "active" },
+    { code: "IN", name: "Indiana", specimens: 900, status: "active" },
+    { code: "AC", name: "Atlantic Canada", description: "New Brunswick, PEI, Nova Scotia, Newfoundland", specimens: 800, status: "active" },
+    { code: "AZ", name: "Arizona", specimens: 600, status: "active" },
+    { code: "RO", name: "Rockies", description: "Colorado, Idaho, Montana, Wyoming", specimens: 550, status: "active" },
+    { code: "AB", name: "Alberta", specimens: 450, status: "active" },
+    { code: "ME", name: "Maine", specimens: 400, status: "active" },
+    { code: "VT", name: "Vermont", specimens: 350, status: "active" },
+    { code: "NH", name: "New Hampshire", specimens: 300, status: "active" },
+    { code: "LA", name: "Louisiana", specimens: 250, status: "active" },
+    { code: "AL", name: "Alabama", specimens: 200, status: "active" },
+    { code: "MS", name: "Mississippi", specimens: 150, status: "active" },
+    { code: "CB", name: "Caribbean", description: "All islands", specimens: 100, status: "active" },
   ];
+
+  const filteredRegions = allRegions
+    .filter(region => {
+      const query = searchQuery.toLowerCase();
+      return (
+        region.name.toLowerCase().includes(query) ||
+        region.code.toLowerCase().includes(query) ||
+        (region.description && region.description.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => b.specimens - a.specimens)
+    .slice(0, 8);
+
+  const formatSpecimens = (count: number) => {
+    if (count >= 1000) {
+      return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k+`;
+    }
+    return `${count}+`;
+  };
 
   const steps = [
     {
@@ -124,33 +156,67 @@ export default function NetworkPage() {
             <h2 className="text-3xl sm:text-4xl font-bold text-myco-brown mb-4">
               Regional Networks
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <p className="text-gray-600 max-w-2xl mx-auto mb-6">
               Select your region to join a local MycoMap project and start contributing specimens
             </p>
+            
+            <div className="max-w-md mx-auto relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search by region, state, or province..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 py-6 text-lg border-gray-200 focus:border-myco-green focus:ring-myco-green"
+                data-testid="input-search-region"
+              />
+            </div>
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
-            {regions.map((region, index) => (
-              <Link key={index} href={`/network/${region.code.toLowerCase()}`}>
-                <div className="group bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-lg hover:border-myco-green/30 transition-all cursor-pointer h-full">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-myco-green to-myco-green/80 flex items-center justify-center text-white font-bold text-lg">
-                      {region.code}
+          {filteredRegions.length > 0 ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+              {filteredRegions.map((region, index) => (
+                <Link key={index} href={`/network/${region.code.toLowerCase()}`}>
+                  <div className="group bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-lg hover:border-myco-green/30 transition-all cursor-pointer h-full" data-testid={`card-region-${region.code.toLowerCase()}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-myco-green to-myco-green/80 flex items-center justify-center text-white font-bold text-lg">
+                        {region.code}
+                      </div>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                        Active
+                      </span>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                      Active
-                    </span>
+                    <h3 className="text-lg font-bold text-myco-brown mb-1 group-hover:text-myco-green transition-colors">
+                      MycoMap {region.code}
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-1">{region.name}</p>
+                    {region.description && (
+                      <p className="text-gray-400 text-xs mb-2">{region.description}</p>
+                    )}
+                    <p className="text-myco-green font-medium text-sm">{formatSpecimens(region.specimens)} specimens</p>
                   </div>
-                  <h3 className="text-lg font-bold text-myco-brown mb-1 group-hover:text-myco-green transition-colors">
-                    MycoMap {region.code}
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-2">{region.name}</p>
-                  <p className="text-myco-green font-medium text-sm">{region.specimens} specimens</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="max-w-md mx-auto">
+              <div className="bg-white rounded-xl p-8 border border-gray-100 shadow-sm text-center" data-testid="card-start-network">
+                <div className="w-16 h-16 rounded-full bg-myco-green/10 flex items-center justify-center mx-auto mb-4">
+                  <Plus className="w-8 h-8 text-myco-green" />
                 </div>
-              </Link>
-            ))}
-          </div>
+                <h3 className="text-xl font-bold text-myco-brown mb-2">Start a Local Network</h3>
+                <p className="text-gray-600 mb-4">
+                  No active network found for "{searchQuery}". Interested in starting one in your region?
+                </p>
+                <Link href="/contact">
+                  <Button className="bg-myco-green hover:bg-myco-green/90 text-white" data-testid="button-start-network">
+                    Contact Us to Get Started
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
