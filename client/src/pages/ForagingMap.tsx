@@ -27,7 +27,7 @@ const RANGE_OPTIONS = [
 ];
 
 const MONTH_OPTIONS = [
-  { value: "", label: "Any Month" },
+  { value: "any", label: "Any Month" },
   { value: "1", label: "January" },
   { value: "2", label: "February" },
   { value: "3", label: "March" },
@@ -58,7 +58,7 @@ export default function ForagingMap() {
   const [range, setRange] = useState("50");
   const [customRange, setCustomRange] = useState("");
   const [dateWindow, setDateWindow] = useState("14");
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("any");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
     new Set(FORAGING_CATEGORIES.map(c => c.id))
   );
