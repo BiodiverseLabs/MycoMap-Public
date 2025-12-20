@@ -3,11 +3,15 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
+// Legacy users table - preserved for historical data (renamed from 'users')
+export const legacyUsers = pgTable("legacy_users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
 });
+
+// Re-export auth models (users, sessions) for Replit Auth integration
+export * from "./models/auth";
 
 export const observations = pgTable("observations", {
   id: serial("id").primaryKey(),
@@ -581,13 +585,7 @@ export type InaturalistClassificationCache = typeof inaturalistClassificationCac
 export type InsertInaturalistApiCache = z.infer<typeof insertInaturalistApiCacheSchema>;
 export type InaturalistApiCache = typeof inaturalistApiCache.$inferSelect;
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
+// User types now come from models/auth.ts via export *
 
 // Biorecords table - Historical snapshots of fully validated observations
 export const biorecords = pgTable("biorecords", {

@@ -13,6 +13,7 @@ import { sql, eq, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { WebSocketServer } from "ws";
+import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -680,6 +681,10 @@ async function syncUploadedInaturalistData(uploadId: number, progressTracker: Ma
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Setup Replit Auth (must be before other routes)
+  await setupAuth(app);
+  registerAuthRoutes(app);
   
   // Helper function to check and auto-upload observations to IPFS
   async function checkAndAutoUploadToIPFS(observationId: string, context: string) {
