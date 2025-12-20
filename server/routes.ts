@@ -716,14 +716,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's current subscription status (requires auth)
   app.get("/api/subscriptions/status", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.id || req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const subscription = await storage.getUserSubscription(userId);
+      const subscription = await storage.getUserSubscription(String(userId));
+      
+      // Check if subscription is active and within period
+      let hasActiveSubscription = false;
+      if (subscription && subscription.status === 'active') {
+        const now = new Date();
+        const periodEnd = subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null;
+        hasActiveSubscription = !periodEnd || now < periodEnd;
+      }
+      
       res.json({ 
-        hasActiveSubscription: !!subscription,
+        hasActiveSubscription,
         subscription 
       });
     } catch (error) {
@@ -739,8 +748,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "Stripe is not configured" });
       }
 
-      const userId = req.user?.id;
-      const userEmail = req.user?.email;
+      const userId = req.user?.id || req.user?.claims?.sub;
+      const userEmail = req.user?.email || req.user?.claims?.email;
       if (!userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
