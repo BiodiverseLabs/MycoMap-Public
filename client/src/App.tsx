@@ -41,20 +41,34 @@ import SpeciesImageGallery from "@/pages/SpeciesImageGallery";
 import ApiDocumentation from "@/pages/ApiDocumentation";
 import NotFound from "@/pages/not-found";
 
-const publicPaths = ['/', '/network', '/mycoblitz', '/habitat', '/protocols'];
+const publicPaths = [
+  '/', '/network', '/mycoblitz', '/habitat', '/protocols',
+  '/about', '/partners', '/contact', '/edna', '/barcoding', '/join'
+];
+
+const networkSubpages = ['/network/ac', '/network/bc', '/network/ca', '/network/mi'];
 
 function AppRouter() {
   const [location] = useLocation();
-  const isPublicRoute = publicPaths.includes(location);
+  const isPublicRoute = publicPaths.includes(location) || 
+    networkSubpages.some(path => location.startsWith(path)) ||
+    location.startsWith('/network/');
 
   if (isPublicRoute) {
     return (
       <Switch>
         <Route path="/" component={HomePage} />
+        <Route path="/network/:region">{(params) => <CMSPage slug={`network-${params.region}`} />}</Route>
         <Route path="/network"><CMSPage slug="network" /></Route>
         <Route path="/mycoblitz"><CMSPage slug="mycoblitz" /></Route>
         <Route path="/habitat"><CMSPage slug="habitat" /></Route>
         <Route path="/protocols"><CMSPage slug="protocols" /></Route>
+        <Route path="/about"><CMSPage slug="about" /></Route>
+        <Route path="/partners"><CMSPage slug="partners" /></Route>
+        <Route path="/contact"><CMSPage slug="contact" /></Route>
+        <Route path="/edna"><CMSPage slug="edna" /></Route>
+        <Route path="/barcoding"><CMSPage slug="barcoding" /></Route>
+        <Route path="/join"><CMSPage slug="join" /></Route>
       </Switch>
     );
   }
