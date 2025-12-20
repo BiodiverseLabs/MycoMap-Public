@@ -61,6 +61,8 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "myco-green": "hsl(var(--myco-green))",
+        "myco-brown": "hsl(var(--myco-brown))",
       },
       keyframes: {
         "accordion-down": {

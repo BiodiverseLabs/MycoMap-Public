@@ -1,10 +1,11 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Sidebar } from "@/components/ui/sidebar";
-import { useState } from "react";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import HomePage from "@/pages/HomePage";
+import CMSPage from "@/pages/CMSPage";
 import Dashboard from "@/pages/Dashboard";
 import ActivityFeed from "@/pages/ActivityFeed";
 import Geospatial from "@/pages/Geospatial";
@@ -40,46 +41,64 @@ import SpeciesImageGallery from "@/pages/SpeciesImageGallery";
 import ApiDocumentation from "@/pages/ApiDocumentation";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+const publicPaths = ['/', '/network', '/mycoblitz', '/habitat', '/protocols'];
+
+function AppRouter() {
+  const [location] = useLocation();
+  const isPublicRoute = publicPaths.includes(location);
+
+  if (isPublicRoute) {
+    return (
+      <Switch>
+        <Route path="/" component={HomePage} />
+        <Route path="/network"><CMSPage slug="network" /></Route>
+        <Route path="/mycoblitz"><CMSPage slug="mycoblitz" /></Route>
+        <Route path="/habitat"><CMSPage slug="habitat" /></Route>
+        <Route path="/protocols"><CMSPage slug="protocols" /></Route>
+      </Switch>
+    );
+  }
+
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/activity" component={ActivityFeed} />
-      <Route path="/activity-feed" component={ActivityFeed} />
-      <Route path="/geospatial" component={Geospatial} />
-      <Route path="/geospatial/top-prospects" component={TopProspects} />
-      <Route path="/field-guides" component={FieldGuides} />
-      <Route path="/field-guides/create" component={FieldGuideCreate} />
-      <Route path="/field-guides/:id/species/:scientificName" component={SpeciesImageGallery} />
-      <Route path="/field-guides/:id" component={FieldGuideDetail} />
-      <Route path="/temporal" component={Temporal} />
-      <Route path="/taxonomic" component={Taxonomic} />
-      <Route path="/taxonomic/phylum" component={PhylumDetail} />
-      <Route path="/taxonomic/family" component={FamilyDetail} />
-      <Route path="/taxonomic/class" component={ClassDetail} />
-      <Route path="/taxonomic/order" component={OrderDetail} />
-      <Route path="/taxonomic/genus" component={GenusDetail} />
-      <Route path="/conservation" component={Conservation} />
-      <Route path="/contributors" component={Contributors} />
-      <Route path="/records" component={Records} />
-      <Route path="/records/states-global-firsts" component={StatesGlobalFirsts} />
-      <Route path="/records/contributors-global-firsts" component={ContributorsGlobalFirsts} />
-      <Route path="/records/contributors-state-firsts" component={ContributorsStateFirsts} />
-      <Route path="/records/most-observations" component={MostObservations} />
-      <Route path="/records/most-species" component={MostSpecies} />
-      <Route path="/updates" component={Updates} />
-      <Route path="/admin" component={Admin} />
-      <Route path="/admin/validation" component={AdminValidation} />
-      <Route path="/admin/biorecords" component={BioRecordManagement} />
-      <Route path="/admin/upload" component={AdminUpload} />
-      <Route path="/admin/redlist" component={AdminRedList} />
-      <Route path="/admin/settings" component={AdminSettings} />
-      <Route path="/api-docs" component={ApiDocumentation} />
-      <Route path="/species/:name" component={SpeciesDetail} />
-      <Route path="/species" component={Species} />
-      <Route component={NotFound} />
-    </Switch>
+    <DashboardLayout>
+      <Switch>
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/activity" component={ActivityFeed} />
+        <Route path="/activity-feed" component={ActivityFeed} />
+        <Route path="/geospatial" component={Geospatial} />
+        <Route path="/geospatial/top-prospects" component={TopProspects} />
+        <Route path="/field-guides" component={FieldGuides} />
+        <Route path="/field-guides/create" component={FieldGuideCreate} />
+        <Route path="/field-guides/:id/species/:scientificName" component={SpeciesImageGallery} />
+        <Route path="/field-guides/:id" component={FieldGuideDetail} />
+        <Route path="/temporal" component={Temporal} />
+        <Route path="/taxonomic" component={Taxonomic} />
+        <Route path="/taxonomic/phylum" component={PhylumDetail} />
+        <Route path="/taxonomic/family" component={FamilyDetail} />
+        <Route path="/taxonomic/class" component={ClassDetail} />
+        <Route path="/taxonomic/order" component={OrderDetail} />
+        <Route path="/taxonomic/genus" component={GenusDetail} />
+        <Route path="/conservation" component={Conservation} />
+        <Route path="/contributors" component={Contributors} />
+        <Route path="/records" component={Records} />
+        <Route path="/records/states-global-firsts" component={StatesGlobalFirsts} />
+        <Route path="/records/contributors-global-firsts" component={ContributorsGlobalFirsts} />
+        <Route path="/records/contributors-state-firsts" component={ContributorsStateFirsts} />
+        <Route path="/records/most-observations" component={MostObservations} />
+        <Route path="/records/most-species" component={MostSpecies} />
+        <Route path="/updates" component={Updates} />
+        <Route path="/admin" component={Admin} />
+        <Route path="/admin/validation" component={AdminValidation} />
+        <Route path="/admin/biorecords" component={BioRecordManagement} />
+        <Route path="/admin/upload" component={AdminUpload} />
+        <Route path="/admin/redlist" component={AdminRedList} />
+        <Route path="/admin/settings" component={AdminSettings} />
+        <Route path="/api-docs" component={ApiDocumentation} />
+        <Route path="/species/:name" component={SpeciesDetail} />
+        <Route path="/species" component={Species} />
+        <Route component={NotFound} />
+      </Switch>
+    </DashboardLayout>
   );
 }
 
@@ -87,12 +106,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="flex flex-col lg:flex-row h-screen bg-slate-50">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto relative">
-            <Router />
-          </main>
-        </div>
+        <AppRouter />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
