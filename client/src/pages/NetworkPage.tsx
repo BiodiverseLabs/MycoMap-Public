@@ -66,7 +66,7 @@ export default function NetworkPage() {
       <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(https://mycota.com/wp-content/uploads/2025/11/MycoMapNetwork-2026.png)" }}
+          style={{ backgroundImage: "url(https://mycota.com/wp-content/uploads/2024/05/pexels-zaneta-misutova-605471908-17381617-scaled.jpg)" }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
         
@@ -92,6 +92,24 @@ export default function NetworkPage() {
             <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10" data-testid="button-view-programs">
               View All Programs
             </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-100">
+              <img 
+                src="https://mycota.com/wp-content/uploads/2025/11/MycoMapNetwork-2026.png" 
+                alt="MycoMap Network Coverage Map"
+                className="w-full h-auto"
+                data-testid="img-network-map"
+              />
+            </div>
+            <p className="text-center text-gray-600 mt-4 text-sm">
+              Active MycoMap Network regions across North America
+            </p>
           </div>
         </div>
       </section>
