@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { 
   Dna, MapPin, Users, ArrowRight, Leaf, Globe, 
   CheckCircle, Camera, Package, Mail, FlaskConical,
-  Calendar, Clock, ExternalLink
+  Calendar, Clock, ExternalLink, Quote
 } from "lucide-react";
 
 export default function NetworkPage() {
@@ -187,6 +187,18 @@ export default function NetworkPage() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="container mx-auto px-4 mt-12">
+          <div className="max-w-3xl mx-auto text-center">
+            <Quote className="w-10 h-10 text-white/40 mx-auto mb-4" />
+            <blockquote className="text-xl sm:text-2xl text-white/90 italic leading-relaxed mb-4" data-testid="text-quote">
+              "Scientific collections are key not only to understanding the past and the present but to unlocking discoveries in the future."
+            </blockquote>
+            <cite className="text-white/60 text-sm font-medium">
+              — American Museum of Natural History
+            </cite>
           </div>
         </div>
       </section>
