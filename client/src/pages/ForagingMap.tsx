@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Navigation, Search, Calendar, Leaf } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format, subDays, addDays } from "date-fns";
 
 const DATE_WINDOW_OPTIONS = [
   { value: "1", label: "1 day" },
@@ -66,7 +66,7 @@ export default function ForagingMap() {
   const today = new Date();
   const windowDays = parseInt(dateWindow);
   const startDate = subDays(today, windowDays);
-  const endDate = today;
+  const endDate = addDays(today, windowDays);
 
   useEffect(() => {
     detectLocation();
@@ -223,7 +223,7 @@ export default function ForagingMap() {
             </div>
 
             <div className="space-y-3">
-              <Label className="text-base font-medium text-slate-700">Date Window</Label>
+              <Label className="text-base font-medium text-slate-700">Date Window (+/- days)</Label>
               <Select value={dateWindow} onValueChange={setDateWindow}>
                 <SelectTrigger data-testid="select-date-window">
                   <SelectValue placeholder="Select date window" />
