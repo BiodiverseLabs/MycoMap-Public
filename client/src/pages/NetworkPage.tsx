@@ -66,7 +66,7 @@ export default function NetworkPage() {
       <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(https://mycota.com/wp-content/uploads/2024/04/g28a4a56680d9ea34279386c4ccb8ec4bfce11b4789f5a232e7230a791887596e559a818ea5208e694cb80054867fc593_1920.jpg)" }}
+          style={{ backgroundImage: "url(https://mycota.com/wp-content/uploads/2024/04/g621b09ea0caac02f120cbaaa9d6ed3ad19acd99f208dff50326af6a13d1421e56960b49a7d4f7fc3fc2a69baee564520_1920.jpg)" }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
         
@@ -81,7 +81,7 @@ export default function NetworkPage() {
           </h1>
           <p className="text-lg sm:text-xl text-white/90 max-w-3xl mx-auto mb-10" data-testid="text-network-description">
             Join a local project for free ITS DNA barcoding of your mushroom specimens. 
-            We aim to sequence 10,000+ specimens annually to document North American macrofungal biodiversity.
+            We sequence 20,000+ specimens annually to document North American macrofungal biodiversity.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
