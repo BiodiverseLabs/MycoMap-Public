@@ -47,8 +47,8 @@ import ApiDocumentation from "@/pages/ApiDocumentation";
 import NotFound from "@/pages/not-found";
 
 const publicPaths = [
-  '/', '/network', '/mycoblitz', '/habitat', '/protocols', '/membership',
-  '/about', '/partners', '/contact', '/edna', '/barcoding', '/join'
+  '/', '/network', '/mycoblitz', '/habitat', '/protocols', '/join',
+  '/about', '/partners', '/contact', '/edna', '/barcoding'
 ];
 
 const networkSubpages = ['/network/ac', '/network/bc', '/network/ca', '/network/mi'];
@@ -68,13 +68,12 @@ function AppRouter() {
         <Route path="/mycoblitz" component={MycoBlitzPage} />
         <Route path="/habitat" component={HabitatPage} />
         <Route path="/protocols" component={ProtocolsPage} />
-        <Route path="/membership" component={MembershipPage} />
+        <Route path="/join" component={MembershipPage} />
         <Route path="/about"><CMSPage slug="about" /></Route>
         <Route path="/partners"><CMSPage slug="partners" /></Route>
         <Route path="/contact"><CMSPage slug="contact" /></Route>
         <Route path="/edna"><CMSPage slug="edna" /></Route>
         <Route path="/barcoding"><CMSPage slug="barcoding" /></Route>
-        <Route path="/join"><CMSPage slug="join" /></Route>
       </Switch>
     );
   }

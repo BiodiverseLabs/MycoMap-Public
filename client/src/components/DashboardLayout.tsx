@@ -94,7 +94,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
             </div>
 
-            <Link href="/membership">
+            <Link href="/join">
               <Button className="w-full bg-[#8CBD45] hover:bg-[#8CBD45]/90 text-white gap-2" data-testid="button-become-member">
                 <Sparkles className="h-4 w-4" />
                 Become a Member
