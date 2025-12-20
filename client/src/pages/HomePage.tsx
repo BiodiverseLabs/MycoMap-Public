@@ -178,7 +178,7 @@ function StatsSection({ section }: { section: PageSection }) {
           <span className="inline-block px-4 py-2 bg-white/80 backdrop-blur-sm text-myco-green rounded-full text-sm font-semibold mb-4 shadow-sm border border-myco-green/20">
             By The Numbers
           </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-myco-brown" data-testid="text-stats-title">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-800" data-testid="text-stats-title">
             {section.title}
           </h2>
         </div>
@@ -198,10 +198,10 @@ function StatsSection({ section }: { section: PageSection }) {
                   <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-myco-green to-myco-green/80 mb-4 shadow-md group-hover:shadow-lg transition-shadow">
                     <Icon className="h-7 w-7 text-white" />
                   </div>
-                  <div className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-myco-brown to-myco-brown/80 bg-clip-text text-transparent mb-2">
+                  <div className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-myco-green to-emerald-600 bg-clip-text text-transparent mb-2">
                     {stat.value}
                   </div>
-                  <div className="text-myco-brown/70 text-sm sm:text-base font-medium">
+                  <div className="text-slate-600 text-sm sm:text-base font-medium">
                     {stat.label}
                   </div>
                 </div>
