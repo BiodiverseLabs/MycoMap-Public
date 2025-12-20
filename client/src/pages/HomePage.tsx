@@ -144,41 +144,62 @@ function StatsSection({ section }: { section: PageSection }) {
     stats = [];
   }
 
-  const statIcons = [Microscope, Leaf, Dna, MapPin];
+  const statIcons = [Microscope, Leaf, Users, MapPin];
+  const gradients = [
+    'from-myco-green/20 to-myco-green/5',
+    'from-amber-100/80 to-amber-50/40',
+    'from-myco-brown/15 to-myco-brown/5',
+    'from-emerald-100/80 to-emerald-50/40',
+  ];
 
   return (
-    <section className="py-20 bg-white relative overflow-hidden" data-testid="section-stats">
-      <div className="absolute top-0 left-0 w-64 h-64 bg-myco-green/5 rounded-full -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-myco-brown/5 rounded-full translate-x-1/2 translate-y-1/2" />
+    <section className="py-24 relative overflow-hidden" data-testid="section-stats">
+      <div className="absolute inset-0 bg-gradient-to-br from-stone-100 via-amber-50/30 to-stone-100" />
+      <div className="absolute inset-0 opacity-30">
+        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <defs>
+            <pattern id="statsPattern" patternUnits="userSpaceOnUse" width="40" height="40">
+              <circle cx="20" cy="20" r="1" fill="#A87146" opacity="0.3"/>
+              <path d="M0,20 Q10,15 20,20 T40,20" fill="none" stroke="#8CBD45" strokeWidth="0.3" opacity="0.4"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#statsPattern)"/>
+        </svg>
+      </div>
+      
+      <div className="absolute top-10 left-10 w-32 h-32 bg-myco-green/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-10 right-10 w-48 h-48 bg-myco-brown/10 rounded-full blur-3xl" />
+      <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-amber-200/20 rounded-full blur-2xl" />
       
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
-          <span className="inline-block px-4 py-1 bg-myco-green/10 text-myco-green rounded-full text-sm font-medium mb-4">
+          <span className="inline-block px-4 py-2 bg-white/80 backdrop-blur-sm text-myco-green rounded-full text-sm font-semibold mb-4 shadow-sm border border-myco-green/20">
             By The Numbers
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-myco-brown" data-testid="text-stats-title">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-myco-brown" data-testid="text-stats-title">
             {section.title}
           </h2>
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 max-w-5xl mx-auto">
           {stats.map((stat, index) => {
-            const Icon = statIcons[index % statIcons.length];
+            const Icon = iconMap[stat.icon || ''] || statIcons[index % statIcons.length];
+            const gradient = gradients[index % gradients.length];
             return (
               <div 
                 key={index} 
                 className="relative group"
                 data-testid={`stat-${index}`}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-myco-green/20 to-myco-brown/10 rounded-2xl transform group-hover:scale-105 transition-transform duration-300" />
-                <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 lg:p-8 text-center border border-gray-100 shadow-sm group-hover:shadow-lg transition-shadow">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-myco-green/10 mb-4">
-                    <Icon className="h-6 w-6 text-myco-green" />
+                <div className={`absolute inset-0 bg-gradient-to-br ${gradient} rounded-2xl transform group-hover:scale-[1.03] transition-all duration-300 shadow-lg group-hover:shadow-xl`} />
+                <div className="relative bg-white/70 backdrop-blur-sm rounded-2xl p-5 sm:p-6 lg:p-8 text-center border border-white/50 group-hover:bg-white/90 transition-colors">
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-myco-green to-myco-green/80 mb-4 shadow-md group-hover:shadow-lg transition-shadow">
+                    <Icon className="h-7 w-7 text-white" />
                   </div>
-                  <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-myco-brown mb-2">
+                  <div className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-myco-brown to-myco-brown/80 bg-clip-text text-transparent mb-2">
                     {stat.value}
                   </div>
-                  <div className="text-gray-600 text-sm sm:text-base font-medium">
+                  <div className="text-myco-brown/70 text-sm sm:text-base font-medium">
                     {stat.label}
                   </div>
                 </div>
