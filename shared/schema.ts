@@ -1045,3 +1045,93 @@ export type CmsNavigationLink = typeof cmsNavigationLinks.$inferSelect;
 
 export type InsertCmsMediaAsset = z.infer<typeof insertCmsMediaAssetSchema>;
 export type CmsMediaAsset = typeof cmsMediaAssets.$inferSelect;
+
+// ============ SUBSCRIPTION SYSTEM ============
+
+// Subscription Plans - defines the available membership tiers
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  priceMinCents: integer("price_min_cents").notNull(),
+  priceMaxCents: integer("price_max_cents").notNull(),
+  priceDefaultCents: integer("price_default_cents").notNull(),
+  billingPeriod: text("billing_period").notNull().default("monthly"),
+  features: text("features").array(),
+  specimensPerYear: text("specimens_per_year"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  stripePriceId: text("stripe_price_id"),
+  paypalPlanId: text("paypal_plan_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User Subscriptions - active subscription records
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  planId: integer("plan_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  provider: text("provider").notNull(),
+  providerSubscriptionId: text("provider_subscription_id"),
+  providerCustomerId: text("provider_customer_id"),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").default("USD"),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  canceledAt: timestamp("canceled_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("user_subscriptions_user_idx").on(table.userId),
+  statusIdx: index("user_subscriptions_status_idx").on(table.status),
+}));
+
+// Payment Transactions - log of all payment events
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  subscriptionId: integer("subscription_id"),
+  provider: text("provider").notNull(),
+  providerTransactionId: text("provider_transaction_id"),
+  type: text("type").notNull(),
+  status: text("status").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").default("USD"),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("payment_transactions_user_idx").on(table.userId),
+  providerIdx: index("payment_transactions_provider_idx").on(table.provider),
+}));
+
+// Insert schemas for subscriptions
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for subscriptions
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+
+export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
