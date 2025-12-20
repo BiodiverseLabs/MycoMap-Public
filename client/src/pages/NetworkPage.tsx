@@ -293,14 +293,14 @@ export default function NetworkPage() {
         </div>
       </section>
 
-      <section className="py-16 bg-gradient-to-br from-gray-50 to-myco-green/5">
+      <section className="py-16 bg-myco-brown">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <Quote className="w-10 h-10 text-myco-green/30 mx-auto mb-4" />
-            <blockquote className="text-xl sm:text-2xl text-myco-brown italic leading-relaxed mb-4" data-testid="text-quote">
+            <Quote className="w-10 h-10 text-white/40 mx-auto mb-4" />
+            <blockquote className="text-xl sm:text-2xl text-white font-medium italic leading-relaxed mb-4" data-testid="text-quote">
               "Scientific collections are key not only to understanding the past and the present but to unlocking discoveries in the future."
             </blockquote>
-            <cite className="text-gray-500 text-sm font-medium">
+            <cite className="text-white/80 text-sm font-medium">
               — American Museum of Natural History
             </cite>
           </div>
