@@ -245,7 +245,7 @@ export default function ForagingMap() {
               <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border">
                 <Calendar className="h-4 w-4 text-slate-400" />
                 <span className="text-slate-700" data-testid="text-start-date">
-                  {format(startDate, "MMM d, yyyy")}
+                  {format(startDate, "MMM d")}
                 </span>
               </div>
             </div>
@@ -254,7 +254,7 @@ export default function ForagingMap() {
               <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border">
                 <Calendar className="h-4 w-4 text-slate-400" />
                 <span className="text-slate-700" data-testid="text-end-date">
-                  {format(endDate, "MMM d, yyyy")}
+                  {format(endDate, "MMM d")}
                 </span>
               </div>
             </div>
