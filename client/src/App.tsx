@@ -6,6 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import HomePage from "@/pages/HomePage";
 import CMSPage from "@/pages/CMSPage";
+import MycoBlitzPage from "@/pages/MycoBlitzPage";
+import NetworkPage from "@/pages/NetworkPage";
+import HabitatPage from "@/pages/HabitatPage";
+import ProtocolsPage from "@/pages/ProtocolsPage";
 import Dashboard from "@/pages/Dashboard";
 import ActivityFeed from "@/pages/ActivityFeed";
 import Geospatial from "@/pages/Geospatial";
@@ -59,10 +63,10 @@ function AppRouter() {
       <Switch>
         <Route path="/" component={HomePage} />
         <Route path="/network/:region">{(params) => <CMSPage slug={`network-${params.region}`} />}</Route>
-        <Route path="/network"><CMSPage slug="network" /></Route>
-        <Route path="/mycoblitz"><CMSPage slug="mycoblitz" /></Route>
-        <Route path="/habitat"><CMSPage slug="habitat" /></Route>
-        <Route path="/protocols"><CMSPage slug="protocols" /></Route>
+        <Route path="/network" component={NetworkPage} />
+        <Route path="/mycoblitz" component={MycoBlitzPage} />
+        <Route path="/habitat" component={HabitatPage} />
+        <Route path="/protocols" component={ProtocolsPage} />
         <Route path="/about"><CMSPage slug="about" /></Route>
         <Route path="/partners"><CMSPage slug="partners" /></Route>
         <Route path="/contact"><CMSPage slug="contact" /></Route>
