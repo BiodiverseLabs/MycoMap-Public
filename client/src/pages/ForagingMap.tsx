@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Navigation, Search, Calendar, Leaf } from "lucide-react";
-import { format, addDays, subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 
 const DATE_WINDOW_OPTIONS = [
   { value: "1", label: "1 day" },
