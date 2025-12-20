@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -13,7 +13,7 @@ import { sql, eq, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { WebSocketServer } from "ws";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -685,6 +685,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Replit Auth (must be before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  // =============================================
+  // CMS API ENDPOINTS
+  // =============================================
+
+  // Get all navigation links (public)
+  app.get("/api/cms/navigation", async (req, res) => {
+    try {
+      const links = await db.select().from(cmsNavigationLinks)
+        .where(eq(cmsNavigationLinks.isVisible, true))
+        .orderBy(cmsNavigationLinks.sortOrder);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching navigation:", error);
+      res.status(500).json({ error: "Failed to fetch navigation" });
+    }
+  });
+
+  // Get page by slug (public)
+  app.get("/api/cms/pages/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const [page] = await db.select().from(cmsPages).where(eq(cmsPages.slug, slug));
+      
+      if (!page) {
+        return res.status(404).json({ error: "Page not found" });
+      }
+
+      const sections = await db.select().from(cmsPageSections)
+        .where(and(
+          eq(cmsPageSections.pageId, page.id),
+          eq(cmsPageSections.isVisible, true)
+        ))
+        .orderBy(cmsPageSections.sortOrder);
+
+      res.json({ ...page, sections });
+    } catch (error) {
+      console.error("Error fetching page:", error);
+      res.status(500).json({ error: "Failed to fetch page" });
+    }
+  });
+
+  // Get all pages (public - only published)
+  app.get("/api/cms/pages", async (req, res) => {
+    try {
+      const includeUnpublished = req.query.includeUnpublished === 'true';
+      let query = db.select().from(cmsPages);
+      
+      if (!includeUnpublished) {
+        query = query.where(eq(cmsPages.isPublished, true)) as typeof query;
+      }
+      
+      const pages = await query.orderBy(cmsPages.sortOrder);
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching pages:", error);
+      res.status(500).json({ error: "Failed to fetch pages" });
+    }
+  });
+
+  // Admin: Create page (requires admin role)
+  app.post("/api/cms/admin/pages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const validated = insertCmsPageSchema.parse(req.body);
+      const [page] = await db.insert(cmsPages).values({
+        ...validated,
+        authorId: userId,
+      }).returning();
+      
+      res.json(page);
+    } catch (error) {
+      console.error("Error creating page:", error);
+      res.status(500).json({ error: "Failed to create page" });
+    }
+  });
+
+  // Admin: Update page
+  app.patch("/api/cms/admin/pages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const pageId = parseInt(req.params.id);
+      const [page] = await db.update(cmsPages)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(cmsPages.id, pageId))
+        .returning();
+      
+      res.json(page);
+    } catch (error) {
+      console.error("Error updating page:", error);
+      res.status(500).json({ error: "Failed to update page" });
+    }
+  });
+
+  // Admin: Delete page
+  app.delete("/api/cms/admin/pages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const pageId = parseInt(req.params.id);
+      await db.delete(cmsPages).where(eq(cmsPages.id, pageId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting page:", error);
+      res.status(500).json({ error: "Failed to delete page" });
+    }
+  });
+
+  // Admin: Create page section
+  app.post("/api/cms/admin/sections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const validated = insertCmsPageSectionSchema.parse(req.body);
+      const [section] = await db.insert(cmsPageSections).values(validated).returning();
+      
+      res.json(section);
+    } catch (error) {
+      console.error("Error creating section:", error);
+      res.status(500).json({ error: "Failed to create section" });
+    }
+  });
+
+  // Admin: Update page section
+  app.patch("/api/cms/admin/sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const sectionId = parseInt(req.params.id);
+      const [section] = await db.update(cmsPageSections)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(cmsPageSections.id, sectionId))
+        .returning();
+      
+      res.json(section);
+    } catch (error) {
+      console.error("Error updating section:", error);
+      res.status(500).json({ error: "Failed to update section" });
+    }
+  });
+
+  // Admin: Delete page section
+  app.delete("/api/cms/admin/sections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const sectionId = parseInt(req.params.id);
+      await db.delete(cmsPageSections).where(eq(cmsPageSections.id, sectionId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting section:", error);
+      res.status(500).json({ error: "Failed to delete section" });
+    }
+  });
+
+  // Admin: Update navigation
+  app.post("/api/cms/admin/navigation", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const validated = insertCmsNavigationLinkSchema.parse(req.body);
+      const [link] = await db.insert(cmsNavigationLinks).values(validated).returning();
+      
+      res.json(link);
+    } catch (error) {
+      console.error("Error creating navigation link:", error);
+      res.status(500).json({ error: "Failed to create navigation link" });
+    }
+  });
+
+  // Admin: Get all pages including unpublished
+  app.get("/api/cms/admin/pages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const pages = await db.select().from(cmsPages).orderBy(cmsPages.sortOrder);
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching admin pages:", error);
+      res.status(500).json({ error: "Failed to fetch pages" });
+    }
+  });
   
   // Helper function to check and auto-upload observations to IPFS
   async function checkAndAutoUploadToIPFS(observationId: string, context: string) {

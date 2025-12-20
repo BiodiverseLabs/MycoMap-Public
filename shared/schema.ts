@@ -924,3 +924,124 @@ export type MoObservationsCache = typeof moObservationsCache.$inferSelect;
 
 export type InsertMoCacheMetadata = z.infer<typeof insertMoCacheMetadataSchema>;
 export type MoCacheMetadata = typeof moCacheMetadata.$inferSelect;
+
+// =============================================
+// CMS TABLES - WordPress-style content management
+// =============================================
+
+// CMS Pages - Represents a single page in the website
+export const cmsPages = pgTable("cms_pages", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description"),
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  heroImageUrl: text("hero_image_url"),
+  isPublished: boolean("is_published").default(false).notNull(),
+  publishedAt: timestamp("published_at"),
+  authorId: text("author_id"),
+  pageType: text("page_type").default("content").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// CMS Page Sections - Reusable content blocks within pages
+export const cmsPageSections = pgTable("cms_page_sections", {
+  id: serial("id").primaryKey(),
+  pageId: integer("page_id").notNull().references(() => cmsPages.id, { onDelete: "cascade" }),
+  sectionType: text("section_type").notNull(),
+  title: text("title"),
+  subtitle: text("subtitle"),
+  content: text("content"),
+  imageUrl: text("image_url"),
+  buttonText: text("button_text"),
+  buttonLink: text("button_link"),
+  backgroundColor: text("background_color"),
+  textColor: text("text_color"),
+  data: text("data"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isVisible: boolean("is_visible").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Navigation Links - Main site navigation structure  
+export const cmsNavigationLinks = pgTable("cms_navigation_links", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
+  href: text("href").notNull(),
+  parentId: integer("parent_id"),
+  isExternal: boolean("is_external").default(false).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isVisible: boolean("is_visible").default(true).notNull(),
+  icon: text("icon"),
+  requiresAuth: boolean("requires_auth").default(false).notNull(),
+  requiresSubscription: boolean("requires_subscription").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Media Assets - Image and file library
+export const cmsMediaAssets = pgTable("cms_media_assets", {
+  id: serial("id").primaryKey(),
+  filename: text("filename").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  url: text("url").notNull(),
+  altText: text("alt_text"),
+  caption: text("caption"),
+  uploadedBy: text("uploaded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// CMS Relations
+export const cmsPagesRelations = relations(cmsPages, ({ many }) => ({
+  sections: many(cmsPageSections),
+}));
+
+export const cmsPageSectionsRelations = relations(cmsPageSections, ({ one }) => ({
+  page: one(cmsPages, {
+    fields: [cmsPageSections.pageId],
+    references: [cmsPages.id],
+  }),
+}));
+
+// Insert schemas for CMS
+export const insertCmsPageSchema = createInsertSchema(cmsPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCmsPageSectionSchema = createInsertSchema(cmsPageSections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCmsNavigationLinkSchema = createInsertSchema(cmsNavigationLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCmsMediaAssetSchema = createInsertSchema(cmsMediaAssets).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types for CMS
+export type InsertCmsPage = z.infer<typeof insertCmsPageSchema>;
+export type CmsPage = typeof cmsPages.$inferSelect;
+
+export type InsertCmsPageSection = z.infer<typeof insertCmsPageSectionSchema>;
+export type CmsPageSection = typeof cmsPageSections.$inferSelect;
+
+export type InsertCmsNavigationLink = z.infer<typeof insertCmsNavigationLinkSchema>;
+export type CmsNavigationLink = typeof cmsNavigationLinks.$inferSelect;
+
+export type InsertCmsMediaAsset = z.infer<typeof insertCmsMediaAssetSchema>;
+export type CmsMediaAsset = typeof cmsMediaAssets.$inferSelect;
