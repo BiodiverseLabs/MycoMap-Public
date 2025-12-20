@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
 import { 
-  Microscope, 
   BarChart3, 
   MapPin, 
   TrendingUp, 
@@ -23,6 +22,7 @@ import {
   Lock,
   Leaf
 } from "lucide-react";
+import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./button";
 import { Input } from "./input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./dialog";
@@ -61,7 +61,7 @@ export function Sidebar() {
 
   const adminItems = [
     { href: "/admin/validation", label: "Data Validation", icon: Database },
-    { href: "/admin/biorecords", label: "BioRecord Management", icon: Microscope },
+    { href: "/admin/biorecords", label: "BioRecord Management", icon: Dna },
     { href: "/admin/upload", label: "Data Upload", icon: Upload },
     { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
     { href: "/admin/settings", label: "System Settings", icon: Settings },
@@ -134,8 +134,8 @@ export function Sidebar() {
       {/* Mobile Header */}
       <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Microscope className="w-4 h-4 text-primary" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+            <img src={mycoMapLogo} alt="MycoMap" className="w-8 h-8 object-contain" />
           </div>
           <div>
             <h1 className="text-sm font-semibold text-slate-900">MycoMap Network</h1>
@@ -163,8 +163,8 @@ export function Sidebar() {
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center overflow-hidden">
-                <Microscope className="w-6 h-6 text-primary" />
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden">
+                <img src={mycoMapLogo} alt="MycoMap" className="w-10 h-10 object-contain" />
               </div>
               {!isCollapsed && (
                 <div>
@@ -295,8 +295,8 @@ export function Sidebar() {
       >
         <div className="p-4 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Microscope className="w-6 h-6 text-primary" />
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden">
+              <img src={mycoMapLogo} alt="MycoMap" className="w-12 h-12 object-contain" />
             </div>
             <div>
               <h1 className="text-base font-semibold text-slate-900">MycoMap Network</h1>
