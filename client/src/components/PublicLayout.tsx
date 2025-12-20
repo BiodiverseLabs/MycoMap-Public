@@ -22,7 +22,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 function Footer() {
   return (
     <footer className="relative overflow-hidden" data-testid="footer">
-      <div className="absolute inset-0 bg-myco-brown" />
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-myco-green to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#8a5c3a] to-myco-brown" />
       <div className="absolute inset-0 opacity-5">
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <defs>
