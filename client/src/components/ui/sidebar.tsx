@@ -22,7 +22,7 @@ import {
   Lock,
   Leaf
 } from "lucide-react";
-import mycoMapLogo from "@assets/mycomap-logo.png";
+const mycoMapLogo = "/attached_assets/mycomap-logo.png";
 import { Button } from "./button";
 import { Input } from "./input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./dialog";
