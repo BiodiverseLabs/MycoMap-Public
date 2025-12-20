@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { PublicLayout } from "@/components/PublicLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,28 +10,63 @@ import {
   Calendar, Clock, ExternalLink, Quote, Search, Plus
 } from "lucide-react";
 
+interface StateSummary {
+  state: string;
+  count: number;
+}
+
+const regionMappings: Record<string, { name: string; states: string[]; description?: string }> = {
+  'MI': { name: 'Michigan', states: ['Michigan'] },
+  'CA': { name: 'California', states: ['California'] },
+  'BC': { name: 'British Columbia', states: ['British Columbia'] },
+  'FL': { name: 'Florida', states: ['Florida'] },
+  'MO': { name: 'Missouri', states: ['Missouri'] },
+  'IN': { name: 'Indiana', states: ['Indiana'] },
+  'AC': { name: 'Atlantic Canada', states: ['New Brunswick', 'Prince Edward Island', 'Nova Scotia', 'Newfoundland and Labrador'], description: 'New Brunswick, PEI, Nova Scotia, Newfoundland' },
+  'AZ': { name: 'Arizona', states: ['Arizona'] },
+  'RO': { name: 'Rockies', states: ['Colorado', 'Idaho', 'Montana', 'Wyoming'], description: 'Colorado, Idaho, Montana, Wyoming' },
+  'AB': { name: 'Alberta', states: ['Alberta'] },
+  'ME': { name: 'Maine', states: ['Maine'] },
+  'VT': { name: 'Vermont', states: ['Vermont'] },
+  'NH': { name: 'New Hampshire', states: ['New Hampshire'] },
+  'LA': { name: 'Louisiana', states: ['Louisiana'] },
+  'AL': { name: 'Alabama', states: ['Alabama'] },
+  'MS': { name: 'Mississippi', states: ['Mississippi'] },
+  'CB': { name: 'Caribbean', states: ['Puerto Rico', 'Saint Croix', 'Saint Thomas', 'Saint Andrew'], description: 'All islands' },
+};
+
 export default function NetworkPage() {
   const [searchQuery, setSearchQuery] = useState("");
   
-  const allRegions = [
-    { code: "MI", name: "Michigan", specimens: 5000, status: "active" },
-    { code: "CA", name: "California", specimens: 3200, status: "active" },
-    { code: "BC", name: "British Columbia", specimens: 2800, status: "active" },
-    { code: "FL", name: "Florida", specimens: 1500, status: "active" },
-    { code: "MO", name: "Missouri", specimens: 1200, status: "active" },
-    { code: "IN", name: "Indiana", specimens: 900, status: "active" },
-    { code: "AC", name: "Atlantic Canada", description: "New Brunswick, PEI, Nova Scotia, Newfoundland", specimens: 800, status: "active" },
-    { code: "AZ", name: "Arizona", specimens: 600, status: "active" },
-    { code: "RO", name: "Rockies", description: "Colorado, Idaho, Montana, Wyoming", specimens: 550, status: "active" },
-    { code: "AB", name: "Alberta", specimens: 450, status: "active" },
-    { code: "ME", name: "Maine", specimens: 400, status: "active" },
-    { code: "VT", name: "Vermont", specimens: 350, status: "active" },
-    { code: "NH", name: "New Hampshire", specimens: 300, status: "active" },
-    { code: "LA", name: "Louisiana", specimens: 250, status: "active" },
-    { code: "AL", name: "Alabama", specimens: 200, status: "active" },
-    { code: "MS", name: "Mississippi", specimens: 150, status: "active" },
-    { code: "CB", name: "Caribbean", description: "All islands", specimens: 100, status: "active" },
-  ];
+  const { data: stateStats } = useQuery<StateSummary[]>({
+    queryKey: ["/api/observations/summary", "states"],
+    queryFn: async () => {
+      const res = await fetch("/api/observations/summary?aggregate=states");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const allRegions = useMemo(() => {
+    const stateCounts: Record<string, number> = {};
+    if (stateStats) {
+      for (const stat of stateStats) {
+        stateCounts[stat.state] = stat.count;
+      }
+    }
+    
+    return Object.entries(regionMappings).map(([code, region]) => {
+      const specimens = region.states.reduce((sum, state) => sum + (stateCounts[state] || 0), 0);
+      return {
+        code,
+        name: region.name,
+        description: region.description,
+        specimens,
+        status: 'active' as const
+      };
+    });
+  }, [stateStats]);
 
   const filteredRegions = allRegions
     .filter(region => {
@@ -46,9 +82,9 @@ export default function NetworkPage() {
 
   const formatSpecimens = (count: number) => {
     if (count >= 1000) {
-      return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k+`;
+      return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`;
     }
-    return `${count}+`;
+    return `${count}`;
   };
 
   const steps = [
