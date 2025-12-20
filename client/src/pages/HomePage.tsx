@@ -355,31 +355,61 @@ function HowItWorksSection({ section }: { section: PageSection }) {
   }
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-gray-50" data-testid="section-how-it-works">
-      <div className="container mx-auto px-4">
+    <section className="py-24 relative overflow-hidden" data-testid="section-how-it-works">
+      <div className="absolute inset-0 bg-gradient-to-br from-myco-brown/5 via-myco-green/5 to-myco-brown/10" />
+      <div className="absolute inset-0 opacity-20">
+        <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <defs>
+            <pattern id="journeyPattern" patternUnits="userSpaceOnUse" width="50" height="50">
+              <path d="M25,0 Q30,25 25,50" fill="none" stroke="#8CBD45" strokeWidth="0.3" opacity="0.5"/>
+              <path d="M0,25 Q25,20 50,25" fill="none" stroke="#A87146" strokeWidth="0.2" opacity="0.4"/>
+              <circle cx="25" cy="25" r="2" fill="#8CBD45" opacity="0.2"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#journeyPattern)"/>
+        </svg>
+      </div>
+      
+      <div className="absolute top-20 right-20 w-40 h-40 bg-myco-green/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 left-20 w-32 h-32 bg-myco-brown/10 rounded-full blur-3xl" />
+      
+      <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
-          <span className="inline-block px-4 py-1 bg-myco-brown/10 text-myco-brown rounded-full text-sm font-medium mb-4">
+          <span className="inline-block px-4 py-2 bg-white/80 backdrop-blur-sm text-myco-brown rounded-full text-sm font-semibold mb-4 shadow-sm border border-myco-brown/20">
             How It Works
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-myco-brown">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-myco-brown">
             {section.title || "Your Journey to Discovery"}
           </h2>
+          {section.subtitle && (
+            <p className="mt-4 text-myco-brown/70 text-lg max-w-2xl mx-auto">{section.subtitle}</p>
+          )}
         </div>
         
         <div className="relative max-w-5xl mx-auto">
-          <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-myco-green/20 via-myco-green to-myco-green/20 -translate-y-1/2" />
+          <div className="hidden md:block absolute top-[60px] left-[12%] right-[12%] h-1 bg-gradient-to-r from-transparent via-myco-green/40 to-transparent rounded-full" />
           
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-4 gap-6 lg:gap-8">
             {steps.map((step, index) => {
               const Icon = iconMap[step.icon] || Dna;
               return (
-                <div key={index} className="relative text-center" data-testid={`step-${index}`}>
-                  <div className="relative z-10 inline-flex items-center justify-center w-16 h-16 rounded-full bg-white border-4 border-myco-green shadow-lg mb-4">
-                    <Icon className="h-7 w-7 text-myco-green" />
+                <div 
+                  key={index} 
+                  className="relative group cursor-pointer" 
+                  data-testid={`step-${index}`}
+                >
+                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 text-center border border-white/50 shadow-md group-hover:shadow-xl group-hover:bg-white group-hover:-translate-y-2 transition-all duration-300">
+                    <div className="relative z-10 inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-myco-green to-myco-green/80 shadow-lg mb-5 group-hover:scale-110 group-hover:shadow-xl transition-all duration-300">
+                      <Icon className="h-9 w-9 text-white group-hover:scale-110 transition-transform" />
+                      <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-myco-brown text-white text-xs font-bold flex items-center justify-center shadow-md">
+                        {step.number}
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-bold text-myco-brown mb-3 group-hover:text-myco-green transition-colors">{step.title}</h3>
+                    <p className="text-myco-brown/60 text-sm leading-relaxed">{step.description}</p>
+                    
+                    <div className="mt-4 h-1 w-0 bg-gradient-to-r from-myco-green to-myco-green/50 rounded-full mx-auto group-hover:w-16 transition-all duration-500" />
                   </div>
-                  <div className="text-xs font-bold text-myco-green mb-2">{step.number}</div>
-                  <h3 className="text-lg font-semibold text-myco-brown mb-2">{step.title}</h3>
-                  <p className="text-gray-600 text-sm">{step.description}</p>
                 </div>
               );
             })}
