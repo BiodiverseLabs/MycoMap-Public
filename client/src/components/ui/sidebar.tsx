@@ -20,7 +20,8 @@ import {
   ChevronRight,
   BookOpen,
   Code,
-  Lock
+  Lock,
+  Leaf
 } from "lucide-react";
 import { Button } from "./button";
 import { Input } from "./input";
@@ -46,6 +47,7 @@ export function Sidebar() {
   const navigationItems = [
     { href: "/", label: "Dashboard", icon: BarChart3 },
     { href: "/activity", label: "Activity Feed", icon: Activity },
+    { href: "/foraging-map", label: "Foraging Map", icon: Leaf },
     { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
     { href: "/field-guides", label: "Field Guides", icon: BookOpen },
     { href: "/species", label: "Species Analysis", icon: Dna },

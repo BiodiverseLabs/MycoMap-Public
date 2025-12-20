@@ -13,6 +13,7 @@ import ProtocolsPage from "@/pages/ProtocolsPage";
 import MembershipPage from "@/pages/MembershipPage";
 import Dashboard from "@/pages/Dashboard";
 import ActivityFeed from "@/pages/ActivityFeed";
+import ForagingMap from "@/pages/ForagingMap";
 import Geospatial from "@/pages/Geospatial";
 import TopProspects from "@/pages/TopProspects";
 import Temporal from "@/pages/Temporal";
@@ -84,6 +85,7 @@ function AppRouter() {
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/activity" component={ActivityFeed} />
         <Route path="/activity-feed" component={ActivityFeed} />
+        <Route path="/foraging-map" component={ForagingMap} />
         <Route path="/geospatial" component={Geospatial} />
         <Route path="/geospatial/top-prospects" component={TopProspects} />
         <Route path="/field-guides" component={FieldGuides} />
