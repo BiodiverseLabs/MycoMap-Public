@@ -76,12 +76,30 @@ export default function ForagingMap() {
     setIsDetectingLocation(true);
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setDetectedLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-          setLocation(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setDetectedLocation({ lat, lng });
+          
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`,
+              { headers: { 'User-Agent': 'MycoMap/1.0' } }
+            );
+            const data = await response.json();
+            const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || '';
+            const state = data.address?.state || '';
+            if (city && state) {
+              setLocation(`${city}, ${state}`);
+            } else if (city || state) {
+              setLocation(city || state);
+            } else {
+              setLocation(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+            }
+          } catch (error) {
+            console.error("Error reverse geocoding:", error);
+            setLocation(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+          }
           setIsDetectingLocation(false);
         },
         (error) => {
