@@ -4,12 +4,14 @@ import ws from "ws";
 import * as schema from "@shared/schema";
 import { 
   users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData, biorecords, inaturalistClassificationCache,
+  subscriptionPlans, userSubscriptions, paymentTransactions,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment,
   type InaturalistData, type InsertInaturalistData, type InaturalistPlace, type InsertInaturalistPlace,
   type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
-  type InaturalistClassificationCache, type InsertInaturalistClassificationCache
+  type InaturalistClassificationCache, type InsertInaturalistClassificationCache,
+  type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray, gte, lte } from 'drizzle-orm';
 import type { IStorage } from "./storage";
@@ -4327,5 +4329,66 @@ export class DatabaseStorage implements IStorage {
     `);
 
     return result.rows as Observation[];
+  }
+
+  // Subscription management methods
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db.select().from(subscriptionPlans)
+      .where(eq(subscriptionPlans.isActive, true))
+      .orderBy(asc(subscriptionPlans.sortOrder));
+  }
+
+  async getSubscriptionPlanBySlug(slug: string): Promise<SubscriptionPlan | null> {
+    const [plan] = await db.select().from(subscriptionPlans)
+      .where(eq(subscriptionPlans.slug, slug));
+    return plan || null;
+  }
+
+  async getUserSubscription(userId: string): Promise<UserSubscription | null> {
+    const [subscription] = await db.select().from(userSubscriptions)
+      .where(and(
+        eq(userSubscriptions.userId, userId),
+        eq(userSubscriptions.status, 'active')
+      ))
+      .orderBy(desc(userSubscriptions.createdAt))
+      .limit(1);
+    return subscription || null;
+  }
+
+  async createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription> {
+    const [created] = await db.insert(userSubscriptions).values(subscription).returning();
+    return created;
+  }
+
+  async updateUserSubscription(id: number, data: Partial<InsertUserSubscription>): Promise<UserSubscription> {
+    const [updated] = await db.update(userSubscriptions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userSubscriptions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async cancelUserSubscription(userId: string): Promise<void> {
+    await db.update(userSubscriptions)
+      .set({ 
+        status: 'canceled', 
+        canceledAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(userSubscriptions.userId, userId),
+        eq(userSubscriptions.status, 'active')
+      ));
+  }
+
+  async createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction> {
+    const [created] = await db.insert(paymentTransactions).values(transaction).returning();
+    return created;
+  }
+
+  async getPaymentTransactions(userId: string): Promise<PaymentTransaction[]> {
+    return await db.select().from(paymentTransactions)
+      .where(eq(paymentTransactions.userId, userId))
+      .orderBy(desc(paymentTransactions.createdAt));
   }
 }

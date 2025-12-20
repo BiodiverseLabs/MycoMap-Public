@@ -2,7 +2,8 @@ import {
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type InaturalistData, type InsertInaturalistData,
-  type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord
+  type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
+  type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction
 } from "@shared/schema";
 
 export interface IStorage {
@@ -283,6 +284,16 @@ export interface IStorage {
     mintedBy?: string;
   }): Promise<Biorecord>;
   getBiorecordsEligibleForMinting(): Promise<Biorecord[]>;
+  
+  // Subscription management
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlanBySlug(slug: string): Promise<SubscriptionPlan | null>;
+  getUserSubscription(userId: string): Promise<UserSubscription | null>;
+  createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription>;
+  updateUserSubscription(id: number, data: Partial<InsertUserSubscription>): Promise<UserSubscription>;
+  cancelUserSubscription(userId: string): Promise<void>;
+  createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
+  getPaymentTransactions(userId: string): Promise<PaymentTransaction[]>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -1354,6 +1365,39 @@ export class MemoryStorage implements IStorage {
     catalog_number?: string;
   }>> {
     // Memory storage doesn't implement global first functionality
+    return [];
+  }
+
+  // Subscription stubs for memory storage
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return [];
+  }
+  
+  async getSubscriptionPlanBySlug(slug: string): Promise<SubscriptionPlan | null> {
+    return null;
+  }
+  
+  async getUserSubscription(userId: string): Promise<UserSubscription | null> {
+    return null;
+  }
+  
+  async createUserSubscription(subscription: InsertUserSubscription): Promise<UserSubscription> {
+    throw new Error('Memory storage does not support subscriptions');
+  }
+  
+  async updateUserSubscription(id: number, data: Partial<InsertUserSubscription>): Promise<UserSubscription> {
+    throw new Error('Memory storage does not support subscriptions');
+  }
+  
+  async cancelUserSubscription(userId: string): Promise<void> {
+    throw new Error('Memory storage does not support subscriptions');
+  }
+  
+  async createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction> {
+    throw new Error('Memory storage does not support subscriptions');
+  }
+  
+  async getPaymentTransactions(userId: string): Promise<PaymentTransaction[]> {
     return [];
   }
 }
