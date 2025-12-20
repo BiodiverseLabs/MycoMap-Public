@@ -45,7 +45,7 @@ export function Sidebar() {
   }, [location]);
 
   const navigationItems = [
-    { href: "/", label: "Dashboard", icon: BarChart3 },
+    { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
     { href: "/activity", label: "Activity Feed", icon: Activity },
     { href: "/foraging-map", label: "Foraging Map", icon: Leaf },
     { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
