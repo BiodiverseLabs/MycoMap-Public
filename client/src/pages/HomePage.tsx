@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { PublicLayout } from "@/components/PublicLayout";
 import { Button } from "@/components/ui/button";
-import { Dna, MapPin, Award, ArrowRight, Users, TreePine, FlaskConical, Microscope, Leaf } from "lucide-react";
+import { Dna, MapPin, Award, ArrowRight, Users, TreePine, FlaskConical, Microscope, Leaf, Quote } from "lucide-react";
 
 interface PageSection {
   id: number;
@@ -59,6 +59,8 @@ export default function HomePage() {
             return <HeroSection key={section.id} section={section} heroImageUrl={page?.heroImageUrl} />;
           case "stats":
             return <StatsSection key={section.id} section={section} />;
+          case "testimonials":
+            return <TestimonialsSection key={section.id} section={section} />;
           case "featured_projects":
             return <FeaturedProjectsSection key={section.id} section={section} />;
           case "cta":
@@ -206,6 +208,71 @@ function StatsSection({ section }: { section: PageSection }) {
               </div>
             );
           })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TestimonialsSection({ section }: { section: PageSection }) {
+  let testimonials: { quote: string; name: string; affiliation: string; image?: string }[] = [];
+  try {
+    const parsed = JSON.parse(section.content || "{}");
+    testimonials = parsed.testimonials || [];
+  } catch {
+    testimonials = [];
+  }
+
+  return (
+    <section className="py-24 bg-myco-brown relative overflow-hidden" data-testid="section-testimonials">
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-10 left-10 w-40 h-40 bg-white rounded-full blur-3xl" />
+        <div className="absolute bottom-10 right-10 w-60 h-60 bg-myco-green rounded-full blur-3xl" />
+      </div>
+      
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="text-center mb-16">
+          <span className="inline-flex items-center gap-2 px-4 py-1 bg-white/10 backdrop-blur-sm text-white/90 rounded-full text-sm font-medium mb-4 border border-white/20">
+            <Quote className="w-4 h-4" />
+            Testimonials
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4" data-testid="text-testimonials-title">
+            {section.title}
+          </h2>
+          {section.subtitle && (
+            <p className="text-white/80 text-lg max-w-2xl mx-auto">{section.subtitle}</p>
+          )}
+        </div>
+        
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {testimonials.map((testimonial, index) => (
+            <div 
+              key={index} 
+              className="relative group"
+              data-testid={`testimonial-${index}`}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl transform group-hover:scale-[1.02] transition-all duration-300" />
+              <div className="relative bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 h-full flex flex-col group-hover:bg-white/15 transition-colors">
+                <Quote className="w-10 h-10 text-myco-green/60 mb-4" />
+                <p className="text-white/90 text-lg leading-relaxed flex-grow mb-6 italic">
+                  "{testimonial.quote}"
+                </p>
+                <div className="flex items-center gap-4 pt-4 border-t border-white/10">
+                  {testimonial.image && (
+                    <img 
+                      src={testimonial.image} 
+                      alt={testimonial.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-myco-green/50"
+                    />
+                  )}
+                  <div>
+                    <div className="text-white font-semibold">{testimonial.name}</div>
+                    <div className="text-white/60 text-sm">{testimonial.affiliation}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
