@@ -66,7 +66,7 @@ export default function NetworkPage() {
       <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(https://mycota.com/wp-content/uploads/2024/05/pexels-zaneta-misutova-605471908-17381617-scaled.jpg)" }}
+          style={{ backgroundImage: "url(https://mycota.com/wp-content/uploads/2024/04/g28a4a56680d9ea34279386c4ccb8ec4bfce11b4789f5a232e7230a791887596e559a818ea5208e694cb80054867fc593_1920.jpg)" }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70" />
         
@@ -89,7 +89,7 @@ export default function NetworkPage() {
               <MapPin className="h-5 w-5" />
               Find Your Region
             </Button>
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10" data-testid="button-view-programs">
+            <Button size="lg" className="bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30" data-testid="button-view-programs">
               View All Programs
             </Button>
           </div>
