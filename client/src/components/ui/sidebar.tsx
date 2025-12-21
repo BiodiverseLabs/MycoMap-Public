@@ -54,6 +54,7 @@ export function Sidebar() {
     { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
     { href: "/activity", label: "Activity Feed", icon: Activity },
     { href: "/foraging-map", label: "Foraging Map", icon: Leaf },
+    { href: "/fitness-tracker", label: "Fitness Tracker", icon: Activity },
     { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
     { href: "/field-guides", label: "Field Guides", icon: BookOpen },
     { href: "/species", label: "Species Analysis", icon: Dna },

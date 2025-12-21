@@ -14,6 +14,7 @@ import MembershipPage from "@/pages/MembershipPage";
 import Dashboard from "@/pages/Dashboard";
 import ActivityFeed from "@/pages/ActivityFeed";
 import ForagingMap from "@/pages/ForagingMap";
+import FitnessTracker from "@/pages/FitnessTracker";
 import Geospatial from "@/pages/Geospatial";
 import TopProspects from "@/pages/TopProspects";
 import Temporal from "@/pages/Temporal";
@@ -87,6 +88,7 @@ function AppRouter() {
         <Route path="/activity" component={ActivityFeed} />
         <Route path="/activity-feed" component={ActivityFeed} />
         <Route path="/foraging-map" component={ForagingMap} />
+        <Route path="/fitness-tracker" component={FitnessTracker} />
         <Route path="/geospatial" component={Geospatial} />
         <Route path="/geospatial/top-prospects" component={TopProspects} />
         <Route path="/field-guides" component={FieldGuides} />

@@ -1070,6 +1070,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =============================================
+  // FITNESS TRACKER API ENDPOINTS
+  // =============================================
+
+  // Search iNaturalist for observations by username and date range
+  app.get("/api/fitness/observations", async (req: any, res) => {
+    try {
+      const { username, startDate, endDate } = req.query;
+
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "Start date and end date are required" });
+      }
+
+      console.log(`[Fitness Tracker] Fetching observations for user: ${username}, dates: ${startDate} to ${endDate}`);
+
+      // Build iNaturalist API parameters
+      const inatParams = new URLSearchParams({
+        user_login: username as string,
+        d1: startDate as string,
+        d2: endDate as string,
+        per_page: '200',
+        order: 'asc',
+        order_by: 'observed_on_string',
+        quality_grade: 'research,needs_id,casual',
+        photos: 'true',
+      });
+
+      const allObservations: any[] = [];
+      let page = 1;
+      const maxPages = 10;
+
+      do {
+        inatParams.set('page', page.toString());
+        const response = await fetch(`https://api.inaturalist.org/v1/observations?${inatParams}`);
+        
+        if (!response.ok) {
+          console.error(`[Fitness Tracker] iNaturalist API error: ${response.status}`);
+          break;
+        }
+
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+          allObservations.push(...data.results);
+        }
+
+        if (!data.results || data.results.length < 200 || page >= maxPages) {
+          break;
+        }
+
+        page++;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } while (true);
+
+      console.log(`[Fitness Tracker] Found ${allObservations.length} observations for ${username}`);
+
+      // Transform observations for the frontend
+      const observations = allObservations
+        .filter(obs => obs.geojson?.coordinates)
+        .map(obs => {
+          // Extract time from observed_on string or time_observed_at
+          let timeObserved = '00:00:00';
+          if (obs.time_observed_at) {
+            const time = new Date(obs.time_observed_at);
+            timeObserved = time.toTimeString().slice(0, 8);
+          } else if (obs.observed_on_string && obs.observed_on_string.includes(' ')) {
+            const timePart = obs.observed_on_string.split(' ')[1];
+            if (timePart) timeObserved = timePart;
+          }
+
+          return {
+            id: obs.id,
+            latitude: obs.geojson.coordinates[1].toString(),
+            longitude: obs.geojson.coordinates[0].toString(),
+            scientificName: obs.taxon?.name || obs.species_guess || 'Unknown',
+            commonName: obs.taxon?.preferred_common_name || '',
+            observedOn: obs.observed_on || '',
+            timeObserved,
+            photoUrl: obs.photos?.[0]?.url?.replace('square', 'medium') || null,
+          };
+        });
+
+      res.json({ observations });
+    } catch (error: any) {
+      console.error("[Fitness Tracker] Error:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch observations" });
+    }
+  });
+
+  // =============================================
   // FORAGING LISTS ADMIN API ENDPOINTS
   // =============================================
 
