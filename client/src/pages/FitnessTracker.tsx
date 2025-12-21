@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X, ChevronLeft, ChevronRight, RefreshCw, Database, CloudDownload } from "lucide-react";
+import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X, ChevronLeft, ChevronRight, RefreshCw, Database, CloudDownload, Maximize2, Minimize2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
@@ -113,6 +113,7 @@ export default function FitnessTracker() {
   const [outlierRemoveMode, setOutlierRemoveMode] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [showDayPicker, setShowDayPicker] = useState(false);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [dayPickerMonth, setDayPickerMonth] = useState<Date>(new Date());
   
   // Cache and sync state
@@ -226,6 +227,15 @@ export default function FitnessTracker() {
     if (!mapInstanceRef.current || processedObservations.length === 0) return;
     updateLocationPointMarkers(processedObservations);
   }, [locationPoints]);
+
+  // Invalidate map size when fullscreen changes
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize();
+      }, 100);
+    }
+  }, [isMapFullscreen]);
 
   // Handle map click mode
   useEffect(() => {
@@ -1111,16 +1121,29 @@ export default function FitnessTracker() {
             </Card>
           </div>
 
-          <Card className="relative">
-            <CardContent className="p-0">
+          <Card className={`relative ${isMapFullscreen ? 'fixed inset-0 z-[9999] rounded-none' : ''}`}>
+            <CardContent className="p-0 h-full">
               <div 
                 ref={mapRef} 
-                className="h-[500px] w-full rounded-lg" 
+                className={`w-full rounded-lg ${isMapFullscreen ? 'h-full' : 'h-[500px]'}`}
                 style={{ cursor: mapClickMode ? 'crosshair' : undefined }}
                 data-testid="map-container" 
               />
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute top-2 right-2 z-[500] bg-white/90 hover:bg-white shadow-md"
+                onClick={() => setIsMapFullscreen(!isMapFullscreen)}
+                data-testid="button-map-fullscreen"
+              >
+                {isMapFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
               {mapClickMode && (
-                <div className="absolute top-2 left-2 right-2 bg-blue-100 border border-blue-300 rounded-lg p-3 flex items-center justify-between z-[500]">
+                <div className="absolute top-2 left-2 right-14 bg-blue-100 border border-blue-300 rounded-lg p-3 flex items-center justify-between z-[500]">
                   <div className="flex items-center gap-2">
                     <CircleDot className={`h-5 w-5 ${mapClickMode.type === 'start' ? 'text-green-500' : 'text-red-500'}`} />
                     <span className="text-sm font-medium">
