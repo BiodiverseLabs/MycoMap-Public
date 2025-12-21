@@ -106,6 +106,7 @@ export default function ForagingMap() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [expandedSpecies, setExpandedSpecies] = useState<Set<string>>(new Set());
+  const [selectedSpecies, setSelectedSpecies] = useState<string | null>(null);
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
@@ -123,9 +124,12 @@ export default function ForagingMap() {
 
   useEffect(() => {
     if (searchResults && mapRef.current) {
-      initializeMap(searchResults.observations);
+      const filteredObs = selectedSpecies 
+        ? searchResults.observations.filter(obs => obs.scientificName === selectedSpecies)
+        : searchResults.observations;
+      initializeMap(filteredObs);
     }
-  }, [searchResults]);
+  }, [searchResults, selectedSpecies]);
 
   const initializeMap = async (observations: Observation[]) => {
     if (!mapRef.current) return;
@@ -737,18 +741,12 @@ export default function ForagingMap() {
                         return (
                           <Fragment key={group.scientificName}>
                             <tr 
-                              className={`hover:bg-slate-50 ${hasMultipleLocations ? 'cursor-pointer' : ''}`}
+                              className={`hover:bg-slate-50 cursor-pointer ${selectedSpecies === group.scientificName ? 'bg-myco-green/10 border-l-4 border-myco-green' : ''}`}
                               onClick={() => {
-                                if (hasMultipleLocations) {
-                                  setExpandedSpecies(prev => {
-                                    const next = new Set(prev);
-                                    if (next.has(group.scientificName)) {
-                                      next.delete(group.scientificName);
-                                    } else {
-                                      next.add(group.scientificName);
-                                    }
-                                    return next;
-                                  });
+                                if (selectedSpecies === group.scientificName) {
+                                  setSelectedSpecies(null);
+                                } else {
+                                  setSelectedSpecies(group.scientificName);
                                 }
                               }}
                               data-testid={`observation-row-${group.scientificName}`}
@@ -787,9 +785,27 @@ export default function ForagingMap() {
                               </td>
                               <td className="p-3 text-center">
                                 {hasMultipleLocations && (
-                                  isExpanded ? 
-                                    <ChevronDown className="h-4 w-4 text-slate-400" /> : 
-                                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedSpecies(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(group.scientificName)) {
+                                          next.delete(group.scientificName);
+                                        } else {
+                                          next.add(group.scientificName);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                    className="p-1 hover:bg-slate-200 rounded transition-colors"
+                                    data-testid={`expand-${group.scientificName}`}
+                                  >
+                                    {isExpanded ? 
+                                      <ChevronDown className="h-4 w-4 text-slate-400" /> : 
+                                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                                    }
+                                  </button>
                                 )}
                               </td>
                             </tr>
