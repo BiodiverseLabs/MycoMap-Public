@@ -197,7 +197,7 @@ export function MainNavigation() {
                     </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a 
-                      href="/api/auth/logout" 
+                      href="/api/logout" 
                       className="flex items-center gap-2 cursor-pointer"
                       data-testid="button-logout"
                     >
@@ -213,7 +213,7 @@ export function MainNavigation() {
                 className="bg-myco-green hover:bg-myco-green/90 text-white"
                 data-testid="button-signin"
               >
-                <a href="/api/auth/login" className="flex items-center gap-2">
+                <a href="/api/login" className="flex items-center gap-2">
                   <LogIn className="h-4 w-4" />
                   Sign In
                 </a>
