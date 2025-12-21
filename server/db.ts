@@ -4439,15 +4439,17 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(fitnessObservationCache.observedOn, endDate));
     }
     
-    let query = db.select().from(fitnessObservationCache)
-      .where(and(...conditions))
-      .orderBy(desc(fitnessObservationCache.observedOn)); // Most recent first
-    
+    // Build query with optional limit using raw SQL for reliable limiting
     if (limit) {
-      query = query.limit(limit) as typeof query;
+      return await db.select().from(fitnessObservationCache)
+        .where(and(...conditions))
+        .orderBy(desc(fitnessObservationCache.observedOn))
+        .limit(limit);
     }
     
-    return await query;
+    return await db.select().from(fitnessObservationCache)
+      .where(and(...conditions))
+      .orderBy(desc(fitnessObservationCache.observedOn));
   }
 
   async upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void> {
