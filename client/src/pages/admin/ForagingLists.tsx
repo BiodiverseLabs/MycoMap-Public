@@ -23,6 +23,8 @@ const FORAGING_CATEGORIES = [
   { id: "medicinals", label: "Medicinals", color: "bg-purple-500", description: "Species with medicinal or therapeutic properties" },
   { id: "dyers", label: "Dyers", color: "bg-amber-500", description: "Species used for natural dye production" },
   { id: "psychoactive", label: "Psychoactive", color: "bg-indigo-500", description: "Species with psychoactive compounds" },
+  { id: "poisonous", label: "Poisonous", color: "bg-orange-500", description: "Species that are toxic if consumed" },
+  { id: "deadly", label: "Deadly", color: "bg-red-600", description: "Species that can cause severe harm or death" },
 ];
 
 export default function ForagingLists() {

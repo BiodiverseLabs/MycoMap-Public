@@ -1100,7 +1100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/foraging-lists/:category/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
       const { category } = req.params;
-      const validCategories = ['choice-edibles', 'edibles', 'medicinals', 'dyers', 'psychoactive'];
+      const validCategories = ['choice-edibles', 'edibles', 'medicinals', 'dyers', 'psychoactive', 'poisonous', 'deadly'];
       
       if (!validCategories.includes(category)) {
         return res.status(400).json({ error: "Invalid category" });
