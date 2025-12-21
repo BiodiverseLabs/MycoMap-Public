@@ -1314,7 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           await storage.updateFitnessSyncProgress(usernameLower, 0, 'syncing', 
             resumeFromPage > 1 
-              ? `Resuming sync: ${cachedCount} already cached, ${totalCount} total`
+              ? `Resuming sync: ${actualCachedCount} already cached, ${totalCount} total`
               : `Found ${totalCount} observations to sync`
           );
           
