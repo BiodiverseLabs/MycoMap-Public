@@ -2136,8 +2136,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // In-memory photo URL cache (keyed by observation ID)
-  const photoUrlCache = new Map<string, { url: string; fetchedAt: number }>();
+  const photoUrlCache = new Map<string, { url: string | null; fetchedAt: number }>();
   const PHOTO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+  const NEGATIVE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes for failed lookups
 
   // Photo proxy endpoint - fetches fresh photo URLs from iNaturalist API
   app.get("/api/photo-url/:observationId", async (req, res) => {
@@ -2146,13 +2147,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check in-memory cache first
       const cached = photoUrlCache.get(observationId);
-      if (cached && Date.now() - cached.fetchedAt < PHOTO_CACHE_TTL) {
-        return res.json({ url: cached.url, cached: true });
+      if (cached) {
+        const ttl = cached.url ? PHOTO_CACHE_TTL : NEGATIVE_CACHE_TTL;
+        if (Date.now() - cached.fetchedAt < ttl) {
+          if (cached.url) {
+            return res.json({ url: cached.url, cached: true });
+          } else {
+            return res.status(404).json({ error: 'No photos found', cached: true });
+          }
+        }
       }
       
       // Fetch from iNaturalist API
       const response = await fetch(`https://api.inaturalist.org/v1/observations/${observationId}`);
+      
+      // Handle rate limiting
+      if (response.status === 429) {
+        console.warn(`[Photo Proxy] Rate limited by iNaturalist API`);
+        return res.status(429).json({ error: 'Rate limited, try again later' });
+      }
+      
       if (!response.ok) {
+        // Cache negative result briefly
+        photoUrlCache.set(observationId, { url: null, fetchedAt: Date.now() });
         return res.status(404).json({ error: 'Observation not found' });
       }
       
@@ -2169,6 +2186,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Cache negative result
+      photoUrlCache.set(observationId, { url: null, fetchedAt: Date.now() });
       return res.status(404).json({ error: 'No photos found' });
     } catch (error) {
       console.error(`[Photo Proxy] Error fetching photo for observation ${req.params.observationId}:`, error);
