@@ -1135,3 +1135,25 @@ export type UserSubscription = typeof userSubscriptions.$inferSelect;
 
 export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+
+// Foraging Lists - species lists for foraging categories
+export const foragingLists = pgTable("foraging_lists", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull().unique(), // choice-edibles, edibles, medicinals, dyers, psychoactive
+  csvData: text("csv_data"), // Raw CSV content
+  fileName: text("file_name"),
+  speciesCount: integer("species_count").default(0),
+  uploadedAt: timestamp("uploaded_at"),
+  uploadedBy: text("uploaded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertForagingListSchema = createInsertSchema(foragingLists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertForagingList = z.infer<typeof insertForagingListSchema>;
+export type ForagingList = typeof foragingLists.$inferSelect;
