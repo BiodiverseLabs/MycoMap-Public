@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Navigation, Search, Calendar, Leaf, Loader2, Star, ChevronDown, ChevronRight } from "lucide-react";
+import { MapPin, Navigation, Search, Calendar, Leaf, Loader2, Star, ChevronDown, ChevronRight, UtensilsCrossed, Heart, Palette, Sparkles, Skull, AlertTriangle, Cherry } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, subDays, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -75,13 +76,21 @@ const MONTH_OPTIONS = [
 ];
 
 const FORAGING_CATEGORIES = [
-  { id: "choice-edibles", label: "Choice Edibles", color: "bg-emerald-500" },
-  { id: "edibles", label: "Edibles", color: "bg-green-500" },
-  { id: "medicinals", label: "Medicinals", color: "bg-purple-500" },
-  { id: "dyers", label: "Dyers", color: "bg-amber-500" },
-  { id: "psychoactive", label: "Psychoactive", color: "bg-indigo-500" },
-  { id: "novel-species", label: "Novel Species", color: "bg-rose-500" },
+  { id: "choice-edibles", label: "Choice Edibles", color: "bg-emerald-500", icon: Cherry },
+  { id: "edibles", label: "Edibles", color: "bg-green-500", icon: UtensilsCrossed },
+  { id: "medicinals", label: "Medicinals", color: "bg-purple-500", icon: Heart },
+  { id: "dyers", label: "Dyers", color: "bg-amber-500", icon: Palette },
+  { id: "psychoactive", label: "Psychoactive", color: "bg-indigo-500", icon: Sparkles },
+  { id: "poisonous", label: "Poisonous", color: "bg-orange-500", icon: AlertTriangle },
+  { id: "deadly", label: "Deadly", color: "bg-red-500", icon: Skull },
 ];
+
+interface SpeciesLookup {
+  [scientificName: string]: {
+    categories: string[];
+    metadata: Record<string, Record<string, string>>;
+  };
+}
 
 interface LocationSuggestion {
   display_name: string;
@@ -112,6 +121,28 @@ export default function ForagingMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const { toast } = useToast();
+  
+  // Fetch species lookup data for category tags
+  const { data: speciesLookup } = useQuery<SpeciesLookup>({
+    queryKey: ['/api/foraging/species-lookup'],
+  });
+  
+  // Filter observations based on selected categories
+  const getFilteredObservations = (observations: Observation[]) => {
+    if (!speciesLookup || selectedCategories.size === FORAGING_CATEGORIES.length) {
+      return observations;
+    }
+    
+    return observations.filter(obs => {
+      const speciesInfo = speciesLookup[obs.scientificName];
+      if (!speciesInfo) {
+        // Include species without category data only if all categories are selected
+        return selectedCategories.size === FORAGING_CATEGORIES.length;
+      }
+      // Include if species has any of the selected categories
+      return speciesInfo.categories.some(cat => selectedCategories.has(cat));
+    });
+  };
 
   const today = new Date();
   const windowDays = parseInt(dateWindow);
@@ -124,12 +155,13 @@ export default function ForagingMap() {
 
   useEffect(() => {
     if (searchResults && mapRef.current) {
-      const filteredObs = selectedSpecies 
-        ? searchResults.observations.filter(obs => obs.scientificName === selectedSpecies)
-        : searchResults.observations;
+      let filteredObs = getFilteredObservations(searchResults.observations);
+      if (selectedSpecies) {
+        filteredObs = filteredObs.filter(obs => obs.scientificName === selectedSpecies);
+      }
       initializeMap(filteredObs);
     }
-  }, [searchResults, selectedSpecies]);
+  }, [searchResults, selectedSpecies, selectedCategories, speciesLookup]);
 
   const initializeMap = async (observations: Observation[]) => {
     if (!mapRef.current) return;
@@ -646,43 +678,90 @@ export default function ForagingMap() {
                 </CardHeader>
                 <CardContent className="p-3">
                   <div className="space-y-2 max-h-[350px] overflow-y-auto">
-                    {searchResults.topSpecies.map((species, index) => (
-                      <div 
-                        key={species.name} 
-                        className="flex items-center justify-between p-2 bg-slate-50 rounded hover:bg-slate-100 transition-colors"
-                        data-testid={`species-row-${index}`}
-                      >
-                        <div className="min-w-0 flex-1 flex items-center gap-1">
-                          {species.hasCurrentYearResearchGrade && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Star 
-                                  className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" 
-                                  aria-label="Confirmed Out Now"
-                                  data-testid={`star-species-${index}`}
-                                />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Confirmed Out Now</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate italic">
-                              {species.name}
-                            </p>
-                            {species.commonName && (
-                              <p className="text-xs text-slate-500 truncate">
-                                {species.commonName}
-                              </p>
-                            )}
+                    {searchResults.topSpecies
+                      .filter(species => {
+                        if (!speciesLookup || selectedCategories.size === FORAGING_CATEGORIES.length) return true;
+                        const speciesInfo = speciesLookup[species.name];
+                        if (!speciesInfo) return selectedCategories.size === FORAGING_CATEGORIES.length;
+                        return speciesInfo.categories.some(cat => selectedCategories.has(cat));
+                      })
+                      .map((species, index) => {
+                        const speciesInfo = speciesLookup?.[species.name];
+                        return (
+                          <div 
+                            key={species.name} 
+                            className="flex items-center justify-between p-2 bg-slate-50 rounded hover:bg-slate-100 transition-colors"
+                            data-testid={`species-row-${index}`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1">
+                                {species.hasCurrentYearResearchGrade && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Star 
+                                        className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" 
+                                        aria-label="Confirmed Out Now"
+                                        data-testid={`star-species-${index}`}
+                                      />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Confirmed Out Now</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-slate-800 truncate italic">
+                                    {species.name}
+                                  </p>
+                                  {species.commonName && (
+                                    <p className="text-xs text-slate-500 truncate">
+                                      {species.commonName}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              {speciesInfo?.categories.length > 0 && (
+                                <div className="flex gap-1 mt-1">
+                                  {speciesInfo.categories.map(catId => {
+                                    const category = FORAGING_CATEGORIES.find(c => c.id === catId);
+                                    if (!category) return null;
+                                    const Icon = category.icon;
+                                    const metadata = speciesInfo.metadata[catId];
+                                    const hasMetadata = metadata && Object.keys(metadata).length > 0;
+                                    
+                                    return (
+                                      <Tooltip key={catId}>
+                                        <TooltipTrigger asChild>
+                                          <span 
+                                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${category.color} text-white cursor-help`}
+                                          >
+                                            <Icon className="h-3 w-3" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs">
+                                          <p className="font-semibold">{category.label}</p>
+                                          {hasMetadata && (
+                                            <div className="mt-1 text-xs space-y-0.5">
+                                              {Object.entries(metadata).slice(0, 6).map(([key, value]) => (
+                                                <p key={key}>
+                                                  <span className="text-slate-400">{key}:</span> {value}
+                                                </p>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            <span className="ml-2 px-2 py-1 bg-myco-green/10 text-myco-green text-xs font-semibold rounded">
+                              {species.count}
+                            </span>
                           </div>
-                        </div>
-                        <span className="ml-2 px-2 py-1 bg-myco-green/10 text-myco-green text-xs font-semibold rounded">
-                          {species.count}
-                        </span>
-                      </div>
-                    ))}
+                        );
+                      })}
                     {searchResults.topSpecies.length === 0 && (
                       <p className="text-sm text-slate-500 text-center py-4">
                         No species found
@@ -699,7 +778,7 @@ export default function ForagingMap() {
               <CardTitle className="text-lg">
                 All Observations
                 <span className="text-sm font-normal text-slate-500 ml-2">
-                  ({searchResults.observations.length} results)
+                  ({getFilteredObservations(searchResults.observations).length} results)
                 </span>
               </CardTitle>
             </CardHeader>
@@ -709,6 +788,7 @@ export default function ForagingMap() {
                   <thead className="bg-slate-50 border-b">
                     <tr>
                       <th className="text-left p-3 text-sm font-medium text-slate-700">Species Name</th>
+                      <th className="text-left p-3 text-sm font-medium text-slate-700">Use Case</th>
                       <th className="text-left p-3 text-sm font-medium text-slate-700">Total Observations</th>
                       <th className="text-left p-3 text-sm font-medium text-slate-700">Location</th>
                       <th className="w-10"></th>
@@ -716,7 +796,8 @@ export default function ForagingMap() {
                   </thead>
                   <tbody className="divide-y">
                     {(() => {
-                      const speciesGroups = searchResults.observations.reduce((acc, obs) => {
+                      const filteredObs = getFilteredObservations(searchResults.observations);
+                      const speciesGroups = filteredObs.reduce((acc, obs) => {
                         const key = obs.scientificName;
                         if (!acc[key]) {
                           acc[key] = {
@@ -743,6 +824,7 @@ export default function ForagingMap() {
                         const sortedLocations = Object.entries(group.locationCounts).sort((a, b) => b[1] - a[1]);
                         const topLocation = sortedLocations[0];
                         const hasMultipleLocations = sortedLocations.length > 1;
+                        const speciesInfo = speciesLookup?.[group.scientificName];
 
                         return (
                           <Fragment key={group.scientificName}>
@@ -779,6 +861,45 @@ export default function ForagingMap() {
                                       <p className="text-xs text-slate-500">{group.commonName}</p>
                                     )}
                                   </div>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-wrap gap-1">
+                                  {speciesInfo?.categories.map(catId => {
+                                    const category = FORAGING_CATEGORIES.find(c => c.id === catId);
+                                    if (!category) return null;
+                                    const Icon = category.icon;
+                                    const metadata = speciesInfo.metadata[catId];
+                                    const hasMetadata = metadata && Object.keys(metadata).length > 0;
+                                    
+                                    return (
+                                      <Tooltip key={catId}>
+                                        <TooltipTrigger asChild>
+                                          <span 
+                                            className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${category.color} text-white cursor-help`}
+                                            data-testid={`icon-${catId}-${group.scientificName}`}
+                                          >
+                                            <Icon className="h-3.5 w-3.5" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs">
+                                          <p className="font-semibold">{category.label}</p>
+                                          {hasMetadata && (
+                                            <div className="mt-1 text-xs space-y-0.5">
+                                              {Object.entries(metadata).slice(0, 6).map(([key, value]) => (
+                                                <p key={key}>
+                                                  <span className="text-slate-400">{key}:</span> {value}
+                                                </p>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                  {!speciesInfo?.categories.length && (
+                                    <span className="text-xs text-slate-400">—</span>
+                                  )}
                                 </div>
                               </td>
                               <td className="p-3 text-sm text-slate-600">
@@ -818,6 +939,7 @@ export default function ForagingMap() {
                             {isExpanded && sortedLocations.slice(1).map(([loc, count]) => (
                               <tr key={`${group.scientificName}-${loc}`} className="bg-slate-50/50">
                                 <td className="p-3 pl-8 text-sm text-slate-500"></td>
+                                <td className="p-3"></td>
                                 <td className="p-3 text-sm text-slate-500">
                                   <span className="px-2 py-1 bg-slate-100 text-slate-600 font-medium rounded">
                                     {count}
@@ -835,12 +957,12 @@ export default function ForagingMap() {
                     })()}
                   </tbody>
                 </table>
-                {Object.keys(searchResults.observations.reduce((acc, obs) => { acc[obs.scientificName] = true; return acc; }, {} as Record<string, boolean>)).length > 100 && (
+                {Object.keys(getFilteredObservations(searchResults.observations).reduce((acc, obs) => { acc[obs.scientificName] = true; return acc; }, {} as Record<string, boolean>)).length > 100 && (
                   <div className="p-3 text-center text-sm text-slate-500 border-t">
                     Showing first 100 species
                   </div>
                 )}
-                {searchResults.observations.length === 0 && (
+                {getFilteredObservations(searchResults.observations).length === 0 && (
                   <div className="p-8 text-center text-slate-500">
                     No observations found for this location and time period.
                   </div>

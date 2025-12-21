@@ -1155,6 +1155,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all foraging species with category tags (public - for ForagingMap)
+  app.get("/api/foraging/species-lookup", async (req, res) => {
+    try {
+      const lists = await storage.getForagingLists();
+      
+      // Parse CSV data and create a lookup table by scientific name
+      const speciesLookup: Record<string, {
+        categories: string[];
+        metadata: Record<string, Record<string, string>>; // category -> column -> value
+      }> = {};
+      
+      for (const list of lists) {
+        if (!list.csvData) continue;
+        
+        const lines = list.csvData.split('\n').filter((line: string) => line.trim());
+        if (lines.length < 2) continue;
+        
+        // Parse header
+        const headers = lines[0].split(',').map((h: string) => h.trim().replace(/^"|"$/g, ''));
+        const scientificNameIndex = headers.findIndex((h: string) => 
+          h.toLowerCase() === 'scientific name' || h.toLowerCase() === 'scientificname'
+        );
+        
+        if (scientificNameIndex === -1) continue;
+        
+        // Parse rows
+        for (let i = 1; i < lines.length; i++) {
+          // Handle CSV parsing with potential quoted fields
+          const row: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (const char of lines[i]) {
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              row.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          row.push(current.trim());
+          
+          const scientificName = row[scientificNameIndex]?.replace(/^"|"$/g, '').trim();
+          if (!scientificName) continue;
+          
+          // Initialize if not exists
+          if (!speciesLookup[scientificName]) {
+            speciesLookup[scientificName] = { categories: [], metadata: {} };
+          }
+          
+          // Add category
+          if (!speciesLookup[scientificName].categories.includes(list.category)) {
+            speciesLookup[scientificName].categories.push(list.category);
+          }
+          
+          // Store all metadata for this category
+          const rowMetadata: Record<string, string> = {};
+          headers.forEach((header: string, index: number) => {
+            if (index !== scientificNameIndex && row[index]) {
+              rowMetadata[header] = row[index].replace(/^"|"$/g, '');
+            }
+          });
+          speciesLookup[scientificName].metadata[list.category] = rowMetadata;
+        }
+      }
+      
+      res.json(speciesLookup);
+    } catch (error: any) {
+      console.error("[Foraging Species] Error fetching species lookup:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch species lookup" });
+    }
+  });
+
   // =============================================
   // CMS API ENDPOINTS
   // =============================================
