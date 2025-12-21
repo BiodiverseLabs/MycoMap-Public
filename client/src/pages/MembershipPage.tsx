@@ -142,7 +142,7 @@ export default function MembershipPage() {
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-2xl font-bold text-myco-brown text-center mb-8">
-              Universal Benefits (All Membership Levels)
+              Universal Benefits (All Support Levels)
             </h2>
             <div className="grid md:grid-cols-3 gap-6">
               {universalBenefits.map((benefit, index) => (
@@ -162,7 +162,7 @@ export default function MembershipPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-myco-brown mb-4">
-              Membership Levels
+              Support Levels
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
               Choose the level that works for you. All tiers support the same mission.
