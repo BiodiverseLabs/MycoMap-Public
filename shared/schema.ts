@@ -1157,3 +1157,59 @@ export const insertForagingListSchema = createInsertSchema(foragingLists).omit({
 
 export type InsertForagingList = z.infer<typeof insertForagingListSchema>;
 export type ForagingList = typeof foragingLists.$inferSelect;
+
+// Fitness Observation Cache - stores iNaturalist observations for the Fitness Tracker
+export const fitnessObservationCache = pgTable("fitness_observation_cache", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull(), // iNaturalist username
+  observationId: integer("observation_id").notNull(), // iNaturalist observation ID
+  scientificName: text("scientific_name"),
+  commonName: text("common_name"),
+  observedOn: text("observed_on"), // Date string YYYY-MM-DD
+  timeObserved: text("time_observed"), // Time string or observed_on_string
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  photoUrl: text("photo_url"),
+  placeGuess: text("place_guess"),
+  inatUpdatedAt: timestamp("inat_updated_at"), // iNaturalist's updated_at for incremental sync
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Soft delete for removed observations
+}, (table) => ({
+  usernameIdx: index("fitness_cache_username_idx").on(table.username),
+  observedOnIdx: index("fitness_cache_observed_on_idx").on(table.observedOn),
+  uniqueUserObs: unique("fitness_cache_user_obs_unique").on(table.username, table.observationId),
+}));
+
+// Fitness Cache Metadata - tracks sync state per user
+export const fitnessCacheMetadata = pgTable("fitness_cache_metadata", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  totalObservations: integer("total_observations").default(0),
+  lastFullSyncAt: timestamp("last_full_sync_at"),
+  lastIncrementalSyncAt: timestamp("last_incremental_sync_at"),
+  lastSyncCursor: timestamp("last_sync_cursor"), // The max updated_at from last sync for incremental fetches
+  syncStatus: text("sync_status").default("idle"), // idle, syncing, completed, error
+  syncProgress: integer("sync_progress").default(0), // 0-100 percentage
+  syncMessage: text("sync_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFitnessObservationCacheSchema = createInsertSchema(fitnessObservationCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFitnessCacheMetadataSchema = createInsertSchema(fitnessCacheMetadata).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFitnessObservationCache = z.infer<typeof insertFitnessObservationCacheSchema>;
+export type FitnessObservationCache = typeof fitnessObservationCache.$inferSelect;
+
+export type InsertFitnessCacheMetadata = z.infer<typeof insertFitnessCacheMetadataSchema>;
+export type FitnessCacheMetadata = typeof fitnessCacheMetadata.$inferSelect;
