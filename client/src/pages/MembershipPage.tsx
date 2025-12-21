@@ -249,7 +249,7 @@ export default function MembershipPage() {
                               data-testid={`button-login-${plan.slug}`}
                             >
                               <LogIn className="h-4 w-4" />
-                              Sign in to Subscribe
+                              Support the Network
                             </Button>
                           </a>
                         ) : (
