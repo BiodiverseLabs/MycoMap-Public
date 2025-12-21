@@ -563,12 +563,12 @@ export default function FitnessTracker() {
   };
 
   // Fetch from cache
-  const fetchFromCache = async (startDate: string, endDate: string) => {
+  const fetchFromCache = async (startDate?: string, endDate?: string) => {
     const params = new URLSearchParams({
       username: username.trim(),
-      startDate,
-      endDate,
     });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
 
     const response = await fetch(`/api/fitness/cache?${params}`);
     if (!response.ok) {
@@ -597,53 +597,37 @@ export default function FitnessTracker() {
       toast({ title: "Username required", description: "Please enter an iNaturalist username", variant: "destructive" });
       return;
     }
-    if (!dateRange.from || !dateRange.to) {
-      toast({ title: "Date range required", description: "Please select a date range", variant: "destructive" });
-      return;
-    }
 
     setIsSearching(true);
     setSelectedDay(null); // Reset day selection on new search
     
-    const startDate = format(dateRange.from, 'yyyy-MM-dd');
-    const endDate = format(dateRange.to, 'yyyy-MM-dd');
+    // Date range is now optional - for filtering only
+    const startDate = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
+    const endDate = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
     
     try {
       // Check cache status first
       const status = await checkCacheStatus(username.trim());
       
       let data;
-      if (useCache && status && status.totalObservations > 0) {
+      if (status && status.totalObservations > 0) {
         // Use cached data
         data = await fetchFromCache(startDate, endDate);
         const obsCount = data.observations?.length || 0;
         
-        if (obsCount === 0) {
-          // Cache has data but not for this date range - fall back to API
-          data = await fetchFromApi(startDate, endDate);
-          toast({ 
-            title: "Success", 
-            description: `Found ${data.observations?.length || 0} observations (live)` 
-          });
-        } else {
-          toast({ 
-            title: "Success", 
-            description: `Found ${obsCount} observations (from cache)` 
-          });
-        }
+        toast({ 
+          title: "Success", 
+          description: `Loaded ${obsCount} observations from cache` 
+        });
       } else {
-        // No cache, use live API
-        data = await fetchFromApi(startDate, endDate);
-        const obsCount = data.observations?.length || 0;
-        
-        if (obsCount === 0) {
-          toast({ title: "No observations found", description: "Try adjusting the date range or username" });
-        } else {
-          toast({ 
-            title: "Success", 
-            description: `Found ${obsCount} observations` 
-          });
-        }
+        // No cache - prompt user to sync
+        toast({ 
+          title: "No cached data", 
+          description: "Click 'Sync' to download your observations first",
+          variant: "destructive"
+        });
+        setIsSearching(false);
+        return;
       }
       
       setObservations(data.observations || []);
@@ -663,7 +647,7 @@ export default function FitnessTracker() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Search Observations</CardTitle>
+          <CardTitle className="text-lg">Load Observations</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4 items-end">
@@ -677,48 +661,6 @@ export default function FitnessTracker() {
                 onChange={(e) => setUsername(e.target.value)}
               />
             </div>
-            <div className="flex-1 min-w-[250px]">
-              <Label>Date Range</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                    data-testid="button-date-range"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                        </>
-                      ) : (
-                        format(dateRange.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>Pick a date range</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
-                    numberOfMonths={2}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <Button
-              onClick={handleSearch}
-              disabled={isSearching || isSyncing}
-              className="bg-[#8CBD45] hover:bg-[#7AAD35]"
-              data-testid="button-search"
-            >
-              {isSearching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-              Search
-            </Button>
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -730,13 +672,13 @@ export default function FitnessTracker() {
                   {isSyncing ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
-                    <Database className="h-4 w-4 mr-2" />
+                    <CloudDownload className="h-4 w-4 mr-2" />
                   )}
                   Sync
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Cache Management</DropdownMenuLabel>
+                <DropdownMenuLabel>Download from iNaturalist</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={startFullSync}
@@ -751,11 +693,69 @@ export default function FitnessTracker() {
                   data-testid="menu-incremental-sync"
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Incremental Sync (New Only)
+                  Quick Update (New Only)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            
+            <Button
+              onClick={handleSearch}
+              disabled={isSearching || isSyncing || !cacheStatus?.totalObservations}
+              className="bg-[#8CBD45] hover:bg-[#7AAD35]"
+              data-testid="button-load"
+            >
+              {isSearching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />}
+              Load Data
+            </Button>
           </div>
+          
+          {/* Optional date filter */}
+          {cacheStatus && cacheStatus.totalObservations > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <Label className="text-sm text-muted-foreground mb-2 block">Optional: Filter by date range</Label>
+              <div className="flex gap-4 items-center">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex-1 justify-start text-left font-normal"
+                      data-testid="button-date-range"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>All dates</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {(dateRange.from || dateRange.to) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDateRange({ from: undefined, to: undefined })}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
           
           {/* Sync Progress */}
           {isSyncing && cacheStatus && (
@@ -773,26 +773,25 @@ export default function FitnessTracker() {
           
           {/* Cache Status */}
           {cacheStatus && cacheStatus.totalObservations > 0 && !isSyncing && (
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-[#8CBD45]" />
-                <span className="text-sm">
-                  <strong>{cacheStatus.totalObservations.toLocaleString()}</strong> observations cached
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-center gap-2">
+              <Database className="h-4 w-4 text-[#8CBD45]" />
+              <span className="text-sm">
+                <strong>{cacheStatus.totalObservations.toLocaleString()}</strong> observations cached
+              </span>
+              {cacheStatus.lastFullSyncAt && (
+                <span className="text-xs text-muted-foreground">
+                  (last sync: {format(new Date(cacheStatus.lastFullSyncAt), 'MMM d, yyyy h:mm a')})
                 </span>
-                {cacheStatus.lastFullSyncAt && (
-                  <span className="text-xs text-muted-foreground">
-                    (last sync: {format(new Date(cacheStatus.lastFullSyncAt), 'MMM d, yyyy h:mm a')})
-                  </span>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setUseCache(!useCache)}
-                data-testid="button-toggle-cache"
-              >
-                {useCache ? 'Using Cache' : 'Using Live API'}
-              </Button>
+              )}
+            </div>
+          )}
+          
+          {/* Prompt to sync if no cache */}
+          {cacheStatus && cacheStatus.totalObservations === 0 && !isSyncing && username.trim().length >= 3 && (
+            <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                No cached data for this user. Click <strong>Sync</strong> to download observations from iNaturalist.
+              </p>
             </div>
           )}
           
