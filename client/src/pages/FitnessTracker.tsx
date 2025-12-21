@@ -28,7 +28,16 @@ interface ProcessedObservation extends FitnessObservation {
   dateTime: Date;
   distanceFromPrevious: number;
   speedMph: number | null;
+  locationId: number;
+  isNewLocation: boolean;
 }
+
+const LOCATION_COLORS = [
+  '#8CBD45', '#A87146', '#3B82F6', '#EF4444', '#8B5CF6', 
+  '#F59E0B', '#10B981', '#EC4899', '#06B6D4', '#84CC16'
+];
+
+const MAX_WALKING_SPEED = 3;
 
 interface OutingSummary {
   date: string;
@@ -96,23 +105,34 @@ export default function FitnessTracker() {
       return dateA.getTime() - dateB.getTime();
     });
 
+    let currentLocationId = 0;
     const processed: ProcessedObservation[] = sorted.map((o, index) => {
       const dateTime = new Date(`${o.observedOn}T${o.timeObserved || '00:00:00'}`);
       let distanceFromPrevious = 0;
       let speedMph: number | null = null;
+      let isNewLocation = index === 0;
 
       if (index > 0) {
         const prev = sorted[index - 1];
         const prevDateTime = new Date(`${prev.observedOn}T${prev.timeObserved || '00:00:00'}`);
-        distanceFromPrevious = haversineDistance(
+        const rawDistance = haversineDistance(
           parseFloat(prev.latitude),
           parseFloat(prev.longitude),
           parseFloat(o.latitude),
           parseFloat(o.longitude)
         );
         const timeDiffMinutes = differenceInMinutes(dateTime, prevDateTime);
-        if (distanceFromPrevious > 0 && timeDiffMinutes > 0) {
-          speedMph = (distanceFromPrevious / timeDiffMinutes) * 60;
+        if (rawDistance > 0 && timeDiffMinutes > 0) {
+          speedMph = (rawDistance / timeDiffMinutes) * 60;
+        }
+        
+        // If speed > 3 mph, this is travel (not walking) - new location
+        if (speedMph && speedMph > MAX_WALKING_SPEED) {
+          isNewLocation = true;
+          currentLocationId++;
+          distanceFromPrevious = 0; // Don't count travel distance
+        } else {
+          distanceFromPrevious = rawDistance;
         }
       }
 
@@ -122,6 +142,8 @@ export default function FitnessTracker() {
         dateTime,
         distanceFromPrevious,
         speedMph,
+        locationId: currentLocationId,
+        isNewLocation,
       };
     });
 
@@ -137,6 +159,7 @@ export default function FitnessTracker() {
     });
 
     const summaries: OutingSummary[] = Array.from(outingMap.entries()).map(([date, dayObs]) => {
+      // Only count walking distances (not travel between locations)
       const totalDistance = dayObs.reduce((sum, o) => sum + o.distanceFromPrevious, 0);
       const firstObs = dayObs[0].dateTime;
       const lastObs = dayObs[dayObs.length - 1].dateTime;
@@ -166,21 +189,37 @@ export default function FitnessTracker() {
     if (obs.length === 0) return;
 
     const bounds = L.latLngBounds([]);
-    const markerIcon = L.divIcon({
-      className: 'custom-marker',
-      html: `<div style="background-color: #8CBD45; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;"></div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+
+    // Group observations by location for drawing separate polylines
+    const locationSegments = new Map<number, ProcessedObservation[]>();
+    obs.forEach(o => {
+      if (!locationSegments.has(o.locationId)) {
+        locationSegments.set(o.locationId, []);
+      }
+      locationSegments.get(o.locationId)!.push(o);
     });
 
-    obs.forEach((o, index) => {
+    // Draw polylines for each location segment (only within same location)
+    locationSegments.forEach((segment, locationId) => {
+      if (segment.length > 1) {
+        const latlngs = segment
+          .map(o => [parseFloat(o.latitude), parseFloat(o.longitude)] as [number, number])
+          .filter(ll => !isNaN(ll[0]) && !isNaN(ll[1]));
+        const color = LOCATION_COLORS[locationId % LOCATION_COLORS.length];
+        L.polyline(latlngs, { color, weight: 3, opacity: 0.7 }).addTo(map);
+      }
+    });
+
+    // Add markers with location-colored backgrounds
+    obs.forEach((o) => {
       const lat = parseFloat(o.latitude);
       const lng = parseFloat(o.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
 
+      const color = LOCATION_COLORS[o.locationId % LOCATION_COLORS.length];
       const numberedIcon = L.divIcon({
         className: 'custom-marker',
-        html: `<div style="background-color: #8CBD45; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">${o.observationNumber}</div>`,
+        html: `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">${o.observationNumber}</div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
@@ -191,19 +230,13 @@ export default function FitnessTracker() {
           <strong>#${o.observationNumber}: ${o.scientificName}</strong><br/>
           <small>${o.commonName || ''}</small><br/>
           <small>${format(o.dateTime, 'MMM d, yyyy h:mm a')}</small><br/>
+          ${o.isNewLocation ? '<small><em>New Location</em></small><br/>' : ''}
           ${o.distanceFromPrevious > 0 ? `<small>Distance: ${o.distanceFromPrevious.toFixed(2)} mi</small><br/>` : ''}
           ${o.speedMph ? `<small>Speed: ${o.speedMph.toFixed(1)} mph</small>` : ''}
         </div>
       `);
       bounds.extend([lat, lng]);
     });
-
-    if (obs.length > 1) {
-      const latlngs = obs
-        .map(o => [parseFloat(o.latitude), parseFloat(o.longitude)] as [number, number])
-        .filter(ll => !isNaN(ll[0]) && !isNaN(ll[1]));
-      L.polyline(latlngs, { color: '#A87146', weight: 3, opacity: 0.7 }).addTo(map);
-    }
 
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [50, 50] });
@@ -405,7 +438,8 @@ export default function FitnessTracker() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[80px]">#</TableHead>
+                    <TableHead className="w-[12px] p-0"></TableHead>
+                    <TableHead className="w-[60px]">#</TableHead>
                     <TableHead>Species</TableHead>
                     <TableHead>Date-Time</TableHead>
                     <TableHead className="text-right">Distance (mi)</TableHead>
@@ -413,24 +447,43 @@ export default function FitnessTracker() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {processedObservations.map((obs) => (
-                    <TableRow key={obs.id} data-testid={`row-observation-${obs.id}`}>
-                      <TableCell className="font-medium">{obs.observationNumber}</TableCell>
-                      <TableCell>
-                        <div>
-                          <span className="font-medium">{obs.scientificName}</span>
-                          {obs.commonName && (
-                            <span className="text-muted-foreground ml-2">({obs.commonName})</span>
+                  {processedObservations.map((obs, index) => {
+                    const color = LOCATION_COLORS[obs.locationId % LOCATION_COLORS.length];
+                    const isLastInLocation = index === processedObservations.length - 1 || 
+                      processedObservations[index + 1].locationId !== obs.locationId;
+                    return (
+                      <TableRow key={obs.id} data-testid={`row-observation-${obs.id}`}>
+                        <TableCell className="p-0 relative">
+                          <div 
+                            className="absolute left-0 top-0 bottom-0 w-1"
+                            style={{ 
+                              backgroundColor: color,
+                              borderRadius: obs.isNewLocation ? '4px 4px 0 0' : isLastInLocation ? '0 0 4px 4px' : '0'
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {obs.isNewLocation && obs.observationNumber > 1 && (
+                            <span className="text-xs text-muted-foreground block">New Location</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{format(obs.dateTime, 'MMM d, yyyy h:mm a')}</TableCell>
-                      <TableCell className="text-right">
-                        {obs.observationNumber === 1 ? '--' : obs.distanceFromPrevious.toFixed(3)}
-                      </TableCell>
-                      <TableCell className="text-right">{formatSpeed(obs.speedMph)}</TableCell>
-                    </TableRow>
-                  ))}
+                          {obs.observationNumber}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="font-medium">{obs.scientificName}</span>
+                            {obs.commonName && (
+                              <span className="text-muted-foreground ml-2">({obs.commonName})</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{format(obs.dateTime, 'MMM d, yyyy h:mm a')}</TableCell>
+                        <TableCell className="text-right">
+                          {obs.isNewLocation ? '--' : obs.distanceFromPrevious.toFixed(3)}
+                        </TableCell>
+                        <TableCell className="text-right">{obs.isNewLocation ? '--' : formatSpeed(obs.speedMph)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
