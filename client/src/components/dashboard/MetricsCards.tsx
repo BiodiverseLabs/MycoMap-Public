@@ -45,7 +45,7 @@ export function MetricsCards({ dateRange, selectedState }: MetricsCardsProps) {
 
   const cards = [
     {
-      title: "Total Observations",
+      title: "Total DNA-barcoded Specimens",
       value: metrics?.totalObservations || 0,
       icon: Eye,
       color: "bg-primary/10 text-primary",
