@@ -83,6 +83,12 @@ const FORAGING_CATEGORIES = [
   { id: "novel-species", label: "Novel Species", color: "bg-rose-500" },
 ];
 
+interface LocationSuggestion {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
 export default function ForagingMap() {
   const [location, setLocation] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
@@ -96,6 +102,10 @@ export default function ForagingMap() {
   );
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -247,6 +257,54 @@ export default function ForagingMap() {
     setSelectedCategories(new Set());
   };
 
+  const fetchLocationSuggestions = async (query: string) => {
+    if (query.length < 3) {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsLoadingSuggestions(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+        { headers: { 'User-Agent': 'MycoMap/1.0' } }
+      );
+      const data = await response.json();
+      setLocationSuggestions(data);
+      setShowSuggestions(data.length > 0);
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+      setLocationSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  const handleLocationChange = (value: string) => {
+    setLocation(value);
+    setDetectedLocation(null);
+    
+    if (suggestionTimeoutRef.current) {
+      clearTimeout(suggestionTimeoutRef.current);
+    }
+    
+    suggestionTimeoutRef.current = setTimeout(() => {
+      fetchLocationSuggestions(value);
+    }, 300);
+  };
+
+  const selectSuggestion = (suggestion: LocationSuggestion) => {
+    const shortName = suggestion.display_name.split(',').slice(0, 2).join(',').trim();
+    setLocation(shortName);
+    setDetectedLocation({
+      lat: parseFloat(suggestion.lat),
+      lng: parseFloat(suggestion.lon)
+    });
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+  };
+
   const geocodeLocation = async (locationStr: string): Promise<{ lat: number; lng: number } | null> => {
     try {
       const response = await fetch(
@@ -348,14 +406,36 @@ export default function ForagingMap() {
               <Label className="text-sm font-medium text-slate-700">Foraging Location</Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
                   <Input
                     placeholder="Enter city, state, country, or address..."
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    onChange={(e) => handleLocationChange(e.target.value)}
+                    onFocus={() => location.length >= 3 && locationSuggestions.length > 0 && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                     className="pl-10"
                     data-testid="input-location"
                   />
+                  {showSuggestions && locationSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                      {locationSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className="w-full text-left px-4 py-2 hover:bg-slate-100 text-sm border-b last:border-b-0"
+                          onMouseDown={() => selectSuggestion(suggestion)}
+                          data-testid={`suggestion-${index}`}
+                        >
+                          {suggestion.display_name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {isLoadingSuggestions && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="outline"
