@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X, ChevronLeft, ChevronRight, RefreshCw, Database, CloudDownload } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { format, differenceInMinutes, parseISO, addMonths, subMonths, isSameDay, startOfMonth } from "date-fns";
@@ -47,6 +48,16 @@ interface OutingSummary {
   totalDistance: number;
   totalTimeMinutes: number;
   avgSpeedMph: number | null;
+}
+
+interface CacheStatus {
+  username: string;
+  totalObservations: number;
+  syncStatus: 'idle' | 'syncing' | 'completed' | 'error';
+  syncProgress: number;
+  syncMessage?: string;
+  lastFullSyncAt?: string;
+  lastIncrementalSyncAt?: string;
 }
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -90,6 +101,11 @@ export default function FitnessTracker() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [dayPickerMonth, setDayPickerMonth] = useState<Date>(new Date());
+  
+  // Cache and sync state
+  const [cacheStatus, setCacheStatus] = useState<CacheStatus | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [useCache, setUseCache] = useState(true);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -177,6 +193,19 @@ export default function FitnessTracker() {
       setDayPickerMonth(startOfMonth(parseISO(observationDates[0])));
     }
   }, [observationDates.length > 0 ? observationDates[0] : null]);
+
+  // Check cache status when username changes (debounced)
+  useEffect(() => {
+    const trimmed = username.trim();
+    if (trimmed.length >= 3) {
+      const timeout = setTimeout(() => {
+        checkCacheStatus(trimmed);
+      }, 500);
+      return () => clearTimeout(timeout);
+    } else {
+      setCacheStatus(null);
+    }
+  }, [username]);
 
   // Update location point markers without reinitializing the whole map
   useEffect(() => {
@@ -427,6 +456,142 @@ export default function FitnessTracker() {
     return `${mph.toFixed(1)} mph`;
   };
 
+  // Check cache status for a username
+  const checkCacheStatus = async (user: string) => {
+    try {
+      const response = await fetch(`/api/fitness/cache/status?username=${encodeURIComponent(user)}`);
+      if (response.ok) {
+        const status = await response.json();
+        setCacheStatus(status);
+        return status;
+      }
+    } catch (error) {
+      console.error('Error checking cache status:', error);
+    }
+    return null;
+  };
+
+  // Poll for sync progress
+  const pollSyncProgress = async (user: string) => {
+    const interval = setInterval(async () => {
+      const status = await checkCacheStatus(user);
+      if (status && status.syncStatus !== 'syncing') {
+        clearInterval(interval);
+        setIsSyncing(false);
+        
+        if (status.syncStatus === 'completed') {
+          toast({ 
+            title: "Sync Complete", 
+            description: status.syncMessage || `Synced ${status.totalObservations} observations` 
+          });
+        } else if (status.syncStatus === 'error') {
+          toast({ 
+            title: "Sync Error", 
+            description: status.syncMessage || "Failed to sync observations",
+            variant: "destructive"
+          });
+        }
+      }
+    }, 1000);
+    
+    // Stop polling after 10 minutes max
+    setTimeout(() => clearInterval(interval), 600000);
+  };
+
+  // Start full sync
+  const startFullSync = async () => {
+    if (!username.trim()) {
+      toast({ title: "Username required", description: "Please enter an iNaturalist username", variant: "destructive" });
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/fitness/cache/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim() }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === 'started' || data.status === 'already_syncing') {
+        toast({ 
+          title: "Sync Started", 
+          description: data.message || "Syncing observations in background..." 
+        });
+        pollSyncProgress(username.trim());
+      }
+    } catch (error: any) {
+      setIsSyncing(false);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // Start incremental sync
+  const startIncrementalSync = async () => {
+    if (!username.trim()) return;
+
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/fitness/cache/sync/incremental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim() }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.needsFullSync) {
+        // Fallback to full sync
+        setIsSyncing(false);
+        startFullSync();
+        return;
+      }
+      
+      if (data.status === 'started' || data.status === 'already_syncing') {
+        toast({ 
+          title: "Incremental Sync Started", 
+          description: "Checking for new observations..." 
+        });
+        pollSyncProgress(username.trim());
+      }
+    } catch (error: any) {
+      setIsSyncing(false);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // Fetch from cache
+  const fetchFromCache = async (startDate: string, endDate: string) => {
+    const params = new URLSearchParams({
+      username: username.trim(),
+      startDate,
+      endDate,
+    });
+
+    const response = await fetch(`/api/fitness/cache?${params}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch cached observations');
+    }
+    return await response.json();
+  };
+
+  // Fetch from live API
+  const fetchFromApi = async (startDate: string, endDate: string) => {
+    const params = new URLSearchParams({
+      username: username.trim(),
+      startDate,
+      endDate,
+    });
+
+    const response = await fetch(`/api/fitness/observations?${params}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch observations');
+    }
+    return await response.json();
+  };
+
   const handleSearch = async () => {
     if (!username.trim()) {
       toast({ title: "Username required", description: "Please enter an iNaturalist username", variant: "destructive" });
@@ -439,25 +604,49 @@ export default function FitnessTracker() {
 
     setIsSearching(true);
     setSelectedDay(null); // Reset day selection on new search
+    
+    const startDate = format(dateRange.from, 'yyyy-MM-dd');
+    const endDate = format(dateRange.to, 'yyyy-MM-dd');
+    
     try {
-      const params = new URLSearchParams({
-        username: username.trim(),
-        startDate: format(dateRange.from, 'yyyy-MM-dd'),
-        endDate: format(dateRange.to, 'yyyy-MM-dd'),
-      });
-
-      const response = await fetch(`/api/fitness/observations?${params}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch observations');
-      }
-      const data = await response.json();
-      setObservations(data.observations || []);
+      // Check cache status first
+      const status = await checkCacheStatus(username.trim());
       
-      if (data.observations?.length === 0) {
-        toast({ title: "No observations found", description: "Try adjusting the date range or username" });
+      let data;
+      if (useCache && status && status.totalObservations > 0) {
+        // Use cached data
+        data = await fetchFromCache(startDate, endDate);
+        const obsCount = data.observations?.length || 0;
+        
+        if (obsCount === 0) {
+          // Cache has data but not for this date range - fall back to API
+          data = await fetchFromApi(startDate, endDate);
+          toast({ 
+            title: "Success", 
+            description: `Found ${data.observations?.length || 0} observations (live)` 
+          });
+        } else {
+          toast({ 
+            title: "Success", 
+            description: `Found ${obsCount} observations (from cache)` 
+          });
+        }
       } else {
-        toast({ title: "Success", description: `Found ${data.observations.length} observations` });
+        // No cache, use live API
+        data = await fetchFromApi(startDate, endDate);
+        const obsCount = data.observations?.length || 0;
+        
+        if (obsCount === 0) {
+          toast({ title: "No observations found", description: "Try adjusting the date range or username" });
+        } else {
+          toast({ 
+            title: "Success", 
+            description: `Found ${obsCount} observations` 
+          });
+        }
       }
+      
+      setObservations(data.observations || []);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -523,14 +712,89 @@ export default function FitnessTracker() {
             </div>
             <Button
               onClick={handleSearch}
-              disabled={isSearching}
+              disabled={isSearching || isSyncing}
               className="bg-[#8CBD45] hover:bg-[#7AAD35]"
               data-testid="button-search"
             >
               {isSearching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
               Search
             </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isSyncing || !username.trim()}
+                  data-testid="button-sync-menu"
+                >
+                  {isSyncing ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Database className="h-4 w-4 mr-2" />
+                  )}
+                  Sync
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Cache Management</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={startFullSync}
+                  data-testid="menu-full-sync"
+                >
+                  <CloudDownload className="h-4 w-4 mr-2" />
+                  Full Sync (All Observations)
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={startIncrementalSync}
+                  disabled={!cacheStatus?.lastFullSyncAt}
+                  data-testid="menu-incremental-sync"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Incremental Sync (New Only)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+          
+          {/* Sync Progress */}
+          {isSyncing && cacheStatus && (
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Syncing Observations</span>
+                <span className="text-sm text-muted-foreground">{cacheStatus.syncProgress}%</span>
+              </div>
+              <Progress value={cacheStatus.syncProgress} className="h-2" />
+              {cacheStatus.syncMessage && (
+                <p className="text-xs text-muted-foreground mt-2">{cacheStatus.syncMessage}</p>
+              )}
+            </div>
+          )}
+          
+          {/* Cache Status */}
+          {cacheStatus && cacheStatus.totalObservations > 0 && !isSyncing && (
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-[#8CBD45]" />
+                <span className="text-sm">
+                  <strong>{cacheStatus.totalObservations.toLocaleString()}</strong> observations cached
+                </span>
+                {cacheStatus.lastFullSyncAt && (
+                  <span className="text-xs text-muted-foreground">
+                    (last sync: {format(new Date(cacheStatus.lastFullSyncAt), 'MMM d, yyyy h:mm a')})
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setUseCache(!useCache)}
+                data-testid="button-toggle-cache"
+              >
+                {useCache ? 'Using Cache' : 'Using Live API'}
+              </Button>
+            </div>
+          )}
           
           {hasMultipleDays && (
             <div className="mt-4 pt-4 border-t">
