@@ -369,11 +369,7 @@ export default function ForagingMap() {
 
       const data: SearchResults = await response.json();
       setSearchResults(data);
-
-      toast({
-        title: "Search Complete",
-        description: `Found ${data.totalCount} observations from iNaturalist`,
-      });
+      setSelectedSpecies(null);
     } catch (error) {
       console.error("Search error:", error);
       toast({
