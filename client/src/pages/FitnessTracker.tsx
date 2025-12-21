@@ -501,7 +501,6 @@ export default function FitnessTracker() {
           const datesResponse = await fetch(`/api/fitness/cache/dates?username=${encodeURIComponent(user)}`);
           if (datesResponse.ok) {
             const { dates } = await datesResponse.json();
-            console.log('[FitnessTracker] Cached observation dates:', dates?.length, 'dates, sample:', dates?.slice(0, 5));
             setCachedObservationDates(dates || []);
           }
         } else {
@@ -834,16 +833,17 @@ export default function FitnessTracker() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 z-[10001]" align="start">
-                    {(() => {
-                      const filteredDates = cachedObservationDates.filter(d => d && d.length > 0);
-                      const parsedDates = filteredDates.map(d => parseISO(d));
-                      console.log('[Calendar] Cached dates count:', filteredDates.length, 'Sample parsed:', parsedDates.slice(0, 3));
-                      return null;
-                    })()}
                     <Calendar
                       mode="range"
                       selected={dateRange}
-                      onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                      onSelect={(range) => {
+                        // If user clicks a single date, treat it as a single-day range
+                        if (range?.from && !range?.to) {
+                          setDateRange({ from: range.from, to: range.from });
+                        } else {
+                          setDateRange({ from: range?.from, to: range?.to });
+                        }
+                      }}
                       numberOfMonths={2}
                       modifiers={{
                         hasObservations: cachedObservationDates.filter(d => d && d.length > 0).map(d => parseISO(d))
