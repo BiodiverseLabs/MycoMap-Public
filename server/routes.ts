@@ -916,7 +916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =============================================
 
   // Search iNaturalist for fungi observations by location and date range
-  app.get("/api/foraging/search", isAuthenticated, async (req: any, res) => {
+  app.get("/api/foraging/search", async (req: any, res) => {
     try {
       const { lat, lng, radius, startDate, endDate, month } = req.query;
 
