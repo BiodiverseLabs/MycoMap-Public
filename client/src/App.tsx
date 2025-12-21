@@ -40,6 +40,7 @@ import BioRecordManagement from "@/pages/admin/BioRecordManagement";
 import AdminUpload from "@/pages/admin/AdminUpload";
 import AdminRedList from "@/pages/admin/AdminRedList";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import ForagingLists from "@/pages/admin/ForagingLists";
 import FieldGuides from "@/pages/FieldGuides";
 import FieldGuideCreate from "@/pages/FieldGuideCreate";
 import FieldGuideDetail from "@/pages/FieldGuideDetail";
@@ -114,6 +115,7 @@ function AppRouter() {
         <Route path="/admin/upload" component={AdminUpload} />
         <Route path="/admin/redlist" component={AdminRedList} />
         <Route path="/admin/settings" component={AdminSettings} />
+        <Route path="/admin/foraging-lists" component={ForagingLists} />
         <Route path="/api-docs" component={ApiDocumentation} />
         <Route path="/species/:name" component={SpeciesDetail} />
         <Route path="/species" component={Species} />
