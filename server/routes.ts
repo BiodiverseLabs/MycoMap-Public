@@ -1007,26 +1007,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Foraging Search] Found ${allObservations.length} observations`);
 
+      const currentYear = new Date().getFullYear();
+
+      // First pass: identify species with current-year research grade observations
+      const speciesWithCurrentYearResearchGrade = new Set<string>();
+      allObservations.forEach(obs => {
+        const scientificName = obs.taxon?.name || obs.species_guess || 'Unknown';
+        const observedYear = obs.observed_on ? new Date(obs.observed_on).getFullYear() : null;
+        if (obs.quality_grade === 'research' && observedYear === currentYear) {
+          speciesWithCurrentYearResearchGrade.add(scientificName);
+        }
+      });
+
       // Transform observations for the frontend
-      const observations = allObservations.map(obs => ({
-        id: obs.id,
-        latitude: obs.geojson?.coordinates?.[1]?.toString() || obs.location?.split(',')[0] || '',
-        longitude: obs.geojson?.coordinates?.[0]?.toString() || obs.location?.split(',')[1] || '',
-        scientificName: obs.taxon?.name || obs.species_guess || 'Unknown',
-        commonName: obs.taxon?.preferred_common_name || '',
-        state: obs.place_guess || '',
-        observedOn: obs.observed_on || '',
-        photoUrl: obs.photos?.[0]?.url?.replace('square', 'medium') || null,
-        userName: obs.user?.name || obs.user?.login || 'Anonymous',
-        qualityGrade: obs.quality_grade,
-      }));
+      const observations = allObservations.map(obs => {
+        const scientificName = obs.taxon?.name || obs.species_guess || 'Unknown';
+        return {
+          id: obs.id,
+          latitude: obs.geojson?.coordinates?.[1]?.toString() || obs.location?.split(',')[0] || '',
+          longitude: obs.geojson?.coordinates?.[0]?.toString() || obs.location?.split(',')[1] || '',
+          scientificName,
+          commonName: obs.taxon?.preferred_common_name || '',
+          state: obs.place_guess || '',
+          observedOn: obs.observed_on || '',
+          photoUrl: obs.photos?.[0]?.url?.replace('square', 'medium') || null,
+          userName: obs.user?.name || obs.user?.login || 'Anonymous',
+          qualityGrade: obs.quality_grade,
+          hasCurrentYearResearchGrade: speciesWithCurrentYearResearchGrade.has(scientificName),
+        };
+      });
 
       // Calculate top species
-      const speciesCounts: Record<string, { name: string, commonName: string, count: number }> = {};
+      const speciesCounts: Record<string, { name: string, commonName: string, count: number, hasCurrentYearResearchGrade: boolean }> = {};
       observations.forEach(obs => {
         const key = obs.scientificName;
         if (!speciesCounts[key]) {
-          speciesCounts[key] = { name: key, commonName: obs.commonName, count: 0 };
+          speciesCounts[key] = { 
+            name: key, 
+            commonName: obs.commonName, 
+            count: 0,
+            hasCurrentYearResearchGrade: obs.hasCurrentYearResearchGrade
+          };
         }
         speciesCounts[key].count++;
       });

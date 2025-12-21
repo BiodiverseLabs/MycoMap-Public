@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Navigation, Search, Calendar, Leaf, Loader2 } from "lucide-react";
+import { MapPin, Navigation, Search, Calendar, Leaf, Loader2, Star } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, subDays, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import L from 'leaflet';
@@ -21,12 +22,14 @@ interface Observation {
   photoUrl: string | null;
   userName: string;
   qualityGrade: string;
+  hasCurrentYearResearchGrade: boolean;
 }
 
 interface TopSpecies {
   name: string;
   commonName: string;
   count: number;
+  hasCurrentYearResearchGrade: boolean;
 }
 
 interface SearchResults {
@@ -526,7 +529,7 @@ export default function ForagingMap() {
       </Card>
 
       {searchResults && (
-        <>
+        <TooltipProvider>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
               <Card className="shadow-lg">
@@ -558,15 +561,31 @@ export default function ForagingMap() {
                         className="flex items-center justify-between p-2 bg-slate-50 rounded hover:bg-slate-100 transition-colors"
                         data-testid={`species-row-${index}`}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-slate-800 truncate italic">
-                            {species.name}
-                          </p>
-                          {species.commonName && (
-                            <p className="text-xs text-slate-500 truncate">
-                              {species.commonName}
-                            </p>
+                        <div className="min-w-0 flex-1 flex items-center gap-1">
+                          {species.hasCurrentYearResearchGrade && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Star 
+                                  className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" 
+                                  aria-label="Confirmed Out Now"
+                                  data-testid={`star-species-${index}`}
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Confirmed Out Now</p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate italic">
+                              {species.name}
+                            </p>
+                            {species.commonName && (
+                              <p className="text-xs text-slate-500 truncate">
+                                {species.commonName}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <span className="ml-2 px-2 py-1 bg-myco-green/10 text-myco-green text-xs font-semibold rounded">
                           {species.count}
@@ -607,11 +626,27 @@ export default function ForagingMap() {
                     {searchResults.observations.slice(0, 100).map((obs) => (
                       <tr key={obs.id} className="hover:bg-slate-50" data-testid={`observation-row-${obs.id}`}>
                         <td className="p-3">
-                          <div>
-                            <p className="text-sm font-medium text-slate-800 italic">{obs.scientificName}</p>
-                            {obs.commonName && (
-                              <p className="text-xs text-slate-500">{obs.commonName}</p>
+                          <div className="flex items-center gap-1">
+                            {obs.hasCurrentYearResearchGrade && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Star 
+                                    className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" 
+                                    aria-label="Confirmed Out Now"
+                                    data-testid={`star-obs-${obs.id}`}
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Confirmed Out Now</p>
+                                </TooltipContent>
+                              </Tooltip>
                             )}
+                            <div>
+                              <p className="text-sm font-medium text-slate-800 italic">{obs.scientificName}</p>
+                              {obs.commonName && (
+                                <p className="text-xs text-slate-500">{obs.commonName}</p>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="p-3 text-sm text-slate-600">
@@ -637,7 +672,7 @@ export default function ForagingMap() {
               </div>
             </CardContent>
           </Card>
-        </>
+        </TooltipProvider>
       )}
     </div>
   );
