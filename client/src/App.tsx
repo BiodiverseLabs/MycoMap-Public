@@ -48,10 +48,11 @@ import FieldGuideDetail from "@/pages/FieldGuideDetail";
 import SpeciesImageGallery from "@/pages/SpeciesImageGallery";
 import ApiDocumentation from "@/pages/ApiDocumentation";
 import NotFound from "@/pages/not-found";
+import ProfilePage from "@/pages/ProfilePage";
 
 const publicPaths = [
   '/', '/network', '/mycoblitz', '/habitat', '/protocols', '/join',
-  '/about', '/partners', '/contact', '/edna', '/barcoding'
+  '/about', '/partners', '/contact', '/edna', '/barcoding', '/profile'
 ];
 
 const networkSubpages = ['/network/ac', '/network/bc', '/network/ca', '/network/mi'];
@@ -77,6 +78,7 @@ function AppRouter() {
         <Route path="/contact"><CMSPage slug="contact" /></Route>
         <Route path="/edna"><CMSPage slug="edna" /></Route>
         <Route path="/barcoding"><CMSPage slug="barcoding" /></Route>
+        <Route path="/profile" component={ProfilePage} />
       </Switch>
     );
   }

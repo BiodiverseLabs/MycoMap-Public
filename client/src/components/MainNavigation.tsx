@@ -1,13 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Menu, X, ChevronDown, User, LogIn, LogOut, LayoutDashboard } from "lucide-react";
+import { Menu, X, ChevronDown, User, LogIn, LogOut, LayoutDashboard, Settings, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import logoPath from "@assets/MycoMapLogo-3-e1715694201164-600x822_1766262277087.png";
 
@@ -188,13 +189,33 @@ export function MainNavigation() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem asChild>
-                      <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer">
-                        <LayoutDashboard className="h-4 w-4" />
-                        Research Dashboard
-                      </Link>
-                    </DropdownMenuItem>
+                    <Link href="/profile" className="flex items-center gap-2 cursor-pointer" data-testid="link-profile">
+                      <User className="h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile?tab=settings" className="flex items-center gap-2 cursor-pointer" data-testid="link-account-settings">
+                      <Settings className="h-4 w-4" />
+                      Account Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile?tab=specimens" className="flex items-center gap-2 cursor-pointer" data-testid="link-specimen-submission">
+                      <FlaskConical className="h-4 w-4" />
+                      Specimen Submission
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="flex items-center gap-2 cursor-pointer" data-testid="link-dashboard">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Research Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <a 
                       href="/api/logout" 
