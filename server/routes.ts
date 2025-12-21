@@ -939,6 +939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         order_by: 'observed_on',
         quality_grade: 'research,needs_id',
         photos: 'true',
+        hrank: 'species', // Limit to species, subspecies, variety, or form
       });
 
       // Add date range if provided
