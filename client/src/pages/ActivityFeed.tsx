@@ -71,16 +71,20 @@ function SmartThumbnail({ src, alt, observationId, source }: {
 
   // Fetch fresh photo from iNaturalist API
   const fetchFreshPhoto = async () => {
+    console.log(`[SmartThumbnail] fetchFreshPhoto called for ${observationId}, source: ${source}, fetched: ${fetchedFromApi}`);
     if (source !== 'iNaturalist' || !observationId || fetchedFromApi) return;
     
     try {
       setFetchedFromApi(true);
       const response = await fetch(`https://api.inaturalist.org/v1/observations/${observationId}`);
+      console.log(`[SmartThumbnail] API response status: ${response.status}`);
       if (response.ok) {
         const data = await response.json();
         const photos = data?.results?.[0]?.photos;
+        console.log(`[SmartThumbnail] Photos found: ${photos?.length || 0}`);
         if (photos && photos.length > 0) {
           const photoUrl = photos[0].url?.replace('square', 'medium');
+          console.log(`[SmartThumbnail] Fresh photo URL: ${photoUrl}`);
           if (photoUrl) {
             setCurrentSrc(photoUrl);
             setHasError(false);
@@ -89,19 +93,22 @@ function SmartThumbnail({ src, alt, observationId, source }: {
         }
       }
     } catch (e) {
-      // Silent fail - show placeholder
+      console.error(`[SmartThumbnail] API fetch error:`, e);
     }
     setHasError(true);
   };
 
   const handleImageError = () => {
+    console.log(`[SmartThumbnail] Image error for ${observationId}, fallbackIndex: ${fallbackIndex}, total: ${fallbackUrls.length}, src: ${currentSrc}`);
     const nextIndex = fallbackIndex + 1;
     if (nextIndex < fallbackUrls.length) {
       setFallbackIndex(nextIndex);
       setCurrentSrc(fallbackUrls[nextIndex]);
     } else if (source === 'iNaturalist' && !fetchedFromApi) {
+      console.log(`[SmartThumbnail] All fallbacks failed, fetching from API for ${observationId}`);
       fetchFreshPhoto();
     } else {
+      console.log(`[SmartThumbnail] Setting hasError for ${observationId}`);
       setHasError(true);
     }
   };
