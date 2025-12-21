@@ -4491,6 +4491,17 @@ export class DatabaseStorage implements IStorage {
     return result[0]?.count || 0;
   }
 
+  async getFitnessObservationDates(username: string): Promise<string[]> {
+    const result = await db.selectDistinct({ observedOn: fitnessObservationCache.observedOn })
+      .from(fitnessObservationCache)
+      .where(and(
+        eq(fitnessObservationCache.username, username.toLowerCase()),
+        isNotNull(fitnessObservationCache.observedOn)
+      ))
+      .orderBy(asc(fitnessObservationCache.observedOn));
+    return result.map(r => r.observedOn).filter((d): d is string => d !== null);
+  }
+
   async getMaxFitnessObservationId(username: string): Promise<number | null> {
     const result = await db.select({ maxId: sql<number>`max(observation_id)::int` })
       .from(fitnessObservationCache)

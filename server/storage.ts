@@ -306,6 +306,7 @@ export interface IStorage {
   getFitnessObservations(username: string, startDate?: string, endDate?: string, limit?: number): Promise<FitnessObservationCache[]>;
   upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void>;
   getFitnessObservationCount(username: string): Promise<number>;
+  getFitnessObservationDates(username: string): Promise<string[]>;
   getMaxFitnessObservationId(username: string): Promise<number | null>;
   getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null>;
   upsertFitnessCacheMetadata(metadata: InsertFitnessCacheMetadata): Promise<FitnessCacheMetadata>;
@@ -1441,6 +1442,10 @@ export class MemoryStorage implements IStorage {
   
   async getFitnessObservationCount(username: string): Promise<number> {
     return 0;
+  }
+  
+  async getFitnessObservationDates(username: string): Promise<string[]> {
+    return [];
   }
   
   async getMaxFitnessObservationId(username: string): Promise<number | null> {

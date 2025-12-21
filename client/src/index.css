@@ -94,3 +94,15 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Calendar observation date highlighting */
+.rdp-day.day-has-observation {
+  background-color: #8CBD45 !important;
+  color: white !important;
+  border-radius: 50% !important;
+  font-weight: bold !important;
+}
+
+.rdp-day.day-has-observation:hover {
+  background-color: #7aad3a !important;
+}

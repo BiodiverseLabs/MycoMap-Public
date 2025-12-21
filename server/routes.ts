@@ -1195,6 +1195,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get unique observation dates for a user's cached observations
+  app.get("/api/fitness/cache/dates", async (req: any, res) => {
+    try {
+      const { username } = req.query;
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+      
+      const dates = await storage.getFitnessObservationDates(username as string);
+      res.json({ dates });
+    } catch (error: any) {
+      console.error("[Fitness Cache] Error getting dates:", error);
+      res.status(500).json({ error: error.message || "Failed to get observation dates" });
+    }
+  });
+
   // Get cached observations
   app.get("/api/fitness/cache", async (req: any, res) => {
     try {

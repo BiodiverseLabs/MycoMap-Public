@@ -119,6 +119,7 @@ export default function FitnessTracker() {
   const [cacheStatus, setCacheStatus] = useState<CacheStatus | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [useCache, setUseCache] = useState(true);
+  const [cachedObservationDates, setCachedObservationDates] = useState<string[]>([]);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -494,6 +495,18 @@ export default function FitnessTracker() {
       if (response.ok) {
         const status = await response.json();
         setCacheStatus(status);
+        
+        // If there are cached observations, also fetch the observation dates
+        if (status.totalObservations > 0) {
+          const datesResponse = await fetch(`/api/fitness/cache/dates?username=${encodeURIComponent(user)}`);
+          if (datesResponse.ok) {
+            const { dates } = await datesResponse.json();
+            setCachedObservationDates(dates || []);
+          }
+        } else {
+          setCachedObservationDates([]);
+        }
+        
         return status;
       }
     } catch (error) {
@@ -825,6 +838,12 @@ export default function FitnessTracker() {
                       selected={dateRange}
                       onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
                       numberOfMonths={2}
+                      modifiers={{
+                        hasObservations: cachedObservationDates.filter(d => d && d.length > 0).map(d => parseISO(d))
+                      }}
+                      modifiersClassNames={{
+                        hasObservations: "day-has-observation"
+                      }}
                     />
                   </PopoverContent>
                 </Popover>
@@ -968,15 +987,10 @@ export default function FitnessTracker() {
                     onMonthChange={setDayPickerMonth}
                     numberOfMonths={2}
                     modifiers={{
-                      hasObservations: observationDates.map(d => parseISO(d))
+                      hasObservations: observationDates.filter(d => d && d.length > 0).map(d => parseISO(d))
                     }}
-                    modifiersStyles={{
-                      hasObservations: {
-                        backgroundColor: '#8CBD45',
-                        color: 'white',
-                        borderRadius: '50%',
-                        fontWeight: 'bold'
-                      }
+                    modifiersClassNames={{
+                      hasObservations: "day-has-observation"
                     }}
                     disabled={(date) => !observationDates.some(d => isSameDay(parseISO(d), date))}
                   />
