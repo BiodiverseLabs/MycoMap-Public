@@ -936,7 +936,7 @@ export default function FitnessTracker() {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 z-[1000]" align="start">
                   <div className="p-3 border-b flex items-center justify-between">
                     <Button
                       variant="ghost"
