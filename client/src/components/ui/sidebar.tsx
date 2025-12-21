@@ -59,7 +59,6 @@ export function Sidebar() {
     { href: "/activity", label: "Activity Feed", icon: Activity },
     { href: "/foraging-map", label: "Foraging Map", icon: Leaf },
     { href: "/fitness-tracker", label: "Fitness Tracker", icon: Activity },
-    { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
     { href: "/field-guides", label: "Field Guides", icon: BookOpen },
   ];
 
@@ -67,6 +66,7 @@ export function Sidebar() {
     { href: "/species", label: "Species Analysis", icon: Dna },
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },
+    { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
     { href: "/conservation", label: "Conservation", icon: Shield },
     { href: "/contributors", label: "Contributors", icon: Users },
     { href: "/records", label: "Records", icon: Trophy },
