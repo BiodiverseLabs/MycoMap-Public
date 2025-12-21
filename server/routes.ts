@@ -1288,14 +1288,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Check actual cache count and last processed page from database
           const actualCachedCount = await storage.getFitnessObservationCount(usernameLower);
           const existingMetadata = await storage.getFitnessCacheMetadata(usernameLower);
+          const PER_PAGE = 200;
           
-          // Resume from stored page if available, otherwise calculate from cache count
-          const lastPage = existingMetadata?.lastProcessedPage || 0;
-          const shouldResume = lastPage > 0 && existingMetadata?.syncStatus !== 'completed';
-          // Resume from next page after last processed (lastPage was fully committed)
-          const resumeFromPage = shouldResume ? lastPage + 1 : 1;
+          // Resume logic: prefer lastProcessedPage, but fall back to calculating from cache count
+          const storedPage = existingMetadata?.lastProcessedPage || 0;
+          let resumeFromPage: number;
           
-          console.log(`[Fitness Cache] Starting sync for ${usernameLower} (resume from page ${resumeFromPage}, lastProcessedPage: ${lastPage}, cached: ${actualCachedCount})`);
+          if (storedPage > 0) {
+            // We have explicit page tracking - resume from next page
+            resumeFromPage = storedPage + 1;
+          } else if (actualCachedCount > 0) {
+            // No page tracking but have cached data - calculate from cache count
+            // Add 1 to skip pages we've already fetched
+            resumeFromPage = Math.floor(actualCachedCount / PER_PAGE) + 1;
+          } else {
+            // Fresh start
+            resumeFromPage = 1;
+          }
+          
+          console.log(`[Fitness Cache] Starting sync for ${usernameLower} (resume from page ${resumeFromPage}, storedPage: ${storedPage}, cached: ${actualCachedCount})`);
           
           // First, get total count
           const countParams = new URLSearchParams({
@@ -1335,7 +1346,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Paginate through all observations
           let page = resumeFromPage;
           let fetched = actualCachedCount; // Use actual cache count, not calculated
-          const PER_PAGE = 200;
           let maxUpdatedAt: Date | null = null;
           let consecutiveErrors = 0;
           
@@ -1344,7 +1354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             username: usernameLower,
             totalObservations: actualCachedCount,
             totalExpectedObservations: totalCount,
-            lastProcessedPage: lastPage,
+            lastProcessedPage: resumeFromPage - 1, // Page before where we're starting
             syncStatus: 'syncing',
             syncProgress: Math.round((fetched / totalCount) * 100),
             syncMessage: `Syncing from page ${page}...`,
