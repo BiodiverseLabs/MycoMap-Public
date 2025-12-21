@@ -912,6 +912,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =============================================
+  // FORAGING MAP API ENDPOINTS
+  // =============================================
+
+  // Search iNaturalist for fungi observations by location and date range
+  app.get("/api/foraging/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const { lat, lng, radius, startDate, endDate, month } = req.query;
+
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "Latitude and longitude are required" });
+      }
+
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lng as string);
+      const radiusKm = parseFloat(radius as string) * 1.60934 || 80; // Convert miles to km, default 50 miles
+
+      // Build iNaturalist API parameters
+      const inatParams = new URLSearchParams({
+        taxon_id: '47170', // Fungi kingdom
+        lat: latitude.toString(),
+        lng: longitude.toString(),
+        radius: radiusKm.toString(),
+        per_page: '200',
+        order: 'desc',
+        order_by: 'observed_on',
+        quality_grade: 'research,needs_id',
+        photos: 'true',
+      });
+
+      // Add date range if provided
+      if (startDate) {
+        // Format: YYYY-MM-DD, but we want to use day of year matching for historical data
+        const start = new Date(startDate as string);
+        const end = endDate ? new Date(endDate as string) : new Date();
+        
+        // For foraging, we want observations from any year but within the date window
+        // Use month/day range instead of specific dates
+        const startMonth = start.getMonth() + 1;
+        const startDay = start.getDate();
+        const endMonth = end.getMonth() + 1;
+        const endDay = end.getDate();
+        
+        // iNaturalist supports month parameter for filtering
+        if (startMonth === endMonth) {
+          inatParams.set('month', startMonth.toString());
+        } else {
+          // For ranges spanning multiple months, include all months in range
+          const months = [];
+          let m = startMonth;
+          while (true) {
+            months.push(m);
+            if (m === endMonth) break;
+            m = m === 12 ? 1 : m + 1;
+          }
+          inatParams.set('month', months.join(','));
+        }
+      }
+
+      // If specific month selected, use that instead
+      if (month && month !== 'any') {
+        inatParams.set('month', month as string);
+      }
+
+      console.log(`[Foraging Search] Searching iNaturalist: lat=${latitude}, lng=${longitude}, radius=${radiusKm}km`);
+
+      const allObservations: any[] = [];
+      let page = 1;
+      const maxPages = 5; // Limit to 1000 observations max
+
+      do {
+        inatParams.set('page', page.toString());
+        const response = await fetch(`https://api.inaturalist.org/v1/observations?${inatParams}`);
+        
+        if (!response.ok) {
+          console.error(`[Foraging Search] iNaturalist API error: ${response.status}`);
+          break;
+        }
+
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+          allObservations.push(...data.results);
+        }
+
+        if (!data.results || data.results.length < 200 || page >= maxPages) {
+          break;
+        }
+
+        page++;
+        // Small delay for rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } while (true);
+
+      console.log(`[Foraging Search] Found ${allObservations.length} observations`);
+
+      // Transform observations for the frontend
+      const observations = allObservations.map(obs => ({
+        id: obs.id,
+        latitude: obs.geojson?.coordinates?.[1]?.toString() || obs.location?.split(',')[0] || '',
+        longitude: obs.geojson?.coordinates?.[0]?.toString() || obs.location?.split(',')[1] || '',
+        scientificName: obs.taxon?.name || obs.species_guess || 'Unknown',
+        commonName: obs.taxon?.preferred_common_name || '',
+        state: obs.place_guess || '',
+        observedOn: obs.observed_on || '',
+        photoUrl: obs.photos?.[0]?.url?.replace('square', 'medium') || null,
+        userName: obs.user?.name || obs.user?.login || 'Anonymous',
+        qualityGrade: obs.quality_grade,
+      }));
+
+      // Calculate top species
+      const speciesCounts: Record<string, { name: string, commonName: string, count: number }> = {};
+      observations.forEach(obs => {
+        const key = obs.scientificName;
+        if (!speciesCounts[key]) {
+          speciesCounts[key] = { name: key, commonName: obs.commonName, count: 0 };
+        }
+        speciesCounts[key].count++;
+      });
+
+      const topSpecies = Object.values(speciesCounts)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20);
+
+      res.json({
+        observations,
+        topSpecies,
+        totalCount: allObservations.length,
+        searchParams: { lat: latitude, lng: longitude, radiusKm }
+      });
+    } catch (error: any) {
+      console.error("[Foraging Search] Error:", error);
+      res.status(500).json({ error: error.message || "Failed to search observations" });
+    }
+  });
+
+  // =============================================
   // CMS API ENDPOINTS
   // =============================================
 
