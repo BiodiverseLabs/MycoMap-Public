@@ -20,7 +20,8 @@ import {
   BookOpen,
   Code,
   Lock,
-  Leaf
+  Leaf,
+  Home
 } from "lucide-react";
 import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./button";
@@ -50,13 +51,19 @@ export function Sidebar() {
     setIsCollapsed(isFieldGuidePage);
   }, [location]);
 
+  const [isDnaAnalysisExpanded, setIsDnaAnalysisExpanded] = useState(false);
+
   const navigationItems = [
-    { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
+    { href: "/", label: "Home", icon: Home },
+    { href: "/dashboard", label: "Main Dashboard", icon: BarChart3 },
     { href: "/activity", label: "Activity Feed", icon: Activity },
     { href: "/foraging-map", label: "Foraging Map", icon: Leaf },
     { href: "/fitness-tracker", label: "Fitness Tracker", icon: Activity },
     { href: "/geospatial", label: "Geospatial Analysis", icon: MapPin },
     { href: "/field-guides", label: "Field Guides", icon: BookOpen },
+  ];
+
+  const dnaAnalysisItems = [
     { href: "/species", label: "Species Analysis", icon: Dna },
     { href: "/temporal", label: "Temporal Trends", icon: TrendingUp },
     { href: "/taxonomic", label: "Taxonomic Analysis", icon: GitBranch },
@@ -214,6 +221,68 @@ export function Sidebar() {
               </Link>
             );
           })}
+          
+          {/* DNA Analysis Section */}
+          {!isCollapsed ? (
+            <div className="space-y-1">
+              <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
+                  dnaAnalysisItems.some(item => location === item.href || location.startsWith(item.href))
+                    ? "bg-primary/10 text-primary"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}>
+                <div className="flex items-center space-x-3 px-3 py-2 flex-1">
+                  <Dna className="w-5 h-5" />
+                  <span>DNA Analysis</span>
+                </div>
+                <button
+                  onClick={() => setIsDnaAnalysisExpanded(!isDnaAnalysisExpanded)}
+                  className="px-2 py-2 hover:bg-slate-200 rounded-r-lg"
+                >
+                  {isDnaAnalysisExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              
+              {isDnaAnalysisExpanded && (
+                <div className="ml-6 space-y-1">
+                  {dnaAnalysisItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location === item.href || location.startsWith(item.href);
+                    
+                    return (
+                      <Link key={item.href} href={item.href}>
+                        <div
+                          className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
+                            isActive
+                              ? "bg-primary/10 text-primary"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span>{item.label}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className={`flex items-center justify-center px-2 py-2 rounded-lg font-medium w-full text-left cursor-pointer ${
+                dnaAnalysisItems.some(item => location === item.href || location.startsWith(item.href))
+                  ? "bg-primary/10 text-primary"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+              title="DNA Analysis"
+              onClick={() => setIsDnaAnalysisExpanded(!isDnaAnalysisExpanded)}
+            >
+              <Dna className="w-5 h-5 flex-shrink-0" />
+            </div>
+          )}
         </nav>
         
         <div className="p-4 border-t border-slate-200 space-y-2 bg-white">
@@ -336,6 +405,54 @@ export function Sidebar() {
                 </Link>
               );
             })}
+            
+            {/* DNA Analysis Section - Mobile */}
+            <div className="space-y-1">
+              <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
+                  dnaAnalysisItems.some(item => location === item.href || location.startsWith(item.href))
+                    ? "bg-primary/10 text-primary"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}>
+                <div className="flex items-center space-x-3 px-3 py-3 flex-1">
+                  <Dna className="w-5 h-5" />
+                  <span>DNA Analysis</span>
+                </div>
+                <button
+                  onClick={() => setIsDnaAnalysisExpanded(!isDnaAnalysisExpanded)}
+                  className="px-2 py-3 hover:bg-slate-200 rounded-r-lg"
+                >
+                  {isDnaAnalysisExpanded ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              
+              {isDnaAnalysisExpanded && (
+                <div className="ml-6 space-y-1">
+                  {dnaAnalysisItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location === item.href || location.startsWith(item.href);
+                    
+                    return (
+                      <Link key={item.href} href={item.href}>
+                        <div
+                          className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
+                            isActive
+                              ? "bg-primary/10 text-primary"
+                              : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span>{item.label}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </nav>
           
           <div className="p-4 border-t border-slate-200 space-y-2">
