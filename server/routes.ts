@@ -1097,7 +1097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload CSV for a foraging category (admin)
-  app.post("/api/admin/foraging-lists/:category/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
+  app.post("/api/admin/foraging-lists/:category/upload", isAuthenticated, uploadMemory.single('file'), async (req: any, res) => {
     try {
       const { category } = req.params;
       const validCategories = ['choice-edibles', 'edibles', 'medicinals', 'dyers', 'psychoactive', 'poisonous', 'deadly'];
