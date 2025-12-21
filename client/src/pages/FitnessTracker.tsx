@@ -575,34 +575,34 @@ export default function FitnessTracker() {
             </Card>
           </div>
 
-          {mapClickMode && (
-            <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CircleDot className={`h-5 w-5 ${mapClickMode.type === 'start' ? 'text-green-500' : 'text-red-500'}`} />
-                <span className="text-sm font-medium">
-                  Click on the map to set {mapClickMode.type === 'start' ? 'Start' : 'End'} Point 
-                  {totalLocations > 1 ? ` for Location ${mapClickMode.locationId + 1}` : ''}
-                </span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setMapClickMode(null)}
-                data-testid="button-cancel-click-mode"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Cancel
-              </Button>
-            </div>
-          )}
-
-          <Card>
+          <Card className="relative">
             <CardContent className="p-0">
               <div 
                 ref={mapRef} 
-                className={`h-[500px] w-full rounded-lg ${mapClickMode ? 'cursor-crosshair' : ''}`} 
+                className="h-[500px] w-full rounded-lg" 
+                style={{ cursor: mapClickMode ? 'crosshair' : undefined }}
                 data-testid="map-container" 
               />
+              {mapClickMode && (
+                <div className="absolute top-2 left-2 right-2 bg-blue-100 border border-blue-300 rounded-lg p-3 flex items-center justify-between z-[500]">
+                  <div className="flex items-center gap-2">
+                    <CircleDot className={`h-5 w-5 ${mapClickMode.type === 'start' ? 'text-green-500' : 'text-red-500'}`} />
+                    <span className="text-sm font-medium">
+                      Click on the map to set {mapClickMode.type === 'start' ? 'Start' : 'End'} Point 
+                      {totalLocations > 1 ? ` for Location ${mapClickMode.locationId + 1}` : ''}
+                    </span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setMapClickMode(null)}
+                    data-testid="button-cancel-click-mode"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -615,7 +615,7 @@ export default function FitnessTracker() {
                     <Settings className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="z-[1000]">
                   <DropdownMenuLabel>Add Points</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {Array.from({ length: totalLocations }).map((_, locId) => (
