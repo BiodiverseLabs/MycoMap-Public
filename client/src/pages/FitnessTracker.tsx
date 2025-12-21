@@ -501,6 +501,7 @@ export default function FitnessTracker() {
           const datesResponse = await fetch(`/api/fitness/cache/dates?username=${encodeURIComponent(user)}`);
           if (datesResponse.ok) {
             const { dates } = await datesResponse.json();
+            console.log('[FitnessTracker] Cached observation dates:', dates?.length, 'dates, sample:', dates?.slice(0, 5));
             setCachedObservationDates(dates || []);
           }
         } else {
@@ -832,7 +833,13 @@ export default function FitnessTracker() {
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 z-[10001]" align="start">
+                    {(() => {
+                      const filteredDates = cachedObservationDates.filter(d => d && d.length > 0);
+                      const parsedDates = filteredDates.map(d => parseISO(d));
+                      console.log('[Calendar] Cached dates count:', filteredDates.length, 'Sample parsed:', parsedDates.slice(0, 3));
+                      return null;
+                    })()}
                     <Calendar
                       mode="range"
                       selected={dateRange}
@@ -841,8 +848,13 @@ export default function FitnessTracker() {
                       modifiers={{
                         hasObservations: cachedObservationDates.filter(d => d && d.length > 0).map(d => parseISO(d))
                       }}
-                      modifiersClassNames={{
-                        hasObservations: "day-has-observation"
+                      modifiersStyles={{
+                        hasObservations: {
+                          backgroundColor: '#8CBD45',
+                          color: 'white',
+                          borderRadius: '50%',
+                          fontWeight: 'bold'
+                        }
                       }}
                     />
                   </PopoverContent>
@@ -956,7 +968,7 @@ export default function FitnessTracker() {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[1000]" align="start">
+                <PopoverContent className="w-auto p-0 z-[10001]" align="start">
                   <div className="p-3 border-b flex items-center justify-between">
                     <Button
                       variant="ghost"
@@ -989,8 +1001,13 @@ export default function FitnessTracker() {
                     modifiers={{
                       hasObservations: observationDates.filter(d => d && d.length > 0).map(d => parseISO(d))
                     }}
-                    modifiersClassNames={{
-                      hasObservations: "day-has-observation"
+                    modifiersStyles={{
+                      hasObservations: {
+                        backgroundColor: '#8CBD45',
+                        color: 'white',
+                        borderRadius: '50%',
+                        fontWeight: 'bold'
+                      }
                     }}
                     disabled={(date) => !observationDates.some(d => isSameDay(parseISO(d), date))}
                   />
