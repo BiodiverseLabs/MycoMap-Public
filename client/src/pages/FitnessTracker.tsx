@@ -629,12 +629,13 @@ export default function FitnessTracker() {
   };
 
   // Fetch from cache
-  const fetchFromCache = async (startDate?: string, endDate?: string) => {
+  const fetchFromCache = async (startDate?: string, endDate?: string, limit?: number) => {
     const params = new URLSearchParams({
       username: username.trim(),
     });
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
+    if (limit) params.set('limit', limit.toString());
 
     const response = await fetch(`/api/fitness/cache?${params}`);
     if (!response.ok) {
@@ -667,26 +668,11 @@ export default function FitnessTracker() {
     setIsSearching(true);
     setSelectedDay(null); // Reset day selection on new search
     
-    // Date range is now optional - for filtering only
-    const startDate = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
-    const endDate = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
-    
     try {
       // Check cache status first
       const status = await checkCacheStatus(username.trim());
       
-      let data;
-      if (status && status.totalObservations > 0) {
-        // Use cached data
-        data = await fetchFromCache(startDate, endDate);
-        const obsCount = data.observations?.length || 0;
-        
-        toast({ 
-          title: "Success", 
-          description: `Loaded ${obsCount} observations from cache` 
-        });
-      } else {
-        // No cache - prompt user to sync
+      if (!status || status.totalObservations === 0) {
         toast({ 
           title: "No cached data", 
           description: "Click 'Sync' to download your observations first",
@@ -694,6 +680,36 @@ export default function FitnessTracker() {
         });
         setIsSearching(false);
         return;
+      }
+
+      // If no date range specified, fetch just the most recent day for fast loading
+      let startDate = dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
+      let endDate = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
+      
+      let data;
+      if (!startDate && !endDate) {
+        // First, get the most recent observation date
+        const recentData = await fetchFromCache(undefined, undefined, 1); // Get just 1 to find the latest date
+        if (recentData.observations?.length > 0) {
+          const latestDate = recentData.observations[0].observedOn;
+          startDate = latestDate;
+          endDate = latestDate;
+          // Now fetch all observations for that day
+          data = await fetchFromCache(startDate, endDate);
+          toast({ 
+            title: "Success", 
+            description: `Loaded ${data.observations?.length || 0} observations from ${latestDate} (most recent day). Use date picker to view other days.`
+          });
+        } else {
+          data = { observations: [] };
+        }
+      } else {
+        // User specified date range
+        data = await fetchFromCache(startDate, endDate);
+        toast({ 
+          title: "Success", 
+          description: `Loaded ${data.observations?.length || 0} observations from cache` 
+        });
       }
       
       setObservations(data.observations || []);

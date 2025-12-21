@@ -4428,24 +4428,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Fitness Observation Cache
-  async getFitnessObservations(username: string, startDate?: string, endDate?: string): Promise<FitnessObservationCache[]> {
-    let query = db.select().from(fitnessObservationCache)
-      .where(and(
-        eq(fitnessObservationCache.username, username.toLowerCase()),
-        sql`${fitnessObservationCache.deletedAt} IS NULL`
-      ));
+  async getFitnessObservations(username: string, startDate?: string, endDate?: string, limit?: number): Promise<FitnessObservationCache[]> {
+    const conditions = [
+      eq(fitnessObservationCache.username, username.toLowerCase()),
+      sql`${fitnessObservationCache.deletedAt} IS NULL`
+    ];
     
     if (startDate && endDate) {
-      query = db.select().from(fitnessObservationCache)
-        .where(and(
-          eq(fitnessObservationCache.username, username.toLowerCase()),
-          sql`${fitnessObservationCache.deletedAt} IS NULL`,
-          gte(fitnessObservationCache.observedOn, startDate),
-          lte(fitnessObservationCache.observedOn, endDate)
-        ));
+      conditions.push(gte(fitnessObservationCache.observedOn, startDate));
+      conditions.push(lte(fitnessObservationCache.observedOn, endDate));
     }
     
-    return await query.orderBy(asc(fitnessObservationCache.observedOn));
+    let query = db.select().from(fitnessObservationCache)
+      .where(and(...conditions))
+      .orderBy(desc(fitnessObservationCache.observedOn)); // Most recent first
+    
+    if (limit) {
+      query = query.limit(limit) as typeof query;
+    }
+    
+    return await query;
   }
 
   async upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void> {

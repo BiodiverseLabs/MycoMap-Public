@@ -1198,15 +1198,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get cached observations
   app.get("/api/fitness/cache", async (req: any, res) => {
     try {
-      const { username, startDate, endDate } = req.query;
+      const { username, startDate, endDate, limit } = req.query;
       if (!username) {
         return res.status(400).json({ error: "Username is required" });
       }
       
+      const limitNum = limit ? parseInt(limit as string, 10) : undefined;
+      
       const observations = await storage.getFitnessObservations(
         username as string, 
         startDate as string, 
-        endDate as string
+        endDate as string,
+        limitNum
       );
       
       // Transform to match frontend format

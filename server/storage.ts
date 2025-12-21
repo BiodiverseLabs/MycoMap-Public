@@ -303,7 +303,7 @@ export interface IStorage {
   upsertForagingList(data: InsertForagingList): Promise<ForagingList>;
   
   // Fitness Observation Cache
-  getFitnessObservations(username: string, startDate?: string, endDate?: string): Promise<FitnessObservationCache[]>;
+  getFitnessObservations(username: string, startDate?: string, endDate?: string, limit?: number): Promise<FitnessObservationCache[]>;
   upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void>;
   getFitnessObservationCount(username: string): Promise<number>;
   getMaxFitnessObservationId(username: string): Promise<number | null>;
@@ -1431,7 +1431,7 @@ export class MemoryStorage implements IStorage {
   }
   
   // Fitness Cache stubs for memory storage
-  async getFitnessObservations(username: string, startDate?: string, endDate?: string): Promise<FitnessObservationCache[]> {
+  async getFitnessObservations(username: string, startDate?: string, endDate?: string, limit?: number): Promise<FitnessObservationCache[]> {
     return [];
   }
   
