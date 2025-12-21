@@ -129,9 +129,22 @@ export default function FitnessTracker() {
   const baseDistance = outings.reduce((sum, o) => sum + o.totalDistance, 0);
   const totalMiles = baseDistance + locationPointsDistance;
   
+  // Calculate time per location (sum of time spent at each location, not first-to-last across all)
+  const calculateLocationBasedTime = () => {
+    let totalTime = 0;
+    for (let locId = 0; locId < totalLocations; locId++) {
+      const locObs = activeObservations.filter(o => o.locationId === locId);
+      if (locObs.length < 2) continue;
+      const firstObs = locObs[0].dateTime;
+      const lastObs = locObs[locObs.length - 1].dateTime;
+      totalTime += differenceInMinutes(lastObs, firstObs);
+    }
+    return totalTime;
+  };
+  
   // Calculate time including location points (at default walking speed)
   const locationPointsMinutes = (locationPointsDistance / DEFAULT_WALKING_SPEED) * 60;
-  const baseMinutes = outings.reduce((sum, o) => sum + o.totalTimeMinutes, 0);
+  const baseMinutes = calculateLocationBasedTime();
   const totalMinutes = baseMinutes + locationPointsMinutes;
   
   const avgSpeedMph = totalMiles > 0 && totalMinutes > 0 ? (totalMiles / totalMinutes) * 60 : null;
