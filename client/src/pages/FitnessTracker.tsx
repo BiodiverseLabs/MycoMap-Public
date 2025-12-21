@@ -135,7 +135,9 @@ export default function FitnessTracker() {
   
   const avgSpeedMph = totalMiles > 0 && totalMinutes > 0 ? (totalMiles / totalMinutes) * 60 : null;
   const totalSquats = totalObservations * SQUATS_PER_OBSERVATION;
-  const totalCalories = Math.round(totalSquats * CALORIES_PER_SQUAT);
+  const squatCalories = Math.round(totalSquats * CALORIES_PER_SQUAT);
+  const walkingCalories = Math.round(3.5 * 72.6 * (totalMinutes / 60)); // 3.5 MET, 160 lb person (72.6 kg)
+  const totalCalories = squatCalories + walkingCalories;
 
   useEffect(() => {
     if (processedObservations.length > 0 && mapRef.current) {
@@ -787,38 +789,69 @@ export default function FitnessTracker() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
+            {/* Walking Calories */}
             <div className="bg-muted p-4 rounded-lg space-y-2">
-              <p className="text-sm font-medium">Formula:</p>
-              <p className="text-sm text-muted-foreground">
-                Each observation = {SQUATS_PER_OBSERVATION} squats
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Route className="h-4 w-4" />
+                Walking Calories
               </p>
-              <p className="text-sm text-muted-foreground">
-                Each squat burns ~{CALORIES_PER_SQUAT} calories
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Total Observations:</span>
-                <span className="font-medium">{totalObservations}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Equivalent Squats ({totalObservations} × {SQUATS_PER_OBSERVATION}):</span>
-                <span className="font-medium">{totalSquats}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Calories per Squat:</span>
-                <span className="font-medium">{CALORIES_PER_SQUAT}</span>
-              </div>
-              <div className="border-t pt-2 mt-2">
-                <div className="flex justify-between text-base font-semibold">
-                  <span>Total Calories Burned:</span>
-                  <span className="text-red-500">{totalCalories}</span>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Distance Walked:</span>
+                  <span className="font-medium text-foreground">{totalMiles.toFixed(2)} miles</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Time Walking:</span>
+                  <span className="font-medium text-foreground">{Math.round(totalMinutes)} min</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Average Pace:</span>
+                  <span className="font-medium text-foreground">{avgSpeedMph ? `${avgSpeedMph.toFixed(1)} mph` : '--'}</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t">
+                  <span>Walking Calories (3.5 MET × 160 lb):</span>
+                  <span className="font-medium text-foreground">{walkingCalories}</span>
                 </div>
               </div>
             </div>
+
+            {/* Squat Calories */}
+            <div className="bg-muted p-4 rounded-lg space-y-2">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Observation Calories (Squats)
+              </p>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Total Observations:</span>
+                  <span className="font-medium text-foreground">{totalObservations}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Squats per Observation:</span>
+                  <span className="font-medium text-foreground">{SQUATS_PER_OBSERVATION}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Squats:</span>
+                  <span className="font-medium text-foreground">{totalSquats}</span>
+                </div>
+                <div className="flex justify-between pt-1 border-t">
+                  <span>Squat Calories ({CALORIES_PER_SQUAT} cal each):</span>
+                  <span className="font-medium text-foreground">{squatCalories}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="border-t pt-3">
+              <div className="flex justify-between text-lg font-semibold">
+                <span>Total Calories Burned:</span>
+                <span className="text-red-500">{totalCalories}</span>
+              </div>
+            </div>
+
             <p className="text-xs text-muted-foreground">
-              This estimate assumes each observation requires bending down (like performing squats) 
-              to photograph fungi specimens.
+              Walking calories based on 3.5 MET (moderate walking pace) for 160 lb person. 
+              Observation calories assume bending down (like squats) to photograph specimens.
             </p>
           </div>
         </DialogContent>
