@@ -85,8 +85,9 @@ export default function MembershipPage() {
   };
 
   const universalBenefits = [
+    { icon: Dna, text: "Specimen submission for DNA barcoding" },
     { icon: BookOpen, text: "Full access to Research Notes on Substack" },
-    { icon: Video, text: "Monthly live video update + Q&A" },
+    { icon: Video, text: 'Monthly live "Open Lab Session" + Q&A' },
     { icon: Star, text: "Optional recognition on Supporters page" },
   ];
 
