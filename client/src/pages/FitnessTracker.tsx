@@ -88,6 +88,7 @@ export default function FitnessTracker() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const locationPointMarkersRef = useRef<L.Marker[]>([]);
+  const locationPointLinesRef = useRef<L.Polyline[]>([]);
   const { toast } = useToast();
 
   const totalObservations = processedObservations.length;
@@ -134,7 +135,13 @@ export default function FitnessTracker() {
     if (processedObservations.length > 0 && mapRef.current) {
       initializeMap(processedObservations);
     }
-  }, [processedObservations, locationPoints]);
+  }, [processedObservations]);
+
+  // Update location point markers without reinitializing the whole map
+  useEffect(() => {
+    if (!mapInstanceRef.current || processedObservations.length === 0) return;
+    updateLocationPointMarkers(processedObservations);
+  }, [locationPoints]);
 
   // Handle map click mode
   useEffect(() => {
@@ -317,9 +324,23 @@ export default function FitnessTracker() {
       bounds.extend([lat, lng]);
     });
 
-    // Add location point markers (start/end points)
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+    
+    // Add location points after map is initialized
+    updateLocationPointMarkers(obs);
+  };
+
+  const updateLocationPointMarkers = (obs: ProcessedObservation[]) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Clear existing location point markers and lines
     locationPointMarkersRef.current.forEach(m => m.remove());
     locationPointMarkersRef.current = [];
+    locationPointLinesRef.current.forEach(l => l.remove());
+    locationPointLinesRef.current = [];
     
     locationPoints.forEach(point => {
       const color = LOCATION_COLORS[point.locationId % LOCATION_COLORS.length];
@@ -340,7 +361,6 @@ export default function FitnessTracker() {
         </div>
       `);
       locationPointMarkersRef.current.push(marker);
-      bounds.extend([point.lat, point.lng]);
       
       // Draw line from start point to first observation or last observation to end point
       const locObs = obs.filter(o => o.locationId === point.locationId);
@@ -350,18 +370,15 @@ export default function FitnessTracker() {
           [point.lat, point.lng],
           [parseFloat(targetObs.latitude), parseFloat(targetObs.longitude)]
         ];
-        L.polyline(lineCoords, { 
+        const polyline = L.polyline(lineCoords, { 
           color: isStart ? '#22c55e' : '#ef4444', 
           weight: 2, 
           opacity: 0.8,
           dashArray: '5, 5'
         }).addTo(map);
+        locationPointLinesRef.current.push(polyline);
       }
     });
-
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
   };
 
   const formatSpeed = (mph: number | null): string => {
