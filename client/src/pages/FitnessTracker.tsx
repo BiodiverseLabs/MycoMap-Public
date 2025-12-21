@@ -278,9 +278,10 @@ export default function FitnessTracker() {
   };
 
   const processObservations = (obs: FitnessObservation[]) => {
-    // Filter out observations with invalid dates first
+    // Filter out observations without time or with invalid dates
     const validObs = obs.filter(o => {
       if (!o.observedOn) return false;
+      if (!o.timeObserved) return false; // Exclude observations without a time
       const testDate = parseObservationDate(o.observedOn, o.timeObserved);
       return !isNaN(testDate.getTime());
     });
