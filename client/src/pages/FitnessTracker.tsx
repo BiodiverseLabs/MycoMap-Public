@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info } from "lucide-react";
+import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { format, differenceInMinutes, parseISO } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import L from 'leaflet';
@@ -61,6 +62,14 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const CALORIES_PER_SQUAT = 0.32;
 const SQUATS_PER_OBSERVATION = 2;
+const DEFAULT_WALKING_SPEED = 1; // mph
+
+interface LocationPoint {
+  lat: number;
+  lng: number;
+  type: 'start' | 'end';
+  locationId: number;
+}
 
 export default function FitnessTracker() {
   const [username, setUsername] = useState("");
@@ -73,17 +82,50 @@ export default function FitnessTracker() {
   const [processedObservations, setProcessedObservations] = useState<ProcessedObservation[]>([]);
   const [outings, setOutings] = useState<OutingSummary[]>([]);
   const [showCaloriesDialog, setShowCaloriesDialog] = useState(false);
+  const [locationPoints, setLocationPoints] = useState<LocationPoint[]>([]);
+  const [mapClickMode, setMapClickMode] = useState<{ type: 'start' | 'end'; locationId: number } | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const locationPointMarkersRef = useRef<L.Marker[]>([]);
   const { toast } = useToast();
 
   const totalObservations = processedObservations.length;
   const totalLocations = processedObservations.length > 0 
     ? Math.max(...processedObservations.map(o => o.locationId)) + 1 
     : 0;
-  const totalMiles = outings.reduce((sum, o) => sum + o.totalDistance, 0);
-  const totalMinutes = outings.reduce((sum, o) => sum + o.totalTimeMinutes, 0);
+  
+  // Calculate extra distance from location points (start/end points)
+  const calculateLocationPointsDistance = () => {
+    let extraDistance = 0;
+    for (let locId = 0; locId < totalLocations; locId++) {
+      const locObs = processedObservations.filter(o => o.locationId === locId);
+      if (locObs.length === 0) continue;
+      
+      const startPoint = locationPoints.find(p => p.locationId === locId && p.type === 'start');
+      const endPoint = locationPoints.find(p => p.locationId === locId && p.type === 'end');
+      
+      if (startPoint) {
+        const firstObs = locObs[0];
+        extraDistance += haversineDistance(startPoint.lat, startPoint.lng, parseFloat(firstObs.latitude), parseFloat(firstObs.longitude));
+      }
+      if (endPoint) {
+        const lastObs = locObs[locObs.length - 1];
+        extraDistance += haversineDistance(parseFloat(lastObs.latitude), parseFloat(lastObs.longitude), endPoint.lat, endPoint.lng);
+      }
+    }
+    return extraDistance;
+  };
+  
+  const locationPointsDistance = calculateLocationPointsDistance();
+  const baseDistance = outings.reduce((sum, o) => sum + o.totalDistance, 0);
+  const totalMiles = baseDistance + locationPointsDistance;
+  
+  // Calculate time including location points (at default walking speed)
+  const locationPointsMinutes = (locationPointsDistance / DEFAULT_WALKING_SPEED) * 60;
+  const baseMinutes = outings.reduce((sum, o) => sum + o.totalTimeMinutes, 0);
+  const totalMinutes = baseMinutes + locationPointsMinutes;
+  
   const avgSpeedMph = totalMiles > 0 && totalMinutes > 0 ? (totalMiles / totalMinutes) * 60 : null;
   const totalSquats = totalObservations * SQUATS_PER_OBSERVATION;
   const totalCalories = Math.round(totalSquats * CALORIES_PER_SQUAT);
@@ -92,7 +134,42 @@ export default function FitnessTracker() {
     if (processedObservations.length > 0 && mapRef.current) {
       initializeMap(processedObservations);
     }
-  }, [processedObservations]);
+  }, [processedObservations, locationPoints]);
+
+  // Handle map click mode
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const handleMapClick = (e: L.LeafletMouseEvent) => {
+      if (!mapClickMode) return;
+      
+      const newPoint: LocationPoint = {
+        lat: e.latlng.lat,
+        lng: e.latlng.lng,
+        type: mapClickMode.type,
+        locationId: mapClickMode.locationId,
+      };
+      
+      // Remove existing point of same type and location
+      setLocationPoints(prev => [
+        ...prev.filter(p => !(p.type === newPoint.type && p.locationId === newPoint.locationId)),
+        newPoint
+      ]);
+      
+      toast({
+        title: `${mapClickMode.type === 'start' ? 'Start' : 'End'} Point Added`,
+        description: `Location ${mapClickMode.locationId + 1} ${mapClickMode.type} point set`
+      });
+      
+      setMapClickMode(null);
+    };
+
+    map.on('click', handleMapClick);
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [mapClickMode, toast]);
 
   useEffect(() => {
     if (observations.length > 0) {
@@ -238,6 +315,48 @@ export default function FitnessTracker() {
         </div>
       `);
       bounds.extend([lat, lng]);
+    });
+
+    // Add location point markers (start/end points)
+    locationPointMarkersRef.current.forEach(m => m.remove());
+    locationPointMarkersRef.current = [];
+    
+    locationPoints.forEach(point => {
+      const color = LOCATION_COLORS[point.locationId % LOCATION_COLORS.length];
+      const isStart = point.type === 'start';
+      const pointIcon = L.divIcon({
+        className: 'location-point-marker',
+        html: `<div style="background-color: ${isStart ? '#22c55e' : '#ef4444'}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid ${color}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;">${isStart ? 'S' : 'E'}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      
+      const marker = L.marker([point.lat, point.lng], { icon: pointIcon }).addTo(map);
+      marker.bindPopup(`
+        <div>
+          <strong>${isStart ? 'Start' : 'End'} Point</strong><br/>
+          <small>Location ${point.locationId + 1}</small><br/>
+          <small>Walking at ${DEFAULT_WALKING_SPEED} mph</small>
+        </div>
+      `);
+      locationPointMarkersRef.current.push(marker);
+      bounds.extend([point.lat, point.lng]);
+      
+      // Draw line from start point to first observation or last observation to end point
+      const locObs = obs.filter(o => o.locationId === point.locationId);
+      if (locObs.length > 0) {
+        const targetObs = isStart ? locObs[0] : locObs[locObs.length - 1];
+        const lineCoords: [number, number][] = [
+          [point.lat, point.lng],
+          [parseFloat(targetObs.latitude), parseFloat(targetObs.longitude)]
+        ];
+        L.polyline(lineCoords, { 
+          color: isStart ? '#22c55e' : '#ef4444', 
+          weight: 2, 
+          opacity: 0.8,
+          dashArray: '5, 5'
+        }).addTo(map);
+      }
     });
 
     if (bounds.isValid()) {
@@ -433,15 +552,99 @@ export default function FitnessTracker() {
             </Card>
           </div>
 
+          {mapClickMode && (
+            <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CircleDot className={`h-5 w-5 ${mapClickMode.type === 'start' ? 'text-green-500' : 'text-red-500'}`} />
+                <span className="text-sm font-medium">
+                  Click on the map to set {mapClickMode.type === 'start' ? 'Start' : 'End'} Point 
+                  {totalLocations > 1 ? ` for Location ${mapClickMode.locationId + 1}` : ''}
+                </span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setMapClickMode(null)}
+                data-testid="button-cancel-click-mode"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Cancel
+              </Button>
+            </div>
+          )}
+
           <Card>
             <CardContent className="p-0">
-              <div ref={mapRef} className="h-[500px] w-full rounded-lg" data-testid="map-container" />
+              <div 
+                ref={mapRef} 
+                className={`h-[500px] w-full rounded-lg ${mapClickMode ? 'cursor-crosshair' : ''}`} 
+                data-testid="map-container" 
+              />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Observation Log</CardTitle>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" data-testid="button-log-settings">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Add Points</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {Array.from({ length: totalLocations }).map((_, locId) => (
+                    <div key={locId}>
+                      {totalLocations > 1 && (
+                        <DropdownMenuLabel className="text-xs text-muted-foreground py-1">
+                          Location {locId + 1}
+                        </DropdownMenuLabel>
+                      )}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMapClickMode({ type: 'start', locationId: locId });
+                          toast({ title: "Click on the map", description: `Click where Location ${locId + 1} started` });
+                        }}
+                        data-testid={`menu-add-start-${locId}`}
+                      >
+                        <CircleDot className="h-4 w-4 mr-2 text-green-500" />
+                        {totalLocations > 1 ? `Add Start Point ${locId + 1}` : 'Add Start Point'}
+                        {locationPoints.find(p => p.locationId === locId && p.type === 'start') && (
+                          <span className="ml-2 text-xs text-green-500">✓</span>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMapClickMode({ type: 'end', locationId: locId });
+                          toast({ title: "Click on the map", description: `Click where Location ${locId + 1} ended` });
+                        }}
+                        data-testid={`menu-add-end-${locId}`}
+                      >
+                        <CircleDot className="h-4 w-4 mr-2 text-red-500" />
+                        {totalLocations > 1 ? `Add End Point ${locId + 1}` : 'Add End Point'}
+                        {locationPoints.find(p => p.locationId === locId && p.type === 'end') && (
+                          <span className="ml-2 text-xs text-red-500">✓</span>
+                        )}
+                      </DropdownMenuItem>
+                    </div>
+                  ))}
+                  {locationPoints.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setLocationPoints([])}
+                        className="text-destructive"
+                        data-testid="menu-clear-points"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Clear All Points
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardHeader>
             <CardContent>
               <Table>
