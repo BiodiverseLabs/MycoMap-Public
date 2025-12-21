@@ -82,6 +82,7 @@ export default function FitnessTracker() {
   const [processedObservations, setProcessedObservations] = useState<ProcessedObservation[]>([]);
   const [outings, setOutings] = useState<OutingSummary[]>([]);
   const [showCaloriesDialog, setShowCaloriesDialog] = useState(false);
+  const [showLocationsDialog, setShowLocationsDialog] = useState(false);
   const [locationPoints, setLocationPoints] = useState<LocationPoint[]>([]);
   const [mapClickMode, setMapClickMode] = useState<{ type: 'start' | 'end'; locationId: number } | null>(null);
   const [outlierIds, setOutlierIds] = useState<number[]>([]);
@@ -502,15 +503,22 @@ export default function FitnessTracker() {
 
       {processedObservations.length > 0 && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Card>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            <Card 
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setShowLocationsDialog(true)}
+              data-testid="card-locations"
+            >
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <MapPin className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Locations</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      Total Locations
+                      <Info className="h-3 w-3 text-muted-foreground" />
+                    </p>
                     <p className="text-2xl font-bold" data-testid="text-total-locations">{totalLocations}</p>
                   </div>
                 </div>
@@ -545,8 +553,26 @@ export default function FitnessTracker() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <Timer className="h-5 w-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Time</p>
+                    <p className="text-2xl font-bold" data-testid="text-total-time">
+                      {totalMinutes >= 60 
+                        ? `${Math.floor(totalMinutes / 60)}h ${Math.round(totalMinutes % 60)}m`
+                        : `${Math.round(totalMinutes)}m`
+                      }
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
                   <div className="p-2 bg-orange-100 rounded-lg">
-                    <Timer className="h-5 w-5 text-orange-600" />
+                    <Activity className="h-5 w-5 text-orange-600" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Average Speed</p>
@@ -853,6 +879,92 @@ export default function FitnessTracker() {
               Walking calories based on 3.5 MET (moderate walking pace) for 160 lb person. 
               Observation calories assume bending down (like squats) to photograph specimens.
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLocationsDialog} onOpenChange={setShowLocationsDialog}>
+        <DialogContent className="z-[1000] max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-blue-500" />
+              Location Breakdown
+            </DialogTitle>
+            <DialogDescription>
+              Summary statistics for each location visited:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4 max-h-[60vh] overflow-y-auto">
+            {Array.from({ length: totalLocations }).map((_, locId) => {
+              const locObs = activeObservations.filter(o => o.locationId === locId);
+              const locDistance = locObs.reduce((sum, o) => sum + o.distanceFromPrevious, 0);
+              const locStartPoint = locationPoints.find(p => p.locationId === locId && p.type === 'start');
+              const locEndPoint = locationPoints.find(p => p.locationId === locId && p.type === 'end');
+              let extraDist = 0;
+              if (locStartPoint && locObs.length > 0) {
+                extraDist += haversineDistance(locStartPoint.lat, locStartPoint.lng, parseFloat(locObs[0].latitude), parseFloat(locObs[0].longitude));
+              }
+              if (locEndPoint && locObs.length > 0) {
+                extraDist += haversineDistance(parseFloat(locObs[locObs.length - 1].latitude), parseFloat(locObs[locObs.length - 1].longitude), locEndPoint.lat, locEndPoint.lng);
+              }
+              const locTotalDistance = locDistance + extraDist;
+              const locFirstObs = locObs[0]?.dateTime;
+              const locLastObs = locObs[locObs.length - 1]?.dateTime;
+              const locTimeMinutes = locFirstObs && locLastObs ? differenceInMinutes(locLastObs, locFirstObs) : 0;
+              const locExtraMinutes = (extraDist / DEFAULT_WALKING_SPEED) * 60;
+              const locTotalMinutes = locTimeMinutes + locExtraMinutes;
+              const locAvgSpeed = locTotalDistance > 0 && locTotalMinutes > 0 ? (locTotalDistance / locTotalMinutes) * 60 : null;
+              const locSquats = locObs.length * SQUATS_PER_OBSERVATION;
+              const locSquatCals = Math.round(locSquats * CALORIES_PER_SQUAT);
+              const locWalkingCals = Math.round(3.5 * 72.6 * (locTotalMinutes / 60));
+              const locTotalCals = locSquatCals + locWalkingCals;
+              const color = LOCATION_COLORS[locId % LOCATION_COLORS.length];
+
+              return (
+                <div key={locId} className="bg-muted p-4 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-4 h-4 rounded-full" 
+                      style={{ backgroundColor: color }}
+                    />
+                    <p className="text-sm font-medium">Location {locId + 1}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Observations</p>
+                      <p className="font-medium">{locObs.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Distance</p>
+                      <p className="font-medium">{locTotalDistance.toFixed(2)} mi</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Time</p>
+                      <p className="font-medium">
+                        {locTotalMinutes >= 60 
+                          ? `${Math.floor(locTotalMinutes / 60)}h ${Math.round(locTotalMinutes % 60)}m`
+                          : `${Math.round(locTotalMinutes)}m`
+                        }
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Avg Speed</p>
+                      <p className="font-medium">{locAvgSpeed ? `${locAvgSpeed.toFixed(1)} mph` : '--'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Calories</p>
+                      <p className="font-medium">{locTotalCals}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Start/End Points</p>
+                      <p className="font-medium">
+                        {locStartPoint ? '✓ Start' : '—'} / {locEndPoint ? '✓ End' : '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
