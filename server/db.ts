@@ -4477,6 +4477,13 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getFitnessObservationCount(username: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(fitnessObservationCache)
+      .where(eq(fitnessObservationCache.username, username.toLowerCase()));
+    return result[0]?.count || 0;
+  }
+
   async getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null> {
     const [metadata] = await db.select().from(fitnessCacheMetadata)
       .where(eq(fitnessCacheMetadata.username, username.toLowerCase()));

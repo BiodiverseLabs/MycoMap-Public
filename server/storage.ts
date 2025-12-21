@@ -305,6 +305,7 @@ export interface IStorage {
   // Fitness Observation Cache
   getFitnessObservations(username: string, startDate?: string, endDate?: string): Promise<FitnessObservationCache[]>;
   upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void>;
+  getFitnessObservationCount(username: string): Promise<number>;
   getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null>;
   upsertFitnessCacheMetadata(metadata: InsertFitnessCacheMetadata): Promise<FitnessCacheMetadata>;
   updateFitnessSyncProgress(username: string, progress: number, status: string, message?: string): Promise<void>;
@@ -1435,6 +1436,10 @@ export class MemoryStorage implements IStorage {
   
   async upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void> {
     throw new Error('Memory storage does not support fitness cache');
+  }
+  
+  async getFitnessObservationCount(username: string): Promise<number> {
+    return 0;
   }
   
   async getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null> {

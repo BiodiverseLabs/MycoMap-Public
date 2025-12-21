@@ -562,6 +562,32 @@ export default function FitnessTracker() {
     }
   };
 
+  // Cancel sync
+  const cancelSync = async () => {
+    if (!username.trim()) return;
+    
+    try {
+      const response = await fetch('/api/fitness/cache/sync/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim() }),
+      });
+      
+      const data = await response.json();
+      setIsSyncing(false);
+      
+      toast({ 
+        title: "Sync Cancelled", 
+        description: data.message || "Sync was cancelled" 
+      });
+      
+      // Refresh cache status
+      checkCacheStatus(username.trim());
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
   // Fetch from cache
   const fetchFromCache = async (startDate?: string, endDate?: string) => {
     const params = new URLSearchParams({
@@ -762,7 +788,19 @@ export default function FitnessTracker() {
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Syncing Observations</span>
-                <span className="text-sm text-muted-foreground">{cacheStatus.syncProgress}%</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{cacheStatus.syncProgress}%</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={cancelSync}
+                    className="h-6 px-2 text-xs"
+                    data-testid="button-cancel-sync"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
               </div>
               <Progress value={cacheStatus.syncProgress} className="h-2" />
               {cacheStatus.syncMessage && (

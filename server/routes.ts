@@ -1266,14 +1266,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Start async sync process
       (async () => {
         try {
-          // Check if we can resume from a previous partial sync
+          // Check actual cache count from database (more reliable than metadata)
+          const actualCachedCount = await storage.getFitnessObservationCount(usernameLower);
           const existingMetadata = await storage.getFitnessCacheMetadata(usernameLower);
-          const cachedCount = existingMetadata?.totalObservations || 0;
-          const resumeFromPage = existingMetadata?.syncStatus === 'error' && cachedCount > 0
-            ? Math.floor(cachedCount / 200) + 1
-            : 1;
           
-          console.log(`[Fitness Cache] Starting sync for ${usernameLower} (resume from page ${resumeFromPage}, already cached: ${cachedCount})`);
+          // Resume if we have cached data but sync wasn't completed
+          const shouldResume = actualCachedCount > 0 && existingMetadata?.syncStatus !== 'completed';
+          const resumeFromPage = shouldResume ? Math.floor(actualCachedCount / 200) + 1 : 1;
+          
+          console.log(`[Fitness Cache] Starting sync for ${usernameLower} (resume from page ${resumeFromPage}, already cached: ${actualCachedCount})`);
           
           // First, get total count
           const countParams = new URLSearchParams({
@@ -1318,6 +1319,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let consecutiveErrors = 0;
           
           while (fetched < totalCount) {
+            // Check if cancelled
+            const currentStatus = await storage.getFitnessCacheMetadata(usernameLower);
+            if (currentStatus?.syncStatus === 'cancelled') {
+              console.log(`[Fitness Cache] Sync cancelled by user at ${fetched} observations`);
+              return;
+            }
+            
             const params = new URLSearchParams({
               user_login: usernameLower,
               per_page: PER_PAGE.toString(),
@@ -1573,6 +1581,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Fitness Cache] Error starting incremental sync:", error);
       res.status(500).json({ error: error.message || "Failed to start incremental sync" });
+    }
+  });
+
+  // Cancel sync - sets status to cancelled so polling will stop
+  app.post("/api/fitness/cache/sync/cancel", async (req: any, res) => {
+    try {
+      const { username } = req.body;
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+
+      const usernameLower = (username as string).toLowerCase();
+      const metadata = await storage.getFitnessCacheMetadata(usernameLower);
+      
+      if (!metadata || metadata.syncStatus !== 'syncing') {
+        return res.json({ status: 'not_syncing', message: 'No sync in progress' });
+      }
+
+      // Get current cached count
+      const cachedCount = await storage.getFitnessObservationCount(usernameLower);
+      
+      await storage.upsertFitnessCacheMetadata({
+        username: usernameLower,
+        totalObservations: cachedCount,
+        syncStatus: 'cancelled',
+        syncProgress: metadata.syncProgress || 0,
+        syncMessage: `Sync cancelled. ${cachedCount} observations saved.`,
+      });
+      
+      console.log(`[Fitness Cache] Sync cancelled for ${usernameLower} at ${cachedCount} observations`);
+      
+      res.json({ 
+        status: 'cancelled', 
+        message: `Sync cancelled. ${cachedCount} observations saved.`,
+        cachedCount 
+      });
+    } catch (error: any) {
+      console.error("[Fitness Cache] Error cancelling sync:", error);
+      res.status(500).json({ error: error.message || "Failed to cancel sync" });
     }
   });
 
