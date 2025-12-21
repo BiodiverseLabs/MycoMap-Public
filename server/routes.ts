@@ -2134,6 +2134,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error(`[IPFS] Failed to auto-upload observation ${observationId}:`, error);
     }
   }
+
+  // In-memory photo URL cache (keyed by observation ID)
+  const photoUrlCache = new Map<string, { url: string; fetchedAt: number }>();
+  const PHOTO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+  // Photo proxy endpoint - fetches fresh photo URLs from iNaturalist API
+  app.get("/api/photo-url/:observationId", async (req, res) => {
+    try {
+      const { observationId } = req.params;
+      
+      // Check in-memory cache first
+      const cached = photoUrlCache.get(observationId);
+      if (cached && Date.now() - cached.fetchedAt < PHOTO_CACHE_TTL) {
+        return res.json({ url: cached.url, cached: true });
+      }
+      
+      // Fetch from iNaturalist API
+      const response = await fetch(`https://api.inaturalist.org/v1/observations/${observationId}`);
+      if (!response.ok) {
+        return res.status(404).json({ error: 'Observation not found' });
+      }
+      
+      const data = await response.json();
+      const photos = data?.results?.[0]?.photos;
+      
+      if (photos && photos.length > 0) {
+        // Use medium size, convert from square
+        const photoUrl = photos[0].url?.replace('square', 'medium');
+        if (photoUrl) {
+          // Cache the result
+          photoUrlCache.set(observationId, { url: photoUrl, fetchedAt: Date.now() });
+          return res.json({ url: photoUrl, cached: false });
+        }
+      }
+      
+      return res.status(404).json({ error: 'No photos found' });
+    } catch (error) {
+      console.error(`[Photo Proxy] Error fetching photo for observation ${req.params.observationId}:`, error);
+      return res.status(500).json({ error: 'Failed to fetch photo' });
+    }
+  });
+
   // Analytics endpoints
   app.get("/api/observations", async (req, res) => {
     try {

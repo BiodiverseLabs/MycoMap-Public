@@ -27,100 +27,64 @@ interface RecordItem {
 
 const RECORDS_PER_PAGE = 20;
 
-// Smart thumbnail component with fallback strategies for iNaturalist images
+// Smart thumbnail component - uses server proxy for fresh iNaturalist photos
 function SmartThumbnail({ src, alt, observationId, source }: { 
   src?: string, 
   alt: string, 
   observationId: string, 
   source: string 
 }) {
-  const [currentSrc, setCurrentSrc] = useState(src);
-  const [fallbackIndex, setFallbackIndex] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [fetchedFromApi, setFetchedFromApi] = useState(false);
 
-  const generateFallbackUrls = (originalUrl?: string) => {
-    if (!originalUrl) return [];
-    
-    const fallbacks: string[] = [];
-    
-    if (originalUrl.includes('inaturalist-open-data.s3.amazonaws.com') || originalUrl.includes('static.inaturalist.org')) {
-      const baseUrl = originalUrl.split('?')[0];
-      const photoMatch = baseUrl.match(/\/photos\/(\d+)\//);
-      if (photoMatch) {
-        const photoId = photoMatch[1];
-        const s3Base = `https://inaturalist-open-data.s3.amazonaws.com/photos/${photoId}`;
-        fallbacks.push(
-          baseUrl,
-          `${s3Base}/medium.jpeg`,
-          `${s3Base}/small.jpeg`,
-          `${s3Base}/medium.jpg`,
-          `${s3Base}/small.jpg`
-        );
-      } else {
-        fallbacks.push(baseUrl);
-      }
-    } else {
-      fallbacks.push(originalUrl);
-    }
-    
-    return fallbacks;
-  };
-
-  const fallbackUrls = generateFallbackUrls(src);
-
-  // Fetch fresh photo from iNaturalist API
-  const fetchFreshPhoto = async () => {
-    console.log(`[SmartThumbnail] fetchFreshPhoto called for ${observationId}, source: ${source}, fetched: ${fetchedFromApi}`);
-    if (source !== 'iNaturalist' || !observationId || fetchedFromApi) return;
-    
-    try {
-      setFetchedFromApi(true);
-      const response = await fetch(`https://api.inaturalist.org/v1/observations/${observationId}`);
-      console.log(`[SmartThumbnail] API response status: ${response.status}`);
-      if (response.ok) {
-        const data = await response.json();
-        const photos = data?.results?.[0]?.photos;
-        console.log(`[SmartThumbnail] Photos found: ${photos?.length || 0}`);
-        if (photos && photos.length > 0) {
-          const photoUrl = photos[0].url?.replace('square', 'medium');
-          console.log(`[SmartThumbnail] Fresh photo URL: ${photoUrl}`);
-          if (photoUrl) {
-            setCurrentSrc(photoUrl);
-            setHasError(false);
-            return;
+  // Fetch fresh photo URL from our server proxy
+  useEffect(() => {
+    const fetchPhoto = async () => {
+      // For iNaturalist sources, always use the proxy to get fresh URLs
+      if (source === 'iNaturalist' && observationId) {
+        try {
+          const response = await fetch(`/api/photo-url/${observationId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.url) {
+              setCurrentSrc(data.url);
+              setIsLoading(false);
+              return;
+            }
           }
+        } catch (e) {
+          console.error(`[SmartThumbnail] Proxy fetch error for ${observationId}:`, e);
         }
       }
-    } catch (e) {
-      console.error(`[SmartThumbnail] API fetch error:`, e);
-    }
+      
+      // Fall back to provided src for non-iNaturalist sources or if proxy fails
+      if (src) {
+        setCurrentSrc(src);
+      } else {
+        setHasError(true);
+      }
+      setIsLoading(false);
+    };
+
+    setIsLoading(true);
+    setHasError(false);
+    fetchPhoto();
+  }, [src, observationId, source]);
+
+  const handleImageError = () => {
     setHasError(true);
   };
 
-  const handleImageError = () => {
-    console.log(`[SmartThumbnail] Image error for ${observationId}, fallbackIndex: ${fallbackIndex}, total: ${fallbackUrls.length}, src: ${currentSrc}`);
-    const nextIndex = fallbackIndex + 1;
-    if (nextIndex < fallbackUrls.length) {
-      setFallbackIndex(nextIndex);
-      setCurrentSrc(fallbackUrls[nextIndex]);
-    } else if (source === 'iNaturalist' && !fetchedFromApi) {
-      console.log(`[SmartThumbnail] All fallbacks failed, fetching from API for ${observationId}`);
-      fetchFreshPhoto();
-    } else {
-      console.log(`[SmartThumbnail] Setting hasError for ${observationId}`);
-      setHasError(true);
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="w-16 h-16 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center animate-pulse">
+        <div className="w-8 h-8 rounded bg-slate-200"></div>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    setCurrentSrc(src);
-    setFallbackIndex(0);
-    setHasError(false);
-    setFetchedFromApi(false);
-  }, [src]);
-
-  if (!src || hasError) {
+  if (!currentSrc || hasError) {
     return (
       <div className="w-16 h-16 rounded-lg border border-slate-300 bg-slate-100 flex items-center justify-center text-slate-400">
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
