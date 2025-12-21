@@ -720,7 +720,7 @@ export default function ForagingMap() {
                                   )}
                                 </div>
                               </div>
-                              {speciesInfo?.categories.length > 0 && (
+                              {speciesInfo?.categories && speciesInfo.categories.length > 0 && (
                                 <div className="flex gap-1 mt-1">
                                   {speciesInfo.categories.map(catId => {
                                     const category = FORAGING_CATEGORIES.find(c => c.id === catId);
