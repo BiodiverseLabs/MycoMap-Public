@@ -615,82 +615,62 @@ export default function FitnessTracker() {
 
       {processedObservations.length > 0 && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
             <Card 
               className="cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => setShowLocationsDialog(true)}
               data-testid="card-locations"
             >
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <MapPin className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      Total Locations
-                      <Info className="h-3 w-3 text-muted-foreground" />
-                    </p>
-                    <p className="text-2xl font-bold" data-testid="text-total-locations">{totalLocations}</p>
-                  </div>
+              <CardContent className="pt-4 pb-4 flex flex-col items-center text-center">
+                <div className="p-2 bg-blue-100 rounded-full mb-2">
+                  <MapPin className="h-5 w-5 text-blue-600" />
                 </div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  Locations
+                  <Info className="h-3 w-3" />
+                </p>
+                <p className="text-2xl font-bold" data-testid="text-total-locations">{totalLocations}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Eye className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Observations</p>
-                    <p className="text-2xl font-bold" data-testid="text-total-observations">{totalObservations}</p>
-                  </div>
+              <CardContent className="pt-4 pb-4 flex flex-col items-center text-center">
+                <div className="p-2 bg-green-100 rounded-full mb-2">
+                  <Eye className="h-5 w-5 text-green-600" />
                 </div>
+                <p className="text-xs text-muted-foreground">Observations</p>
+                <p className="text-2xl font-bold" data-testid="text-total-observations">{totalObservations}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Route className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Miles</p>
-                    <p className="text-2xl font-bold" data-testid="text-total-miles">{totalMiles.toFixed(2)}</p>
-                  </div>
+              <CardContent className="pt-4 pb-4 flex flex-col items-center text-center">
+                <div className="p-2 bg-purple-100 rounded-full mb-2">
+                  <Route className="h-5 w-5 text-purple-600" />
                 </div>
+                <p className="text-xs text-muted-foreground">Miles</p>
+                <p className="text-2xl font-bold" data-testid="text-total-miles">{totalMiles.toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <Timer className="h-5 w-5 text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Time</p>
-                    <p className="text-2xl font-bold" data-testid="text-total-time">
-                      {totalMinutes >= 60 
-                        ? `${Math.floor(totalMinutes / 60)}h ${Math.round(totalMinutes % 60)}m`
-                        : `${Math.round(totalMinutes)}m`
-                      }
-                    </p>
-                  </div>
+              <CardContent className="pt-4 pb-4 flex flex-col items-center text-center">
+                <div className="p-2 bg-yellow-100 rounded-full mb-2">
+                  <Timer className="h-5 w-5 text-yellow-600" />
                 </div>
+                <p className="text-xs text-muted-foreground">Time</p>
+                <p className="text-2xl font-bold" data-testid="text-total-time">
+                  {totalMinutes >= 60 
+                    ? `${Math.floor(totalMinutes / 60)}h ${Math.round(totalMinutes % 60)}m`
+                    : `${Math.round(totalMinutes)}m`
+                  }
+                </p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <Activity className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Average Speed</p>
-                    <p className="text-2xl font-bold" data-testid="text-avg-pace">{formatSpeed(avgSpeedMph)}</p>
-                  </div>
+              <CardContent className="pt-4 pb-4 flex flex-col items-center text-center">
+                <div className="p-2 bg-orange-100 rounded-full mb-2">
+                  <Activity className="h-5 w-5 text-orange-600" />
                 </div>
+                <p className="text-xs text-muted-foreground">Avg Speed</p>
+                <p className="text-2xl font-bold" data-testid="text-avg-pace">{formatSpeed(avgSpeedMph)}</p>
               </CardContent>
             </Card>
             <Card 
@@ -698,19 +678,15 @@ export default function FitnessTracker() {
               onClick={() => setShowCaloriesDialog(true)}
               data-testid="card-calories"
             >
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <Flame className="h-5 w-5 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      Calories Burned
-                      <Info className="h-3 w-3 text-muted-foreground" />
-                    </p>
-                    <p className="text-2xl font-bold" data-testid="text-calories">{totalCalories}</p>
-                  </div>
+              <CardContent className="pt-4 pb-4 flex flex-col items-center text-center">
+                <div className="p-2 bg-red-100 rounded-full mb-2">
+                  <Flame className="h-5 w-5 text-red-600" />
                 </div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  Calories
+                  <Info className="h-3 w-3" />
+                </p>
+                <p className="text-2xl font-bold" data-testid="text-calories">{totalCalories}</p>
               </CardContent>
             </Card>
           </div>
