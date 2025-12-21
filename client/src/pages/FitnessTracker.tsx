@@ -776,7 +776,7 @@ export default function FitnessTracker() {
       )}
 
       <Dialog open={showCaloriesDialog} onOpenChange={setShowCaloriesDialog}>
-        <DialogContent>
+        <DialogContent className="z-[1000]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Flame className="h-5 w-5 text-red-500" />
