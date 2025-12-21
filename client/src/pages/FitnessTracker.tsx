@@ -970,8 +970,13 @@ export default function FitnessTracker() {
                     modifiers={{
                       hasObservations: observationDates.map(d => parseISO(d))
                     }}
-                    modifiersClassNames={{
-                      hasObservations: "!bg-[#8CBD45] !text-white rounded-full"
+                    modifiersStyles={{
+                      hasObservations: {
+                        backgroundColor: '#8CBD45',
+                        color: 'white',
+                        borderRadius: '50%',
+                        fontWeight: 'bold'
+                      }
                     }}
                     disabled={(date) => !observationDates.some(d => isSameDay(parseISO(d), date))}
                   />
