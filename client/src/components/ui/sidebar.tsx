@@ -64,6 +64,7 @@ export function Sidebar() {
     { href: "/admin/biorecords", label: "BioRecord Management", icon: Dna },
     { href: "/admin/upload", label: "Data Upload", icon: Upload },
     { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
+    { href: "/admin/foraging-lists", label: "Foraging Lists", icon: Leaf },
     { href: "/admin/settings", label: "System Settings", icon: Settings },
   ];
 
