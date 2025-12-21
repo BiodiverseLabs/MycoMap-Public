@@ -44,19 +44,26 @@ function SmartThumbnail({ src, alt, observationId, source }: {
     const fallbacks: string[] = [];
     
     if (originalUrl.includes('inaturalist-open-data.s3.amazonaws.com') || originalUrl.includes('static.inaturalist.org')) {
-      // Try different size variants for iNaturalist images
-      const baseUrl = originalUrl.split('?')[0]; // Remove query params
-      const withoutExtension = baseUrl.replace(/\.(jpeg|jpg|png)$/i, '');
+      // Remove query params
+      const baseUrl = originalUrl.split('?')[0];
       
-      // Convert static.inaturalist.org to working S3 URLs if needed
-      const s3BaseUrl = withoutExtension.replace('static.inaturalist.org', 'inaturalist-open-data.s3.amazonaws.com');
-      
-      fallbacks.push(
-        originalUrl, // Try original first (might be pre-converted S3 URL)
-        `${s3BaseUrl}/small.jpeg`,
-        `${s3BaseUrl}/medium.jpeg`,
-        `${s3BaseUrl}/large.jpeg`
-      );
+      // Extract photo ID from URL pattern like /photos/12345/medium.jpeg
+      const photoMatch = baseUrl.match(/\/photos\/(\d+)\//);
+      if (photoMatch) {
+        const photoId = photoMatch[1];
+        const s3Base = `https://inaturalist-open-data.s3.amazonaws.com/photos/${photoId}`;
+        
+        fallbacks.push(
+          baseUrl, // Try original first
+          `${s3Base}/medium.jpeg`,
+          `${s3Base}/small.jpeg`,
+          `${s3Base}/large.jpeg`,
+          `${s3Base}/medium.jpg`,
+          `${s3Base}/small.jpg`
+        );
+      } else {
+        fallbacks.push(baseUrl);
+      }
     } else {
       fallbacks.push(originalUrl);
     }
