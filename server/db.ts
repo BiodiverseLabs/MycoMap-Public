@@ -4484,6 +4484,13 @@ export class DatabaseStorage implements IStorage {
     return result[0]?.count || 0;
   }
 
+  async getMaxFitnessObservationId(username: string): Promise<number | null> {
+    const result = await db.select({ maxId: sql<number>`max(observation_id)::int` })
+      .from(fitnessObservationCache)
+      .where(eq(fitnessObservationCache.username, username.toLowerCase()));
+    return result[0]?.maxId || null;
+  }
+
   async getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null> {
     const [metadata] = await db.select().from(fitnessCacheMetadata)
       .where(eq(fitnessCacheMetadata.username, username.toLowerCase()));

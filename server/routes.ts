@@ -1343,21 +1343,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
           
-          // Paginate through all observations
-          let page = resumeFromPage;
-          let fetched = actualCachedCount; // Use actual cache count, not calculated
+          // Use cursor-based pagination with id_above to bypass 50-page limit
+          let fetched = actualCachedCount;
           let maxUpdatedAt: Date | null = null;
           let consecutiveErrors = 0;
+          let batchNumber = 0;
+          
+          // Get the last observation ID from cache as cursor for resume
+          let lastObsId = 0;
+          if (actualCachedCount > 0) {
+            // Find the max observation ID we already have
+            const maxIdResult = await storage.getMaxFitnessObservationId(usernameLower);
+            lastObsId = maxIdResult || 0;
+            console.log(`[Fitness Cache] Resuming with id_above=${lastObsId}`);
+          }
           
           // Store total for progress tracking
           await storage.upsertFitnessCacheMetadata({
             username: usernameLower,
             totalObservations: actualCachedCount,
             totalExpectedObservations: totalCount,
-            lastProcessedPage: resumeFromPage - 1, // Page before where we're starting
             syncStatus: 'syncing',
             syncProgress: Math.round((fetched / totalCount) * 100),
-            syncMessage: `Syncing from page ${page}...`,
+            syncMessage: `Syncing using cursor pagination...`,
           });
           
           while (fetched < totalCount) {
@@ -1368,14 +1376,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return;
             }
             
+            // Use id_above for cursor-based pagination (bypasses 50-page limit)
             const params = new URLSearchParams({
               user_login: usernameLower,
               per_page: PER_PAGE.toString(),
-              page: page.toString(),
               order: 'asc',
-              order_by: 'created_at',
+              order_by: 'id', // Order by ID for cursor pagination
               photos: 'true',
             });
+            
+            if (lastObsId > 0) {
+              params.set('id_above', lastObsId.toString());
+            }
             
             const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`, {
               headers: inatHeaders,
@@ -1383,21 +1395,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (!response.ok) {
               consecutiveErrors++;
-              console.error(`[Fitness Cache] API error ${response.status} on page ${page} (attempt ${consecutiveErrors})`);
+              console.error(`[Fitness Cache] API error ${response.status} (attempt ${consecutiveErrors}), lastObsId=${lastObsId}`);
               
               if (response.status === 403 || response.status === 429) {
-                // Rate limited - save progress with exact page number for proper resume
+                // Rate limited - save progress for cursor-based resume
                 const currentCacheCount = await storage.getFitnessObservationCount(usernameLower);
                 await storage.upsertFitnessCacheMetadata({
                   username: usernameLower,
                   totalObservations: currentCacheCount,
                   totalExpectedObservations: totalCount,
-                  lastProcessedPage: page - 1, // Last successfully completed page
                   syncStatus: 'rate_limited',
                   syncProgress: Math.round((currentCacheCount / totalCount) * 100),
-                  syncMessage: `Rate limited at ${currentCacheCount}/${totalCount}. Wait 2 min and click Sync to resume from page ${page}.`,
+                  syncMessage: `Rate limited at ${currentCacheCount}/${totalCount}. Wait 2 min and click Sync to resume.`,
                 });
-                console.log(`[Fitness Cache] Rate limited at page ${page} - saved lastProcessedPage=${page - 1}, ${currentCacheCount} observations`);
+                console.log(`[Fitness Cache] Rate limited - saved progress at ${currentCacheCount} observations, lastObsId=${lastObsId}`);
                 return;
               }
               
@@ -1449,23 +1460,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             await storage.upsertFitnessObservations(obsToInsert);
             
+            // Update cursor to last observation ID in this batch
+            if (results.length > 0) {
+              lastObsId = results[results.length - 1].id;
+            }
+            
             // Update fetched count from actual DB (more accurate)
             const newCacheCount = await storage.getFitnessObservationCount(usernameLower);
             fetched = newCacheCount;
+            batchNumber++;
             const progress = Math.round((fetched / totalCount) * 100);
             
-            // Save progress with lastProcessedPage after each successful batch
+            // Save progress after each successful batch
             await storage.upsertFitnessCacheMetadata({
               username: usernameLower,
               totalObservations: fetched,
               totalExpectedObservations: totalCount,
-              lastProcessedPage: page, // This page was successfully processed
               syncStatus: 'syncing',
               syncProgress: progress,
-              syncMessage: `Synced ${fetched} of ${totalCount} observations`,
+              syncMessage: `Synced ${fetched} of ${totalCount} observations (batch ${batchNumber})`,
             });
-            
-            page++;
             
             // Slower rate limiting to avoid 403 errors (1 second between requests)
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1477,7 +1491,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             username: usernameLower,
             totalObservations: finalCount,
             totalExpectedObservations: totalCount,
-            lastProcessedPage: page - 1, // Last page processed
             lastFullSyncAt: new Date(),
             lastSyncCursor: maxUpdatedAt,
             syncStatus: 'completed',
