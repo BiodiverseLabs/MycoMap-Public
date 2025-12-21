@@ -1215,3 +1215,117 @@ export type FitnessObservationCache = typeof fitnessObservationCache.$inferSelec
 
 export type InsertFitnessCacheMetadata = z.infer<typeof insertFitnessCacheMetadataSchema>;
 export type FitnessCacheMetadata = typeof fitnessCacheMetadata.$inferSelect;
+
+// Specimen Shipments - tracks user specimen submissions for DNA barcoding
+export const shipments = pgTable("shipments", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(), // References auth users table
+  status: text("status").notNull().default("draft"), // draft, pending_validation, validated, submitted, received, processing, completed
+  trackingNumber: text("tracking_number"),
+  
+  // Questionnaire answers from page 1
+  isNorthAmerica: boolean("is_north_america"),
+  isMycoMapProject: boolean("is_mycomap_project"),
+  mycoMapProjectName: text("mycomap_project_name"),
+  hasObservations: boolean("has_observations"),
+  isCompletelyDried: boolean("is_completely_dried"),
+  isProperlyPackaged: boolean("is_properly_packaged"),
+  hasSlimeMolds: text("has_slime_molds"), // "yes_separate" | "not_applicable"
+  
+  submittedAt: timestamp("submitted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIdx: index("shipments_user_id_idx").on(table.userId),
+  statusIdx: index("shipments_status_idx").on(table.status),
+}));
+
+// Shipment Bags - individual bags within a shipment
+export const shipmentBags = pgTable("shipment_bags", {
+  id: serial("id").primaryKey(),
+  shipmentId: integer("shipment_id").notNull().references(() => shipments.id, { onDelete: "cascade" }),
+  name: text("name").notNull().default("Bag 1"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  shipmentIdIdx: index("shipment_bags_shipment_id_idx").on(table.shipmentId),
+}));
+
+// Shipment Specimens - individual specimens within a bag
+export const shipmentSpecimens = pgTable("shipment_specimens", {
+  id: serial("id").primaryKey(),
+  bagId: integer("bag_id").notNull().references(() => shipmentBags.id, { onDelete: "cascade" }),
+  platform: text("platform").notNull().default("iNaturalist"), // iNaturalist | Mushroom Observer
+  observationId: text("observation_id").notNull(), // The iNat/MO observation ID or URL
+  
+  // Validated data from API
+  isValidated: boolean("is_validated").default(false),
+  validationStatus: text("validation_status"), // valid | invalid | error
+  validationMessage: text("validation_message"),
+  scientificName: text("scientific_name"),
+  observedDate: text("observed_date"),
+  location: text("location"),
+  username: text("username"),
+  kingdom: text("kingdom"),
+  
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  bagIdIdx: index("shipment_specimens_bag_id_idx").on(table.bagId),
+}));
+
+// Relations for shipments
+export const shipmentsRelations = relations(shipments, ({ many }) => ({
+  bags: many(shipmentBags),
+}));
+
+export const shipmentBagsRelations = relations(shipmentBags, ({ one, many }) => ({
+  shipment: one(shipments, {
+    fields: [shipmentBags.shipmentId],
+    references: [shipments.id],
+  }),
+  specimens: many(shipmentSpecimens),
+}));
+
+export const shipmentSpecimensRelations = relations(shipmentSpecimens, ({ one }) => ({
+  bag: one(shipmentBags, {
+    fields: [shipmentSpecimens.bagId],
+    references: [shipmentBags.id],
+  }),
+}));
+
+// Insert schemas
+export const insertShipmentSchema = createInsertSchema(shipments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertShipmentBagSchema = createInsertSchema(shipmentBags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertShipmentSpecimenSchema = createInsertSchema(shipmentSpecimens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types
+export type InsertShipment = z.infer<typeof insertShipmentSchema>;
+export type Shipment = typeof shipments.$inferSelect;
+
+export type InsertShipmentBag = z.infer<typeof insertShipmentBagSchema>;
+export type ShipmentBag = typeof shipmentBags.$inferSelect;
+
+export type InsertShipmentSpecimen = z.infer<typeof insertShipmentSpecimenSchema>;
+export type ShipmentSpecimen = typeof shipmentSpecimens.$inferSelect;
+
+// Extended types with relations
+export type ShipmentWithBags = Shipment & {
+  bags: (ShipmentBag & { specimens: ShipmentSpecimen[] })[];
+};
