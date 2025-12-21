@@ -15,4 +15,28 @@ export function registerAuthRoutes(app: Express): void {
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
+
+  // Update user profile
+  app.patch("/api/auth/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, iNaturalistUsername, mushroomObserverUsername } = req.body;
+      
+      const user = await authStorage.updateUserProfile(userId, {
+        firstName,
+        lastName,
+        iNaturalistUsername,
+        mushroomObserverUsername,
+      });
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
 }

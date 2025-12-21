@@ -1,0 +1,34 @@
+For specimen submission, the general workflow would be that users can create a new shipment. The profile page would show a button to create a new shipment and a lower section that would store past shipments. There would be a form for users to create a new shipment. The form would have one page of questions and a second page where users could enter the contents of the shipment. 
+
+
+The initial form that users would be presented with would contain:
+
+Are your collections from North America? (Y/N)
+
+Are your collections a part of a MycoMap Network Project? (Y/N If yes, freeform entry field that searches current MycoMap network projects)
+
+Are your collections all associated with an iNaturalist or Mushroom Observer observation? (Y/N)
+
+Are all your collections completely dried? They should be "cracker dry" with no flex in them.  (Y/N)
+
+Are your specimens in snack-size Ziplock bags, with a printed QR code visible through the bag? (Y/N)
+
+Are you sending any slime molds? (Yes, I am submitting slime molds, and they are packaged separately from the fungi - Not applicable, I am not submitting slime molds)
+
+Save for Later - Continue
+
+The next page would be a list where users could enter or scan in the iNaturalist numbers for the shipment. At the top would be a title. Default of Bag 1, but users could change that. Below would be two freeform entry fields. Next to it would be dropdown for iNaturalist/Mushroom Observer. iNaturalist as the default. The form would accept an iNaturalist/Mushroom observer link and/or number. Each time a number is entered in, it would take the cursor to the next field and then populate a new freeform entry field. So there would always be two blank fields on the screen. If the digit in the field is six digits, then it would default the field to Mushroom Observer for that line. 
+
+There would also be a button to "Paste List" Hitting this button would past in the clipboard. The clipboard contents would be pasted to the individual fields. 
+
+At the bottom of the field would be two buttons. Save for later and Validate Specimens. When selecting the Validate Specimens button, it will ping the iNaturalist/Mushroom Observer API with the list of iNaturalist numbers and pull the following for each line. Species Name, Date, Location, Username. It would also pull the classification rank for the observation. Hopefully this can be done in one bulk API call. Any specimens that have Kingdom of Fungi would get a green checkmark. Any that do not would be red checkmark. Any redcheckmarks would have a button next to it where the user could validate. Once all of the records are green, the bag would be saved into the shipment. 
+
+The top would also have button for "Create New Bag." This would bring up the same form again. Clicking one of the previously saved bags at the top would bring up the list of the contents of that bag. Users should be able to edit previously saved bags. 
+
+Once they have at least one saved bag, the buttons would be Save for Later and Get Address for Submission. Get address would show:
+
+Mycota Lab
+46701 Commerce Center Dr.
+Plymouth, MI 48170
+
+and they would be back on the Shipments screen with the Create New Shipment button. The shipment they just submitted would be in the Past Shipments area with a button to Add Tracking. It would save the tracking number to the shipment. 
