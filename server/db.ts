@@ -4,7 +4,7 @@ import ws from "ws";
 import * as schema from "@shared/schema";
 import { 
   users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData, biorecords, inaturalistClassificationCache,
-  subscriptionPlans, userSubscriptions, paymentTransactions,
+  subscriptionPlans, userSubscriptions, paymentTransactions, fitnessObservationCache, fitnessCacheMetadata,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment,
@@ -12,7 +12,8 @@ import {
   type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
   type InaturalistClassificationCache, type InsertInaturalistClassificationCache,
   type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction,
-  type ForagingList, type InsertForagingList
+  type ForagingList, type InsertForagingList,
+  type FitnessObservationCache, type InsertFitnessObservationCache, type FitnessCacheMetadata, type InsertFitnessCacheMetadata
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray, gte, lte } from 'drizzle-orm';
 import type { IStorage } from "./storage";
@@ -4424,5 +4425,95 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(schema.foragingLists).values(data).returning();
       return created;
     }
+  }
+
+  // Fitness Observation Cache
+  async getFitnessObservations(username: string, startDate?: string, endDate?: string): Promise<FitnessObservationCache[]> {
+    let query = db.select().from(fitnessObservationCache)
+      .where(and(
+        eq(fitnessObservationCache.username, username.toLowerCase()),
+        sql`${fitnessObservationCache.deletedAt} IS NULL`
+      ));
+    
+    if (startDate && endDate) {
+      query = db.select().from(fitnessObservationCache)
+        .where(and(
+          eq(fitnessObservationCache.username, username.toLowerCase()),
+          sql`${fitnessObservationCache.deletedAt} IS NULL`,
+          gte(fitnessObservationCache.observedOn, startDate),
+          lte(fitnessObservationCache.observedOn, endDate)
+        ));
+    }
+    
+    return await query.orderBy(asc(fitnessObservationCache.observedOn));
+  }
+
+  async upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void> {
+    if (observations.length === 0) return;
+    
+    for (const obs of observations) {
+      await db.insert(fitnessObservationCache)
+        .values({
+          ...obs,
+          username: obs.username.toLowerCase(),
+          updatedAt: new Date()
+        })
+        .onConflictDoUpdate({
+          target: [fitnessObservationCache.username, fitnessObservationCache.observationId],
+          set: {
+            scientificName: obs.scientificName,
+            commonName: obs.commonName,
+            observedOn: obs.observedOn,
+            timeObserved: obs.timeObserved,
+            latitude: obs.latitude,
+            longitude: obs.longitude,
+            photoUrl: obs.photoUrl,
+            placeGuess: obs.placeGuess,
+            inatUpdatedAt: obs.inatUpdatedAt,
+            updatedAt: new Date(),
+            deletedAt: null
+          }
+        });
+    }
+  }
+
+  async getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null> {
+    const [metadata] = await db.select().from(fitnessCacheMetadata)
+      .where(eq(fitnessCacheMetadata.username, username.toLowerCase()));
+    return metadata || null;
+  }
+
+  async upsertFitnessCacheMetadata(metadata: InsertFitnessCacheMetadata): Promise<FitnessCacheMetadata> {
+    const existing = await this.getFitnessCacheMetadata(metadata.username);
+    if (existing) {
+      const [updated] = await db.update(fitnessCacheMetadata)
+        .set({
+          ...metadata,
+          username: metadata.username.toLowerCase(),
+          updatedAt: new Date()
+        })
+        .where(eq(fitnessCacheMetadata.username, metadata.username.toLowerCase()))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(fitnessCacheMetadata)
+        .values({
+          ...metadata,
+          username: metadata.username.toLowerCase()
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async updateFitnessSyncProgress(username: string, progress: number, status: string, message?: string): Promise<void> {
+    await db.update(fitnessCacheMetadata)
+      .set({
+        syncProgress: progress,
+        syncStatus: status,
+        syncMessage: message || null,
+        updatedAt: new Date()
+      })
+      .where(eq(fitnessCacheMetadata.username, username.toLowerCase()));
   }
 }

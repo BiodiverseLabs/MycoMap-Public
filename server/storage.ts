@@ -4,7 +4,8 @@ import {
   type Species, type InsertSpecies, type InaturalistData, type InsertInaturalistData,
   type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
   type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction,
-  type ForagingList, type InsertForagingList
+  type ForagingList, type InsertForagingList,
+  type FitnessObservationCache, type InsertFitnessObservationCache, type FitnessCacheMetadata, type InsertFitnessCacheMetadata
 } from "@shared/schema";
 
 export interface IStorage {
@@ -300,6 +301,13 @@ export interface IStorage {
   getForagingLists(): Promise<ForagingList[]>;
   getForagingListByCategory(category: string): Promise<ForagingList | null>;
   upsertForagingList(data: InsertForagingList): Promise<ForagingList>;
+  
+  // Fitness Observation Cache
+  getFitnessObservations(username: string, startDate?: string, endDate?: string): Promise<FitnessObservationCache[]>;
+  upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void>;
+  getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null>;
+  upsertFitnessCacheMetadata(metadata: InsertFitnessCacheMetadata): Promise<FitnessCacheMetadata>;
+  updateFitnessSyncProgress(username: string, progress: number, status: string, message?: string): Promise<void>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -1418,6 +1426,27 @@ export class MemoryStorage implements IStorage {
   
   async upsertForagingList(data: InsertForagingList): Promise<ForagingList> {
     throw new Error('Memory storage does not support foraging lists');
+  }
+  
+  // Fitness Cache stubs for memory storage
+  async getFitnessObservations(username: string, startDate?: string, endDate?: string): Promise<FitnessObservationCache[]> {
+    return [];
+  }
+  
+  async upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void> {
+    throw new Error('Memory storage does not support fitness cache');
+  }
+  
+  async getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null> {
+    return null;
+  }
+  
+  async upsertFitnessCacheMetadata(metadata: InsertFitnessCacheMetadata): Promise<FitnessCacheMetadata> {
+    throw new Error('Memory storage does not support fitness cache');
+  }
+  
+  async updateFitnessSyncProgress(username: string, progress: number, status: string, message?: string): Promise<void> {
+    throw new Error('Memory storage does not support fitness cache');
   }
 }
 
