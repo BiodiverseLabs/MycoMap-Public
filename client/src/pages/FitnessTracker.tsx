@@ -27,7 +27,7 @@ interface ProcessedObservation extends FitnessObservation {
   observationNumber: number;
   dateTime: Date;
   distanceFromPrevious: number;
-  paceMinPerMile: number | null;
+  speedMph: number | null;
 }
 
 interface OutingSummary {
@@ -35,7 +35,7 @@ interface OutingSummary {
   observations: ProcessedObservation[];
   totalDistance: number;
   totalTimeMinutes: number;
-  avgPace: number | null;
+  avgSpeedMph: number | null;
 }
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -74,7 +74,7 @@ export default function FitnessTracker() {
   const totalOutings = outings.length;
   const totalMiles = outings.reduce((sum, o) => sum + o.totalDistance, 0);
   const totalMinutes = outings.reduce((sum, o) => sum + o.totalTimeMinutes, 0);
-  const avgPace = totalMiles > 0 && totalMinutes > 0 ? totalMinutes / totalMiles : null;
+  const avgSpeedMph = totalMiles > 0 && totalMinutes > 0 ? (totalMiles / totalMinutes) * 60 : null;
   const totalCalories = estimateCalories(totalMiles, totalMinutes);
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function FitnessTracker() {
     const processed: ProcessedObservation[] = sorted.map((o, index) => {
       const dateTime = new Date(`${o.observedOn}T${o.timeObserved || '00:00:00'}`);
       let distanceFromPrevious = 0;
-      let paceMinPerMile: number | null = null;
+      let speedMph: number | null = null;
 
       if (index > 0) {
         const prev = sorted[index - 1];
@@ -112,7 +112,7 @@ export default function FitnessTracker() {
         );
         const timeDiffMinutes = differenceInMinutes(dateTime, prevDateTime);
         if (distanceFromPrevious > 0 && timeDiffMinutes > 0) {
-          paceMinPerMile = timeDiffMinutes / distanceFromPrevious;
+          speedMph = (distanceFromPrevious / timeDiffMinutes) * 60;
         }
       }
 
@@ -121,7 +121,7 @@ export default function FitnessTracker() {
         observationNumber: index + 1,
         dateTime,
         distanceFromPrevious,
-        paceMinPerMile,
+        speedMph,
       };
     });
 
@@ -141,9 +141,9 @@ export default function FitnessTracker() {
       const firstObs = dayObs[0].dateTime;
       const lastObs = dayObs[dayObs.length - 1].dateTime;
       const totalTimeMinutes = differenceInMinutes(lastObs, firstObs);
-      const avgPace = totalDistance > 0 && totalTimeMinutes > 0 ? totalTimeMinutes / totalDistance : null;
+      const avgSpeedMph = totalDistance > 0 && totalTimeMinutes > 0 ? (totalDistance / totalTimeMinutes) * 60 : null;
 
-      return { date, observations: dayObs, totalDistance, totalTimeMinutes, avgPace };
+      return { date, observations: dayObs, totalDistance, totalTimeMinutes, avgSpeedMph };
     });
 
     setOutings(summaries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -192,7 +192,7 @@ export default function FitnessTracker() {
           <small>${o.commonName || ''}</small><br/>
           <small>${format(o.dateTime, 'MMM d, yyyy h:mm a')}</small><br/>
           ${o.distanceFromPrevious > 0 ? `<small>Distance: ${o.distanceFromPrevious.toFixed(2)} mi</small><br/>` : ''}
-          ${o.paceMinPerMile ? `<small>Pace: ${formatPace(o.paceMinPerMile)}</small>` : ''}
+          ${o.speedMph ? `<small>Speed: ${o.speedMph.toFixed(1)} mph</small>` : ''}
         </div>
       `);
       bounds.extend([lat, lng]);
@@ -210,11 +210,9 @@ export default function FitnessTracker() {
     }
   };
 
-  const formatPace = (minPerMile: number | null): string => {
-    if (!minPerMile || minPerMile <= 0 || !isFinite(minPerMile)) return '--';
-    const mins = Math.floor(minPerMile);
-    const secs = Math.round((minPerMile - mins) * 60);
-    return `${mins}:${secs.toString().padStart(2, '0')} /mi`;
+  const formatSpeed = (mph: number | null): string => {
+    if (!mph || mph <= 0 || !isFinite(mph)) return '--';
+    return `${mph.toFixed(1)} mph`;
   };
 
   const handleSearch = async () => {
@@ -372,8 +370,8 @@ export default function FitnessTracker() {
                     <Timer className="h-5 w-5 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Average Pace</p>
-                    <p className="text-2xl font-bold" data-testid="text-avg-pace">{formatPace(avgPace)}</p>
+                    <p className="text-sm text-muted-foreground">Average Speed</p>
+                    <p className="text-2xl font-bold" data-testid="text-avg-pace">{formatSpeed(avgSpeedMph)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -411,7 +409,7 @@ export default function FitnessTracker() {
                     <TableHead>Species</TableHead>
                     <TableHead>Date-Time</TableHead>
                     <TableHead className="text-right">Distance (mi)</TableHead>
-                    <TableHead className="text-right">Pace</TableHead>
+                    <TableHead className="text-right">Speed (mph)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -430,7 +428,7 @@ export default function FitnessTracker() {
                       <TableCell className="text-right">
                         {obs.observationNumber === 1 ? '--' : obs.distanceFromPrevious.toFixed(3)}
                       </TableCell>
-                      <TableCell className="text-right">{formatPace(obs.paceMinPerMile)}</TableCell>
+                      <TableCell className="text-right">{formatSpeed(obs.speedMph)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
