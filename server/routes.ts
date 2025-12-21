@@ -1174,11 +1174,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Parse header
         const headers = lines[0].split(',').map((h: string) => h.trim().replace(/^"|"$/g, ''));
-        const scientificNameIndex = headers.findIndex((h: string) => 
-          h.toLowerCase() === 'scientific name' || h.toLowerCase() === 'scientificname'
-        );
+        const scientificNameIndex = headers.findIndex((h: string) => {
+          const normalized = h.toLowerCase().replace(/[_\s]/g, '');
+          return normalized === 'scientificname';
+        });
         
-        if (scientificNameIndex === -1) continue;
+        // If no header found, assume first column is scientific name (common for simple lists)
+        const nameIndex = scientificNameIndex === -1 ? 0 : scientificNameIndex;
         
         // Parse rows
         for (let i = 1; i < lines.length; i++) {
@@ -1199,7 +1201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           row.push(current.trim());
           
-          const scientificName = row[scientificNameIndex]?.replace(/^"|"$/g, '').trim();
+          const scientificName = row[nameIndex]?.replace(/^"|"$/g, '').trim();
           if (!scientificName) continue;
           
           // Initialize if not exists
@@ -1215,7 +1217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Store all metadata for this category
           const rowMetadata: Record<string, string> = {};
           headers.forEach((header: string, index: number) => {
-            if (index !== scientificNameIndex && row[index]) {
+            if (index !== nameIndex && row[index]) {
               rowMetadata[header] = row[index].replace(/^"|"$/g, '');
             }
           });
