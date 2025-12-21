@@ -1132,14 +1132,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const observations = allObservations
         .filter(obs => obs.geojson?.coordinates)
         .map(obs => {
-          // Extract time from observed_on string or time_observed_at
+          // Extract time from observed_on_string which preserves the observer's local time
+          // Format can be "2024-03-14 1:14 PM" or "2024-03-14T13:14:00"
           let timeObserved = '00:00:00';
-          if (obs.time_observed_at) {
-            const time = new Date(obs.time_observed_at);
-            timeObserved = time.toTimeString().slice(0, 8);
-          } else if (obs.observed_on_string && obs.observed_on_string.includes(' ')) {
-            const timePart = obs.observed_on_string.split(' ')[1];
-            if (timePart) timeObserved = timePart;
+          if (obs.observed_on_string) {
+            const str = obs.observed_on_string;
+            // Try to extract time from formats like "2024-03-14 1:14 PM" or "Mar 14, 2024 1:14 PM"
+            const timeMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+            if (timeMatch) {
+              let hours = parseInt(timeMatch[1]);
+              const minutes = timeMatch[2];
+              const seconds = timeMatch[3] || '00';
+              const ampm = timeMatch[4];
+              
+              // Convert to 24-hour format if AM/PM present
+              if (ampm) {
+                if (ampm.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+                if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+              }
+              
+              timeObserved = `${hours.toString().padStart(2, '0')}:${minutes}:${seconds}`;
+            }
           }
 
           return {
