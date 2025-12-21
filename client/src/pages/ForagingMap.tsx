@@ -116,6 +116,7 @@ export default function ForagingMap() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [expandedSpecies, setExpandedSpecies] = useState<Set<string>>(new Set());
   const [selectedSpecies, setSelectedSpecies] = useState<string | null>(null);
+  const [listSearchQuery, setListSearchQuery] = useState("");
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
@@ -775,12 +776,24 @@ export default function ForagingMap() {
 
           <Card className="shadow-lg">
             <CardHeader className="py-3 border-b">
-              <CardTitle className="text-lg">
-                All Observations
-                <span className="text-sm font-normal text-slate-500 ml-2">
-                  ({getFilteredObservations(searchResults.observations).length} results)
-                </span>
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">
+                  All Observations
+                  <span className="text-sm font-normal text-slate-500 ml-2">
+                    ({getFilteredObservations(searchResults.observations).length} results)
+                  </span>
+                </CardTitle>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search list..."
+                    value={listSearchQuery}
+                    onChange={(e) => setListSearchQuery(e.target.value)}
+                    className="pl-9 w-48 h-9"
+                    data-testid="input-list-search"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -817,7 +830,25 @@ export default function ForagingMap() {
                         return acc;
                       }, {} as Record<string, { scientificName: string; commonName: string; hasCurrentYearResearchGrade: boolean; observations: Observation[]; locationCounts: Record<string, number> }>);
 
-                      const sortedSpecies = Object.values(speciesGroups).sort((a, b) => b.observations.length - a.observations.length);
+                      let sortedSpecies = Object.values(speciesGroups).sort((a, b) => b.observations.length - a.observations.length);
+                      
+                      // Apply search filter
+                      if (listSearchQuery.trim()) {
+                        const query = listSearchQuery.toLowerCase().trim();
+                        sortedSpecies = sortedSpecies.filter(group => {
+                          const speciesInfo = speciesLookup?.[group.scientificName];
+                          const locations = Object.keys(group.locationCounts).join(' ').toLowerCase();
+                          const categories = speciesInfo?.categories.map(c => {
+                            const cat = FORAGING_CATEGORIES.find(fc => fc.id === c);
+                            return cat?.label || c;
+                          }).join(' ').toLowerCase() || '';
+                          
+                          return group.scientificName.toLowerCase().includes(query) ||
+                            (group.commonName?.toLowerCase().includes(query)) ||
+                            locations.includes(query) ||
+                            categories.includes(query);
+                        });
+                      }
 
                       return sortedSpecies.slice(0, 100).map((group) => {
                         const isExpanded = expandedSpecies.has(group.scientificName);
