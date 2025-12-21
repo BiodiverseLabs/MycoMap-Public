@@ -41,6 +41,7 @@ const LOCATION_COLORS = [
 ];
 
 const NEW_LOCATION_DISTANCE_THRESHOLD = 1; // miles - if distance >= 1 mile, it's a new location
+const NEW_LOCATION_SPEED_THRESHOLD = 3; // mph - if speed > 3 mph, likely driving/traveling to new location
 
 // Safe date format helper to prevent crashes on invalid dates
 const safeFormat = (date: Date | null | undefined, formatString: string, fallback: string = 'Unknown date'): string => {
@@ -311,8 +312,8 @@ export default function FitnessTracker() {
           speedMph = (rawDistance / timeDiffMinutes) * 60;
         }
         
-        // If distance >= 1 mile, this is a new location
-        if (rawDistance >= NEW_LOCATION_DISTANCE_THRESHOLD) {
+        // If distance >= 1 mile OR speed > 3 mph, this is a new location (likely traveling)
+        if (rawDistance >= NEW_LOCATION_DISTANCE_THRESHOLD || (speedMph !== null && speedMph > NEW_LOCATION_SPEED_THRESHOLD)) {
           isNewLocation = true;
           currentLocationId++;
           distanceFromPrevious = 0; // Don't count travel distance
