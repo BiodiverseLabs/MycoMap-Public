@@ -1285,15 +1285,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Start async sync process
       (async () => {
         try {
-          // Check actual cache count from database (more reliable than metadata)
+          // Check actual cache count and last processed page from database
           const actualCachedCount = await storage.getFitnessObservationCount(usernameLower);
           const existingMetadata = await storage.getFitnessCacheMetadata(usernameLower);
           
-          // Resume if we have cached data but sync wasn't completed
-          const shouldResume = actualCachedCount > 0 && existingMetadata?.syncStatus !== 'completed';
-          const resumeFromPage = shouldResume ? Math.floor(actualCachedCount / 200) + 1 : 1;
+          // Resume from stored page if available, otherwise calculate from cache count
+          const lastPage = existingMetadata?.lastProcessedPage || 0;
+          const shouldResume = lastPage > 0 && existingMetadata?.syncStatus !== 'completed';
+          // Resume from next page after last processed (lastPage was fully committed)
+          const resumeFromPage = shouldResume ? lastPage + 1 : 1;
           
-          console.log(`[Fitness Cache] Starting sync for ${usernameLower} (resume from page ${resumeFromPage}, already cached: ${actualCachedCount})`);
+          console.log(`[Fitness Cache] Starting sync for ${usernameLower} (resume from page ${resumeFromPage}, lastProcessedPage: ${lastPage}, cached: ${actualCachedCount})`);
           
           // First, get total count
           const countParams = new URLSearchParams({
@@ -1332,10 +1334,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Paginate through all observations
           let page = resumeFromPage;
-          let fetched = (resumeFromPage - 1) * 200; // Start from where we left off
+          let fetched = actualCachedCount; // Use actual cache count, not calculated
           const PER_PAGE = 200;
           let maxUpdatedAt: Date | null = null;
           let consecutiveErrors = 0;
+          
+          // Store total for progress tracking
+          await storage.upsertFitnessCacheMetadata({
+            username: usernameLower,
+            totalObservations: actualCachedCount,
+            totalExpectedObservations: totalCount,
+            lastProcessedPage: lastPage,
+            syncStatus: 'syncing',
+            syncProgress: Math.round((fetched / totalCount) * 100),
+            syncMessage: `Syncing from page ${page}...`,
+          });
           
           while (fetched < totalCount) {
             // Check if cancelled
@@ -1363,15 +1376,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.error(`[Fitness Cache] API error ${response.status} on page ${page} (attempt ${consecutiveErrors})`);
               
               if (response.status === 403 || response.status === 429) {
-                // Rate limited - save progress and wait longer
+                // Rate limited - save progress with exact page number for proper resume
+                const currentCacheCount = await storage.getFitnessObservationCount(usernameLower);
                 await storage.upsertFitnessCacheMetadata({
                   username: usernameLower,
-                  totalObservations: fetched,
-                  syncStatus: 'error',
-                  syncProgress: Math.round((fetched / totalCount) * 100),
-                  syncMessage: `Rate limited at ${fetched}/${totalCount}. Wait 1 minute and click Sync to resume.`,
+                  totalObservations: currentCacheCount,
+                  totalExpectedObservations: totalCount,
+                  lastProcessedPage: page - 1, // Last successfully completed page
+                  syncStatus: 'rate_limited',
+                  syncProgress: Math.round((currentCacheCount / totalCount) * 100),
+                  syncMessage: `Rate limited at ${currentCacheCount}/${totalCount}. Wait 2 min and click Sync to resume from page ${page}.`,
                 });
-                console.log(`[Fitness Cache] Rate limited - saved progress at ${fetched} observations`);
+                console.log(`[Fitness Cache] Rate limited at page ${page} - saved lastProcessedPage=${page - 1}, ${currentCacheCount} observations`);
                 return;
               }
               
@@ -1423,30 +1439,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             await storage.upsertFitnessObservations(obsToInsert);
             
-            fetched += results.length;
+            // Update fetched count from actual DB (more accurate)
+            const newCacheCount = await storage.getFitnessObservationCount(usernameLower);
+            fetched = newCacheCount;
             const progress = Math.round((fetched / totalCount) * 100);
-            await storage.updateFitnessSyncProgress(
-              usernameLower, 
-              progress, 
-              'syncing', 
-              `Synced ${fetched} of ${totalCount} observations`
-            );
+            
+            // Save progress with lastProcessedPage after each successful batch
+            await storage.upsertFitnessCacheMetadata({
+              username: usernameLower,
+              totalObservations: fetched,
+              totalExpectedObservations: totalCount,
+              lastProcessedPage: page, // This page was successfully processed
+              syncStatus: 'syncing',
+              syncProgress: progress,
+              syncMessage: `Synced ${fetched} of ${totalCount} observations`,
+            });
             
             page++;
             
-            // Slower rate limiting to avoid 403 errors (500ms between requests)
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Slower rate limiting to avoid 403 errors (1 second between requests)
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
           
           // Update metadata on completion
+          const finalCount = await storage.getFitnessObservationCount(usernameLower);
           await storage.upsertFitnessCacheMetadata({
             username: usernameLower,
-            totalObservations: fetched,
+            totalObservations: finalCount,
+            totalExpectedObservations: totalCount,
+            lastProcessedPage: page - 1, // Last page processed
             lastFullSyncAt: new Date(),
             lastSyncCursor: maxUpdatedAt,
             syncStatus: 'completed',
             syncProgress: 100,
-            syncMessage: `Synced ${fetched} observations`,
+            syncMessage: `Synced ${finalCount} observations`,
           });
           
           console.log(`[Fitness Cache] Completed full sync for ${usernameLower}: ${fetched} observations`);

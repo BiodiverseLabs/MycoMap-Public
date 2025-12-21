@@ -53,11 +53,13 @@ interface OutingSummary {
 interface CacheStatus {
   username: string;
   totalObservations: number;
-  syncStatus: 'idle' | 'syncing' | 'completed' | 'error';
+  syncStatus: 'idle' | 'syncing' | 'completed' | 'error' | 'rate_limited' | 'cancelled' | 'interrupted';
   syncProgress: number;
   syncMessage?: string;
   lastFullSyncAt?: string;
   lastIncrementalSyncAt?: string;
+  lastProcessedPage?: number;
+  totalExpectedObservations?: number;
 }
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -484,11 +486,22 @@ export default function FitnessTracker() {
             title: "Sync Complete", 
             description: status.syncMessage || `Synced ${status.totalObservations} observations` 
           });
+        } else if (status.syncStatus === 'rate_limited') {
+          toast({ 
+            title: "Rate Limited", 
+            description: `Saved ${status.totalObservations} observations. Wait 2 min and click Sync to resume.`,
+            variant: "destructive"
+          });
         } else if (status.syncStatus === 'error') {
           toast({ 
             title: "Sync Error", 
             description: status.syncMessage || "Failed to sync observations",
             variant: "destructive"
+          });
+        } else if (status.syncStatus === 'cancelled') {
+          toast({ 
+            title: "Sync Cancelled", 
+            description: `Stopped at ${status.totalObservations} observations. Click Sync to resume.` 
           });
         }
       }
@@ -833,18 +846,30 @@ export default function FitnessTracker() {
             </div>
           )}
           
-          {/* Show resume option after rate limit error */}
-          {cacheStatus && cacheStatus.syncStatus === 'error' && !isSyncing && (
+          {/* Show resume option after rate limit */}
+          {cacheStatus && cacheStatus.syncStatus === 'rate_limited' && !isSyncing && (
             <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
               <p className="text-sm text-orange-800 dark:text-orange-200">
-                {cacheStatus.syncMessage || 'Sync was interrupted.'}
+                {cacheStatus.syncMessage || 'Rate limited by iNaturalist API.'}
+              </p>
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                Wait 2 minutes, then click <strong>Sync</strong> to resume from page {(cacheStatus.lastProcessedPage || 0) + 1}.
+              </p>
+            </div>
+          )}
+          
+          {/* Show resume option after error */}
+          {cacheStatus && cacheStatus.syncStatus === 'error' && !isSyncing && (
+            <div className="mt-4 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-800 dark:text-red-200">
+                {cacheStatus.syncMessage || 'Sync encountered an error.'}
                 {cacheStatus.totalObservations > 0 && (
                   <span className="ml-1">
                     <strong>{cacheStatus.totalObservations}</strong> observations already saved.
                   </span>
                 )}
               </p>
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                 Click <strong>Sync</strong> again to resume from where it stopped.
               </p>
             </div>

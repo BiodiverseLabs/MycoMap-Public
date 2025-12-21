@@ -1189,7 +1189,9 @@ export const fitnessCacheMetadata = pgTable("fitness_cache_metadata", {
   lastFullSyncAt: timestamp("last_full_sync_at"),
   lastIncrementalSyncAt: timestamp("last_incremental_sync_at"),
   lastSyncCursor: timestamp("last_sync_cursor"), // The max updated_at from last sync for incremental fetches
-  syncStatus: text("sync_status").default("idle"), // idle, syncing, completed, error
+  lastProcessedPage: integer("last_processed_page").default(0), // Track exact page for resume
+  totalExpectedObservations: integer("total_expected_observations").default(0), // Total from iNat API
+  syncStatus: text("sync_status").default("idle"), // idle, syncing, completed, error, interrupted, cancelled
   syncProgress: integer("sync_progress").default(0), // 0-100 percentage
   syncMessage: text("sync_message"),
   createdAt: timestamp("created_at").defaultNow(),
