@@ -35,7 +35,13 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    // Check localStorage for persisted auth state
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('adminAuthenticated') === 'true';
+    }
+    return false;
+  });
   const [passwordError, setPasswordError] = useState("");
 
   // Auto-collapse on field guide pages (including species detail pages)
@@ -84,6 +90,7 @@ export function Sidebar() {
   const handlePasswordSubmit = () => {
     if (password === "mycotalab") {
       setIsAuthenticated(true);
+      localStorage.setItem('adminAuthenticated', 'true');
       setIsPasswordDialogOpen(false);
       setPassword("");
       setPasswordError("");
