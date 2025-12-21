@@ -1174,6 +1174,348 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get cache status for a user
+  app.get("/api/fitness/cache/status", async (req: any, res) => {
+    try {
+      const { username } = req.query;
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+      
+      const metadata = await storage.getFitnessCacheMetadata(username as string);
+      res.json(metadata || { 
+        username: (username as string).toLowerCase(), 
+        totalObservations: 0, 
+        syncStatus: 'idle',
+        syncProgress: 0 
+      });
+    } catch (error: any) {
+      console.error("[Fitness Cache] Error getting status:", error);
+      res.status(500).json({ error: error.message || "Failed to get cache status" });
+    }
+  });
+
+  // Get cached observations
+  app.get("/api/fitness/cache", async (req: any, res) => {
+    try {
+      const { username, startDate, endDate } = req.query;
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+      
+      const observations = await storage.getFitnessObservations(
+        username as string, 
+        startDate as string, 
+        endDate as string
+      );
+      
+      // Transform to match frontend format
+      const transformed = observations.map(obs => ({
+        id: obs.observationId,
+        latitude: obs.latitude || '',
+        longitude: obs.longitude || '',
+        scientificName: obs.scientificName || 'Unknown',
+        commonName: obs.commonName || '',
+        observedOn: obs.observedOn || '',
+        timeObserved: obs.timeObserved || '00:00:00',
+        photoUrl: obs.photoUrl || null,
+      }));
+      
+      res.json({ observations: transformed });
+    } catch (error: any) {
+      console.error("[Fitness Cache] Error getting observations:", error);
+      res.status(500).json({ error: error.message || "Failed to get cached observations" });
+    }
+  });
+
+  // Start full sync for a user (paginated with progress tracking)
+  app.post("/api/fitness/cache/sync", async (req: any, res) => {
+    try {
+      const { username } = req.body;
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+
+      const usernameLower = (username as string).toLowerCase();
+      
+      // Check if already syncing
+      const existingMeta = await storage.getFitnessCacheMetadata(usernameLower);
+      if (existingMeta?.syncStatus === 'syncing') {
+        return res.json({ 
+          status: 'already_syncing', 
+          progress: existingMeta.syncProgress,
+          message: existingMeta.syncMessage 
+        });
+      }
+
+      // Initialize sync metadata
+      await storage.upsertFitnessCacheMetadata({
+        username: usernameLower,
+        syncStatus: 'syncing',
+        syncProgress: 0,
+        syncMessage: 'Starting sync...',
+        totalObservations: 0,
+      });
+
+      // Start async sync process
+      (async () => {
+        try {
+          console.log(`[Fitness Cache] Starting full sync for ${usernameLower}`);
+          
+          // First, get total count
+          const countParams = new URLSearchParams({
+            user_login: usernameLower,
+            per_page: '1',
+          });
+          
+          const countResponse = await fetch(`https://api.inaturalist.org/v1/observations?${countParams}`);
+          const countData = await countResponse.json();
+          const totalCount = countData.total_results || 0;
+          
+          await storage.updateFitnessSyncProgress(usernameLower, 0, 'syncing', `Found ${totalCount} observations to sync`);
+          
+          if (totalCount === 0) {
+            await storage.upsertFitnessCacheMetadata({
+              username: usernameLower,
+              totalObservations: 0,
+              lastFullSyncAt: new Date(),
+              syncStatus: 'completed',
+              syncProgress: 100,
+              syncMessage: 'No observations found',
+            });
+            return;
+          }
+          
+          // Paginate through all observations
+          let page = 1;
+          let fetched = 0;
+          const PER_PAGE = 200;
+          let maxUpdatedAt: Date | null = null;
+          
+          while (fetched < totalCount) {
+            const params = new URLSearchParams({
+              user_login: usernameLower,
+              per_page: PER_PAGE.toString(),
+              page: page.toString(),
+              order: 'asc',
+              order_by: 'created_at',
+              photos: 'true',
+            });
+            
+            const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`);
+            if (!response.ok) {
+              throw new Error(`iNaturalist API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            const results = data.results || [];
+            
+            if (results.length === 0) break;
+            
+            // Transform and upsert observations
+            const obsToInsert = results
+              .filter((obs: any) => obs.geojson?.coordinates)
+              .map((obs: any) => {
+                // Track max updated_at for incremental sync cursor
+                if (obs.updated_at) {
+                  const updatedAt = new Date(obs.updated_at);
+                  if (!maxUpdatedAt || updatedAt > maxUpdatedAt) {
+                    maxUpdatedAt = updatedAt;
+                  }
+                }
+                
+                // Extract time from observed_on_string
+                let timeObserved = obs.time_observed_at || obs.observed_on_string || '';
+                
+                return {
+                  username: usernameLower,
+                  observationId: obs.id,
+                  scientificName: obs.taxon?.name || obs.species_guess || 'Unknown',
+                  commonName: obs.taxon?.preferred_common_name || '',
+                  observedOn: obs.observed_on || '',
+                  timeObserved,
+                  latitude: obs.geojson.coordinates[1].toString(),
+                  longitude: obs.geojson.coordinates[0].toString(),
+                  photoUrl: obs.photos?.[0]?.url?.replace('square', 'medium') || null,
+                  placeGuess: obs.place_guess || null,
+                  inatUpdatedAt: obs.updated_at ? new Date(obs.updated_at) : null,
+                };
+              });
+            
+            await storage.upsertFitnessObservations(obsToInsert);
+            
+            fetched += results.length;
+            const progress = Math.round((fetched / totalCount) * 100);
+            await storage.updateFitnessSyncProgress(
+              usernameLower, 
+              progress, 
+              'syncing', 
+              `Synced ${fetched} of ${totalCount} observations`
+            );
+            
+            page++;
+            
+            // Rate limiting
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          // Update metadata on completion
+          await storage.upsertFitnessCacheMetadata({
+            username: usernameLower,
+            totalObservations: fetched,
+            lastFullSyncAt: new Date(),
+            lastSyncCursor: maxUpdatedAt,
+            syncStatus: 'completed',
+            syncProgress: 100,
+            syncMessage: `Synced ${fetched} observations`,
+          });
+          
+          console.log(`[Fitness Cache] Completed full sync for ${usernameLower}: ${fetched} observations`);
+          
+        } catch (error: any) {
+          console.error(`[Fitness Cache] Sync error for ${usernameLower}:`, error);
+          await storage.updateFitnessSyncProgress(usernameLower, 0, 'error', error.message);
+        }
+      })();
+
+      res.json({ 
+        status: 'started', 
+        message: 'Sync started in background' 
+      });
+    } catch (error: any) {
+      console.error("[Fitness Cache] Error starting sync:", error);
+      res.status(500).json({ error: error.message || "Failed to start sync" });
+    }
+  });
+
+  // Incremental sync - only fetch updated observations since last sync
+  app.post("/api/fitness/cache/sync/incremental", async (req: any, res) => {
+    try {
+      const { username } = req.body;
+      if (!username) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+
+      const usernameLower = (username as string).toLowerCase();
+      
+      const metadata = await storage.getFitnessCacheMetadata(usernameLower);
+      if (!metadata || !metadata.lastSyncCursor) {
+        // No previous sync, do full sync instead
+        return res.status(400).json({ 
+          error: "No previous sync found", 
+          needsFullSync: true 
+        });
+      }
+      
+      if (metadata.syncStatus === 'syncing') {
+        return res.json({ 
+          status: 'already_syncing', 
+          progress: metadata.syncProgress 
+        });
+      }
+
+      await storage.updateFitnessSyncProgress(usernameLower, 0, 'syncing', 'Starting incremental sync...');
+
+      // Start async incremental sync
+      (async () => {
+        try {
+          const cursorDate = metadata.lastSyncCursor!.toISOString();
+          console.log(`[Fitness Cache] Starting incremental sync for ${usernameLower} since ${cursorDate}`);
+          
+          let page = 1;
+          let syncedCount = 0;
+          let maxUpdatedAt = metadata.lastSyncCursor;
+          
+          while (true) {
+            const params = new URLSearchParams({
+              user_login: usernameLower,
+              updated_since: cursorDate,
+              per_page: '200',
+              page: page.toString(),
+              order: 'asc',
+              order_by: 'updated_at',
+              photos: 'true',
+            });
+            
+            const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`);
+            if (!response.ok) break;
+            
+            const data = await response.json();
+            const results = data.results || [];
+            
+            if (results.length === 0) break;
+            
+            const obsToInsert = results
+              .filter((obs: any) => obs.geojson?.coordinates)
+              .map((obs: any) => {
+                if (obs.updated_at) {
+                  const updatedAt = new Date(obs.updated_at);
+                  if (!maxUpdatedAt || updatedAt > maxUpdatedAt) {
+                    maxUpdatedAt = updatedAt;
+                  }
+                }
+                
+                return {
+                  username: usernameLower,
+                  observationId: obs.id,
+                  scientificName: obs.taxon?.name || obs.species_guess || 'Unknown',
+                  commonName: obs.taxon?.preferred_common_name || '',
+                  observedOn: obs.observed_on || '',
+                  timeObserved: obs.time_observed_at || obs.observed_on_string || '',
+                  latitude: obs.geojson.coordinates[1].toString(),
+                  longitude: obs.geojson.coordinates[0].toString(),
+                  photoUrl: obs.photos?.[0]?.url?.replace('square', 'medium') || null,
+                  placeGuess: obs.place_guess || null,
+                  inatUpdatedAt: obs.updated_at ? new Date(obs.updated_at) : null,
+                };
+              });
+            
+            await storage.upsertFitnessObservations(obsToInsert);
+            syncedCount += results.length;
+            
+            await storage.updateFitnessSyncProgress(
+              usernameLower, 
+              50, 
+              'syncing', 
+              `Found ${syncedCount} updated observations`
+            );
+            
+            if (results.length < 200) break;
+            page++;
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          // Get new total count from cache
+          const allObs = await storage.getFitnessObservations(usernameLower);
+          
+          await storage.upsertFitnessCacheMetadata({
+            username: usernameLower,
+            totalObservations: allObs.length,
+            lastIncrementalSyncAt: new Date(),
+            lastSyncCursor: maxUpdatedAt,
+            syncStatus: 'completed',
+            syncProgress: 100,
+            syncMessage: syncedCount > 0 ? `Updated ${syncedCount} observations` : 'No updates found',
+          });
+          
+          console.log(`[Fitness Cache] Completed incremental sync for ${usernameLower}: ${syncedCount} updates`);
+          
+        } catch (error: any) {
+          console.error(`[Fitness Cache] Incremental sync error:`, error);
+          await storage.updateFitnessSyncProgress(usernameLower, 0, 'error', error.message);
+        }
+      })();
+
+      res.json({ 
+        status: 'started', 
+        message: 'Incremental sync started' 
+      });
+    } catch (error: any) {
+      console.error("[Fitness Cache] Error starting incremental sync:", error);
+      res.status(500).json({ error: error.message || "Failed to start incremental sync" });
+    }
+  });
+
   // =============================================
   // FORAGING LISTS ADMIN API ENDPOINTS
   // =============================================
