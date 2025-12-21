@@ -32,8 +32,9 @@ export default function ForagingLists() {
   const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const { data: lists, isLoading } = useQuery<ForagingList[]>({
+  const { data: lists, isLoading, isError, error } = useQuery<ForagingList[]>({
     queryKey: ['/api/admin/foraging-lists'],
+    retry: false,
   });
 
   const uploadMutation = useMutation({
@@ -102,6 +103,26 @@ export default function ForagingLists() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-myco-green" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-600 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Error Loading Foraging Lists
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-slate-600">
+              {(error as Error)?.message || "Failed to load foraging lists. Please make sure you are logged in."}
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
