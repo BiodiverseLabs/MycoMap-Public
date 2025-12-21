@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame } from "lucide-react";
+import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format, differenceInMinutes, parseISO } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import L from 'leaflet';
@@ -58,11 +59,8 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-function estimateCalories(miles: number, minutes: number): number {
-  const avgWeight = 160;
-  const met = miles / (minutes / 60) > 3.5 ? 5.0 : 3.5;
-  return Math.round(met * avgWeight * 0.453592 * (minutes / 60));
-}
+const CALORIES_PER_SQUAT = 0.32;
+const SQUATS_PER_OBSERVATION = 2;
 
 export default function FitnessTracker() {
   const [username, setUsername] = useState("");
@@ -74,6 +72,7 @@ export default function FitnessTracker() {
   const [observations, setObservations] = useState<FitnessObservation[]>([]);
   const [processedObservations, setProcessedObservations] = useState<ProcessedObservation[]>([]);
   const [outings, setOutings] = useState<OutingSummary[]>([]);
+  const [showCaloriesDialog, setShowCaloriesDialog] = useState(false);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -86,7 +85,8 @@ export default function FitnessTracker() {
   const totalMiles = outings.reduce((sum, o) => sum + o.totalDistance, 0);
   const totalMinutes = outings.reduce((sum, o) => sum + o.totalTimeMinutes, 0);
   const avgSpeedMph = totalMiles > 0 && totalMinutes > 0 ? (totalMiles / totalMinutes) * 60 : null;
-  const totalCalories = estimateCalories(totalMiles, totalMinutes);
+  const totalSquats = totalObservations * SQUATS_PER_OBSERVATION;
+  const totalCalories = Math.round(totalSquats * CALORIES_PER_SQUAT);
 
   useEffect(() => {
     if (processedObservations.length > 0 && mapRef.current) {
@@ -411,14 +411,21 @@ export default function FitnessTracker() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card 
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setShowCaloriesDialog(true)}
+              data-testid="card-calories"
+            >
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-red-100 rounded-lg">
                     <Flame className="h-5 w-5 text-red-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Calories Burned</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      Calories Burned
+                      <Info className="h-3 w-3 text-muted-foreground" />
+                    </p>
                     <p className="text-2xl font-bold" data-testid="text-calories">{totalCalories}</p>
                   </div>
                 </div>
@@ -492,6 +499,55 @@ export default function FitnessTracker() {
           </Card>
         </>
       )}
+
+      <Dialog open={showCaloriesDialog} onOpenChange={setShowCaloriesDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flame className="h-5 w-5 text-red-500" />
+              Calories Burned Calculation
+            </DialogTitle>
+            <DialogDescription>
+              Here's how we calculate your calories burned while foraging:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="bg-muted p-4 rounded-lg space-y-2">
+              <p className="text-sm font-medium">Formula:</p>
+              <p className="text-sm text-muted-foreground">
+                Each observation = {SQUATS_PER_OBSERVATION} squats
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Each squat burns ~{CALORIES_PER_SQUAT} calories
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Total Observations:</span>
+                <span className="font-medium">{totalObservations}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Equivalent Squats ({totalObservations} × {SQUATS_PER_OBSERVATION}):</span>
+                <span className="font-medium">{totalSquats}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Calories per Squat:</span>
+                <span className="font-medium">{CALORIES_PER_SQUAT}</span>
+              </div>
+              <div className="border-t pt-2 mt-2">
+                <div className="flex justify-between text-base font-semibold">
+                  <span>Total Calories Burned:</span>
+                  <span className="text-red-500">{totalCalories}</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This estimate assumes each observation requires bending down (like performing squats) 
+              to photograph fungi specimens.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
