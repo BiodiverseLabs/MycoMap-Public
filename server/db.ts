@@ -1143,15 +1143,18 @@ export class DatabaseStorage implements IStorage {
           COALESCE(o.collector, 'Unknown') as collector,
           CASE 
             WHEN inat.photos IS NOT NULL AND array_length(inat.photos, 1) > 0 
-            THEN inat.photos[1]
+            THEN SPLIT_PART(inat.photos[1], '?', 1)
             WHEN o.image_link IS NOT NULL AND o.image_link != ''
-            THEN CASE 
-              WHEN o.image_link LIKE '%static.inaturalist.org%'
-              THEN REPLACE(REPLACE(REPLACE(REPLACE(o.image_link, 'static.inaturalist.org', 'inaturalist-open-data.s3.amazonaws.com'), '/large.jpeg', '/medium.jpeg'), '/large.jpg', '/medium.jpeg'), '/medium.jpeg', '/medium.jpeg')
-              WHEN o.image_link LIKE '%inaturalist-open-data.s3.amazonaws.com%'
-              THEN REPLACE(REPLACE(REPLACE(o.image_link, '/large.jpeg', '/medium.jpeg'), '/large.jpg', '/medium.jpeg'), '/medium.jpeg', '/medium.jpeg')
-              ELSE o.image_link
-            END
+            THEN SPLIT_PART(
+              CASE 
+                WHEN o.image_link LIKE '%static.inaturalist.org%'
+                THEN REPLACE(REPLACE(REPLACE(REPLACE(o.image_link, 'static.inaturalist.org', 'inaturalist-open-data.s3.amazonaws.com'), '/large.jpeg', '/medium.jpeg'), '/large.jpg', '/medium.jpeg'), '/medium.jpeg', '/medium.jpeg')
+                WHEN o.image_link LIKE '%inaturalist-open-data.s3.amazonaws.com%'
+                THEN REPLACE(REPLACE(REPLACE(o.image_link, '/large.jpeg', '/medium.jpeg'), '/large.jpg', '/medium.jpeg'), '/medium.jpeg', '/medium.jpeg')
+                ELSE o.image_link
+              END,
+              '?', 1
+            )
             ELSE NULL 
           END as thumbnail_url,
           ROW_NUMBER() OVER (
