@@ -571,7 +571,7 @@ export default function ForagingMap() {
           <div className="space-y-2 pt-2 border-t">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium text-slate-700">
-                What are you foraging for? <span className="text-xs text-slate-400">(filter coming soon)</span>
+                What are you foraging for?
               </Label>
               <div className="flex gap-2">
                 <Button
