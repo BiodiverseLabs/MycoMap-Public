@@ -244,13 +244,42 @@ export default function ForagingMap() {
     setSelectedCategories(new Set());
   };
 
+  const geocodeLocation = async (locationStr: string): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationStr)}&limit=1`,
+        { headers: { 'User-Agent': 'MycoMap/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+      return null;
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      return null;
+    }
+  };
+
   const handleSearch = async () => {
-    if (!detectedLocation) {
+    let searchCoords = detectedLocation;
+
+    if (!searchCoords && location.trim()) {
+      setIsSearching(true);
+      const geocoded = await geocodeLocation(location.trim());
+      if (geocoded) {
+        searchCoords = geocoded;
+        setDetectedLocation(geocoded);
+      }
+    }
+
+    if (!searchCoords) {
       toast({
         title: "Location Required",
-        description: "Please use 'Use My Location' or enter coordinates to search.",
+        description: "Please enter a location or use 'Use My Location' to search.",
         variant: "destructive"
       });
+      setIsSearching(false);
       return;
     }
 
@@ -258,8 +287,8 @@ export default function ForagingMap() {
     try {
       const radiusMiles = range === "custom" ? customRange : range;
       const params = new URLSearchParams({
-        lat: detectedLocation.lat.toString(),
-        lng: detectedLocation.lng.toString(),
+        lat: searchCoords.lat.toString(),
+        lng: searchCoords.lng.toString(),
         radius: radiusMiles,
         startDate: format(startDate, "yyyy-MM-dd"),
         endDate: format(endDate, "yyyy-MM-dd"),
@@ -426,7 +455,7 @@ export default function ForagingMap() {
             <div className="lg:col-span-2">
               <Button
                 onClick={handleSearch}
-                disabled={isSearching || !detectedLocation}
+                disabled={isSearching || (!detectedLocation && !location.trim())}
                 className="w-full bg-myco-green hover:bg-myco-green/90 text-white"
                 data-testid="button-search"
               >
