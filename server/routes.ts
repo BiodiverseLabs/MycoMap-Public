@@ -1070,6 +1070,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =============================================
+  // FORAGING LISTS ADMIN API ENDPOINTS
+  // =============================================
+
+  // Get all foraging lists (admin)
+  app.get("/api/admin/foraging-lists", isAuthenticated, async (req: any, res) => {
+    try {
+      const lists = await storage.getForagingLists();
+      res.json(lists);
+    } catch (error: any) {
+      console.error("[Foraging Lists] Error fetching lists:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch foraging lists" });
+    }
+  });
+
+  // Get foraging list by category (admin)
+  app.get("/api/admin/foraging-lists/:category", isAuthenticated, async (req: any, res) => {
+    try {
+      const { category } = req.params;
+      const list = await storage.getForagingListByCategory(category);
+      res.json(list);
+    } catch (error: any) {
+      console.error("[Foraging Lists] Error fetching list:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch foraging list" });
+    }
+  });
+
+  // Upload CSV for a foraging category (admin)
+  app.post("/api/admin/foraging-lists/:category/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      const { category } = req.params;
+      const validCategories = ['choice-edibles', 'edibles', 'medicinals', 'dyers', 'psychoactive'];
+      
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const csvData = req.file.buffer.toString('utf-8');
+      const lines = csvData.split('\n').filter((line: string) => line.trim());
+      const speciesCount = Math.max(0, lines.length - 1); // Subtract header row
+
+      const userId = req.user?.claims?.sub || 'unknown';
+
+      const list = await storage.upsertForagingList({
+        category,
+        csvData,
+        fileName: req.file.originalname,
+        speciesCount,
+        uploadedAt: new Date(),
+        uploadedBy: userId,
+      });
+
+      res.json({ 
+        success: true, 
+        message: `Uploaded ${speciesCount} species to ${category}`,
+        list 
+      });
+    } catch (error: any) {
+      console.error("[Foraging Lists] Upload error:", error);
+      res.status(500).json({ error: error.message || "Failed to upload foraging list" });
+    }
+  });
+
+  // Download CSV for a foraging category (admin)
+  app.get("/api/admin/foraging-lists/:category/download", isAuthenticated, async (req: any, res) => {
+    try {
+      const { category } = req.params;
+      const list = await storage.getForagingListByCategory(category);
+      
+      if (!list || !list.csvData) {
+        return res.status(404).json({ error: "No CSV file found for this category" });
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${list.fileName || category + '.csv'}"`);
+      res.send(list.csvData);
+    } catch (error: any) {
+      console.error("[Foraging Lists] Download error:", error);
+      res.status(500).json({ error: error.message || "Failed to download foraging list" });
+    }
+  });
+
+  // =============================================
   // CMS API ENDPOINTS
   // =============================================
 

@@ -11,7 +11,8 @@ import {
   type InaturalistData, type InsertInaturalistData, type InaturalistPlace, type InsertInaturalistPlace,
   type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
   type InaturalistClassificationCache, type InsertInaturalistClassificationCache,
-  type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction
+  type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction,
+  type ForagingList, type InsertForagingList
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray, gte, lte } from 'drizzle-orm';
 import type { IStorage } from "./storage";
@@ -4390,5 +4391,38 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(paymentTransactions)
       .where(eq(paymentTransactions.userId, userId))
       .orderBy(desc(paymentTransactions.createdAt));
+  }
+
+  // Foraging Lists management
+  async getForagingLists(): Promise<ForagingList[]> {
+    return await db.select().from(schema.foragingLists)
+      .orderBy(schema.foragingLists.category);
+  }
+
+  async getForagingListByCategory(category: string): Promise<ForagingList | null> {
+    const [list] = await db.select().from(schema.foragingLists)
+      .where(eq(schema.foragingLists.category, category));
+    return list || null;
+  }
+
+  async upsertForagingList(data: InsertForagingList): Promise<ForagingList> {
+    const existing = await this.getForagingListByCategory(data.category);
+    if (existing) {
+      const [updated] = await db.update(schema.foragingLists)
+        .set({ 
+          csvData: data.csvData,
+          fileName: data.fileName,
+          speciesCount: data.speciesCount,
+          uploadedAt: data.uploadedAt,
+          uploadedBy: data.uploadedBy,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.foragingLists.category, data.category))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(schema.foragingLists).values(data).returning();
+      return created;
+    }
   }
 }

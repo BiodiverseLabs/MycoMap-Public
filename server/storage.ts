@@ -3,7 +3,8 @@ import {
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type InaturalistData, type InsertInaturalistData,
   type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
-  type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction
+  type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction,
+  type ForagingList, type InsertForagingList
 } from "@shared/schema";
 
 export interface IStorage {
@@ -294,6 +295,11 @@ export interface IStorage {
   cancelUserSubscription(userId: string): Promise<void>;
   createPaymentTransaction(transaction: InsertPaymentTransaction): Promise<PaymentTransaction>;
   getPaymentTransactions(userId: string): Promise<PaymentTransaction[]>;
+  
+  // Foraging Lists management
+  getForagingLists(): Promise<ForagingList[]>;
+  getForagingListByCategory(category: string): Promise<ForagingList | null>;
+  upsertForagingList(data: InsertForagingList): Promise<ForagingList>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -1399,6 +1405,19 @@ export class MemoryStorage implements IStorage {
   
   async getPaymentTransactions(userId: string): Promise<PaymentTransaction[]> {
     return [];
+  }
+  
+  // Foraging Lists stubs for memory storage
+  async getForagingLists(): Promise<ForagingList[]> {
+    return [];
+  }
+  
+  async getForagingListByCategory(category: string): Promise<ForagingList | null> {
+    return null;
+  }
+  
+  async upsertForagingList(data: InsertForagingList): Promise<ForagingList> {
+    throw new Error('Memory storage does not support foraging lists');
   }
 }
 
