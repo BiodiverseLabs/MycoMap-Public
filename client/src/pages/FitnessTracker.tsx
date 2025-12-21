@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X, ChevronLeft, ChevronRight, RefreshCw, Database, CloudDownload, Maximize2, Minimize2 } from "lucide-react";
+import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X, ChevronLeft, ChevronRight, RefreshCw, Database, CloudDownload, Maximize2, Minimize2, Leaf } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
@@ -142,6 +142,7 @@ export default function FitnessTracker() {
   const outlierObservations = dayFilteredObservations.filter(o => outlierIds.includes(o.id));
   
   const totalObservations = activeObservations.length;
+  const totalSpecies = new Set(activeObservations.map(o => o.scientificName).filter(Boolean)).size;
   const totalLocations = activeObservations.length > 0 
     ? Math.max(...activeObservations.map(o => o.locationId)) + 1 
     : 0;
@@ -1045,7 +1046,7 @@ export default function FitnessTracker() {
 
       {processedObservations.length > 0 && (
         <>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
             <Card 
               className="cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => setShowLocationsDialog(true)}
@@ -1069,6 +1070,15 @@ export default function FitnessTracker() {
                 </div>
                 <p className="text-xs text-muted-foreground">Observations</p>
                 <p className="text-2xl font-bold" data-testid="text-total-observations">{totalObservations}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-4 flex flex-col items-center text-center">
+                <div className="p-2 bg-emerald-100 rounded-full mb-2">
+                  <Leaf className="h-5 w-5 text-emerald-600" />
+                </div>
+                <p className="text-xs text-muted-foreground">Species</p>
+                <p className="text-2xl font-bold" data-testid="text-total-species">{totalSpecies}</p>
               </CardContent>
             </Card>
             <Card>
