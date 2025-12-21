@@ -42,6 +42,16 @@ const LOCATION_COLORS = [
 
 const NEW_LOCATION_DISTANCE_THRESHOLD = 1; // miles - if distance >= 1 mile, it's a new location
 
+// Safe date format helper to prevent crashes on invalid dates
+const safeFormat = (date: Date | null | undefined, formatString: string, fallback: string = 'Unknown date'): string => {
+  if (!date || isNaN(date.getTime())) return fallback;
+  try {
+    return format(date, formatString);
+  } catch {
+    return fallback;
+  }
+};
+
 interface OutingSummary {
   date: string;
   observations: ProcessedObservation[];
@@ -257,7 +267,14 @@ export default function FitnessTracker() {
   }, [observations]);
 
   const processObservations = (obs: FitnessObservation[]) => {
-    const sorted = [...obs].sort((a, b) => {
+    // Filter out observations with invalid dates first
+    const validObs = obs.filter(o => {
+      if (!o.observedOn) return false;
+      const testDate = new Date(`${o.observedOn}T${o.timeObserved || '00:00:00'}`);
+      return !isNaN(testDate.getTime());
+    });
+
+    const sorted = [...validObs].sort((a, b) => {
       const dateA = new Date(`${a.observedOn}T${a.timeObserved || '00:00:00'}`);
       const dateB = new Date(`${b.observedOn}T${b.timeObserved || '00:00:00'}`);
       return dateA.getTime() - dateB.getTime();
@@ -387,7 +404,7 @@ export default function FitnessTracker() {
         <div style="min-width: 200px;">
           <strong>#${o.observationNumber}: ${o.scientificName}</strong><br/>
           <small>${o.commonName || ''}</small><br/>
-          <small>${format(o.dateTime, 'MMM d, yyyy h:mm a')}</small><br/>
+          <small>${safeFormat(o.dateTime, 'MMM d, yyyy h:mm a')}</small><br/>
           ${o.isNewLocation ? '<small><em>New Location</em></small><br/>' : ''}
           ${o.distanceFromPrevious > 0 ? `<small>Distance: ${o.distanceFromPrevious.toFixed(2)} mi</small><br/>` : ''}
           ${o.speedMph ? `<small>Speed: ${o.speedMph.toFixed(1)} mph</small>` : ''}
@@ -1219,7 +1236,7 @@ export default function FitnessTracker() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{format(obs.dateTime, 'MMM d, yyyy h:mm a')}</TableCell>
+                        <TableCell>{safeFormat(obs.dateTime, 'MMM d, yyyy h:mm a')}</TableCell>
                         <TableCell className="text-right">
                           {obs.isNewLocation ? '--' : obs.distanceFromPrevious.toFixed(3)}
                         </TableCell>
