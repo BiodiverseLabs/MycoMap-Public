@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Navigation, Search, Calendar, Leaf, Loader2, Star } from "lucide-react";
+import { MapPin, Navigation, Search, Calendar, Leaf, Loader2, Star, ChevronDown, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, subDays, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -105,6 +105,7 @@ export default function ForagingMap() {
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [expandedSpecies, setExpandedSpecies] = useState<Set<string>>(new Set());
   const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const mapRef = useRef<HTMLDivElement>(null);
@@ -698,50 +699,123 @@ export default function ForagingMap() {
                   <thead className="bg-slate-50 border-b">
                     <tr>
                       <th className="text-left p-3 text-sm font-medium text-slate-700">Species Name</th>
-                      <th className="text-left p-3 text-sm font-medium text-slate-700">Observation Date</th>
+                      <th className="text-left p-3 text-sm font-medium text-slate-700">Total Observations</th>
                       <th className="text-left p-3 text-sm font-medium text-slate-700">Location</th>
+                      <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {searchResults.observations.slice(0, 100).map((obs) => (
-                      <tr key={obs.id} className="hover:bg-slate-50" data-testid={`observation-row-${obs.id}`}>
-                        <td className="p-3">
-                          <div className="flex items-center gap-1">
-                            {obs.hasCurrentYearResearchGrade && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Star 
-                                    className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" 
-                                    aria-label="Confirmed Out Now"
-                                    data-testid={`star-obs-${obs.id}`}
-                                  />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Confirmed Out Now</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            <div>
-                              <p className="text-sm font-medium text-slate-800 italic">{obs.scientificName}</p>
-                              {obs.commonName && (
-                                <p className="text-xs text-slate-500">{obs.commonName}</p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3 text-sm text-slate-600">
-                          {obs.observedOn ? format(new Date(obs.observedOn), "MMM d, yyyy") : "Unknown"}
-                        </td>
-                        <td className="p-3 text-sm text-slate-600 max-w-xs truncate">
-                          {obs.state || "Unknown location"}
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const speciesGroups = searchResults.observations.reduce((acc, obs) => {
+                        const key = obs.scientificName;
+                        if (!acc[key]) {
+                          acc[key] = {
+                            scientificName: obs.scientificName,
+                            commonName: obs.commonName,
+                            hasCurrentYearResearchGrade: obs.hasCurrentYearResearchGrade,
+                            observations: [],
+                            locationCounts: {} as Record<string, number>
+                          };
+                        }
+                        acc[key].observations.push(obs);
+                        if (obs.hasCurrentYearResearchGrade) {
+                          acc[key].hasCurrentYearResearchGrade = true;
+                        }
+                        const loc = obs.state || "Unknown location";
+                        acc[key].locationCounts[loc] = (acc[key].locationCounts[loc] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, { scientificName: string; commonName: string; hasCurrentYearResearchGrade: boolean; observations: Observation[]; locationCounts: Record<string, number> }>);
+
+                      const sortedSpecies = Object.values(speciesGroups).sort((a, b) => b.observations.length - a.observations.length);
+
+                      return sortedSpecies.slice(0, 100).map((group) => {
+                        const isExpanded = expandedSpecies.has(group.scientificName);
+                        const sortedLocations = Object.entries(group.locationCounts).sort((a, b) => b[1] - a[1]);
+                        const topLocation = sortedLocations[0];
+                        const hasMultipleLocations = sortedLocations.length > 1;
+
+                        return (
+                          <Fragment key={group.scientificName}>
+                            <tr 
+                              className={`hover:bg-slate-50 ${hasMultipleLocations ? 'cursor-pointer' : ''}`}
+                              onClick={() => {
+                                if (hasMultipleLocations) {
+                                  setExpandedSpecies(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(group.scientificName)) {
+                                      next.delete(group.scientificName);
+                                    } else {
+                                      next.add(group.scientificName);
+                                    }
+                                    return next;
+                                  });
+                                }
+                              }}
+                              data-testid={`observation-row-${group.scientificName}`}
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-1">
+                                  {group.hasCurrentYearResearchGrade && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Star 
+                                          className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" 
+                                          aria-label="Confirmed Out Now"
+                                          data-testid={`star-species-${group.scientificName}`}
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Confirmed Out Now</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <div>
+                                    <p className="text-sm font-medium text-slate-800 italic">{group.scientificName}</p>
+                                    {group.commonName && (
+                                      <p className="text-xs text-slate-500">{group.commonName}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-sm text-slate-600">
+                                <span className="px-2 py-1 bg-myco-green/10 text-myco-green font-semibold rounded">
+                                  {group.observations.length}
+                                </span>
+                              </td>
+                              <td className="p-3 text-sm text-slate-600 max-w-xs truncate">
+                                {topLocation ? `${topLocation[0]} (${topLocation[1]})` : "Unknown location"}
+                              </td>
+                              <td className="p-3 text-center">
+                                {hasMultipleLocations && (
+                                  isExpanded ? 
+                                    <ChevronDown className="h-4 w-4 text-slate-400" /> : 
+                                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                                )}
+                              </td>
+                            </tr>
+                            {isExpanded && sortedLocations.slice(1).map(([loc, count]) => (
+                              <tr key={`${group.scientificName}-${loc}`} className="bg-slate-50/50">
+                                <td className="p-3 pl-8 text-sm text-slate-500"></td>
+                                <td className="p-3 text-sm text-slate-500">
+                                  <span className="px-2 py-1 bg-slate-100 text-slate-600 font-medium rounded">
+                                    {count}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-sm text-slate-500 max-w-xs truncate">
+                                  {loc}
+                                </td>
+                                <td className="p-3"></td>
+                              </tr>
+                            ))}
+                          </Fragment>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
-                {searchResults.observations.length > 100 && (
+                {Object.keys(searchResults.observations.reduce((acc, obs) => { acc[obs.scientificName] = true; return acc; }, {} as Record<string, boolean>)).length > 100 && (
                   <div className="p-3 text-center text-sm text-slate-500 border-t">
-                    Showing first 100 of {searchResults.observations.length} observations
+                    Showing first 100 species
                   </div>
                 )}
                 {searchResults.observations.length === 0 && (
