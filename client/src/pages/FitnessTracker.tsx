@@ -787,10 +787,27 @@ export default function FitnessTracker() {
           )}
           
           {/* Prompt to sync if no cache */}
-          {cacheStatus && cacheStatus.totalObservations === 0 && !isSyncing && username.trim().length >= 3 && (
+          {cacheStatus && cacheStatus.totalObservations === 0 && !isSyncing && username.trim().length >= 3 && cacheStatus.syncStatus !== 'error' && (
             <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
               <p className="text-sm text-amber-800 dark:text-amber-200">
                 No cached data for this user. Click <strong>Sync</strong> to download observations from iNaturalist.
+              </p>
+            </div>
+          )}
+          
+          {/* Show resume option after rate limit error */}
+          {cacheStatus && cacheStatus.syncStatus === 'error' && !isSyncing && (
+            <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
+              <p className="text-sm text-orange-800 dark:text-orange-200">
+                {cacheStatus.syncMessage || 'Sync was interrupted.'}
+                {cacheStatus.totalObservations > 0 && (
+                  <span className="ml-1">
+                    <strong>{cacheStatus.totalObservations}</strong> observations already saved.
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                Click <strong>Sync</strong> again to resume from where it stopped.
               </p>
             </div>
           )}

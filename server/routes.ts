@@ -1257,10 +1257,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalObservations: 0,
       });
 
+      // iNaturalist API request headers
+      const inatHeaders = {
+        'User-Agent': 'MycoMap/1.0 (https://mycomap.org; contact@mycomap.org)',
+        'Accept': 'application/json',
+      };
+
       // Start async sync process
       (async () => {
         try {
-          console.log(`[Fitness Cache] Starting full sync for ${usernameLower}`);
+          // Check if we can resume from a previous partial sync
+          const existingMetadata = await storage.getFitnessCacheMetadata(usernameLower);
+          const cachedCount = existingMetadata?.totalObservations || 0;
+          const resumeFromPage = existingMetadata?.syncStatus === 'error' && cachedCount > 0
+            ? Math.floor(cachedCount / 200) + 1
+            : 1;
+          
+          console.log(`[Fitness Cache] Starting sync for ${usernameLower} (resume from page ${resumeFromPage}, already cached: ${cachedCount})`);
           
           // First, get total count
           const countParams = new URLSearchParams({
@@ -1268,11 +1281,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             per_page: '1',
           });
           
-          const countResponse = await fetch(`https://api.inaturalist.org/v1/observations?${countParams}`);
+          const countResponse = await fetch(`https://api.inaturalist.org/v1/observations?${countParams}`, {
+            headers: inatHeaders,
+          });
+          
+          if (!countResponse.ok) {
+            throw new Error(`iNaturalist API error getting count: ${countResponse.status}`);
+          }
+          
           const countData = await countResponse.json();
           const totalCount = countData.total_results || 0;
           
-          await storage.updateFitnessSyncProgress(usernameLower, 0, 'syncing', `Found ${totalCount} observations to sync`);
+          await storage.updateFitnessSyncProgress(usernameLower, 0, 'syncing', 
+            resumeFromPage > 1 
+              ? `Resuming sync: ${cachedCount} already cached, ${totalCount} total`
+              : `Found ${totalCount} observations to sync`
+          );
           
           if (totalCount === 0) {
             await storage.upsertFitnessCacheMetadata({
@@ -1287,10 +1311,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Paginate through all observations
-          let page = 1;
-          let fetched = 0;
+          let page = resumeFromPage;
+          let fetched = (resumeFromPage - 1) * 200; // Start from where we left off
           const PER_PAGE = 200;
           let maxUpdatedAt: Date | null = null;
+          let consecutiveErrors = 0;
           
           while (fetched < totalCount) {
             const params = new URLSearchParams({
@@ -1302,10 +1327,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
               photos: 'true',
             });
             
-            const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`);
+            const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`, {
+              headers: inatHeaders,
+            });
+            
             if (!response.ok) {
-              throw new Error(`iNaturalist API error: ${response.status}`);
+              consecutiveErrors++;
+              console.error(`[Fitness Cache] API error ${response.status} on page ${page} (attempt ${consecutiveErrors})`);
+              
+              if (response.status === 403 || response.status === 429) {
+                // Rate limited - save progress and wait longer
+                await storage.upsertFitnessCacheMetadata({
+                  username: usernameLower,
+                  totalObservations: fetched,
+                  syncStatus: 'error',
+                  syncProgress: Math.round((fetched / totalCount) * 100),
+                  syncMessage: `Rate limited at ${fetched}/${totalCount}. Wait 1 minute and click Sync to resume.`,
+                });
+                console.log(`[Fitness Cache] Rate limited - saved progress at ${fetched} observations`);
+                return;
+              }
+              
+              if (consecutiveErrors >= 3) {
+                throw new Error(`iNaturalist API error after 3 retries: ${response.status}`);
+              }
+              
+              // Exponential backoff for other errors
+              await new Promise(resolve => setTimeout(resolve, 2000 * consecutiveErrors));
+              continue;
             }
+            
+            consecutiveErrors = 0; // Reset on success
             
             const data = await response.json();
             const results = data.results || [];
@@ -1355,8 +1407,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             page++;
             
-            // Rate limiting
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // Slower rate limiting to avoid 403 errors (500ms between requests)
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
           
           // Update metadata on completion
@@ -1416,6 +1468,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.updateFitnessSyncProgress(usernameLower, 0, 'syncing', 'Starting incremental sync...');
 
+      // iNaturalist API request headers
+      const inatHeaders = {
+        'User-Agent': 'MycoMap/1.0 (https://mycomap.org; contact@mycomap.org)',
+        'Accept': 'application/json',
+      };
+
       // Start async incremental sync
       (async () => {
         try {
@@ -1437,7 +1495,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               photos: 'true',
             });
             
-            const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`);
+            const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`, {
+              headers: inatHeaders,
+            });
             if (!response.ok) break;
             
             const data = await response.json();
