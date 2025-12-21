@@ -37,6 +37,7 @@ function SmartThumbnail({ src, alt, observationId, source }: {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [fallbackIndex, setFallbackIndex] = useState(0);
   const [hasError, setHasError] = useState(false);
+  const [fetchedFromApi, setFetchedFromApi] = useState(false);
 
   const generateFallbackUrls = (originalUrl?: string) => {
     if (!originalUrl) return [];
@@ -44,20 +45,15 @@ function SmartThumbnail({ src, alt, observationId, source }: {
     const fallbacks: string[] = [];
     
     if (originalUrl.includes('inaturalist-open-data.s3.amazonaws.com') || originalUrl.includes('static.inaturalist.org')) {
-      // Remove query params
       const baseUrl = originalUrl.split('?')[0];
-      
-      // Extract photo ID from URL pattern like /photos/12345/medium.jpeg
       const photoMatch = baseUrl.match(/\/photos\/(\d+)\//);
       if (photoMatch) {
         const photoId = photoMatch[1];
         const s3Base = `https://inaturalist-open-data.s3.amazonaws.com/photos/${photoId}`;
-        
         fallbacks.push(
-          baseUrl, // Try original first
+          baseUrl,
           `${s3Base}/medium.jpeg`,
           `${s3Base}/small.jpeg`,
-          `${s3Base}/large.jpeg`,
           `${s3Base}/medium.jpg`,
           `${s3Base}/small.jpg`
         );
@@ -73,21 +69,48 @@ function SmartThumbnail({ src, alt, observationId, source }: {
 
   const fallbackUrls = generateFallbackUrls(src);
 
+  // Fetch fresh photo from iNaturalist API
+  const fetchFreshPhoto = async () => {
+    if (source !== 'iNaturalist' || !observationId || fetchedFromApi) return;
+    
+    try {
+      setFetchedFromApi(true);
+      const response = await fetch(`https://api.inaturalist.org/v1/observations/${observationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const photos = data?.results?.[0]?.photos;
+        if (photos && photos.length > 0) {
+          const photoUrl = photos[0].url?.replace('square', 'medium');
+          if (photoUrl) {
+            setCurrentSrc(photoUrl);
+            setHasError(false);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      // Silent fail - show placeholder
+    }
+    setHasError(true);
+  };
+
   const handleImageError = () => {
     const nextIndex = fallbackIndex + 1;
     if (nextIndex < fallbackUrls.length) {
       setFallbackIndex(nextIndex);
       setCurrentSrc(fallbackUrls[nextIndex]);
+    } else if (source === 'iNaturalist' && !fetchedFromApi) {
+      fetchFreshPhoto();
     } else {
       setHasError(true);
     }
   };
 
-  // Reset when src changes
   useEffect(() => {
     setCurrentSrc(src);
     setFallbackIndex(0);
     setHasError(false);
+    setFetchedFromApi(false);
   }, [src]);
 
   if (!src || hasError) {
