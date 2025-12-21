@@ -80,8 +80,8 @@ export function Sidebar() {
       if (isAuthenticated) {
         setIsAdminExpanded(true);
       } else {
-        // Redirect to dashboard if trying to access admin without auth
-        window.location.href = '/';
+        // Show password dialog if trying to access admin without auth
+        setIsPasswordDialogOpen(true);
       }
     }
   }, [location, isAuthenticated]);
