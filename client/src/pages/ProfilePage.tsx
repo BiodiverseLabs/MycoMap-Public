@@ -128,6 +128,37 @@ export default function ProfilePage() {
                     />
                     <p className="text-sm text-gray-500">Email is managed through your Replit account</p>
                   </div>
+                  
+                  <Separator />
+                  
+                  <h3 className="text-lg font-semibold text-myco-brown">Community Platform Usernames</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Link your accounts from other mycology platforms to connect your observations
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="iNaturalistUsername">iNaturalist Username</Label>
+                      <Input 
+                        id="iNaturalistUsername" 
+                        placeholder="Your iNaturalist username"
+                        defaultValue={user.iNaturalistUsername || ''} 
+                        data-testid="input-inaturalist-username"
+                      />
+                      <p className="text-xs text-gray-500">e.g., naturalist_jane</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mushroomObserverUsername">Mushroom Observer Username</Label>
+                      <Input 
+                        id="mushroomObserverUsername" 
+                        placeholder="Your Mushroom Observer username"
+                        defaultValue={user.mushroomObserverUsername || ''} 
+                        data-testid="input-mushroom-observer-username"
+                      />
+                      <p className="text-xs text-gray-500">e.g., fungi_finder</p>
+                    </div>
+                  </div>
+                  
                   <Separator />
                   <Button className="bg-myco-green hover:bg-myco-green/90" data-testid="button-save-profile">
                     Save Profile

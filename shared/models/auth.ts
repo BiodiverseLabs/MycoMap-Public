@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  iNaturalistUsername: varchar("inaturalist_username", { length: 100 }),
+  mushroomObserverUsername: varchar("mushroom_observer_username", { length: 100 }),
   role: varchar("role", { length: 20 }).default("member").notNull(),
   subscriptionStatus: varchar("subscription_status", { length: 20 }).default("none").notNull(),
   subscriptionTier: varchar("subscription_tier", { length: 50 }),
