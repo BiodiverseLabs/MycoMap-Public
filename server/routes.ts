@@ -1241,11 +1241,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if already syncing
       const existingMeta = await storage.getFitnessCacheMetadata(usernameLower);
       if (existingMeta?.syncStatus === 'syncing') {
-        return res.json({ 
-          status: 'already_syncing', 
-          progress: existingMeta.syncProgress,
-          message: existingMeta.syncMessage 
-        });
+        // Check if sync is actually stuck (no progress in 2+ minutes = likely orphaned)
+        const lastUpdate = existingMeta.updatedAt ? new Date(existingMeta.updatedAt).getTime() : 0;
+        const now = Date.now();
+        const minutesSinceUpdate = (now - lastUpdate) / (1000 * 60);
+        
+        if (minutesSinceUpdate > 2) {
+          // Sync is orphaned (server restarted while syncing) - allow restart
+          const actualCount = await storage.getFitnessObservationCount(usernameLower);
+          console.log(`[Fitness Cache] Detected orphaned sync for ${usernameLower}, resetting (${actualCount} observations saved)`);
+          await storage.upsertFitnessCacheMetadata({
+            username: usernameLower,
+            totalObservations: actualCount,
+            syncStatus: 'interrupted',
+            syncProgress: 0,
+            syncMessage: `Previous sync was interrupted. ${actualCount} observations saved.`,
+          });
+          // Continue to start new sync below
+        } else {
+          return res.json({ 
+            status: 'already_syncing', 
+            progress: existingMeta.syncProgress,
+            message: existingMeta.syncMessage 
+          });
+        }
       }
 
       // Initialize sync metadata
