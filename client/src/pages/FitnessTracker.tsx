@@ -80,7 +80,9 @@ export default function FitnessTracker() {
   const { toast } = useToast();
 
   const totalObservations = processedObservations.length;
-  const totalOutings = outings.length;
+  const totalLocations = processedObservations.length > 0 
+    ? Math.max(...processedObservations.map(o => o.locationId)) + 1 
+    : 0;
   const totalMiles = outings.reduce((sum, o) => sum + o.totalDistance, 0);
   const totalMinutes = outings.reduce((sum, o) => sum + o.totalTimeMinutes, 0);
   const avgSpeedMph = totalMiles > 0 && totalMinutes > 0 ? (totalMiles / totalMinutes) * 60 : null;
@@ -364,8 +366,8 @@ export default function FitnessTracker() {
                     <MapPin className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Outings</p>
-                    <p className="text-2xl font-bold" data-testid="text-total-outings">{totalOutings}</p>
+                    <p className="text-sm text-muted-foreground">Total Locations</p>
+                    <p className="text-2xl font-bold" data-testid="text-total-locations">{totalLocations}</p>
                   </div>
                 </div>
               </CardContent>
