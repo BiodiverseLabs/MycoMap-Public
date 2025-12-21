@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X } from "lucide-react";
+import { MapPin, Calendar as CalendarIcon, Search, Loader2, Activity, Eye, Route, Timer, Flame, Info, Settings, CircleDot, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { format, differenceInMinutes, parseISO } from "date-fns";
+import { format, differenceInMinutes, parseISO, addMonths, subMonths, isSameDay, startOfMonth } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -87,6 +87,9 @@ export default function FitnessTracker() {
   const [mapClickMode, setMapClickMode] = useState<{ type: 'start' | 'end'; locationId: number } | null>(null);
   const [outlierIds, setOutlierIds] = useState<number[]>([]);
   const [outlierRemoveMode, setOutlierRemoveMode] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [dayPickerMonth, setDayPickerMonth] = useState<Date>(new Date());
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -94,9 +97,18 @@ export default function FitnessTracker() {
   const locationPointLinesRef = useRef<L.Polyline[]>([]);
   const { toast } = useToast();
 
+  // Extract unique dates from observations
+  const observationDates = Array.from(new Set(processedObservations.map(o => o.observedOn))).sort();
+  const hasMultipleDays = observationDates.length > 1;
+
+  // Filter by selected day first, then filter out outliers
+  const dayFilteredObservations = selectedDay 
+    ? processedObservations.filter(o => isSameDay(o.dateTime, selectedDay))
+    : processedObservations;
+  
   // Filter out outliers for calculations
-  const activeObservations = processedObservations.filter(o => !outlierIds.includes(o.id));
-  const outlierObservations = processedObservations.filter(o => outlierIds.includes(o.id));
+  const activeObservations = dayFilteredObservations.filter(o => !outlierIds.includes(o.id));
+  const outlierObservations = dayFilteredObservations.filter(o => outlierIds.includes(o.id));
   
   const totalObservations = activeObservations.length;
   const totalLocations = activeObservations.length > 0 
@@ -158,6 +170,13 @@ export default function FitnessTracker() {
       initializeMap(processedObservations);
     }
   }, [processedObservations]);
+
+  // Initialize day picker month to first observation date
+  useEffect(() => {
+    if (observationDates.length > 0) {
+      setDayPickerMonth(startOfMonth(parseISO(observationDates[0])));
+    }
+  }, [observationDates.length > 0 ? observationDates[0] : null]);
 
   // Update location point markers without reinitializing the whole map
   useEffect(() => {
@@ -419,6 +438,7 @@ export default function FitnessTracker() {
     }
 
     setIsSearching(true);
+    setSelectedDay(null); // Reset day selection on new search
     try {
       const params = new URLSearchParams({
         username: username.trim(),
@@ -511,6 +531,85 @@ export default function FitnessTracker() {
               Search
             </Button>
           </div>
+          
+          {hasMultipleDays && (
+            <div className="mt-4 pt-4 border-t">
+              <Popover open={showDayPicker} onOpenChange={setShowDayPicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    data-testid="button-day-picker"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDay ? (
+                      format(selectedDay, "EEEE, MMMM d, yyyy")
+                    ) : (
+                      <span>All Days ({observationDates.length} days with observations)</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-3 border-b flex items-center justify-between">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDayPickerMonth(prev => subMonths(prev, 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-medium">
+                      {format(dayPickerMonth, "MMMM yyyy")} - {format(addMonths(dayPickerMonth, 1), "MMMM yyyy")}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDayPickerMonth(prev => addMonths(prev, 1))}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDay || undefined}
+                    onSelect={(day) => {
+                      setSelectedDay(day || null);
+                      setShowDayPicker(false);
+                    }}
+                    month={dayPickerMonth}
+                    onMonthChange={setDayPickerMonth}
+                    numberOfMonths={2}
+                    modifiers={{
+                      hasObservations: observationDates.map(d => parseISO(d))
+                    }}
+                    modifiersStyles={{
+                      hasObservations: {
+                        backgroundColor: '#8CBD45',
+                        color: 'white',
+                        borderRadius: '50%'
+                      }
+                    }}
+                    disabled={(date) => !observationDates.some(d => isSameDay(parseISO(d), date))}
+                  />
+                  {selectedDay && (
+                    <div className="p-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedDay(null);
+                          setShowDayPicker(false);
+                        }}
+                      >
+                        Clear Selection (Show All Days)
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </CardContent>
       </Card>
 
