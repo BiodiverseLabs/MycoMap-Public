@@ -178,28 +178,26 @@ export default function ForagingMap() {
     setTimeout(() => {
       if (mapInstanceRef.current && (window as any).L && (window as any).L.heatLayer) {
         const heatLayer = (window as any).L.heatLayer(heatData, {
-          radius: 25,
-          blur: 15,
-          maxZoom: 10,
-          max: 1.0,
-          minOpacity: 0.4,
+          radius: 22,
+          blur: 12,
+          maxZoom: 17,
+          max: 0.8,
+          minOpacity: 0.2,
           gradient: {
-            0.0: 'rgba(0, 0, 255, 0.5)',
-            0.2: 'rgba(0, 255, 255, 0.6)',
-            0.4: 'rgba(0, 255, 0, 0.7)',
-            0.6: 'rgba(255, 255, 0, 0.8)',
-            0.8: 'rgba(255, 165, 0, 0.9)',
-            1.0: 'rgba(255, 0, 0, 1.0)'
+            0.0: 'rgba(0, 0, 255, 0.3)',
+            0.2: 'rgba(0, 255, 255, 0.5)',
+            0.4: 'rgba(0, 255, 0, 0.6)',
+            0.6: 'rgba(255, 255, 0, 0.7)',
+            0.8: 'rgba(255, 165, 0, 0.8)',
+            1.0: 'rgba(255, 0, 0, 0.9)'
           }
         }).addTo(mapInstanceRef.current);
 
         mapInstanceRef.current.on('zoomend', () => {
           if (mapInstanceRef.current) {
             const zoom = mapInstanceRef.current.getZoom();
-            const newRadius = Math.min(15 + zoom * 3, 50);
-            const newMinOpacity = Math.min(0.3 + (zoom * 0.05), 0.8);
+            const newMinOpacity = Math.min(0.2 + (zoom * 0.04), 0.7);
             heatLayer.setOptions({
-              radius: newRadius,
               minOpacity: newMinOpacity
             });
           }
