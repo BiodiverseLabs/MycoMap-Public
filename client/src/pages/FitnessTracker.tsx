@@ -84,6 +84,8 @@ export default function FitnessTracker() {
   const [showCaloriesDialog, setShowCaloriesDialog] = useState(false);
   const [locationPoints, setLocationPoints] = useState<LocationPoint[]>([]);
   const [mapClickMode, setMapClickMode] = useState<{ type: 'start' | 'end'; locationId: number } | null>(null);
+  const [outlierIds, setOutlierIds] = useState<number[]>([]);
+  const [outlierRemoveMode, setOutlierRemoveMode] = useState(false);
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -91,16 +93,20 @@ export default function FitnessTracker() {
   const locationPointLinesRef = useRef<L.Polyline[]>([]);
   const { toast } = useToast();
 
-  const totalObservations = processedObservations.length;
-  const totalLocations = processedObservations.length > 0 
-    ? Math.max(...processedObservations.map(o => o.locationId)) + 1 
+  // Filter out outliers for calculations
+  const activeObservations = processedObservations.filter(o => !outlierIds.includes(o.id));
+  const outlierObservations = processedObservations.filter(o => outlierIds.includes(o.id));
+  
+  const totalObservations = activeObservations.length;
+  const totalLocations = activeObservations.length > 0 
+    ? Math.max(...activeObservations.map(o => o.locationId)) + 1 
     : 0;
   
   // Calculate extra distance from location points (start/end points)
   const calculateLocationPointsDistance = () => {
     let extraDistance = 0;
     for (let locId = 0; locId < totalLocations; locId++) {
-      const locObs = processedObservations.filter(o => o.locationId === locId);
+      const locObs = activeObservations.filter(o => o.locationId === locId);
       if (locObs.length === 0) continue;
       
       const startPoint = locationPoints.find(p => p.locationId === locId && p.type === 'start');
@@ -660,6 +666,25 @@ export default function FitnessTracker() {
                       </DropdownMenuItem>
                     </>
                   )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Outliers</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => setOutlierRemoveMode(!outlierRemoveMode)}
+                    data-testid="menu-remove-outlier"
+                  >
+                    <X className={`h-4 w-4 mr-2 ${outlierRemoveMode ? 'text-red-500' : ''}`} />
+                    {outlierRemoveMode ? 'Done Removing Outliers' : 'Remove Outlier'}
+                  </DropdownMenuItem>
+                  {outlierObservations.map(obs => (
+                    <DropdownMenuItem
+                      key={obs.id}
+                      onClick={() => setOutlierIds(prev => prev.filter(id => id !== obs.id))}
+                      data-testid={`menu-restore-outlier-${obs.observationNumber}`}
+                    >
+                      <CircleDot className="h-4 w-4 mr-2 text-green-500" />
+                      Restore Outlier {obs.observationNumber}
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </CardHeader>
@@ -680,22 +705,44 @@ export default function FitnessTracker() {
                     const color = LOCATION_COLORS[obs.locationId % LOCATION_COLORS.length];
                     const isLastInLocation = index === processedObservations.length - 1 || 
                       processedObservations[index + 1].locationId !== obs.locationId;
+                    const isOutlier = outlierIds.includes(obs.id);
                     return (
-                      <TableRow key={obs.id} data-testid={`row-observation-${obs.id}`}>
+                      <TableRow 
+                        key={obs.id} 
+                        data-testid={`row-observation-${obs.id}`}
+                        className={isOutlier ? 'opacity-40 line-through' : ''}
+                      >
                         <TableCell className="p-0 relative">
                           <div 
                             className="absolute left-0 top-0 bottom-0 w-1"
                             style={{ 
-                              backgroundColor: color,
+                              backgroundColor: isOutlier ? '#9ca3af' : color,
                               borderRadius: obs.isNewLocation ? '4px 4px 0 0' : isLastInLocation ? '0 0 4px 4px' : '0'
                             }}
                           />
                         </TableCell>
                         <TableCell className="font-medium">
-                          {obs.isNewLocation && obs.observationNumber > 1 && (
-                            <span className="text-xs text-muted-foreground block">New Location</span>
-                          )}
-                          {obs.observationNumber}
+                          <div className="flex items-center gap-1">
+                            {outlierRemoveMode && !isOutlier && (
+                              <button
+                                onClick={() => {
+                                  setOutlierIds(prev => [...prev, obs.id]);
+                                  toast({ title: "Outlier Removed", description: `Observation ${obs.observationNumber} excluded from calculations` });
+                                }}
+                                className="text-red-500 hover:text-red-700 p-0.5"
+                                data-testid={`button-remove-outlier-${obs.observationNumber}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                            <div>
+                              {obs.isNewLocation && obs.observationNumber > 1 && (
+                                <span className="text-xs text-muted-foreground block">New Location</span>
+                              )}
+                              {obs.observationNumber}
+                              {isOutlier && <span className="text-xs text-red-500 ml-1">(outlier)</span>}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div>
