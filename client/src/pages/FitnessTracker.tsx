@@ -39,7 +39,7 @@ const LOCATION_COLORS = [
   '#F59E0B', '#10B981', '#EC4899', '#06B6D4', '#84CC16'
 ];
 
-const MAX_WALKING_SPEED = 3;
+const NEW_LOCATION_DISTANCE_THRESHOLD = 1; // miles - if distance >= 1 mile, it's a new location
 
 interface OutingSummary {
   date: string;
@@ -218,8 +218,8 @@ export default function FitnessTracker() {
           speedMph = (rawDistance / timeDiffMinutes) * 60;
         }
         
-        // If speed > 3 mph, this is travel (not walking) - new location
-        if (speedMph && speedMph > MAX_WALKING_SPEED) {
+        // If distance >= 1 mile, this is a new location
+        if (rawDistance >= NEW_LOCATION_DISTANCE_THRESHOLD) {
           isNewLocation = true;
           currentLocationId++;
           distanceFromPrevious = 0; // Don't count travel distance
@@ -746,7 +746,15 @@ export default function FitnessTracker() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <span className="font-medium">{obs.scientificName}</span>
+                            <a 
+                              href={`https://www.inaturalist.org/observations/${obs.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-primary hover:underline"
+                              data-testid={`link-observation-${obs.id}`}
+                            >
+                              {obs.scientificName}
+                            </a>
                             {obs.commonName && (
                               <span className="text-muted-foreground ml-2">({obs.commonName})</span>
                             )}
