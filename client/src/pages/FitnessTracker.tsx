@@ -266,30 +266,40 @@ export default function FitnessTracker() {
     }
   }, [observations]);
 
+  // Helper to parse datetime from observation data
+  const parseObservationDate = (observedOn: string, timeObserved: string | null): Date => {
+    // If timeObserved is a full ISO datetime (contains 'T'), use it directly
+    if (timeObserved && timeObserved.includes('T')) {
+      return new Date(timeObserved);
+    }
+    // Otherwise combine date with time
+    return new Date(`${observedOn}T${timeObserved || '00:00:00'}`);
+  };
+
   const processObservations = (obs: FitnessObservation[]) => {
     // Filter out observations with invalid dates first
     const validObs = obs.filter(o => {
       if (!o.observedOn) return false;
-      const testDate = new Date(`${o.observedOn}T${o.timeObserved || '00:00:00'}`);
+      const testDate = parseObservationDate(o.observedOn, o.timeObserved);
       return !isNaN(testDate.getTime());
     });
 
     const sorted = [...validObs].sort((a, b) => {
-      const dateA = new Date(`${a.observedOn}T${a.timeObserved || '00:00:00'}`);
-      const dateB = new Date(`${b.observedOn}T${b.timeObserved || '00:00:00'}`);
+      const dateA = parseObservationDate(a.observedOn, a.timeObserved);
+      const dateB = parseObservationDate(b.observedOn, b.timeObserved);
       return dateA.getTime() - dateB.getTime();
     });
 
     let currentLocationId = 0;
     const processed: ProcessedObservation[] = sorted.map((o, index) => {
-      const dateTime = new Date(`${o.observedOn}T${o.timeObserved || '00:00:00'}`);
+      const dateTime = parseObservationDate(o.observedOn, o.timeObserved);
       let distanceFromPrevious = 0;
       let speedMph: number | null = null;
       let isNewLocation = index === 0;
 
       if (index > 0) {
         const prev = sorted[index - 1];
-        const prevDateTime = new Date(`${prev.observedOn}T${prev.timeObserved || '00:00:00'}`);
+        const prevDateTime = parseObservationDate(prev.observedOn, prev.timeObserved);
         const rawDistance = haversineDistance(
           parseFloat(prev.latitude),
           parseFloat(prev.longitude),
