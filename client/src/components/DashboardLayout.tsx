@@ -24,9 +24,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   });
 
   const isLoading = authLoading || (user && subLoading);
+  
+  // TEMPORARILY DISABLED: Authentication and subscription checks
+  // Set to true to bypass auth/subscription requirements during development
+  const bypassAuthChecks = true;
 
-  // Show loading state
-  if (isLoading) {
+  // Show loading state (only if not bypassing)
+  if (!bypassAuthChecks && isLoading) {
     return (
       <div className="flex flex-col lg:flex-row h-screen bg-slate-50">
         <Sidebar />
@@ -37,8 +41,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  // Check if user needs to login
-  if (!user) {
+  // Check if user needs to login (only if not bypassing)
+  if (!bypassAuthChecks && !user) {
     return (
       <div className="flex flex-col lg:flex-row h-screen bg-slate-50">
         <Sidebar />
@@ -63,8 +67,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  // Check if user has active subscription
-  if (!subscriptionStatus?.hasActiveSubscription) {
+  // Check if user has active subscription (only if not bypassing)
+  if (!bypassAuthChecks && !subscriptionStatus?.hasActiveSubscription) {
     return (
       <div className="flex flex-col lg:flex-row h-screen bg-slate-50">
         <Sidebar />
@@ -109,7 +113,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  // User is authenticated and has subscription
+  // User is authenticated and has subscription (or auth is bypassed)
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50">
       <Sidebar />
