@@ -215,6 +215,14 @@ export function MainNavigation() {
                       Research Dashboard
                     </Link>
                   </DropdownMenuItem>
+                  {user.role === 'admin' && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/shipments" className="flex items-center gap-2 cursor-pointer" data-testid="link-admin-dashboard">
+                        <Settings className="h-4 w-4" />
+                        Admin Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <a 
