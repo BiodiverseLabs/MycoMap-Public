@@ -9076,13 +9076,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 let validationMessage = "This observation is not fungal";
                 
                 if (kingdom === "Fungi" || isSlimeMold) {
-                  if (isSlimeMold) {
-                    validationStatus = "slime_mold";
-                    validationMessage = "This observation is a slime mold and should be in its own bag";
-                  } else {
-                    validationStatus = "valid";
-                    validationMessage = "Valid fungal specimen";
-                  }
+                  // Both fungi and slime molds are valid specimens
+                  // The bag-level check for mixing will happen after all specimens are validated
+                  validationStatus = "valid";
+                  validationMessage = isSlimeMold ? "Valid slime mold specimen" : "Valid fungal specimen";
                 }
                 
                 validationResult = {
@@ -9163,6 +9160,36 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             .where(eq(shipmentSpecimens.id, specimen.id))
             .returning();
           validatedSpecimens.push(updated);
+        }
+      }
+
+      // After validating all specimens, check for bag-level mixing issues
+      // If a bag has both slime molds and regular fungi, mark the slime molds as needing their own bag
+      const slimeMolds = validatedSpecimens.filter(s => s.taxonomicClass === "Myxomycetes");
+      const regularFungi = validatedSpecimens.filter(s => 
+        s.validationStatus === "valid" && s.taxonomicClass !== "Myxomycetes" && s.kingdom === "Fungi"
+      );
+      
+      if (slimeMolds.length > 0 && regularFungi.length > 0) {
+        // Mixed bag - update slime molds to show the error
+        for (const slimeMold of slimeMolds) {
+          await db.update(shipmentSpecimens)
+            .set({
+              validationStatus: "slime_mold",
+              validationMessage: "This observation is a slime mold and should be in its own bag",
+              updatedAt: new Date(),
+            })
+            .where(eq(shipmentSpecimens.id, slimeMold.id));
+          
+          // Update the local copy for the response
+          const idx = validatedSpecimens.findIndex(s => s.id === slimeMold.id);
+          if (idx !== -1) {
+            validatedSpecimens[idx] = {
+              ...validatedSpecimens[idx],
+              validationStatus: "slime_mold",
+              validationMessage: "This observation is a slime mold and should be in its own bag",
+            };
+          }
         }
       }
 
