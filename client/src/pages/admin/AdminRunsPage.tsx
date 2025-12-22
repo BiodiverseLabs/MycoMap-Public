@@ -178,16 +178,20 @@ export default function AdminRunsPage() {
       setLocation(`/admin/runs/${data.run.id}`);
     },
     onError: (error: any) => {
-      const details = error.details || [];
-      const missingFwIndexes = error.missingFwIndexes || [];
-      const missingRvIndexes = error.missingRvIndexes || [];
-      const missingFwPrimers = error.missingFwPrimers || [];
-      const missingRvPrimers = error.missingRvPrimers || [];
+      console.log('[Index Upload Error]', JSON.stringify(error, null, 2));
+      
+      const details = error?.details || [];
+      const missingFwIndexes = error?.missingFwIndexes || [];
+      const missingRvIndexes = error?.missingRvIndexes || [];
+      const missingFwPrimers = error?.missingFwPrimers || [];
+      const missingRvPrimers = error?.missingRvPrimers || [];
       
       const allErrors: string[] = [];
       
-      if (error.error) {
+      if (error?.error) {
         allErrors.push(error.error);
+      } else if (error?.message) {
+        allErrors.push(error.message);
       }
       
       if (details.length > 0) {
