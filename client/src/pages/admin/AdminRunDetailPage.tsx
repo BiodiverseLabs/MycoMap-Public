@@ -129,6 +129,28 @@ const statusColors: Record<string, string> = {
   validated: "bg-green-100 text-green-700",
 };
 
+const STATE_NAMES: Record<string, string> = {
+  'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+  'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+  'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+  'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+  'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+  'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+  'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+  'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+  'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+  'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming',
+  'DC': 'District of Columbia', 'PR': 'Puerto Rico', 'VI': 'Virgin Islands', 'GU': 'Guam',
+  'AB': 'Alberta', 'BC': 'British Columbia', 'MB': 'Manitoba', 'NB': 'New Brunswick',
+  'NL': 'Newfoundland and Labrador', 'NS': 'Nova Scotia', 'NT': 'Northwest Territories',
+  'NU': 'Nunavut', 'ON': 'Ontario', 'PE': 'Prince Edward Island', 'QC': 'Quebec', 'SK': 'Saskatchewan', 'YT': 'Yukon',
+};
+
+function getStateName(code: string): string {
+  const upperCode = code?.toUpperCase()?.trim();
+  return STATE_NAMES[upperCode] || code;
+}
+
 export default function AdminRunDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -559,7 +581,7 @@ export default function AdminRunDetailPage() {
                   <div className="space-y-1.5">
                     {stats.topStates.slice(0, 3).map((s) => (
                       <div key={s.state} className="flex justify-between text-sm">
-                        <span className="truncate text-gray-700">{s.state}</span>
+                        <span className="truncate text-gray-700" title={s.state}>{getStateName(s.state)}</span>
                         <span className="font-medium text-[#A87146]">{s.count}</span>
                       </div>
                     ))}
@@ -646,7 +668,7 @@ export default function AdminRunDetailPage() {
               <div className="space-y-2">
                 {stats?.allStates?.map((s) => (
                   <div key={s.state} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <span className="font-medium text-gray-700">{s.state}</span>
+                    <span className="font-medium text-gray-700" title={s.state}>{getStateName(s.state)}</span>
                     <span className="bg-[#A87146] text-white text-sm px-2 py-1 rounded-full font-medium">{s.count}</span>
                   </div>
                 ))}
