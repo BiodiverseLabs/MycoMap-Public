@@ -22,6 +22,7 @@ interface Well {
   platform: string | null;
   observationId: string | null;
   labCode: string | null;
+  primerPool: string | null;
   forwardPrimer: string | null;
   reversePrimer: string | null;
   isValidated: boolean;
@@ -72,6 +73,7 @@ export default function AdminPlateEditorPage() {
   const { toast } = useToast();
   
   const [wellData, setWellData] = useState<Record<number, Partial<Well>>>({});
+  const [defaultPrimerPool, setDefaultPrimerPool] = useState("");
   const [defaultForward, setDefaultForward] = useState("");
   const [defaultReverse, setDefaultReverse] = useState("");
   const [plateNotes, setPlateNotes] = useState("");
@@ -120,7 +122,7 @@ export default function AdminPlateEditorPage() {
   });
 
   const bulkUpdateMutation = useMutation({
-    mutationFn: async (data: { forwardPrimer?: string; reversePrimer?: string }) => {
+    mutationFn: async (data: { primerPool?: string; forwardPrimer?: string; reversePrimer?: string }) => {
       return apiRequest('POST', `/api/admin/plates/${plateId}/bulk-update`, data);
     },
     onSuccess: () => {
@@ -491,7 +493,17 @@ export default function AdminPlateEditorPage() {
             <CardTitle className="text-base">Default Primers</CardTitle>
           </CardHeader>
           <CardContent className="flex gap-4 flex-wrap items-end">
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[150px]">
+              <Label htmlFor="default-pool">Primer Pool</Label>
+              <Input 
+                id="default-pool" 
+                value={defaultPrimerPool}
+                onChange={(e) => setDefaultPrimerPool(e.target.value)}
+                placeholder="e.g., Pool A"
+                data-testid="input-default-primer-pool"
+              />
+            </div>
+            <div className="flex-1 min-w-[150px]">
               <Label htmlFor="default-fwd">Forward Primer</Label>
               <Input 
                 id="default-fwd" 
@@ -501,7 +513,7 @@ export default function AdminPlateEditorPage() {
                 data-testid="input-default-forward"
               />
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[150px]">
               <Label htmlFor="default-rev">Reverse Primer</Label>
               <Input 
                 id="default-rev" 
@@ -512,7 +524,7 @@ export default function AdminPlateEditorPage() {
               />
             </div>
             <Button 
-              onClick={() => bulkUpdateMutation.mutate({ forwardPrimer: defaultForward, reversePrimer: defaultReverse })}
+              onClick={() => bulkUpdateMutation.mutate({ primerPool: defaultPrimerPool, forwardPrimer: defaultForward, reversePrimer: defaultReverse })}
               disabled={bulkUpdateMutation.isPending}
               data-testid="button-apply-primers"
             >
@@ -553,6 +565,7 @@ export default function AdminPlateEditorPage() {
                     <TableHead className="w-[150px]">Observation Number</TableHead>
                     <TableHead className="w-[100px]">Validation</TableHead>
                     <TableHead>Username</TableHead>
+                    <TableHead className="w-[100px]">Primer Pool</TableHead>
                     <TableHead className="w-[100px]">Fwd Primer</TableHead>
                     <TableHead className="w-[100px]">Rev Primer</TableHead>
                   </TableRow>
@@ -643,6 +656,9 @@ export default function AdminPlateEditorPage() {
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {well.username || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {well.primerPool || '—'}
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {well.forwardPrimer || '—'}

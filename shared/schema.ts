@@ -1385,6 +1385,7 @@ export const labWells = pgTable("lab_wells", {
   
   // Lab data
   labCode: text("lab_code"), // Internal lab tracking code
+  primerPool: text("primer_pool"), // Primer pool identifier
   forwardPrimer: text("forward_primer"),
   reversePrimer: text("reverse_primer"),
   

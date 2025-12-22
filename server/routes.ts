@@ -9690,9 +9690,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.post("/api/admin/plates/:id/bulk-update", isAdmin, async (req: any, res) => {
     try {
       const plateId = parseInt(req.params.id);
-      const { forwardPrimer, reversePrimer } = req.body;
+      const { primerPool, forwardPrimer, reversePrimer } = req.body;
 
       const updateData: any = { updatedAt: new Date() };
+      if (primerPool !== undefined) updateData.primerPool = primerPool;
       if (forwardPrimer !== undefined) updateData.forwardPrimer = forwardPrimer;
       if (reversePrimer !== undefined) updateData.reversePrimer = reversePrimer;
 
@@ -9711,13 +9712,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.patch("/api/admin/wells/:id", isAdmin, async (req: any, res) => {
     try {
       const wellId = parseInt(req.params.id);
-      const { platform, observationId, labCode, forwardPrimer, reversePrimer } = req.body;
+      const { platform, observationId, labCode, primerPool, forwardPrimer, reversePrimer } = req.body;
 
       const [updated] = await db.update(labWells)
         .set({
           platform,
           observationId,
           labCode,
+          primerPool,
           forwardPrimer,
           reversePrimer,
           updatedAt: new Date(),
