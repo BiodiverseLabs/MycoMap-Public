@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -173,6 +173,8 @@ export default function AdminRunDetailPage() {
   const [plateNotes, setPlateNotes] = useState<Record<number, string>>({});
   const [isEditingDriveUrl, setIsEditingDriveUrl] = useState(false);
   const [expandedCodeStages, setExpandedCodeStages] = useState<Record<string, boolean>>({});
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
@@ -402,6 +404,20 @@ export default function AdminRunDetailPage() {
     },
   });
 
+  const updateTitleMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('PATCH', `/api/admin/runs/${runId}`, { name });
+    },
+    onSuccess: async () => {
+      await refetch();
+      setIsEditingTitle(false);
+      toast({ title: "Title Updated", description: "Run title has been updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update title", variant: "destructive" });
+    },
+  });
+
   const getMethodsForStage = (stage: string) => {
     return bioMethods.filter(m => m.stage === stage && m.isActive);
   };
@@ -449,9 +465,65 @@ export default function AdminRunDetailPage() {
         
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900" data-testid="text-run-title">
-              {run.name}
-            </h1>
+            <div className="flex items-center gap-2">
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    className="text-2xl font-bold h-10 w-64"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && editedTitle.trim()) {
+                        updateTitleMutation.mutate(editedTitle.trim());
+                      } else if (e.key === 'Escape') {
+                        setIsEditingTitle(false);
+                      }
+                    }}
+                    data-testid="input-run-title"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (editedTitle.trim()) {
+                        updateTitleMutation.mutate(editedTitle.trim());
+                      }
+                    }}
+                    disabled={updateTitleMutation.isPending || !editedTitle.trim()}
+                    data-testid="button-save-title"
+                  >
+                    {updateTitleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 text-green-600" />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsEditingTitle(false)}
+                    data-testid="button-cancel-title"
+                  >
+                    <X className="h-4 w-4 text-gray-500" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-2xl font-bold text-gray-900" data-testid="text-run-title">
+                    {run.name}
+                  </h1>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditedTitle(run.name);
+                      setIsEditingTitle(true);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                    data-testid="button-edit-title"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
             <p className="text-gray-600">
               Created {format(new Date(run.createdAt), 'MMMM d, yyyy')} • {run.plates.length} plates
             </p>
