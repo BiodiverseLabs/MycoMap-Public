@@ -635,7 +635,10 @@ export default function AdminPlateEditorPage() {
                     const obsId = localData.observationId ?? well.observationId ?? "";
                     const labCode = localData.labCode ?? well.labCode ?? "";
                     const platform = localData.platform ?? well.platform ?? "";
-                    const validationClass = well.validationStatus ? validationColors[well.validationStatus] : "";
+                    // Use local validation status if available (null means cleared), otherwise use server status
+                    const isValidated = localData.isValidated !== undefined ? localData.isValidated : well.isValidated;
+                    const validationStatus = localData.validationStatus !== undefined ? localData.validationStatus : well.validationStatus;
+                    const validationClass = validationStatus ? validationColors[validationStatus] : "";
                     
                     return (
                       <TableRow 
@@ -666,12 +669,33 @@ export default function AdminPlateEditorPage() {
                           <Select 
                             value={platform || "empty"}
                             onValueChange={(val) => {
-                              handleWellChange(well.id, 'platform', val === "empty" ? "" : val);
-                              setTimeout(() => saveWell(well.id), 0);
+                              const newPlatform = val === "empty" ? "" : val;
+                              handleWellChange(well.id, 'platform', newPlatform);
+                              // Clear validation status when platform changes since it needs re-validation
+                              setWellData(prev => ({
+                                ...prev,
+                                [well.id]: { 
+                                  ...prev[well.id], 
+                                  platform: newPlatform,
+                                  validationStatus: null,
+                                  isValidated: false
+                                }
+                              }));
+                              setTimeout(() => {
+                                updateWellMutation.mutate({ 
+                                  wellId: well.id, 
+                                  data: { 
+                                    platform: newPlatform, 
+                                    validationStatus: null, 
+                                    validationMessage: null,
+                                    isValidated: false 
+                                  } 
+                                });
+                              }, 0);
                             }}
                           >
                             <SelectTrigger 
-                              className={`h-8 ${!platform && well.isValidated ? 'border-red-500 border-2' : ''}`} 
+                              className={`h-8 ${!platform && isValidated ? 'border-red-500 border-2' : ''}`} 
                               data-testid={`select-platform-${well.wellPosition}`}
                             >
                               <SelectValue placeholder="Select..." />
@@ -698,17 +722,17 @@ export default function AdminPlateEditorPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          {well.isValidated && (
+                          {isValidated && validationStatus && (
                             <div className="flex items-center gap-1" title={well.validationMessage || undefined}>
-                              {well.validationStatus === 'valid' ? (
+                              {validationStatus === 'valid' || validationStatus === 'no_voucher' ? (
                                 <CheckCircle className="h-4 w-4 text-green-600" />
-                              ) : well.validationStatus === 'pending' ? (
+                              ) : validationStatus === 'pending' ? (
                                 <Clock className="h-4 w-4 text-blue-500" />
                               ) : (
                                 <AlertCircle className="h-4 w-4 text-red-500" />
                               )}
                               <span className="text-xs capitalize">
-                                {well.validationStatus?.replace('_', ' ')}
+                                {validationStatus?.replace('_', ' ')}
                               </span>
                             </div>
                           )}
