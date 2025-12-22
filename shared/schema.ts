@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index, unique, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1407,6 +1407,7 @@ export const labWells = pgTable("lab_wells", {
 // Relations for lab tables
 export const labRunsRelations = relations(labRuns, ({ many, one }) => ({
   plates: many(labPlates),
+  bioSteps: many(labRunBioSteps),
   createdByUser: one(users, {
     fields: [labRuns.createdBy],
     references: [users.id],
@@ -1652,3 +1653,45 @@ export const insertLabRunFileSchema = createInsertSchema(labRunFiles).omit({
 
 export type InsertLabRunFile = z.infer<typeof insertLabRunFileSchema>;
 export type LabRunFile = typeof labRunFiles.$inferSelect;
+
+// =============================================
+// Bioinformatics Management - code tracking for runs
+// =============================================
+
+export const bioinformaticsStageEnum = pgEnum('bioinformatics_stage', [
+  'basecalling',
+  'qc_filtering',
+  'qc_reports',
+  'demultiplexing',
+  'consensus_building'
+]);
+
+export const labRunBioSteps = pgTable("lab_run_bio_steps", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
+  stage: bioinformaticsStageEnum("stage").notNull(),
+  name: text("name").notNull(),
+  code: text("code").notNull(),
+  notes: text("notes"),
+  sequence: integer("sequence").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  runStageIdx: index("lab_run_bio_steps_run_stage_idx").on(table.runId, table.stage),
+}));
+
+export const labRunBioStepsRelations = relations(labRunBioSteps, ({ one }) => ({
+  run: one(labRuns, {
+    fields: [labRunBioSteps.runId],
+    references: [labRuns.id],
+  }),
+}));
+
+export const insertLabRunBioStepSchema = createInsertSchema(labRunBioSteps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertLabRunBioStep = z.infer<typeof insertLabRunBioStepSchema>;
+export type LabRunBioStep = typeof labRunBioSteps.$inferSelect;
