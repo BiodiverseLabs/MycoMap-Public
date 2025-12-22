@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +85,23 @@ const validationColors: Record<string, string> = {
   not_fungal: "bg-red-200",
   pending: "bg-blue-50",
 };
+
+function getObservationUrl(platform: string | null, observationId: string | null): string | null {
+  if (!observationId || !platform) return null;
+  const cleanId = observationId.replace(/\D/g, '');
+  if (!cleanId) return null;
+  
+  switch (platform) {
+    case 'iNaturalist':
+      return `https://www.inaturalist.org/observations/${cleanId}`;
+    case 'MO':
+      return `https://mushroomobserver.org/observations/${cleanId}`;
+    case 'MyCoPortal':
+      return `https://mycoportal.org/portal/collections/individual/index.php?occid=${cleanId}`;
+    default:
+      return null;
+  }
+}
 
 export default function AdminPlateEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -760,17 +777,31 @@ export default function AdminPlateEditorPage() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Input 
-                            ref={el => inputRefs.current[`${well.id}-observationId`] = el}
-                            className="h-8"
-                            placeholder="Enter obs ID"
-                            value={obsId}
-                            onChange={(e) => handleWellChange(well.id, 'observationId', e.target.value)}
-                            onBlur={() => saveWell(well.id)}
-                            onKeyDown={(e) => handleKeyDown(e, well.id, index, 'observationId')}
-                            onPaste={(e) => handlePaste(e, well.id, index, 'observationId')}
-                            data-testid={`input-obs-${well.wellPosition}`}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input 
+                              ref={el => inputRefs.current[`${well.id}-observationId`] = el}
+                              className="h-8"
+                              placeholder="Enter obs ID"
+                              value={obsId}
+                              onChange={(e) => handleWellChange(well.id, 'observationId', e.target.value)}
+                              onBlur={() => saveWell(well.id)}
+                              onKeyDown={(e) => handleKeyDown(e, well.id, index, 'observationId')}
+                              onPaste={(e) => handlePaste(e, well.id, index, 'observationId')}
+                              data-testid={`input-obs-${well.wellPosition}`}
+                            />
+                            {obsId && platform && getObservationUrl(platform, obsId) && (
+                              <a
+                                href={getObservationUrl(platform, obsId)!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-400 hover:text-blue-600 flex-shrink-0"
+                                title={`View on ${platform}`}
+                                data-testid={`link-obs-${well.wellPosition}`}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {isValidated && validationStatus && (
