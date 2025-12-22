@@ -32,6 +32,17 @@ interface PrimerSet {
   createdAt: string;
 }
 
+interface PrimerPool {
+  id: number;
+  name: string;
+  forwardPrimerSetId: number;
+  reversePrimerSetId: number;
+  isActive?: boolean;
+  forwardPrimerSet?: PrimerSet;
+  reversePrimerSet?: PrimerSet;
+  createdAt: string;
+}
+
 export default function AdminPrimerManagementPage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -44,6 +55,14 @@ export default function AdminPrimerManagementPage() {
   const [singleSequence, setSingleSequence] = useState("");
   const [poolItems, setPoolItems] = useState<PrimerItem[]>([]);
   const [isActive, setIsActive] = useState(true);
+
+  // Primer Pool state
+  const [poolDialogOpen, setPoolDialogOpen] = useState(false);
+  const [editingPool, setEditingPool] = useState<PrimerPool | null>(null);
+  const [poolName, setPoolName] = useState("");
+  const [selectedForwardId, setSelectedForwardId] = useState<string>("");
+  const [selectedReverseId, setSelectedReverseId] = useState<string>("");
+  const [poolIsActive, setPoolIsActive] = useState(true);
 
   const { data: primerSets, isLoading } = useQuery<PrimerSet[]>({
     queryKey: ['/api/admin/primer-sets'],
@@ -94,6 +113,104 @@ export default function AdminPrimerManagementPage() {
       toast({ title: "Error", description: "Failed to delete primer set", variant: "destructive" });
     },
   });
+
+  // Primer Pools query and mutations
+  const { data: primerPoolsList, isLoading: isLoadingPools } = useQuery<PrimerPool[]>({
+    queryKey: ['/api/admin/primer-pools'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/primer-pools');
+      if (!res.ok) throw new Error('Failed to fetch primer pools');
+      return res.json();
+    },
+  });
+
+  const createPoolMutation = useMutation({
+    mutationFn: async (data: { name: string; forwardPrimerSetId: number; reversePrimerSetId: number; isActive?: boolean }) => {
+      return apiRequest('POST', '/api/admin/primer-pools', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/primer-pools'] });
+      closePoolDialog();
+      toast({ title: "Created", description: "Primer pool created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create primer pool", variant: "destructive" });
+    },
+  });
+
+  const updatePoolMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest('PATCH', `/api/admin/primer-pools/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/primer-pools'] });
+      closePoolDialog();
+      toast({ title: "Updated", description: "Primer pool updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update primer pool", variant: "destructive" });
+    },
+  });
+
+  const deletePoolMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest('DELETE', `/api/admin/primer-pools/${id}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/primer-pools'] });
+      toast({ title: "Deleted", description: "Primer pool deleted" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete primer pool", variant: "destructive" });
+    },
+  });
+
+  const closePoolDialog = () => {
+    setPoolDialogOpen(false);
+    setEditingPool(null);
+    setPoolName("");
+    setSelectedForwardId("");
+    setSelectedReverseId("");
+    setPoolIsActive(true);
+  };
+
+  const openAddPoolDialog = () => {
+    closePoolDialog();
+    setPoolDialogOpen(true);
+  };
+
+  const openEditPoolDialog = (pool: PrimerPool) => {
+    setEditingPool(pool);
+    setPoolName(pool.name);
+    setSelectedForwardId(pool.forwardPrimerSetId.toString());
+    setSelectedReverseId(pool.reversePrimerSetId.toString());
+    setPoolIsActive(pool.isActive !== false);
+    setPoolDialogOpen(true);
+  };
+
+  const handleSavePool = () => {
+    if (!poolName || !selectedForwardId || !selectedReverseId) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+
+    const data = {
+      name: poolName,
+      forwardPrimerSetId: parseInt(selectedForwardId),
+      reversePrimerSetId: parseInt(selectedReverseId),
+      isActive: poolIsActive,
+    };
+
+    if (editingPool) {
+      updatePoolMutation.mutate({ id: editingPool.id, data });
+    } else {
+      createPoolMutation.mutate(data);
+    }
+  };
+
+  // Filter primer sets by orientation for dropdowns
+  const forwardSets = primerSets?.filter(s => s.orientation === "Forward" && s.isActive !== false) || [];
+  const reverseSets = primerSets?.filter(s => s.orientation === "Reverse" && s.isActive !== false) || [];
 
   const closeDialog = () => {
     setDialogOpen(false);
@@ -341,6 +458,172 @@ export default function AdminPrimerManagementPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Primer Pools Section */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FlaskConical className="h-5 w-5" /> Primer Pools
+            </CardTitle>
+            <Button size="sm" onClick={openAddPoolDialog} data-testid="button-add-primer-pool">
+              <Plus className="h-4 w-4 mr-1" /> New Pool
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500 mb-4">
+              Combine forward and reverse primer sets into named pools for easy plate configuration.
+            </p>
+            {isLoadingPools ? (
+              <Skeleton className="h-[100px] w-full" />
+            ) : primerPoolsList && primerPoolsList.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pool Name</TableHead>
+                    <TableHead>Forward Primer</TableHead>
+                    <TableHead>Reverse Primer</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {primerPoolsList.map((pool) => (
+                    <TableRow key={pool.id} data-testid={`row-primer-pool-${pool.id}`} className={pool.isActive === false ? "opacity-50" : ""}>
+                      <TableCell className="font-medium">{pool.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{pool.forwardPrimerSet?.title || "Unknown"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{pool.reversePrimerSet?.title || "Unknown"}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={pool.isActive === false ? "destructive" : "default"}>
+                          {pool.isActive === false ? "Inactive" : "Active"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => openEditPoolDialog(pool)}
+                            data-testid={`button-edit-pool-${pool.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => {
+                              if (confirm('Delete this primer pool?')) {
+                                deletePoolMutation.mutate(pool.id);
+                              }
+                            }}
+                            data-testid={`button-delete-pool-${pool.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FlaskConical className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No primer pools defined yet</p>
+                <p className="text-sm">Click "New Pool" to combine forward and reverse primer sets</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Primer Pool Dialog */}
+        <Dialog open={poolDialogOpen} onOpenChange={setPoolDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingPool ? "Edit Primer Pool" : "New Primer Pool"}</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="poolName">Pool Name</Label>
+                <Input
+                  id="poolName"
+                  value={poolName}
+                  onChange={(e) => setPoolName(e.target.value)}
+                  placeholder="e.g., ITS Pool"
+                  data-testid="input-pool-name"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="forwardPrimer">Forward Primer Set</Label>
+                <Select value={selectedForwardId} onValueChange={setSelectedForwardId}>
+                  <SelectTrigger data-testid="select-forward-primer">
+                    <SelectValue placeholder="Select forward primer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {forwardSets.map((set) => (
+                      <SelectItem key={set.id} value={set.id.toString()}>
+                        {set.title} {set.type === "Pool" ? `(Pool of ${set.poolSize})` : "(Single)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {forwardSets.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">No active forward primers available. Create one first.</p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="reversePrimer">Reverse Primer Set</Label>
+                <Select value={selectedReverseId} onValueChange={setSelectedReverseId}>
+                  <SelectTrigger data-testid="select-reverse-primer">
+                    <SelectValue placeholder="Select reverse primer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reverseSets.map((set) => (
+                      <SelectItem key={set.id} value={set.id.toString()}>
+                        {set.title} {set.type === "Pool" ? `(Pool of ${set.poolSize})` : "(Single)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {reverseSets.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">No active reverse primers available. Create one first.</p>
+                )}
+              </div>
+
+              {editingPool && (
+                <div className="flex items-center justify-between border rounded-lg p-4">
+                  <div>
+                    <Label htmlFor="poolIsActive" className="text-base font-medium">Active Status</Label>
+                    <p className="text-sm text-gray-500">Inactive pools won't appear in dropdowns</p>
+                  </div>
+                  <Switch
+                    id="poolIsActive"
+                    checked={poolIsActive}
+                    onCheckedChange={setPoolIsActive}
+                    data-testid="switch-pool-is-active"
+                  />
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={closePoolDialog}>Cancel</Button>
+              <Button 
+                onClick={handleSavePool} 
+                disabled={createPoolMutation.isPending || updatePoolMutation.isPending}
+                data-testid="button-save-pool"
+              >
+                {editingPool ? "Save Changes" : "Create Pool"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

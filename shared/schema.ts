@@ -1578,3 +1578,44 @@ export type PrimerItem = typeof primerItems.$inferSelect;
 export type PrimerSetWithItems = PrimerSet & {
   items: PrimerItem[];
 };
+
+// Primer Pools - combinations of forward and reverse primer sets
+export const primerPools = pgTable("primer_pools", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  forwardPrimerSetId: integer("forward_primer_set_id").notNull().references(() => primerSets.id),
+  reversePrimerSetId: integer("reverse_primer_set_id").notNull().references(() => primerSets.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Relations for primer pools
+export const primerPoolsRelations = relations(primerPools, ({ one }) => ({
+  forwardPrimerSet: one(primerSets, {
+    fields: [primerPools.forwardPrimerSetId],
+    references: [primerSets.id],
+    relationName: "forwardPrimerSet",
+  }),
+  reversePrimerSet: one(primerSets, {
+    fields: [primerPools.reversePrimerSetId],
+    references: [primerSets.id],
+    relationName: "reversePrimerSet",
+  }),
+}));
+
+// Insert schema for primer pools
+export const insertPrimerPoolSchema = createInsertSchema(primerPools).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for primer pools
+export type InsertPrimerPool = z.infer<typeof insertPrimerPoolSchema>;
+export type PrimerPool = typeof primerPools.$inferSelect;
+
+export type PrimerPoolWithSets = PrimerPool & {
+  forwardPrimerSet: PrimerSetWithItems;
+  reversePrimerSet: PrimerSetWithItems;
+};

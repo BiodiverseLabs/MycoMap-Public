@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -10149,6 +10149,98 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error deleting primer set:", error);
       res.status(500).json({ error: "Failed to delete primer set" });
+    }
+  });
+
+  // ==================== PRIMER POOLS ====================
+
+  // Get all primer pools with their associated primer sets
+  app.get("/api/admin/primer-pools", isAdmin, async (req: any, res) => {
+    try {
+      const pools = await db.select().from(primerPools).orderBy(primerPools.name);
+      
+      // Fetch forward and reverse primer set details for each pool
+      const poolsWithSets = await Promise.all(pools.map(async (pool) => {
+        const forwardSet = await db.select().from(primerSets).where(eq(primerSets.id, pool.forwardPrimerSetId)).then(r => r[0]);
+        const reverseSet = await db.select().from(primerSets).where(eq(primerSets.id, pool.reversePrimerSetId)).then(r => r[0]);
+        return {
+          ...pool,
+          forwardPrimerSet: forwardSet,
+          reversePrimerSet: reverseSet,
+        };
+      }));
+      
+      res.json(poolsWithSets);
+    } catch (error) {
+      console.error("Error fetching primer pools:", error);
+      res.status(500).json({ error: "Failed to fetch primer pools" });
+    }
+  });
+
+  // Create primer pool
+  app.post("/api/admin/primer-pools", isAdmin, async (req: any, res) => {
+    try {
+      const { name, forwardPrimerSetId, reversePrimerSetId, isActive } = req.body;
+      
+      if (!name || !forwardPrimerSetId || !reversePrimerSetId) {
+        return res.status(400).json({ error: "Name, forward primer set, and reverse primer set are required" });
+      }
+      
+      const [pool] = await db.insert(primerPools).values({
+        name,
+        forwardPrimerSetId,
+        reversePrimerSetId,
+        isActive: isActive !== false,
+      }).returning();
+      
+      // Fetch the full sets for response
+      const forwardSet = await db.select().from(primerSets).where(eq(primerSets.id, forwardPrimerSetId)).then(r => r[0]);
+      const reverseSet = await db.select().from(primerSets).where(eq(primerSets.id, reversePrimerSetId)).then(r => r[0]);
+      
+      res.json({ ...pool, forwardPrimerSet: forwardSet, reversePrimerSet: reverseSet });
+    } catch (error) {
+      console.error("Error creating primer pool:", error);
+      res.status(500).json({ error: "Failed to create primer pool" });
+    }
+  });
+
+  // Update primer pool
+  app.patch("/api/admin/primer-pools/:id", isAdmin, async (req: any, res) => {
+    try {
+      const poolId = parseInt(req.params.id);
+      const { name, forwardPrimerSetId, reversePrimerSetId, isActive } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      if (name !== undefined) updateData.name = name;
+      if (forwardPrimerSetId !== undefined) updateData.forwardPrimerSetId = forwardPrimerSetId;
+      if (reversePrimerSetId !== undefined) updateData.reversePrimerSetId = reversePrimerSetId;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      
+      const [updated] = await db.update(primerPools)
+        .set(updateData)
+        .where(eq(primerPools.id, poolId))
+        .returning();
+      
+      // Fetch the full sets for response
+      const forwardSet = await db.select().from(primerSets).where(eq(primerSets.id, updated.forwardPrimerSetId)).then(r => r[0]);
+      const reverseSet = await db.select().from(primerSets).where(eq(primerSets.id, updated.reversePrimerSetId)).then(r => r[0]);
+      
+      res.json({ ...updated, forwardPrimerSet: forwardSet, reversePrimerSet: reverseSet });
+    } catch (error) {
+      console.error("Error updating primer pool:", error);
+      res.status(500).json({ error: "Failed to update primer pool" });
+    }
+  });
+
+  // Delete primer pool
+  app.delete("/api/admin/primer-pools/:id", isAdmin, async (req: any, res) => {
+    try {
+      const poolId = parseInt(req.params.id);
+      await db.delete(primerPools).where(eq(primerPools.id, poolId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting primer pool:", error);
+      res.status(500).json({ error: "Failed to delete primer pool" });
     }
   });
 
