@@ -371,14 +371,11 @@ export default function AdminPlateEditorPage() {
               <h1 className="text-xl font-bold text-gray-900" data-testid="text-plate-title">
                 {plate.runName || `Run ${plate.runId}`} - Plate {plate.plateNumber}
               </h1>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">{plate.status}</Badge>
-                {plate.wells.filter(w => w.observationId || w.labCode).length > 0 && (
-                  <span className="text-sm text-gray-600">
-                    {plate.wells.filter(w => w.observationId || w.labCode).length} samples
-                  </span>
-                )}
-              </div>
+              {plate.wells.filter(w => w.observationId || w.labCode).length > 0 && (
+                <span className="text-sm text-gray-600">
+                  {plate.wells.filter(w => w.observationId || w.labCode).length} samples
+                </span>
+              )}
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
