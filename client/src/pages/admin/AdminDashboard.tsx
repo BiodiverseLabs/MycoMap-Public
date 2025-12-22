@@ -2,8 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  Database, 
-  Dna, 
   Upload, 
   AlertTriangle, 
   Leaf, 
@@ -41,12 +39,10 @@ export default function AdminDashboard() {
   const draftRuns = runs?.filter(r => r.status === 'draft')?.length || 0;
 
   const quickLinks = [
-    { href: "/admin/validation", label: "Data Validation", icon: Database, description: "Validate observation records", color: "bg-blue-500" },
-    { href: "/admin/biorecords", label: "BioRecord Management", icon: Dna, description: "Manage biological records", color: "bg-purple-500" },
-    { href: "/admin/upload", label: "Data Upload", icon: Upload, description: "Upload new data files", color: "bg-green-500" },
     { href: "/admin/shipments", label: "Pending Shipments", icon: Package, description: "Process specimen shipments", color: "bg-orange-500" },
     { href: "/admin/runs", label: "Lab Runs", icon: FlaskConical, description: "Manage sequencing runs", color: "bg-teal-500" },
     { href: "/admin/bioinformatics", label: "Bioinformatics", icon: Terminal, description: "Pipeline code tracking", color: "bg-indigo-500" },
+    { href: "/admin/upload", label: "Data Upload", icon: Upload, description: "Upload new data files", color: "bg-green-500" },
     { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle, description: "Conservation status tracking", color: "bg-red-500" },
     { href: "/admin/foraging-lists", label: "Foraging Lists", icon: Leaf, description: "Manage foraging data", color: "bg-lime-500" },
     { href: "/admin/settings", label: "System Settings", icon: Settings, description: "Configure system options", color: "bg-gray-500" },
