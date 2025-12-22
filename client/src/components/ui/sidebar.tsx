@@ -13,17 +13,13 @@ import {
   Trophy,
   AlertTriangle,
   Shield,
-  Database,
-  Upload,
   ChevronDown,
   ChevronRight,
   BookOpen,
   Code,
   Lock,
   Leaf,
-  Home,
-  Package,
-  FlaskConical
+  Home
 } from "lucide-react";
 import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./button";
@@ -34,7 +30,6 @@ import { useState, useEffect } from "react";
 export function Sidebar() {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAdminExpanded, setIsAdminExpanded] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
@@ -75,30 +70,7 @@ export function Sidebar() {
     { href: "/api-docs", label: "API Documentation", icon: Code },
   ];
 
-  const adminItems = [
-    { href: "/admin/validation", label: "Data Validation", icon: Database },
-    { href: "/admin/biorecords", label: "BioRecord Management", icon: Dna },
-    { href: "/admin/upload", label: "Data Upload", icon: Upload },
-    { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
-    { href: "/admin/foraging-lists", label: "Foraging Lists", icon: Leaf },
-    { href: "/admin/shipments", label: "Pending Shipments", icon: Package },
-    { href: "/admin/runs", label: "Lab Runs", icon: FlaskConical },
-    { href: "/admin/settings", label: "System Settings", icon: Settings },
-  ];
-
-  // Check if admin section should be expanded
-  useEffect(() => {
-    if (location.startsWith('/admin')) {
-      if (isAuthenticated) {
-        setIsAdminExpanded(true);
-      } else {
-        // Show password dialog if trying to access admin without auth
-        setIsPasswordDialogOpen(true);
-      }
-    }
-  }, [location, isAuthenticated]);
-
-  // Password authentication functions
+  // Password authentication functions for admin access
   const handlePasswordSubmit = () => {
     if (password === "mycotalab") {
       setIsAuthenticated(true);
@@ -106,28 +78,17 @@ export function Sidebar() {
       setIsPasswordDialogOpen(false);
       setPassword("");
       setPasswordError("");
-      setIsAdminExpanded(true);
+      window.location.href = '/admin';
     } else {
       setPasswordError("Incorrect password. Please try again.");
       setPassword("");
     }
   };
 
-  const handleAdminAccess = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!isAuthenticated) {
-      setIsPasswordDialogOpen(true);
-    } else {
-      setIsAdminExpanded(!isAdminExpanded);
-    }
-  };
-
-  const handleAdminLinkClick = (e: React.MouseEvent, href: string) => {
+  const handleAdminClick = (e: React.MouseEvent) => {
     if (!isAuthenticated) {
       e.preventDefault();
       setIsPasswordDialogOpen(true);
-    } else {
-      window.location.href = href;
     }
   };
 
@@ -302,67 +263,32 @@ export function Sidebar() {
             </div>
           </Link>
 
-          {/* Admin Section - Protected */}
-          {!isCollapsed ? (
-            <div className="space-y-1">
-              <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
-                  location.startsWith('/admin') && isAuthenticated
-                    ? "bg-primary/10 text-primary"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}>
-                <div className="flex-1" onClick={(e) => handleAdminLinkClick(e, '/admin')}>
-                  <div className="flex items-center space-x-3 px-3 py-2 cursor-pointer">
-                    <Settings className="w-5 h-5" />
-                    <span>Admin</span>
-                    {!isAuthenticated && <Lock className="w-4 h-4 ml-auto" />}
-                  </div>
-                </div>
-                <button
-                  onClick={handleAdminAccess}
-                  className="px-2 py-2 hover:bg-slate-200 rounded-r-lg"
-                >
-                  {isAdminExpanded ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-              
-              {isAdminExpanded && isAuthenticated && (
-                <div className="ml-6 space-y-1 bg-white">
-                  {adminItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = location === item.href;
-                    
-                    return (
-                      <div key={item.href} onClick={(e) => handleAdminLinkClick(e, item.href)}>
-                        <div
-                          className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
-                            isActive
-                              ? "bg-primary/10 text-primary"
-                              : "text-slate-600 hover:bg-slate-100"
-                          }`}
-                        >
-                          <Icon className="w-4 h-4" />
-                          <span>{item.label}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div onClick={(e) => handleAdminLinkClick(e, '/admin')}>
-              <div className={`flex items-center justify-center px-2 py-2 rounded-lg font-medium w-full text-left cursor-pointer ${
-                location.startsWith('/admin') && isAuthenticated
-                  ? "bg-primary/10 text-primary"
+          {/* Admin Dashboard Link */}
+          {isAuthenticated ? (
+            <Link href="/admin">
+              <div className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left cursor-pointer ${
+                location.startsWith('/admin')
+                  ? "bg-[#A87146]/10 text-[#A87146]"
                   : "text-slate-600 hover:bg-slate-100"
               }`}
-              title="Admin">
+              title={isCollapsed ? "Admin Dashboard" : undefined}>
                 <Settings className="w-5 h-5 flex-shrink-0" />
-                {!isAuthenticated && <Lock className="w-3 h-3 absolute bottom-1 right-1" />}
+                {!isCollapsed && <span>Admin Dashboard</span>}
+              </div>
+            </Link>
+          ) : (
+            <div onClick={handleAdminClick} className="cursor-pointer">
+              <div className={`flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-3'} py-2 rounded-lg font-medium w-full text-left ${
+                "text-slate-600 hover:bg-slate-100"
+              }`}
+              title={isCollapsed ? "Admin Dashboard" : undefined}>
+                <Settings className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && (
+                  <>
+                    <span>Admin Dashboard</span>
+                    <Lock className="w-4 h-4 ml-auto" />
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -471,56 +397,29 @@ export function Sidebar() {
             </div>
           </Link>
 
-          {/* Admin Section - Mobile Protected */}
-          <div className="space-y-1">
-            <div className={`flex items-center justify-between w-full rounded-lg font-medium ${
-                location.startsWith('/admin') && isAuthenticated
-                  ? "bg-primary/10 text-primary"
+          {/* Admin Dashboard Link - Mobile */}
+          {isAuthenticated ? (
+            <Link href="/admin">
+              <div className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left cursor-pointer ${
+                location.startsWith('/admin')
+                  ? "bg-[#A87146]/10 text-[#A87146]"
                   : "text-slate-600 hover:bg-slate-100"
               }`}>
-              <div className="flex-1" onClick={(e) => handleAdminLinkClick(e, '/admin')}>
-                <div className="flex items-center space-x-3 px-3 py-3 cursor-pointer">
-                  <Settings className="w-5 h-5" />
-                  <span>Admin</span>
-                  {!isAuthenticated && <Lock className="w-4 h-4 ml-auto" />}
-                </div>
+                <Settings className="w-5 h-5" />
+                <span>Admin Dashboard</span>
               </div>
-              <button
-                onClick={handleAdminAccess}
-                className="px-2 py-3 hover:bg-slate-200 rounded-r-lg"
-              >
-                {isAdminExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </button>
+            </Link>
+          ) : (
+            <div onClick={handleAdminClick} className="cursor-pointer">
+              <div className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left ${
+                "text-slate-600 hover:bg-slate-100"
+              }`}>
+                <Settings className="w-5 h-5" />
+                <span>Admin Dashboard</span>
+                <Lock className="w-4 h-4 ml-auto" />
+              </div>
             </div>
-            
-            {isAdminExpanded && isAuthenticated && (
-              <div className="ml-6 space-y-1">
-                {adminItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = location === item.href;
-                  
-                  return (
-                    <div key={item.href} onClick={(e) => handleAdminLinkClick(e, item.href)}>
-                      <div
-                        className={`flex items-center space-x-3 px-3 py-3 rounded-lg font-medium w-full text-left text-sm cursor-pointer ${
-                          isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{item.label}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
       </aside>

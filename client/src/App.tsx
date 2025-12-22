@@ -4,7 +4,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { AdminDashboardLayout } from "@/components/AdminDashboardLayout";
 import HomePage from "@/pages/HomePage";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
 import CMSPage from "@/pages/CMSPage";
 import MycoBlitzPage from "@/pages/MycoBlitzPage";
 import NetworkPage from "@/pages/NetworkPage";
@@ -35,7 +37,6 @@ import FamilyDetail from "@/pages/FamilyDetail";
 import ClassDetail from "@/pages/ClassDetail";
 import OrderDetail from "@/pages/OrderDetail";
 import GenusDetail from "@/pages/GenusDetail";
-import Admin from "@/pages/Admin";
 import AdminValidation from "@/pages/admin/AdminValidation";
 import BioRecordManagement from "@/pages/admin/BioRecordManagement";
 import AdminUpload from "@/pages/admin/AdminUpload";
@@ -72,6 +73,7 @@ function AppRouter() {
     networkSubpages.some(path => location.startsWith(path)) ||
     location.startsWith('/network/') ||
     location.startsWith('/shipment');
+  const isAdminRoute = location.startsWith('/admin');
 
   if (isPublicRoute) {
     return (
@@ -91,6 +93,31 @@ function AppRouter() {
         <Route path="/profile" component={ProfilePage} />
         <Route path="/shipment/:id?" component={ShipmentPage} />
       </Switch>
+    );
+  }
+
+  if (isAdminRoute) {
+    return (
+      <AdminDashboardLayout>
+        <Switch>
+          <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/validation" component={AdminValidation} />
+          <Route path="/admin/biorecords" component={BioRecordManagement} />
+          <Route path="/admin/upload" component={AdminUpload} />
+          <Route path="/admin/redlist" component={AdminRedList} />
+          <Route path="/admin/settings" component={AdminSettings} />
+          <Route path="/admin/foraging-lists" component={ForagingLists} />
+          <Route path="/admin/shipments" component={AdminShipmentsPage} />
+          <Route path="/admin/shipments/:id" component={AdminShipmentDetailPage} />
+          <Route path="/admin/runs" component={AdminRunsPage} />
+          <Route path="/admin/runs/:id" component={AdminRunDetailPage} />
+          <Route path="/admin/plates/:id" component={AdminPlateEditorPage} />
+          <Route path="/admin/index-management" component={AdminIndexManagementPage} />
+          <Route path="/admin/primer-management" component={AdminPrimerManagementPage} />
+          <Route path="/admin/bioinformatics" component={AdminBioinformaticsPage} />
+          <Route component={NotFound} />
+        </Switch>
+      </AdminDashboardLayout>
     );
   }
 
@@ -124,21 +151,6 @@ function AppRouter() {
         <Route path="/records/most-observations" component={MostObservations} />
         <Route path="/records/most-species" component={MostSpecies} />
         <Route path="/updates" component={Updates} />
-        <Route path="/admin" component={Admin} />
-        <Route path="/admin/validation" component={AdminValidation} />
-        <Route path="/admin/biorecords" component={BioRecordManagement} />
-        <Route path="/admin/upload" component={AdminUpload} />
-        <Route path="/admin/redlist" component={AdminRedList} />
-        <Route path="/admin/settings" component={AdminSettings} />
-        <Route path="/admin/foraging-lists" component={ForagingLists} />
-        <Route path="/admin/shipments" component={AdminShipmentsPage} />
-        <Route path="/admin/shipments/:id" component={AdminShipmentDetailPage} />
-        <Route path="/admin/runs" component={AdminRunsPage} />
-        <Route path="/admin/runs/:id" component={AdminRunDetailPage} />
-        <Route path="/admin/plates/:id" component={AdminPlateEditorPage} />
-        <Route path="/admin/index-management" component={AdminIndexManagementPage} />
-        <Route path="/admin/primer-management" component={AdminPrimerManagementPage} />
-        <Route path="/admin/bioinformatics" component={AdminBioinformaticsPage} />
         <Route path="/api-docs" component={ApiDocumentation} />
         <Route path="/species/:name" component={SpeciesDetail} />
         <Route path="/species" component={Species} />
