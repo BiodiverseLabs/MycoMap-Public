@@ -26,6 +26,25 @@ const upload = multer({
   }
 });
 
+// Normalize lab codes for comparison - extracts numeric portion and removes leading zeros
+// Examples: "MI25-03183" → "3183", "03183" → "3183", "3183" → "3183"
+function normalizeLabCode(code: string | null): string {
+  if (!code) return '';
+  // Extract just the numeric portion (last group of digits)
+  const numericMatch = code.match(/(\d+)$/);
+  if (numericMatch) {
+    // Remove leading zeros
+    return parseInt(numericMatch[1], 10).toString();
+  }
+  return code;
+}
+
+// Check if two lab codes are equivalent (considering various formats)
+function labCodesMatch(code1: string | null, code2: string | null): boolean {
+  if (!code1 || !code2) return false;
+  return normalizeLabCode(code1) === normalizeLabCode(code2);
+}
+
 const uploadMemory = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for CSV files
@@ -10234,7 +10253,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               status = 'not_fungal';
               message = `Organism is ${iconicTaxon || 'unknown'}, not fungal`;
             } else if (well.labCode && inatVoucher) {
-              if (!inatVoucher.includes(well.labCode)) {
+              if (!labCodesMatch(well.labCode, inatVoucher)) {
                 status = 'mismatch';
                 message = `Lab code "${well.labCode}" not found in voucher "${inatVoucher}"`;
               }
@@ -10697,7 +10716,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             if (!isFungal && !isSlimeMold) {
               validationResult.status = 'not_fungal';
               validationResult.message = `Not fungal: ${iconicTaxon || 'Unknown taxon'} - ${obs.taxon?.name || 'Unknown species'}`;
-            } else if (well.labCode && inatVoucher && well.labCode !== inatVoucher) {
+            } else if (well.labCode && inatVoucher && !labCodesMatch(well.labCode, inatVoucher)) {
               validationResult.status = 'mismatch';
               validationResult.message = `Lab code "${well.labCode}" doesn't match iNat voucher "${inatVoucher}"`;
             } else if (inatVoucher) {
