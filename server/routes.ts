@@ -9791,11 +9791,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         if (effectiveObsId && effectivePlatform === 'iNaturalist') {
           try {
             const obsId = effectiveObsId.replace(/\D/g, '');
+            console.log(`[Validate] Fetching iNaturalist observation ${obsId}...`);
             const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`);
             if (response.ok) {
               const data = await response.json();
               const obs = data.results?.[0];
               if (obs) {
+                // Mark that we successfully fetched fresh data
+                validationResult.apiFetched = true;
+                
                 // Get voucher number from observation fields
                 const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
                 const inatVoucher = voucherField?.value || null;
@@ -9803,6 +9807,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 validationResult.voucherNumber = inatVoucher;
                 validationResult.scientificName = obs.taxon?.name;
                 validationResult.username = obs.user?.login || null;
+                console.log(`[Validate] Found for ${obsId}: username=${validationResult.username}, voucher=${inatVoucher}`);
                 
                 // Check if observation is fungal or slime mold
                 const iconicTaxon = obs.taxon?.iconic_taxon_name;
@@ -9855,16 +9860,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
         }
 
-        // Update well with validation result
+        // Update well with validation result - always use fresh data from API
         if (validationResult.status || validationResult.detectedPlatform) {
           const updateData: any = {
             isValidated: true,
             validationStatus: validationResult.status,
             validationMessage: validationResult.message,
-            voucherNumber: validationResult.voucherNumber || well.voucherNumber,
-            username: validationResult.username || well.username,
             updatedAt: new Date(),
           };
+          
+          // Only update username and voucher if we successfully fetched from API
+          // This ensures stale data is cleared when observation changes
+          if (validationResult.apiFetched) {
+            updateData.voucherNumber = validationResult.voucherNumber || null;
+            updateData.username = validationResult.username || null;
+          }
           
           // If lab code is empty and we found a voucher number, populate the lab code
           if (!well.labCode && validationResult.voucherNumber) {
