@@ -299,21 +299,20 @@ export default function AdminRunsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm" data-testid="button-back-dashboard">
-                <ChevronLeft className="h-4 w-4 mr-1" /> Dashboard
-              </Button>
-            </Link>
+        <div className="space-y-4">
+          <Link href="/dashboard" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to Dashboard
+          </Link>
+          
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900" data-testid="text-page-title">
                 Lab Runs
               </h1>
               <p className="text-gray-600">Manage sequencing runs and plates</p>
             </div>
-          </div>
-          <div className="flex gap-2">
+            <div className="flex gap-2">
             <Button onClick={() => refetch()} variant="outline" data-testid="button-refresh">
               <RefreshCw className="h-4 w-4 mr-2" /> Refresh
             </Button>
@@ -486,6 +485,7 @@ export default function AdminRunsPage() {
                 </Tabs>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </div>
 
