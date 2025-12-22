@@ -17,6 +17,10 @@ interface Plate {
   orientation: string;
   defaultForwardPrimer: string | null;
   defaultReversePrimer: string | null;
+  sampleCount?: number;
+  validatedCount?: number;
+  errorCount?: number;
+  isFullyValidated?: boolean;
 }
 
 interface LabRun {
@@ -113,7 +117,13 @@ export default function AdminRunDetailPage() {
           {run.plates.map((plate) => (
             <Link key={plate.id} href={`/admin/plates/${plate.id}`}>
               <Card 
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className={`cursor-pointer hover:shadow-md transition-shadow ${
+                  plate.isFullyValidated && plate.sampleCount === 96 
+                    ? 'bg-green-50 border-green-200' 
+                    : plate.isFullyValidated 
+                      ? 'bg-green-50/50 border-green-100'
+                      : ''
+                }`}
                 data-testid={`card-plate-${plate.plateNumber}`}
               >
                 <CardContent className="p-4">
@@ -122,8 +132,21 @@ export default function AdminRunDetailPage() {
                       <Grid3X3 className="h-5 w-5 text-gray-500" />
                       <span className="font-semibold">Plate {plate.plateNumber}</span>
                     </div>
-                    <Badge className={statusColors[plate.status] || statusColors.empty} variant="secondary">
-                      {plate.status}
+                    <Badge 
+                      className={
+                        plate.sampleCount && plate.sampleCount > 0
+                          ? plate.isFullyValidated 
+                            ? "bg-green-100 text-green-700"
+                            : plate.errorCount && plate.errorCount > 0
+                              ? "bg-red-100 text-red-700"
+                              : "bg-blue-100 text-blue-700"
+                          : statusColors.empty
+                      } 
+                      variant="secondary"
+                    >
+                      {plate.sampleCount && plate.sampleCount > 0 
+                        ? `${plate.sampleCount} samples`
+                        : 'empty'}
                     </Badge>
                   </div>
                   {plate.name && plate.name !== `Plate ${plate.plateNumber}` && (

@@ -9494,7 +9494,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
 
       const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId)).orderBy(labPlates.plateNumber);
-      res.json({ ...run, plates });
+      
+      // Get sample counts and validation status for each plate
+      const platesWithStats = await Promise.all(plates.map(async (plate) => {
+        const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
+        const sampleCount = wells.filter(w => w.observationId || w.labCode).length;
+        const validatedCount = wells.filter(w => w.isValidated && w.validationStatus === 'valid').length;
+        const errorCount = wells.filter(w => w.isValidated && w.validationStatus && w.validationStatus !== 'valid').length;
+        const isFullyValidated = sampleCount > 0 && sampleCount === validatedCount && errorCount === 0;
+        
+        return {
+          ...plate,
+          sampleCount,
+          validatedCount,
+          errorCount,
+          isFullyValidated,
+        };
+      }));
+      
+      res.json({ ...run, plates: platesWithStats });
     } catch (error) {
       console.error("Error fetching lab run:", error);
       res.status(500).json({ error: "Failed to fetch lab run" });
