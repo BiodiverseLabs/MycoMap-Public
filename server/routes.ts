@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -9832,6 +9832,113 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       res.json({ isAdmin: user?.role === 'admin' });
     } catch (error) {
       res.json({ isAdmin: false });
+    }
+  });
+
+  // ============ INDEX MANAGEMENT ============
+
+  // Get all index sets
+  app.get("/api/admin/index-sets", isAdmin, async (req: any, res) => {
+    try {
+      const sets = await db.select().from(indexSets).orderBy(indexSets.title);
+      res.json(sets);
+    } catch (error) {
+      console.error("Error fetching index sets:", error);
+      res.status(500).json({ error: "Failed to fetch index sets" });
+    }
+  });
+
+  // Get single index set with entries
+  app.get("/api/admin/index-sets/:id", isAdmin, async (req: any, res) => {
+    try {
+      const setId = parseInt(req.params.id);
+      const [indexSet] = await db.select().from(indexSets).where(eq(indexSets.id, setId));
+      if (!indexSet) {
+        return res.status(404).json({ error: "Index set not found" });
+      }
+      const entries = await db.select().from(indexEntries).where(eq(indexEntries.indexSetId, setId));
+      res.json({ ...indexSet, entries });
+    } catch (error) {
+      console.error("Error fetching index set:", error);
+      res.status(500).json({ error: "Failed to fetch index set" });
+    }
+  });
+
+  // Create index set with entries
+  app.post("/api/admin/index-sets", isAdmin, async (req: any, res) => {
+    try {
+      const { title, orientation, type, entries } = req.body;
+      
+      const [newSet] = await db.insert(indexSets).values({
+        title,
+        orientation,
+        type,
+      }).returning();
+      
+      // Insert entries if provided
+      if (entries && entries.length > 0) {
+        for (const entry of entries) {
+          await db.insert(indexEntries).values({
+            indexSetId: newSet.id,
+            wellPosition: entry.wellPosition,
+            indexSequence: entry.indexSequence,
+          });
+        }
+      }
+      
+      const allEntries = await db.select().from(indexEntries).where(eq(indexEntries.indexSetId, newSet.id));
+      res.json({ ...newSet, entries: allEntries });
+    } catch (error) {
+      console.error("Error creating index set:", error);
+      res.status(500).json({ error: "Failed to create index set" });
+    }
+  });
+
+  // Update index set
+  app.patch("/api/admin/index-sets/:id", isAdmin, async (req: any, res) => {
+    try {
+      const setId = parseInt(req.params.id);
+      const { title, orientation, type, entries } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      if (title !== undefined) updateData.title = title;
+      if (orientation !== undefined) updateData.orientation = orientation;
+      if (type !== undefined) updateData.type = type;
+      
+      const [updated] = await db.update(indexSets)
+        .set(updateData)
+        .where(eq(indexSets.id, setId))
+        .returning();
+      
+      // If entries provided, replace all entries
+      if (entries !== undefined) {
+        await db.delete(indexEntries).where(eq(indexEntries.indexSetId, setId));
+        for (const entry of entries) {
+          await db.insert(indexEntries).values({
+            indexSetId: setId,
+            wellPosition: entry.wellPosition,
+            indexSequence: entry.indexSequence,
+          });
+        }
+      }
+      
+      const allEntries = await db.select().from(indexEntries).where(eq(indexEntries.indexSetId, setId));
+      res.json({ ...updated, entries: allEntries });
+    } catch (error) {
+      console.error("Error updating index set:", error);
+      res.status(500).json({ error: "Failed to update index set" });
+    }
+  });
+
+  // Delete index set
+  app.delete("/api/admin/index-sets/:id", isAdmin, async (req: any, res) => {
+    try {
+      const setId = parseInt(req.params.id);
+      await db.delete(indexSets).where(eq(indexSets.id, setId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting index set:", error);
+      res.status(500).json({ error: "Failed to delete index set" });
     }
   });
 
