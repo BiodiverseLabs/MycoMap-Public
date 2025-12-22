@@ -716,7 +716,7 @@ export default function AdminRunDetailPage() {
                             <SelectItem value="none" disabled>No methods available</SelectItem>
                           ) : (
                             methods.map((method) => (
-                              <SelectItem key={method.id} value={method.id.toString()} className="pl-2">
+                              <SelectItem key={method.id} value={method.id.toString()}>
                                 {method.name}
                                 {method.programName && ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})`}
                               </SelectItem>
