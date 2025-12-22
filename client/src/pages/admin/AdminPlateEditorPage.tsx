@@ -47,6 +47,7 @@ const validationColors: Record<string, string> = {
   mismatch: "bg-red-50",
   no_voucher: "bg-yellow-50",
   error: "bg-red-50",
+  missing_platform: "bg-orange-50",
 };
 
 export default function AdminPlateEditorPage() {
@@ -137,14 +138,30 @@ export default function AdminPlateEditorPage() {
     return value;
   };
 
+  const detectPlatform = (obsId: string, currentPlatform: string | null): string | null => {
+    if (!obsId) return currentPlatform;
+    const digits = obsId.replace(/\D/g, '');
+    if (digits.length === 6) return 'MO';
+    if (digits.length >= 8 && digits.length <= 9) return 'iNaturalist';
+    return currentPlatform;
+  };
+
   const handleWellChange = (wellId: number, field: keyof Well, value: string) => {
     let processedValue = value;
+    let additionalUpdates: Partial<Well> = {};
+    
     if (field === 'observationId') {
       processedValue = parseObservationId(value);
+      const currentPlatform = wellData[wellId]?.platform ?? plate?.wells.find(w => w.id === wellId)?.platform ?? null;
+      const detectedPlatform = detectPlatform(processedValue, currentPlatform);
+      if (detectedPlatform && detectedPlatform !== currentPlatform) {
+        additionalUpdates.platform = detectedPlatform;
+      }
     }
+    
     setWellData(prev => ({
       ...prev,
-      [wellId]: { ...prev[wellId], [field]: processedValue }
+      [wellId]: { ...prev[wellId], [field]: processedValue, ...additionalUpdates }
     }));
   };
 
@@ -186,10 +203,16 @@ export default function AdminPlateEditorPage() {
         const targetWell = sortedWells[currentIndex + i];
         if (targetWell) {
           let processedValue = line;
+          let additionalUpdates: Partial<Well> = {};
           if (field === 'observationId') {
             processedValue = parseObservationId(line);
+            const currentPlatform = wellData[targetWell.id]?.platform ?? targetWell.platform ?? null;
+            const detectedPlatform = detectPlatform(processedValue, currentPlatform);
+            if (detectedPlatform && detectedPlatform !== currentPlatform) {
+              additionalUpdates.platform = detectedPlatform;
+            }
           }
-          updates[targetWell.id] = { ...wellData[targetWell.id], [field]: processedValue };
+          updates[targetWell.id] = { ...wellData[targetWell.id], [field]: processedValue, ...additionalUpdates };
         }
       });
       
@@ -407,7 +430,10 @@ export default function AdminPlateEditorPage() {
                               setTimeout(() => saveWell(well.id), 0);
                             }}
                           >
-                            <SelectTrigger className="h-8" data-testid={`select-platform-${well.wellPosition}`}>
+                            <SelectTrigger 
+                              className={`h-8 ${!platform && well.isValidated ? 'border-red-500 border-2' : ''}`} 
+                              data-testid={`select-platform-${well.wellPosition}`}
+                            >
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
                             <SelectContent>

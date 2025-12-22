@@ -9657,12 +9657,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
         }
 
+        // Auto-detect platform based on observation ID length if not set
+        if (!well.platform && well.observationId) {
+          const digits = well.observationId.replace(/\D/g, '');
+          if (digits.length === 6) {
+            validationResult.detectedPlatform = 'MO';
+          } else if (digits.length >= 8 && digits.length <= 9) {
+            validationResult.detectedPlatform = 'iNaturalist';
+          }
+        }
+
         // Update well with validation result
-        if (validationResult.status) {
+        if (validationResult.status || validationResult.detectedPlatform) {
           const updateData: any = {
             isValidated: true,
-            validationStatus: validationResult.status,
-            validationMessage: validationResult.message,
+            validationStatus: validationResult.status || (well.platform ? null : 'missing_platform'),
+            validationMessage: validationResult.message || (well.platform ? null : 'Platform not specified'),
             voucherNumber: validationResult.voucherNumber || well.voucherNumber,
             updatedAt: new Date(),
           };
@@ -9671,6 +9681,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (!well.labCode && validationResult.voucherNumber) {
             updateData.labCode = validationResult.voucherNumber;
             validationResult.labCodeUpdated = true;
+          }
+          
+          // If platform was detected, set it
+          if (validationResult.detectedPlatform) {
+            updateData.platform = validationResult.detectedPlatform;
+            validationResult.platformUpdated = true;
           }
           
           await db.update(labWells)
