@@ -9634,16 +9634,31 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         indexSetEntriesMap.get(entry.indexSetId)!.set(entry.wellPosition, entry.indexSequence);
       }
       
-      // Build map of sequence -> indexSetId (for single-index detection)
-      const sequenceToSetMap = new Map<string, { setId: number; setTitle: string; orientation: string }>();
+      // Build map of sequence -> array of sets (a sequence can exist in multiple sets)
+      const sequenceToSetsMap = new Map<string, Array<{ setId: number; setTitle: string; orientation: string; entryCount: number }>>();
+      
+      // First, count entries per set
+      const setEntryCounts = new Map<number, number>();
+      for (const entry of allIndexEntries) {
+        setEntryCounts.set(entry.indexSetId, (setEntryCounts.get(entry.indexSetId) || 0) + 1);
+      }
+      
       for (const entry of allIndexEntries) {
         const set = allIndexSets.find(s => s.id === entry.indexSetId);
         if (set) {
-          sequenceToSetMap.set(entry.indexSequence, { 
-            setId: set.id, 
-            setTitle: set.title, 
-            orientation: set.orientation 
-          });
+          if (!sequenceToSetsMap.has(entry.indexSequence)) {
+            sequenceToSetsMap.set(entry.indexSequence, []);
+          }
+          // Only add if not already in the array for this set
+          const existing = sequenceToSetsMap.get(entry.indexSequence)!;
+          if (!existing.some(s => s.setId === set.id)) {
+            existing.push({ 
+              setId: set.id, 
+              setTitle: set.title, 
+              orientation: set.orientation,
+              entryCount: setEntryCounts.get(set.id) || 0
+            });
+          }
         }
       }
       
@@ -9667,11 +9682,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         // Case 1: Single index (all samples have the same index)
+        // Prefer single-entry sets for single-index plates
         if (uniqueIndexes.size === 1) {
           const singleIndex = Array.from(uniqueIndexes)[0];
-          const setInfo = sequenceToSetMap.get(singleIndex);
-          if (setInfo && setInfo.orientation === orientation) {
-            return { setId: setInfo.setId, matchType: 'single_index', setTitle: setInfo.setTitle };
+          const matchingSets = sequenceToSetsMap.get(singleIndex);
+          if (matchingSets) {
+            // Filter by orientation and sort by entry count (prefer single-entry sets)
+            const orientedSets = matchingSets
+              .filter(s => s.orientation === orientation)
+              .sort((a, b) => a.entryCount - b.entryCount); // Smallest first
+            
+            if (orientedSets.length > 0) {
+              const bestMatch = orientedSets[0];
+              return { setId: bestMatch.setId, matchType: 'single_index', setTitle: bestMatch.setTitle };
+            }
           }
         }
         
@@ -9725,14 +9749,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             reverseIndexSetId = rvMatch.setId;
             console.log(`[Index Upload] Plate ${plateData.plateNumber}: Detected reverse index set "${rvMatch.setTitle}" (${rvMatch.matchType})`);
           } else if (plateData.samples[0].rvIndex) {
-            // Fallback: try General Reverse as default if no exact match
-            const generalReverseSet = allIndexSets.find(s => s.orientation === 'Reverse' && s.title.toLowerCase().includes('general'));
-            if (generalReverseSet) {
-              reverseIndexSetId = generalReverseSet.id;
-              console.log(`[Index Upload] Plate ${plateData.plateNumber}: Defaulting to General Reverse (no exact match found)`);
-            } else {
-              console.log(`[Index Upload] Plate ${plateData.plateNumber}: WARNING - No matching Reverse index set found`);
-            }
+            console.log(`[Index Upload] Plate ${plateData.plateNumber}: WARNING - No matching Reverse index set found (leaving unassigned)`);
           }
         }
         
