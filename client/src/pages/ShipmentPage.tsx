@@ -288,6 +288,11 @@ export default function ShipmentPage() {
 
   const selectedBag = currentShipment?.bags?.find(b => b.id === selectedBagId);
   const hasValidatedBag = currentShipment?.bags?.some(b => b.specimens?.some(s => s.isValidated));
+  const hasInvalidSpecimens = currentShipment?.bags?.some(b => 
+    b.specimens?.some(s => 
+      s.isValidated && (s.validationStatus === "invalid" || s.validationStatus === "slime_mold")
+    )
+  );
 
   if (authLoading) {
     return (
@@ -659,7 +664,7 @@ export default function ShipmentPage() {
                     <Button
                       className="bg-myco-green hover:bg-myco-green/90"
                       onClick={handleGetAddress}
-                      disabled={!hasValidatedBag || submitShipmentMutation.isPending}
+                      disabled={!hasValidatedBag || hasInvalidSpecimens || submitShipmentMutation.isPending}
                       data-testid="button-get-address"
                     >
                       {submitShipmentMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
