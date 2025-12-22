@@ -9679,14 +9679,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
                 validationResult.voucherNumber = inatVoucher;
                 validationResult.scientificName = obs.taxon?.name;
-
-                // Check for mismatches
-                if (well.labCode && inatVoucher && well.labCode !== inatVoucher) {
+                
+                // Check if observation is fungal or slime mold
+                const iconicTaxon = obs.taxon?.iconic_taxon_name;
+                const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
+                const isSlimeMold = iconicTaxon === "Protozoa" || 
+                  taxonomicClass === "Myxomycetes" || 
+                  obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
+                  obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
+                const isFungal = iconicTaxon === "Fungi";
+                
+                validationResult.isSlimeMold = isSlimeMold;
+                validationResult.isFungal = isFungal;
+                
+                // First check if it's a valid taxon (fungi or slime mold)
+                if (!isFungal && !isSlimeMold) {
+                  validationResult.status = 'not_fungal';
+                  validationResult.message = `Not fungal: ${iconicTaxon || 'Unknown taxon'} - ${obs.taxon?.name || 'Unknown species'}`;
+                } else if (well.labCode && inatVoucher && well.labCode !== inatVoucher) {
+                  // Check for mismatches
                   validationResult.status = 'mismatch';
                   validationResult.message = `Lab code "${well.labCode}" doesn't match iNat voucher "${inatVoucher}"`;
                 } else if (inatVoucher) {
                   validationResult.status = 'valid';
-                  validationResult.message = 'Validated successfully';
+                  validationResult.message = isSlimeMold ? 'Valid (Slime Mold)' : 'Validated successfully';
                 } else {
                   validationResult.status = 'no_voucher';
                   validationResult.message = 'No voucher number in iNaturalist';
