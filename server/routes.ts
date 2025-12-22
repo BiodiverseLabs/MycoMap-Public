@@ -9058,9 +9058,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   (obs.taxon?.ancestors?.find((a: any) => a.rank === "kingdom")?.name || 
                    (obs.taxon?.iconic_taxon_name === "Fungi" ? "Fungi" : null)) : null;
                 
-                // Check for Myxomycetes (slime molds)
+                // Check for Myxomycetes (slime molds) - iNaturalist classifies them as Protozoa
                 const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
-                const isSlimeMold = taxonomicClass === "Myxomycetes" || 
+                const iconicTaxon = obs.taxon?.iconic_taxon_name;
+                const isSlimeMold = iconicTaxon === "Protozoa" || 
+                  taxonomicClass === "Myxomycetes" || 
                   obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
                   obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
                 
@@ -9091,7 +9093,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   location: obs.place_guess,
                   username: obs.user?.login,
                   kingdom: kingdom || obs.taxon?.iconic_taxon_name,
-                  taxonomicClass,
+                  taxonomicClass: isSlimeMold ? "Myxomycetes" : taxonomicClass,
                   voucherNumber,
                 };
               } else {
