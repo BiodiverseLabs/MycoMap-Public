@@ -9791,7 +9791,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.post("/api/admin/runs/from-index", isAdmin, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      const { name, indexFileContent } = req.body;
+      const { name, indexFileContent, allowMissingReverseIndexes } = req.body;
       
       if (!indexFileContent) {
         return res.status(400).json({ error: "Index file content is required" });
@@ -9836,14 +9836,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       });
       
-      if (missingFwIndexes.length > 0 || missingRvIndexes.length > 0) {
+      // Allow missing reverse indexes if override flag is set
+      const blockOnMissingRv = missingRvIndexes.length > 0 && !allowMissingReverseIndexes;
+      
+      if (missingFwIndexes.length > 0 || blockOnMissingRv) {
         console.log(`[Index Upload] Missing FW indexes (first 5):`, missingFwIndexes.slice(0, 5));
         console.log(`[Index Upload] Missing RV indexes (first 5):`, missingRvIndexes.slice(0, 5));
+        console.log(`[Index Upload] allowMissingReverseIndexes:`, allowMissingReverseIndexes);
         return res.status(400).json({
           error: "Some index sequences not found in the system",
           missingFwIndexes: missingFwIndexes.slice(0, 10),
           missingRvIndexes: missingRvIndexes.slice(0, 10),
         });
+      }
+      
+      if (missingRvIndexes.length > 0 && allowMissingReverseIndexes) {
+        console.log(`[Index Upload] Proceeding with override - missing ${missingRvIndexes.length} reverse indexes`);
       }
       
       // Validate primers exist in our system

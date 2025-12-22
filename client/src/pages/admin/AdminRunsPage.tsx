@@ -83,6 +83,8 @@ export default function AdminRunsPage() {
   const [indexFileContent, setIndexFileContent] = useState("");
   const [indexRunName, setIndexRunName] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [allowMissingReverseIndexes, setAllowMissingReverseIndexes] = useState(false);
+  const [hasMissingReverseIndexesOnly, setHasMissingReverseIndexesOnly] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -174,6 +176,8 @@ export default function AdminRunsPage() {
     setIndexFileContent("");
     setIndexRunName("");
     setValidationErrors([]);
+    setAllowMissingReverseIndexes(false);
+    setHasMissingReverseIndexesOnly(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -212,9 +216,11 @@ export default function AdminRunsPage() {
   const createFromIndexMutation = useMutation({
     mutationFn: async () => {
       setValidationErrors([]);
+      setHasMissingReverseIndexesOnly(false);
       const response = await apiRequest('POST', '/api/admin/runs/from-index', { 
         name: indexRunName || `Run ${new Date().toLocaleDateString()}`,
-        indexFileContent
+        indexFileContent,
+        allowMissingReverseIndexes
       });
       
       if (!response.ok) {
@@ -262,6 +268,15 @@ export default function AdminRunsPage() {
       const missingRvIndexes = parsedError?.missingRvIndexes || [];
       const missingFwPrimers = parsedError?.missingFwPrimers || [];
       const missingRvPrimers = parsedError?.missingRvPrimers || [];
+      
+      // Check if only reverse indexes are missing (can be overridden)
+      const onlyReverseIndexesMissing = missingRvIndexes.length > 0 && 
+        missingFwIndexes.length === 0 && 
+        missingFwPrimers.length === 0 && 
+        missingRvPrimers.length === 0 &&
+        details.length === 0;
+      
+      setHasMissingReverseIndexesOnly(onlyReverseIndexesMissing);
       
       const allErrors: string[] = [];
       
@@ -469,10 +484,10 @@ export default function AdminRunsPage() {
                     </div>
                     
                     {validationErrors.length > 0 && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <div className="flex items-start gap-2 text-red-700">
+                      <div className={`border rounded-lg p-3 ${hasMissingReverseIndexesOnly ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+                        <div className={`flex items-start gap-2 ${hasMissingReverseIndexesOnly ? 'text-amber-700' : 'text-red-700'}`}>
                           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                          <div className="text-sm">
+                          <div className="text-sm flex-1">
                             <p className="font-medium mb-1">Validation Errors:</p>
                             <ul className="list-disc list-inside space-y-1">
                               {validationErrors.slice(0, 5).map((err, i) => (
@@ -482,6 +497,26 @@ export default function AdminRunsPage() {
                                 <li>...and {validationErrors.length - 5} more errors</li>
                               )}
                             </ul>
+                            
+                            {hasMissingReverseIndexesOnly && (
+                              <div className="mt-3 pt-3 border-t border-amber-200">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={allowMissingReverseIndexes}
+                                    onChange={(e) => setAllowMissingReverseIndexes(e.target.checked)}
+                                    className="rounded border-amber-400"
+                                    data-testid="checkbox-override-missing-indexes"
+                                  />
+                                  <span className="text-amber-800 font-medium">
+                                    Override: Create run without missing reverse indexes
+                                  </span>
+                                </label>
+                                <p className="text-xs text-amber-600 mt-1 ml-6">
+                                  Some runs may intentionally have incomplete index sets. Check this to proceed anyway.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
