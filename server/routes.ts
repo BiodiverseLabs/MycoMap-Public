@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -10033,6 +10033,261 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error validating plate:", error);
       res.status(500).json({ error: "Failed to validate plate" });
+    }
+  });
+
+  // ============ RUN FILE GENERATION ============
+
+  // Get files for a run
+  app.get("/api/admin/runs/:id/files", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const files = await db.select({
+        id: labRunFiles.id,
+        fileType: labRunFiles.fileType,
+        filename: labRunFiles.filename,
+        mimeType: labRunFiles.mimeType,
+        createdAt: labRunFiles.createdAt,
+        size: sql<number>`length(${labRunFiles.content})`,
+      }).from(labRunFiles).where(eq(labRunFiles.runId, runId)).orderBy(desc(labRunFiles.createdAt));
+      res.json(files);
+    } catch (error) {
+      console.error("Error fetching run files:", error);
+      res.status(500).json({ error: "Failed to fetch files" });
+    }
+  });
+
+  // Download a file
+  app.get("/api/admin/runs/:runId/files/:fileId/download", isAdmin, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.fileId);
+      const [file] = await db.select().from(labRunFiles).where(eq(labRunFiles.id, fileId));
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+      res.setHeader('Content-Type', file.mimeType);
+      res.send(file.content);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+
+  // Delete a file
+  app.delete("/api/admin/runs/:runId/files/:fileId", isAdmin, async (req: any, res) => {
+    try {
+      const fileId = parseInt(req.params.fileId);
+      await db.delete(labRunFiles).where(eq(labRunFiles.id, fileId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      res.status(500).json({ error: "Failed to delete file" });
+    }
+  });
+
+  // Generate files for a run
+  app.post("/api/admin/runs/:id/generate-files", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      // Get run with plates and wells
+      const [run] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!run) {
+        return res.status(404).json({ error: "Run not found" });
+      }
+      
+      const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId)).orderBy(labPlates.plateNumber);
+      
+      // Get all wells for all plates and index sets
+      const allWellsData: { plate: typeof plates[0], wells: any[], forwardIndexEntries: any[], reverseIndexEntries: any[] }[] = [];
+      
+      for (const plate of plates) {
+        const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id)).orderBy(labWells.sortOrder);
+        
+        // Get index entries for this plate
+        let forwardIndexEntries: any[] = [];
+        let reverseIndexEntries: any[] = [];
+        
+        if (plate.forwardIndexSetId) {
+          forwardIndexEntries = await db.select().from(indexEntries).where(eq(indexEntries.indexSetId, plate.forwardIndexSetId));
+        }
+        if (plate.reverseIndexSetId) {
+          reverseIndexEntries = await db.select().from(indexEntries).where(eq(indexEntries.indexSetId, plate.reverseIndexSetId));
+        }
+        
+        allWellsData.push({ plate, wells, forwardIndexEntries, reverseIndexEntries });
+      }
+      
+      // Get primer pools for primer pool names
+      const primerPoolsList = await db.select().from(primerPools);
+      const primerPoolsMap = new Map(primerPoolsList.map(p => [p.name, p]));
+      
+      // Get all primer sets with items for sequence lookups
+      const allPrimerSets = await db.select().from(primerSets);
+      const allPrimerItems = await db.select().from(primerItems);
+      const primerSetItemsMap = new Map<number, typeof allPrimerItems>();
+      for (const item of allPrimerItems) {
+        if (!primerSetItemsMap.has(item.primerSetId)) {
+          primerSetItemsMap.set(item.primerSetId, []);
+        }
+        primerSetItemsMap.get(item.primerSetId)!.push(item);
+      }
+      
+      // Build Index.txt content
+      const indexLines: string[] = ['SampleID\tPrimerPool\tFwIndex\tFwPrimer\tRvIndex\tRvPrimer'];
+      const usedPrimers: Map<string, { sequence: string; pool: string; position: string }> = new Map();
+      
+      for (const { plate, wells, forwardIndexEntries, reverseIndexEntries } of allWellsData) {
+        // Build index lookup maps by well position
+        const fwIndexMap = new Map(forwardIndexEntries.map(e => [e.wellPosition, e.indexSequence]));
+        const rvIndexMap = new Map(reverseIndexEntries.map(e => [e.wellPosition, e.indexSequence]));
+        
+        for (const well of wells) {
+          if (!well.observationId && !well.labCode) continue; // Skip empty wells
+          
+          // Build SampleID: ONT[PlateNumber].[WellNumber]-[WellPosition]-[LabCode]-[iNat/MO][ObsNumber]
+          const plateNum = plate.plateNumber.toString().padStart(2, '0');
+          const wellNum = well.sortOrder.toString().padStart(2, '0');
+          const wellPos = well.wellPosition;
+          const labCode = well.labCode || 'Unknown';
+          
+          // Determine platform abbreviation
+          let platformAbbrev = '';
+          let obsNum = '';
+          if (well.platform === 'iNaturalist') {
+            platformAbbrev = 'iNat';
+            obsNum = well.observationId || '';
+          } else if (well.platform === 'MO') {
+            platformAbbrev = 'MO';
+            obsNum = well.observationId || '';
+          } else if (well.observationId) {
+            // Auto-detect from ID length
+            const digits = well.observationId.replace(/\D/g, '');
+            if (digits.length === 6) {
+              platformAbbrev = 'MO';
+            } else {
+              platformAbbrev = 'iNat';
+            }
+            obsNum = well.observationId;
+          }
+          
+          const sampleId = `ONT${plateNum}.${wellNum}-${wellPos}-${labCode}-${platformAbbrev}${obsNum}`;
+          
+          // Get primer pool name
+          const primerPoolName = well.primerPool || plate.defaultForwardPrimer?.split(' ')[0] || 'ITS';
+          
+          // Get forward index sequence
+          const fwIndex = fwIndexMap.get(well.wellPosition) || fwIndexMap.get('single') || '';
+          
+          // Get reverse index sequence
+          const rvIndex = rvIndexMap.get(well.wellPosition) || rvIndexMap.get('single') || '';
+          
+          // Determine forward primer name (use * if it's a pool)
+          const fwPrimerRaw = well.forwardPrimer || plate.defaultForwardPrimer || '';
+          const rvPrimerRaw = well.reversePrimer || plate.defaultReversePrimer || '';
+          
+          // Check if primer is a pool (has a pool reference)
+          const fwIsPool = primerPoolsMap.has(fwPrimerRaw);
+          const rvIsPool = primerPoolsMap.has(rvPrimerRaw);
+          
+          const fwPrimer = fwIsPool ? '*' : fwPrimerRaw;
+          const rvPrimer = rvIsPool ? '*' : rvPrimerRaw;
+          
+          indexLines.push(`${sampleId}\t${primerPoolName}\t${fwIndex}\t${fwPrimer}\t${rvIndex}\t${rvPrimer}`);
+          
+          // Track primers for FASTA generation
+          if (fwPrimerRaw && !fwIsPool) {
+            if (!usedPrimers.has(fwPrimerRaw)) {
+              // Find sequence from primer items
+              let seq = '';
+              for (const [setId, items] of primerSetItemsMap.entries()) {
+                const item = items.find(i => i.label === fwPrimerRaw);
+                if (item?.sequence) {
+                  seq = item.sequence;
+                  break;
+                }
+              }
+              usedPrimers.set(fwPrimerRaw, { sequence: seq, pool: primerPoolName, position: 'forward' });
+            }
+          }
+          if (rvPrimerRaw && !rvIsPool) {
+            if (!usedPrimers.has(rvPrimerRaw)) {
+              let seq = '';
+              for (const [setId, items] of primerSetItemsMap.entries()) {
+                const item = items.find(i => i.label === rvPrimerRaw);
+                if (item?.sequence) {
+                  seq = item.sequence;
+                  break;
+                }
+              }
+              usedPrimers.set(rvPrimerRaw, { sequence: seq, pool: primerPoolName, position: 'reverse' });
+            }
+          }
+        }
+      }
+      
+      // Build primers.fasta content
+      const fastaLines: string[] = [];
+      for (const [name, info] of usedPrimers.entries()) {
+        fastaLines.push(`>${name}  pool=${info.pool}    position=${info.position}`);
+        fastaLines.push(info.sequence || '');
+      }
+      
+      // Build primers.txt content (no metadata)
+      const txtLines: string[] = [];
+      for (const [name, info] of usedPrimers.entries()) {
+        txtLines.push(`>${name}`);
+        txtLines.push(info.sequence || '');
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      
+      // Delete existing files for this run (replace with new ones)
+      await db.delete(labRunFiles).where(eq(labRunFiles.runId, runId));
+      
+      // Insert new files
+      const filesToCreate = [
+        {
+          runId,
+          fileType: 'index',
+          filename: `Index_Run${runId}_${timestamp}.txt`,
+          content: indexLines.join('\n'),
+          mimeType: 'text/plain',
+        },
+        {
+          runId,
+          fileType: 'primers_fasta',
+          filename: `primers_Run${runId}_${timestamp}.fasta`,
+          content: fastaLines.join('\n'),
+          mimeType: 'text/plain',
+        },
+        {
+          runId,
+          fileType: 'primers_txt',
+          filename: `primers_Run${runId}_${timestamp}.txt`,
+          content: txtLines.join('\n'),
+          mimeType: 'text/plain',
+        },
+      ];
+      
+      const createdFiles = [];
+      for (const file of filesToCreate) {
+        const [created] = await db.insert(labRunFiles).values(file).returning();
+        createdFiles.push(created);
+      }
+      
+      res.json({ 
+        success: true, 
+        files: createdFiles,
+        stats: {
+          totalSamples: indexLines.length - 1,
+          uniquePrimers: usedPrimers.size,
+        }
+      });
+    } catch (error) {
+      console.error("Error generating files:", error);
+      res.status(500).json({ error: "Failed to generate files" });
     }
   });
 
