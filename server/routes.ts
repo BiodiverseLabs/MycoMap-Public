@@ -9519,6 +9519,32 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Add plate to a run
+  app.post("/api/admin/runs/:id/plates", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const { name } = req.body;
+      
+      // Get the next plate number
+      const existingPlates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
+      const nextPlateNumber = existingPlates.length > 0 
+        ? Math.max(...existingPlates.map(p => p.plateNumber)) + 1 
+        : 1;
+      
+      const [newPlate] = await db.insert(labPlates).values({
+        runId,
+        plateNumber: nextPlateNumber,
+        name: name || `Plate ${nextPlateNumber}`,
+        status: 'empty',
+      }).returning();
+      
+      res.json(newPlate);
+    } catch (error) {
+      console.error("Error adding plate:", error);
+      res.status(500).json({ error: "Failed to add plate" });
+    }
+  });
+
   // Get plate with wells
   app.get("/api/admin/plates/:id", isAdmin, async (req: any, res) => {
     try {

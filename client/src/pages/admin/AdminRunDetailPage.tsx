@@ -3,11 +3,15 @@ import { Link, useParams, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, FlaskConical, Grid3X3 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface Plate {
   id: number;
@@ -44,8 +48,10 @@ export default function AdminRunDetailPage() {
   const [, setLocation] = useLocation();
   const runId = parseInt(id);
   const { toast } = useToast();
+  const [addPlateOpen, setAddPlateOpen] = useState(false);
+  const [newPlateName, setNewPlateName] = useState("");
   
-  const { data: run, isLoading } = useQuery<LabRun>({
+  const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/runs/${runId}`);
@@ -53,6 +59,23 @@ export default function AdminRunDetailPage() {
       return res.json();
     },
   });
+
+  const addPlateMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('POST', `/api/admin/runs/${runId}/plates`, { name: name || undefined });
+    },
+    onSuccess: async () => {
+      await refetch();
+      setAddPlateOpen(false);
+      setNewPlateName("");
+      toast({ title: "Plate Added", description: "New plate created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add plate", variant: "destructive" });
+    },
+  });
+
+  const nextPlateNumber = run ? run.plates.length + 1 : 1;
 
   if (isLoading) {
     return (
@@ -100,9 +123,48 @@ export default function AdminRunDetailPage() {
               </p>
             </div>
           </div>
-          <Badge className={statusColors[run.status] || "bg-gray-100"}>
-            {run.status.replace('_', ' ')}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge className={statusColors[run.status] || "bg-gray-100"}>
+              {run.status.replace('_', ' ')}
+            </Badge>
+            <Dialog open={addPlateOpen} onOpenChange={setAddPlateOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-add-plate">
+                  <Plus className="h-4 w-4 mr-1" /> Add Plate
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Plate</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                  <Label htmlFor="plate-name">Plate Name</Label>
+                  <Input
+                    id="plate-name"
+                    placeholder={`Plate ${nextPlateNumber}`}
+                    value={newPlateName}
+                    onChange={(e) => setNewPlateName(e.target.value)}
+                    data-testid="input-plate-name"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Leave blank to use default: Plate {nextPlateNumber}
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setAddPlateOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => addPlateMutation.mutate(newPlateName)}
+                    disabled={addPlateMutation.isPending}
+                    data-testid="button-confirm-add-plate"
+                  >
+                    {addPlateMutation.isPending ? "Adding..." : "Add Plate"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {run.notes && (
