@@ -28,7 +28,6 @@ const RUN_STATUS_OPTIONS = [
   { value: 'tissue_collection', label: 'Tissue Collection In Progress', color: 'bg-purple-100 text-purple-700' },
   { value: 'dna_extraction', label: 'DNA Extraction In Progress', color: 'bg-orange-100 text-orange-700' },
   { value: 'dna_amplification', label: 'DNA Amplification In Progress', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'dna_sequencing', label: 'DNA Sequencing In Progress', color: 'bg-blue-100 text-blue-700' },
   { value: 'dna_sequencing_pooled', label: 'DNA Sequencing In Progress (DNA Pooled)', color: 'bg-blue-100 text-blue-700' },
   { value: 'dna_sequencing_library', label: 'DNA Sequencing In Progress (DNA Library Created)', color: 'bg-blue-100 text-blue-700' },
   { value: 'dna_sequencing_raw_data', label: 'DNA Sequencing In Progress (Raw Data Available)', color: 'bg-blue-100 text-blue-700' },

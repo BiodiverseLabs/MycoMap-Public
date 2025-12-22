@@ -109,10 +109,9 @@ const RUN_STATUS_OPTIONS = [
   { value: 'tissue_collection', label: 'Tissue Collection In Progress' },
   { value: 'dna_extraction', label: 'DNA Extraction In Progress' },
   { value: 'dna_amplification', label: 'DNA Amplification In Progress' },
-  { value: 'dna_sequencing', label: 'DNA Sequencing In Progress', isGroup: true },
-  { value: 'dna_sequencing_pooled', label: 'DNA Sequencing In Progress (DNA Pooled)', parent: 'dna_sequencing' },
-  { value: 'dna_sequencing_library', label: 'DNA Sequencing In Progress (DNA Library Created)', parent: 'dna_sequencing' },
-  { value: 'dna_sequencing_raw_data', label: 'DNA Sequencing In Progress (Raw Data Available)', parent: 'dna_sequencing' },
+  { value: 'dna_sequencing_pooled', label: 'DNA Sequencing In Progress (DNA Pooled)' },
+  { value: 'dna_sequencing_library', label: 'DNA Sequencing In Progress (DNA Library Created)' },
+  { value: 'dna_sequencing_raw_data', label: 'DNA Sequencing In Progress (Raw Data Available)' },
   { value: 'sequence_analysis', label: 'Sequence Analysis In Progress' },
   { value: 'complete', label: 'Complete' },
 ];
@@ -364,20 +363,10 @@ export default function AdminRunDetailPage() {
                 <span className="truncate">{getStatusLabel(run.status)}</span>
               </SelectTrigger>
               <SelectContent>
-                {RUN_STATUS_OPTIONS.filter(o => !o.parent).map(option => (
+                {RUN_STATUS_OPTIONS.map(option => (
                   <SelectItem 
                     key={option.value} 
                     value={option.value}
-                    className={option.isGroup ? "font-medium" : ""}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-                {RUN_STATUS_OPTIONS.filter(o => o.parent === 'dna_sequencing').map(option => (
-                  <SelectItem 
-                    key={option.value} 
-                    value={option.value}
-                    className="pl-6 text-sm"
                   >
                     {option.label}
                   </SelectItem>
