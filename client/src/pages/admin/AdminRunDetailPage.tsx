@@ -1127,7 +1127,8 @@ export default function AdminRunDetailPage() {
                     return nextTime - currentTime >= 60000; // Keep if more than 1 minute apart
                   });
                   
-                  return filteredHistory.map((entry, index) => (
+                  // Reverse to show most recent first
+                  return [...filteredHistory].reverse().map((entry, index) => (
                     <div 
                       key={index} 
                       className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
