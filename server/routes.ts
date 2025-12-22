@@ -9627,16 +9627,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // If we have a lab code but no observation ID, try to find it via iNaturalist observation field search
         if (well.labCode && !well.observationId) {
           try {
-            const searchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number(s)=${encodeURIComponent(well.labCode)}&per_page=1`;
+            const searchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number(s)=${encodeURIComponent(well.labCode)}&per_page=5`;
             const searchResponse = await fetch(searchUrl);
             if (searchResponse.ok) {
               const searchData = await searchResponse.json();
-              const foundObs = searchData.results?.[0];
-              if (foundObs) {
-                effectiveObsId = String(foundObs.id);
-                effectivePlatform = 'iNaturalist';
-                validationResult.foundObservationId = effectiveObsId;
-                validationResult.detectedPlatform = 'iNaturalist';
+              const totalResults = searchData.total_results || 0;
+              
+              if (totalResults > 1) {
+                // Multiple matches found - this is an error condition
+                validationResult.status = 'multiple_inat';
+                validationResult.message = `Multiple iNaturalist observations (${totalResults}) found for voucher "${well.labCode}"`;
+              } else if (totalResults === 1) {
+                const foundObs = searchData.results?.[0];
+                if (foundObs) {
+                  effectiveObsId = String(foundObs.id);
+                  effectivePlatform = 'iNaturalist';
+                  validationResult.foundObservationId = effectiveObsId;
+                  validationResult.detectedPlatform = 'iNaturalist';
+                }
               }
             }
           } catch (e) {
