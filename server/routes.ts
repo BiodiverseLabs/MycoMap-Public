@@ -9659,14 +9659,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
         // Update well with validation result
         if (validationResult.status) {
+          const updateData: any = {
+            isValidated: true,
+            validationStatus: validationResult.status,
+            validationMessage: validationResult.message,
+            voucherNumber: validationResult.voucherNumber || well.voucherNumber,
+            updatedAt: new Date(),
+          };
+          
+          // If lab code is empty and we found a voucher number, populate the lab code
+          if (!well.labCode && validationResult.voucherNumber) {
+            updateData.labCode = validationResult.voucherNumber;
+            validationResult.labCodeUpdated = true;
+          }
+          
           await db.update(labWells)
-            .set({
-              isValidated: true,
-              validationStatus: validationResult.status,
-              validationMessage: validationResult.message,
-              voucherNumber: validationResult.voucherNumber || well.voucherNumber,
-              updatedAt: new Date(),
-            })
+            .set(updateData)
             .where(eq(labWells.id, well.id));
         }
 
