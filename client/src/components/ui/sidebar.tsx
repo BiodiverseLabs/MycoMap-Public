@@ -21,7 +21,9 @@ import {
   Code,
   Lock,
   Leaf,
-  Home
+  Home,
+  Package,
+  FlaskConical
 } from "lucide-react";
 import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./button";
@@ -79,6 +81,8 @@ export function Sidebar() {
     { href: "/admin/upload", label: "Data Upload", icon: Upload },
     { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
     { href: "/admin/foraging-lists", label: "Foraging Lists", icon: Leaf },
+    { href: "/admin/shipments", label: "Pending Shipments", icon: Package },
+    { href: "/admin/runs", label: "Lab Runs", icon: FlaskConical },
     { href: "/admin/settings", label: "System Settings", icon: Settings },
   ];
 
