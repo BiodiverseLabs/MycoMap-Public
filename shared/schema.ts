@@ -1521,3 +1521,59 @@ export type IndexEntry = typeof indexEntries.$inferSelect;
 export type IndexSetWithEntries = IndexSet & {
   entries: IndexEntry[];
 };
+
+// Primer Sets - collections of primers for plates
+export const primerSets = pgTable("primer_sets", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  orientation: text("orientation").notNull(), // Forward | Reverse
+  type: text("type").notNull(), // Single | Pool
+  poolSize: integer("pool_size"), // Number of primers in pool (only for Pool type)
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Primer Items - individual primers within a set
+export const primerItems = pgTable("primer_items", {
+  id: serial("id").primaryKey(),
+  primerSetId: integer("primer_set_id").notNull().references(() => primerSets.id, { onDelete: "cascade" }),
+  label: text("label").notNull(), // e.g., "ITS1F" or "Primer 1"
+  sequence: text("sequence"), // Optional primer sequence
+  sortOrder: integer("sort_order").notNull().default(1),
+}, (table) => ({
+  setPrimerIdx: index("primer_items_set_idx").on(table.primerSetId, table.sortOrder),
+}));
+
+// Relations for primer tables
+export const primerSetsRelations = relations(primerSets, ({ many }) => ({
+  items: many(primerItems),
+}));
+
+export const primerItemsRelations = relations(primerItems, ({ one }) => ({
+  primerSet: one(primerSets, {
+    fields: [primerItems.primerSetId],
+    references: [primerSets.id],
+  }),
+}));
+
+// Insert schemas for primer tables
+export const insertPrimerSetSchema = createInsertSchema(primerSets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPrimerItemSchema = createInsertSchema(primerItems).omit({
+  id: true,
+});
+
+// Types for primer tables
+export type InsertPrimerSet = z.infer<typeof insertPrimerSetSchema>;
+export type PrimerSet = typeof primerSets.$inferSelect;
+
+export type InsertPrimerItem = z.infer<typeof insertPrimerItemSchema>;
+export type PrimerItem = typeof primerItems.$inferSelect;
+
+export type PrimerSetWithItems = PrimerSet & {
+  items: PrimerItem[];
+};
