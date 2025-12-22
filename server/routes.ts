@@ -9621,9 +9621,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         if (!well.observationId && !well.labCode) continue;
 
         let validationResult: any = { wellId: well.id };
+        let effectivePlatform = well.platform;
 
-        // If we have an observation ID, fetch from iNaturalist
-        if (well.observationId && well.platform === 'iNaturalist') {
+        // Auto-detect platform based on observation ID length FIRST
+        if (!effectivePlatform && well.observationId) {
+          const digits = well.observationId.replace(/\D/g, '');
+          if (digits.length === 6) {
+            validationResult.detectedPlatform = 'MO';
+            effectivePlatform = 'MO';
+          } else if (digits.length >= 8 && digits.length <= 9) {
+            validationResult.detectedPlatform = 'iNaturalist';
+            effectivePlatform = 'iNaturalist';
+          }
+        }
+
+        // If we have an observation ID and platform is iNaturalist, fetch from API
+        if (well.observationId && effectivePlatform === 'iNaturalist') {
           try {
             const obsId = well.observationId.replace(/\D/g, '');
             const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`);
@@ -9657,13 +9670,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
         }
 
-        // Auto-detect platform based on observation ID length if not set
-        if (!well.platform && well.observationId) {
-          const digits = well.observationId.replace(/\D/g, '');
-          if (digits.length === 6) {
-            validationResult.detectedPlatform = 'MO';
-          } else if (digits.length >= 8 && digits.length <= 9) {
-            validationResult.detectedPlatform = 'iNaturalist';
+        // Determine final validation status
+        const finalPlatform = validationResult.detectedPlatform || well.platform;
+        if (!validationResult.status) {
+          if (!finalPlatform && well.observationId) {
+            validationResult.status = 'missing_platform';
+            validationResult.message = 'Platform not specified';
+          } else if (finalPlatform && well.observationId) {
+            validationResult.status = 'valid';
+            validationResult.message = 'Ready for processing';
           }
         }
 
@@ -9671,8 +9686,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         if (validationResult.status || validationResult.detectedPlatform) {
           const updateData: any = {
             isValidated: true,
-            validationStatus: validationResult.status || (well.platform ? null : 'missing_platform'),
-            validationMessage: validationResult.message || (well.platform ? null : 'Platform not specified'),
+            validationStatus: validationResult.status,
+            validationMessage: validationResult.message,
             voucherNumber: validationResult.voucherNumber || well.voucherNumber,
             updatedAt: new Date(),
           };
