@@ -9864,6 +9864,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationResult.scientificName = obs.taxon?.name;
             validationResult.username = obs.user?.login || null;
             
+            // Extract location data from iNaturalist
+            const placeGuess = obs.place_guess || '';
+            const placeParts = placeGuess.split(',').map((p: string) => p.trim());
+            // iNaturalist place_guess format is typically: "City, State, Country" or "State, Country"
+            if (placeParts.length >= 2) {
+              validationResult.state = placeParts[placeParts.length - 2] || null;
+              validationResult.country = placeParts[placeParts.length - 1] || null;
+            } else if (placeParts.length === 1) {
+              validationResult.country = placeParts[0] || null;
+            }
+            
             const iconicTaxon = obs.taxon?.iconic_taxon_name;
             const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
             const isSlimeMold = iconicTaxon === "Protozoa" || 
@@ -9905,6 +9916,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const moUsername = moObs.user?.login || moObs.user?.name || moObs.owner || null;
             validationResult.username = moUsername;
             validationResult.scientificName = moObs.consensus?.name || moObs.name?.name || null;
+            
+            // Extract location data from Mushroom Observer
+            // MO location format can vary - try to extract state/country from location name
+            const moLocation = moObs.location?.name || moObs.where || '';
+            const moLocationParts = moLocation.split(',').map((p: string) => p.trim());
+            if (moLocationParts.length >= 2) {
+              // Format is typically "County, State, Country" or "State, Country"
+              validationResult.state = moLocationParts[moLocationParts.length - 2] || null;
+              validationResult.country = moLocationParts[moLocationParts.length - 1] || null;
+            } else if (moLocationParts.length === 1) {
+              validationResult.country = moLocationParts[0] || null;
+            }
             
             // MO observations are fungi by default (it's a mycology platform)
             validationResult.isFungal = true;
@@ -9948,6 +9971,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (validationResult.apiFetched) {
             updateData.voucherNumber = validationResult.voucherNumber || null;
             updateData.username = validationResult.username || null;
+            updateData.state = validationResult.state || null;
+            updateData.country = validationResult.country || null;
           }
           
           if (!well.labCode && validationResult.voucherNumber) {

@@ -1395,6 +1395,8 @@ export const labWells = pgTable("lab_wells", {
   validationMessage: text("validation_message"),
   voucherNumber: text("voucher_number"), // From iNaturalist
   username: text("username"), // iNaturalist submitter username
+  state: text("state"), // State/province from API
+  country: text("country"), // Country from API
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

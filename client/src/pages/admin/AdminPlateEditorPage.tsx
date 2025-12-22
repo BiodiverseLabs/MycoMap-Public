@@ -30,6 +30,8 @@ interface Well {
   validationMessage: string | null;
   voucherNumber: string | null;
   username: string | null;
+  state: string | null;
+  country: string | null;
 }
 
 interface Plate {
@@ -612,9 +614,9 @@ export default function AdminPlateEditorPage() {
                     <TableHead className="w-[150px]">Observation Number</TableHead>
                     <TableHead className="w-[100px]">Validation</TableHead>
                     <TableHead>Username</TableHead>
+                    <TableHead className="w-[100px]">State</TableHead>
+                    <TableHead className="w-[100px]">Country</TableHead>
                     <TableHead className="w-[100px]">Primer Pool</TableHead>
-                    <TableHead className="w-[100px]">Fwd Primer</TableHead>
-                    <TableHead className="w-[100px]">Rev Primer</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -705,13 +707,13 @@ export default function AdminPlateEditorPage() {
                           {well.username || '—'}
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
+                          {well.state || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {well.country || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
                           {well.primerPool || '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {well.forwardPrimer || '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {well.reversePrimer || '—'}
                         </TableCell>
                       </TableRow>
                     );
