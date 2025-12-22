@@ -9500,6 +9500,131 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Create run from index file
+  app.post("/api/admin/runs/from-index", isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { name, indexFileContent } = req.body;
+      
+      if (!indexFileContent) {
+        return res.status(400).json({ error: "Index file content is required" });
+      }
+      
+      // Import the parser dynamically
+      const { parseIndexFile } = await import("@shared/indexFileParser");
+      const parseResult = parseIndexFile(indexFileContent);
+      
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Failed to parse index file", 
+          details: parseResult.errors 
+        });
+      }
+      
+      if (parseResult.plates.length === 0) {
+        return res.status(400).json({ error: "No valid plates found in index file" });
+      }
+      
+      // Validate indexes exist in our system
+      const allIndexEntries = await db.select().from(indexEntries);
+      const allIndexSequences = new Set(allIndexEntries.map(e => e.sequence));
+      
+      const missingFwIndexes: string[] = [];
+      const missingRvIndexes: string[] = [];
+      
+      parseResult.uniqueFwIndexes.forEach(seq => {
+        if (!allIndexSequences.has(seq)) {
+          missingFwIndexes.push(seq);
+        }
+      });
+      
+      parseResult.uniqueRvIndexes.forEach(seq => {
+        if (!allIndexSequences.has(seq)) {
+          missingRvIndexes.push(seq);
+        }
+      });
+      
+      if (missingFwIndexes.length > 0 || missingRvIndexes.length > 0) {
+        return res.status(400).json({
+          error: "Some index sequences not found in the system",
+          missingFwIndexes,
+          missingRvIndexes,
+        });
+      }
+      
+      // Validate primers exist in our system
+      const allPrimerItems = await db.select().from(primerItems);
+      const allPrimerNames = new Set(allPrimerItems.map(p => p.name));
+      
+      const missingFwPrimers: string[] = [];
+      const missingRvPrimers: string[] = [];
+      
+      parseResult.uniqueFwPrimers.forEach(primer => {
+        if (!allPrimerNames.has(primer)) {
+          missingFwPrimers.push(primer);
+        }
+      });
+      
+      parseResult.uniqueRvPrimers.forEach(primer => {
+        if (!allPrimerNames.has(primer)) {
+          missingRvPrimers.push(primer);
+        }
+      });
+      
+      if (missingFwPrimers.length > 0 || missingRvPrimers.length > 0) {
+        return res.status(400).json({
+          error: "Some primers not found in the system",
+          missingFwPrimers,
+          missingRvPrimers,
+        });
+      }
+      
+      // Create the run
+      const [run] = await db.insert(labRuns)
+        .values({ 
+          name: name || `Run ${new Date().toLocaleDateString()}`, 
+          createdBy: userId,
+          status: 'tissue_collection'
+        })
+        .returning();
+      
+      // Create plates and wells
+      for (const plateData of parseResult.plates) {
+        const [plate] = await db.insert(labPlates).values({
+          runId: run.id,
+          plateNumber: plateData.plateNumber,
+          name: `Plate ${plateData.plateNumber}`,
+          orientation: plateData.orientation,
+          sampleCount: plateData.samples.length,
+        }).returning();
+        
+        // Create wells for each sample
+        for (const sample of plateData.samples) {
+          await db.insert(labWells).values({
+            plateId: plate.id,
+            wellPosition: sample.wellPosition,
+            labCode: sample.labCode,
+            platform: sample.platform === 'unknown' ? null : sample.platform,
+            observationId: sample.observationId,
+            primerPool: sample.primerPool,
+            forwardPrimer: sample.fwPrimer,
+            reversePrimer: sample.rvPrimer,
+          });
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        run,
+        plateCount: parseResult.plates.length,
+        sampleCount: parseResult.plates.reduce((sum, p) => sum + p.samples.length, 0)
+      });
+    } catch (error) {
+      console.error("Error creating run from index file:", error);
+      res.status(500).json({ error: "Failed to create run from index file" });
+    }
+  });
+
   app.get("/api/admin/runs/:id", isAdmin, async (req: any, res) => {
     try {
       const runId = parseInt(req.params.id);
