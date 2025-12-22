@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
   - **Lab Runs**: Container for 20 sequencing plates per run with draft/in_progress/completed status
   - **Lab Plates**: 96-well plate editor (A01-H12) with platform selection (iNaturalist, MO, MyCoPortal), observation ID, lab code, and primer configuration
   - **Plate Validation**: Automated lookup against iNaturalist API to verify voucher numbers and flag mismatches
+  - **Bioinformatics Management**: Track bioinformatics pipeline code/commands for each lab run with stages: Basecalling, QC Filtering, QC Reports, Demultiplexing, and Consensus Building
 
 ### Data Flow
 - **Upload and Processing**: File upload, initial validation, background processing, batch insertion, post-processing (including contributor/species statistics), and automated classification updates.
