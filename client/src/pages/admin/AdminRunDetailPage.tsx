@@ -715,12 +715,14 @@ export default function AdminRunDetailPage() {
                           {methods.length === 0 ? (
                             <SelectItem value="none" disabled>No methods available</SelectItem>
                           ) : (
-                            methods.map((method) => (
-                              <SelectItem key={method.id} value={method.id.toString()}>
-                                {method.name}
-                                {method.programName && ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})`}
-                              </SelectItem>
-                            ))
+                            methods.map((method) => {
+                              const displayText = `${method.name}${method.programName ? ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})` : ''}`.trim();
+                              return (
+                                <SelectItem key={method.id} value={method.id.toString()}>
+                                  {displayText}
+                                </SelectItem>
+                              );
+                            })
                           )}
                         </SelectContent>
                       </Select>
