@@ -105,6 +105,23 @@ const BIOINFORMATICS_STAGES = [
   { key: 'consensus_building', label: 'Consensus Building' },
 ];
 
+const RUN_STATUS_OPTIONS = [
+  { value: 'tissue_collection', label: 'Tissue Collection In Progress' },
+  { value: 'dna_extraction', label: 'DNA Extraction In Progress' },
+  { value: 'dna_amplification', label: 'DNA Amplification In Progress' },
+  { value: 'dna_sequencing', label: 'DNA Sequencing In Progress', isGroup: true },
+  { value: 'dna_sequencing_pooled', label: 'DNA Sequencing In Progress (DNA Pooled)', parent: 'dna_sequencing' },
+  { value: 'dna_sequencing_library', label: 'DNA Sequencing In Progress (DNA Library Created)', parent: 'dna_sequencing' },
+  { value: 'dna_sequencing_raw_data', label: 'DNA Sequencing In Progress (Raw Data Available)', parent: 'dna_sequencing' },
+  { value: 'sequence_analysis', label: 'Sequence Analysis In Progress' },
+  { value: 'complete', label: 'Complete' },
+];
+
+const getStatusLabel = (value: string) => {
+  const option = RUN_STATUS_OPTIONS.find(o => o.value === value);
+  return option?.label || value.replace(/_/g, ' ');
+};
+
 const statusColors: Record<string, string> = {
   empty: "bg-gray-100 text-gray-600",
   partial: "bg-yellow-100 text-yellow-700",
@@ -267,6 +284,19 @@ export default function AdminRunDetailPage() {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return apiRequest('PATCH', `/api/admin/runs/${runId}`, { status });
+    },
+    onSuccess: async () => {
+      await refetch();
+      toast({ title: "Status Updated", description: "Run status has been updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    },
+  });
+
   const getMethodsForStage = (stage: string) => {
     return bioMethods.filter(m => m.stage === stage && m.isActive);
   };
@@ -322,6 +352,38 @@ export default function AdminRunDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Select 
+              value={run.status} 
+              onValueChange={(value) => updateStatusMutation.mutate(value)}
+              disabled={updateStatusMutation.isPending}
+            >
+              <SelectTrigger 
+                className="w-auto min-w-[220px] bg-white" 
+                data-testid="select-run-status"
+              >
+                <span className="truncate">{getStatusLabel(run.status)}</span>
+              </SelectTrigger>
+              <SelectContent>
+                {RUN_STATUS_OPTIONS.filter(o => !o.parent).map(option => (
+                  <SelectItem 
+                    key={option.value} 
+                    value={option.value}
+                    className={option.isGroup ? "font-medium" : ""}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+                {RUN_STATUS_OPTIONS.filter(o => o.parent === 'dna_sequencing').map(option => (
+                  <SelectItem 
+                    key={option.value} 
+                    value={option.value}
+                    className="pl-6 text-sm"
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {run.plates.length > 0 && (
               <Button 
                 onClick={() => generateFilesMutation.mutate()}
@@ -341,9 +403,6 @@ export default function AdminRunDetailPage() {
                 )}
               </Button>
             )}
-            <Badge className={statusColors[run.status] || "bg-gray-100"}>
-              {run.status.replace('_', ' ')}
-            </Badge>
             <Dialog open={addPlateOpen} onOpenChange={setAddPlateOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-add-plate">

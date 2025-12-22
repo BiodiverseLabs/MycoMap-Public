@@ -24,10 +24,29 @@ interface LabRun {
   completedAt: string | null;
 }
 
-const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  completed: "bg-green-100 text-green-700",
+const RUN_STATUS_OPTIONS = [
+  { value: 'tissue_collection', label: 'Tissue Collection In Progress', color: 'bg-purple-100 text-purple-700' },
+  { value: 'dna_extraction', label: 'DNA Extraction In Progress', color: 'bg-orange-100 text-orange-700' },
+  { value: 'dna_amplification', label: 'DNA Amplification In Progress', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'dna_sequencing', label: 'DNA Sequencing In Progress', color: 'bg-blue-100 text-blue-700' },
+  { value: 'dna_sequencing_pooled', label: 'DNA Sequencing In Progress (DNA Pooled)', color: 'bg-blue-100 text-blue-700' },
+  { value: 'dna_sequencing_library', label: 'DNA Sequencing In Progress (DNA Library Created)', color: 'bg-blue-100 text-blue-700' },
+  { value: 'dna_sequencing_raw_data', label: 'DNA Sequencing In Progress (Raw Data Available)', color: 'bg-blue-100 text-blue-700' },
+  { value: 'sequence_analysis', label: 'Sequence Analysis In Progress', color: 'bg-indigo-100 text-indigo-700' },
+  { value: 'complete', label: 'Complete', color: 'bg-green-100 text-green-700' },
+  { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
+  { value: 'in_progress', label: 'In Progress', color: 'bg-blue-100 text-blue-700' },
+  { value: 'completed', label: 'Completed', color: 'bg-green-100 text-green-700' },
+];
+
+const getStatusLabel = (value: string) => {
+  const option = RUN_STATUS_OPTIONS.find(o => o.value === value);
+  return option?.label || value.replace(/_/g, ' ');
+};
+
+const getStatusColor = (value: string) => {
+  const option = RUN_STATUS_OPTIONS.find(o => o.value === value);
+  return option?.color || 'bg-gray-100 text-gray-700';
 };
 
 export default function AdminRunsPage() {
@@ -201,8 +220,8 @@ export default function AdminRunsPage() {
                         {run.name}
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[run.status] || statusColors.draft}>
-                          {run.status.replace('_', ' ')}
+                        <Badge className={getStatusColor(run.status)}>
+                          {getStatusLabel(run.status)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-gray-600 max-w-[200px] truncate">
