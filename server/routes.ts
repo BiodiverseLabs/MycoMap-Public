@@ -9561,19 +9561,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Validate primers exist in our system
       const allPrimerItems = await db.select().from(primerItems);
-      const allPrimerNames = new Set(allPrimerItems.map(p => p.name));
+      const allPrimerLabels = new Set(allPrimerItems.map(p => p.label));
+      
+      console.log(`[Index Upload] Checking ${parseResult.uniqueFwPrimers.size} unique forward primers and ${parseResult.uniqueRvPrimers.size} unique reverse primers`);
+      console.log(`[Index Upload] Database has ${allPrimerLabels.size} unique primer labels`);
+      console.log(`[Index Upload] Sample from file - FwPrimers:`, Array.from(parseResult.uniqueFwPrimers).slice(0, 3));
+      console.log(`[Index Upload] Sample from DB:`, Array.from(allPrimerLabels).slice(0, 5));
       
       const missingFwPrimers: string[] = [];
       const missingRvPrimers: string[] = [];
       
       parseResult.uniqueFwPrimers.forEach(primer => {
-        if (!allPrimerNames.has(primer)) {
+        // Skip "*" as it indicates a primer pool
+        if (primer !== '*' && !allPrimerLabels.has(primer)) {
           missingFwPrimers.push(primer);
         }
       });
       
       parseResult.uniqueRvPrimers.forEach(primer => {
-        if (!allPrimerNames.has(primer)) {
+        // Skip "*" as it indicates a primer pool
+        if (primer !== '*' && !allPrimerLabels.has(primer)) {
           missingRvPrimers.push(primer);
         }
       });
