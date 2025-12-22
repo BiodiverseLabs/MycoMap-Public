@@ -560,7 +560,8 @@ export default function ShipmentPage() {
                             data-testid="input-observation-id"
                           />
                           <Button onClick={handleAddSpecimen} disabled={addSpecimenMutation.isPending} data-testid="button-add-specimen">
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add
                           </Button>
                           <Button variant="outline" onClick={handleOpenPasteDialog} data-testid="button-paste-list">
                             <Clipboard className="h-4 w-4 mr-1" />
