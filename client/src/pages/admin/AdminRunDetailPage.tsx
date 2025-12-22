@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -57,6 +58,35 @@ interface LabRun {
   createdAt: string;
   plates: Plate[];
 }
+
+interface BioinformaticsMethod {
+  id: number;
+  stage: string;
+  name: string;
+  programName: string | null;
+  programVersion: string | null;
+  code: string;
+  isActive: boolean;
+}
+
+interface MethodSelection {
+  id: number;
+  runId: number;
+  stage: string;
+  methodId: number;
+  methodName: string | null;
+  programName: string | null;
+  programVersion: string | null;
+  code: string | null;
+}
+
+const BIOINFORMATICS_STAGES = [
+  { key: 'basecalling', label: 'Basecalling' },
+  { key: 'qc_filtering', label: 'QC Filtering' },
+  { key: 'qc_reports', label: 'QC Reports' },
+  { key: 'demultiplexing', label: 'Demultiplexing' },
+  { key: 'consensus_building', label: 'Consensus Building' },
+];
 
 const statusColors: Record<string, string> = {
   empty: "bg-gray-100 text-gray-600",
@@ -158,6 +188,42 @@ export default function AdminRunDetailPage() {
       toast({ title: "Error", description: "Failed to delete file", variant: "destructive" });
     },
   });
+
+  const { data: bioMethods = [] } = useQuery<BioinformaticsMethod[]>({
+    queryKey: ['/api/admin/bioinformatics/methods'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/bioinformatics/methods');
+      if (!res.ok) throw new Error('Failed to fetch methods');
+      return res.json();
+    },
+  });
+
+  const { data: methodSelections, refetch: refetchMethodSelections } = useQuery<{ selections: MethodSelection[]; byStage: Record<string, MethodSelection> }>({
+    queryKey: ['/api/admin/runs', runId, 'method-selections'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/method-selections`);
+      if (!res.ok) throw new Error('Failed to fetch method selections');
+      return res.json();
+    },
+    enabled: !!runId,
+  });
+
+  const setMethodSelectionMutation = useMutation({
+    mutationFn: async ({ stage, methodId }: { stage: string; methodId: number }) => {
+      return apiRequest('POST', `/api/admin/runs/${runId}/method-selections`, { stage, methodId });
+    },
+    onSuccess: async () => {
+      await refetchMethodSelections();
+      toast({ title: "Method Selected", description: "Bioinformatics method assigned to this run" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to set method", variant: "destructive" });
+    },
+  });
+
+  const getMethodsForStage = (stage: string) => {
+    return bioMethods.filter(m => m.stage === stage && m.isActive);
+  };
 
   const nextPlateNumber = run ? run.plates.length + 1 : 1;
   
@@ -567,6 +633,69 @@ export default function AdminRunDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Bioinformatics Section */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Cpu className="h-5 w-5" />
+              Bioinformatics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {BIOINFORMATICS_STAGES.map(({ key, label }) => {
+                const methods = getMethodsForStage(key);
+                const currentSelection = methodSelections?.byStage[key];
+                
+                return (
+                  <div key={key} className="flex items-center gap-4" data-testid={`bio-stage-${key}`}>
+                    <Label className="w-40 text-sm font-medium text-gray-700">{label}</Label>
+                    <Select
+                      value={currentSelection?.methodId?.toString() || ""}
+                      onValueChange={(value) => {
+                        if (value) {
+                          setMethodSelectionMutation.mutate({ stage: key, methodId: parseInt(value) });
+                        }
+                      }}
+                      disabled={setMethodSelectionMutation.isPending}
+                    >
+                      <SelectTrigger className="w-[300px]" data-testid={`select-${key}`}>
+                        <SelectValue placeholder="Select a method..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {methods.length === 0 ? (
+                          <SelectItem value="none" disabled>No methods available</SelectItem>
+                        ) : (
+                          methods.map((method) => (
+                            <SelectItem key={method.id} value={method.id.toString()}>
+                              {method.name}
+                              {method.programName && ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})`}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {currentSelection && (
+                      <Badge variant="secondary" className="bg-green-100 text-green-700">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Selected
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
+              {bioMethods.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  No bioinformatics methods configured yet. Add methods in the{' '}
+                  <Link href="/admin/bioinformatics" className="text-blue-600 hover:underline">
+                    Bioinformatics page
+                  </Link>.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
