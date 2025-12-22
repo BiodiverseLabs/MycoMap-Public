@@ -10725,16 +10725,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             
             const iconicTaxon = obs.taxon?.iconic_taxon_name;
             const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
+            const taxonomicGenus = obs.taxon?.ancestors?.find((a: any) => a.rank === "genus")?.name || obs.taxon?.name?.split(' ')[0] || null;
             const isSlimeMold = iconicTaxon === "Protozoa" || 
               taxonomicClass === "Myxomycetes" || 
               obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
               obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
             const isFungal = iconicTaxon === "Fungi";
+            // Nostoc is a cyanobacteria genus that is acceptable for sequencing
+            const isNostoc = taxonomicGenus === "Nostoc" || 
+              obs.taxon?.name?.toLowerCase().startsWith("nostoc");
             
             validationResult.isSlimeMold = isSlimeMold;
             validationResult.isFungal = isFungal;
+            validationResult.isNostoc = isNostoc;
             
-            if (!isFungal && !isSlimeMold) {
+            if (!isFungal && !isSlimeMold && !isNostoc) {
               validationResult.status = 'not_fungal';
               validationResult.message = `Not fungal: ${iconicTaxon || 'Unknown taxon'} - ${obs.taxon?.name || 'Unknown species'}`;
             } else if (well.labCode && inatVoucher && !labCodesMatch(well.labCode, inatVoucher)) {
@@ -10742,7 +10747,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               validationResult.message = `Lab code "${well.labCode}" doesn't match iNat voucher "${inatVoucher}"`;
             } else if (inatVoucher) {
               validationResult.status = 'valid';
-              validationResult.message = isSlimeMold ? 'Valid (Slime Mold)' : 'Validated successfully';
+              validationResult.message = isSlimeMold ? 'Valid (Slime Mold)' : isNostoc ? 'Valid (Nostoc)' : 'Validated successfully';
             } else {
               validationResult.status = 'no_voucher';
               validationResult.message = 'No voucher number in iNaturalist';
