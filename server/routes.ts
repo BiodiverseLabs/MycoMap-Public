@@ -9565,6 +9565,84 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Update run (rawDataUrl, notes, etc.)
+  app.patch("/api/admin/runs/:id", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const { rawDataUrl, notes, name, status } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      if (rawDataUrl !== undefined) updateData.rawDataUrl = rawDataUrl;
+      if (notes !== undefined) updateData.notes = notes;
+      if (name !== undefined) updateData.name = name;
+      if (status !== undefined) updateData.status = status;
+      
+      const [updatedRun] = await db.update(labRuns)
+        .set(updateData)
+        .where(eq(labRuns.id, runId))
+        .returning();
+      
+      res.json(updatedRun);
+    } catch (error) {
+      console.error("Error updating lab run:", error);
+      res.status(500).json({ error: "Failed to update lab run" });
+    }
+  });
+
+  // Fetch Google Drive folder contents
+  app.get("/api/admin/runs/:id/drive-files", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const [run] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      
+      if (!run || !run.rawDataUrl) {
+        return res.json({ files: [], error: null });
+      }
+      
+      // Extract folder ID from Google Drive URL
+      const folderIdMatch = run.rawDataUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
+      if (!folderIdMatch) {
+        return res.json({ files: [], error: "Invalid Google Drive folder URL" });
+      }
+      
+      const folderId = folderIdMatch[1];
+      const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+      
+      if (!apiKey) {
+        return res.json({ 
+          files: [], 
+          error: "Google Drive API key not configured",
+          folderId,
+          folderUrl: run.rawDataUrl
+        });
+      }
+      
+      const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&fields=files(id,name,mimeType,size,modifiedTime,webViewLink)&key=${apiKey}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.error) {
+        return res.json({ 
+          files: [], 
+          error: data.error.message || "Failed to fetch folder contents",
+          folderId,
+          folderUrl: run.rawDataUrl
+        });
+      }
+      
+      res.json({ 
+        files: data.files || [], 
+        error: null,
+        folderId,
+        folderUrl: run.rawDataUrl
+      });
+    } catch (error) {
+      console.error("Error fetching Google Drive files:", error);
+      res.status(500).json({ error: "Failed to fetch Google Drive files" });
+    }
+  });
+
   // Add plate to a run
   app.post("/api/admin/runs/:id/plates", isAdmin, async (req: any, res) => {
     try {

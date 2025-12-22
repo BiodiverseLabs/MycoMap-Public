@@ -1345,6 +1345,7 @@ export const labRuns = pgTable("lab_runs", {
   name: text("name").notNull(),
   status: text("status").notNull().default("draft"), // draft | in_progress | completed
   notes: text("notes"),
+  rawDataUrl: text("raw_data_url"), // Google Drive folder URL for raw sequencing data
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

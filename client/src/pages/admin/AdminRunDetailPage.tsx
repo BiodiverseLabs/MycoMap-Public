@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -55,8 +55,25 @@ interface LabRun {
   name: string;
   status: string;
   notes: string | null;
+  rawDataUrl: string | null;
   createdAt: string;
   plates: Plate[];
+}
+
+interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+}
+
+interface DriveFilesResponse {
+  files: DriveFile[];
+  error: string | null;
+  folderId?: string;
+  folderUrl?: string;
 }
 
 interface BioinformaticsMethod {
@@ -105,6 +122,8 @@ export default function AdminRunDetailPage() {
   const [newPlateSampleCount, setNewPlateSampleCount] = useState(96);
   const [showAllStates, setShowAllStates] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
+  const [rawDataUrlInput, setRawDataUrlInput] = useState("");
+  const [isEditingDriveUrl, setIsEditingDriveUrl] = useState(false);
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
@@ -219,6 +238,31 @@ export default function AdminRunDetailPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to set method", variant: "destructive" });
+    },
+  });
+
+  const { data: driveFilesData, refetch: refetchDriveFiles, isLoading: isDriveFilesLoading } = useQuery<DriveFilesResponse>({
+    queryKey: ['/api/admin/runs', runId, 'drive-files'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/drive-files`);
+      if (!res.ok) throw new Error('Failed to fetch drive files');
+      return res.json();
+    },
+    enabled: !!runId && !!run?.rawDataUrl,
+  });
+
+  const updateRawDataUrlMutation = useMutation({
+    mutationFn: async (url: string) => {
+      return apiRequest('PATCH', `/api/admin/runs/${runId}`, { rawDataUrl: url || null });
+    },
+    onSuccess: async () => {
+      await refetch();
+      await refetchDriveFiles();
+      setIsEditingDriveUrl(false);
+      toast({ title: "Saved", description: "Google Drive folder URL updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update URL", variant: "destructive" });
     },
   });
 
@@ -693,6 +737,148 @@ export default function AdminRunDetailPage() {
                     Bioinformatics page
                   </Link>.
                 </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Raw Data Files Section */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <HardDrive className="h-5 w-5" />
+              Raw Data Files
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Google Drive URL Input */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Google Drive Folder URL</Label>
+                {isEditingDriveUrl || !run.rawDataUrl ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      value={rawDataUrlInput || run.rawDataUrl || ""}
+                      onChange={(e) => setRawDataUrlInput(e.target.value)}
+                      className="flex-1"
+                      data-testid="input-raw-data-url"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        updateRawDataUrlMutation.mutate(rawDataUrlInput);
+                      }}
+                      disabled={updateRawDataUrlMutation.isPending}
+                      data-testid="btn-save-drive-url"
+                    >
+                      {updateRawDataUrlMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                    </Button>
+                    {run.rawDataUrl && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setIsEditingDriveUrl(false);
+                          setRawDataUrlInput("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={run.rawDataUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
+                      data-testid="link-drive-folder"
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                      Open Google Drive Folder
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setRawDataUrlInput(run.rawDataUrl || "");
+                        setIsEditingDriveUrl(true);
+                      }}
+                      data-testid="btn-edit-drive-url"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => updateRawDataUrlMutation.mutate("")}
+                      disabled={updateRawDataUrlMutation.isPending}
+                      data-testid="btn-remove-drive-url"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* File List (when API key is configured) */}
+              {run.rawDataUrl && (
+                <div className="mt-4">
+                  {isDriveFilesLoading ? (
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Loading files...</span>
+                    </div>
+                  ) : driveFilesData?.error ? (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        {driveFilesData.error === "Google Drive API key not configured" ? (
+                          <>
+                            <strong>Note:</strong> To display file contents here, add a{" "}
+                            <code className="bg-yellow-100 px-1 rounded">GOOGLE_DRIVE_API_KEY</code> secret.
+                            For now, click the link above to view files in Google Drive.
+                          </>
+                        ) : (
+                          driveFilesData.error
+                        )}
+                      </p>
+                    </div>
+                  ) : driveFilesData?.files && driveFilesData.files.length > 0 ? (
+                    <div className="border rounded-lg divide-y">
+                      {driveFilesData.files.map((file) => (
+                        <a
+                          key={file.id}
+                          href={file.webViewLink || `https://drive.google.com/file/d/${file.id}/view`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors"
+                          data-testid={`drive-file-${file.id}`}
+                        >
+                          {file.mimeType?.includes('folder') ? (
+                            <FolderOpen className="h-5 w-5 text-yellow-500" />
+                          ) : (
+                            <File className="h-5 w-5 text-gray-500" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{file.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {file.mimeType?.split('/').pop() || 'file'}
+                              {file.size && ` • ${(parseInt(file.size) / 1024).toFixed(1)} KB`}
+                              {file.modifiedTime && ` • ${format(new Date(file.modifiedTime), 'MMM d, yyyy')}`}
+                            </p>
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-gray-400" />
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No files found in folder.</p>
+                  )}
+                </div>
               )}
             </div>
           </CardContent>
