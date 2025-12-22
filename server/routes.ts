@@ -9283,6 +9283,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .where(eq(shipments.id, shipmentId))
         .returning();
 
+      // Update all specimens in this shipment to "submitted" processingStatus
+      const bags = await db.select().from(shipmentBags).where(eq(shipmentBags.shipmentId, shipmentId));
+      const bagIds = bags.map(b => b.id);
+      if (bagIds.length > 0) {
+        await db.update(shipmentSpecimens)
+          .set({ processingStatus: "submitted", updatedAt: new Date() })
+          .where(inArray(shipmentSpecimens.bagId, bagIds));
+      }
+
       res.json({
         shipment: updated,
         labAddress: {

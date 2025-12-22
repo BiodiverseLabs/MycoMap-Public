@@ -1271,6 +1271,7 @@ export const shipmentSpecimens = pgTable("shipment_specimens", {
   taxonomicClass: text("taxonomic_class"), // For detecting Myxomycetes
   voucherNumber: text("voucher_number"), // From iNaturalist Voucher Number(s) observation field
   userOverride: boolean("user_override").default(false), // User clicked "This is ok"
+  processingStatus: text("processing_status").default("pending"), // pending | submitted | received | processing | sequenced | complete
   
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),

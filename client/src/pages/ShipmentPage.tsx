@@ -620,7 +620,26 @@ export default function ShipmentPage() {
                                   <>
                                     <tr key={specimen.id} className="border-t">
                                       <td className="px-3 py-2">
-                                        {!specimen.isValidated ? (
+                                        {isReadOnly ? (
+                                          <Badge 
+                                            variant="outline" 
+                                            className={
+                                              specimen.processingStatus === "submitted" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                              specimen.processingStatus === "received" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                              specimen.processingStatus === "processing" ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
+                                              specimen.processingStatus === "sequenced" ? "bg-green-50 text-green-700 border-green-200" :
+                                              specimen.processingStatus === "complete" ? "bg-green-100 text-green-800 border-green-300" :
+                                              "bg-gray-50 text-gray-600 border-gray-200"
+                                            }
+                                          >
+                                            {specimen.processingStatus === "submitted" ? "Submitted" :
+                                             specimen.processingStatus === "received" ? "Received" :
+                                             specimen.processingStatus === "processing" ? "Processing" :
+                                             specimen.processingStatus === "sequenced" ? "Sequenced" :
+                                             specimen.processingStatus === "complete" ? "Complete" :
+                                             "Pending"}
+                                          </Badge>
+                                        ) : !specimen.isValidated ? (
                                           <span className="text-gray-400">-</span>
                                         ) : specimen.validationStatus === "valid" ? (
                                           <CheckCircle2 className="h-5 w-5 text-green-600" />
