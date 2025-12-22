@@ -27,6 +27,7 @@ interface Well {
   validationStatus: string | null;
   validationMessage: string | null;
   voucherNumber: string | null;
+  username: string | null;
 }
 
 interface Plate {
@@ -389,7 +390,7 @@ export default function AdminPlateEditorPage() {
                     <TableHead className="w-[120px]">Platform</TableHead>
                     <TableHead className="w-[150px]">Observation Number</TableHead>
                     <TableHead className="w-[100px]">Validation</TableHead>
-                    <TableHead>Voucher #</TableHead>
+                    <TableHead>Username</TableHead>
                     <TableHead className="w-[100px]">Fwd Primer</TableHead>
                     <TableHead className="w-[100px]">Rev Primer</TableHead>
                   </TableRow>
@@ -477,7 +478,7 @@ export default function AdminPlateEditorPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
-                          {well.voucherNumber || '—'}
+                          {well.username || '—'}
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {well.forwardPrimer || '—'}

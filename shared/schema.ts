@@ -1390,6 +1390,7 @@ export const labWells = pgTable("lab_wells", {
   validationStatus: text("validation_status"), // valid | invalid | mismatch
   validationMessage: text("validation_message"),
   voucherNumber: text("voucher_number"), // From iNaturalist
+  username: text("username"), // iNaturalist submitter username
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

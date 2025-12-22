@@ -9679,6 +9679,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
                 validationResult.voucherNumber = inatVoucher;
                 validationResult.scientificName = obs.taxon?.name;
+                validationResult.username = obs.user?.login || null;
                 
                 // Check if observation is fungal or slime mold
                 const iconicTaxon = obs.taxon?.iconic_taxon_name;
@@ -9738,6 +9739,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationStatus: validationResult.status,
             validationMessage: validationResult.message,
             voucherNumber: validationResult.voucherNumber || well.voucherNumber,
+            username: validationResult.username || well.username,
             updatedAt: new Date(),
           };
           
