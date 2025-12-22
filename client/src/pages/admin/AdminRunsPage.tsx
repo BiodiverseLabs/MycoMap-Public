@@ -280,6 +280,11 @@ export default function AdminRunsPage() {
       
       const allErrors: string[] = [];
       
+      // Add the general error message FIRST if it exists (e.g., "Failed to parse index file")
+      if (parsedError?.error) {
+        allErrors.push(parsedError.error);
+      }
+      
       if (missingFwIndexes.length > 0) {
         allErrors.push(`Missing forward indexes (${missingFwIndexes.length} total): ${missingFwIndexes.slice(0, 10).join(', ')}${missingFwIndexes.length > 10 ? ` (+${missingFwIndexes.length - 10} more)` : ''}`);
       }
@@ -300,13 +305,9 @@ export default function AdminRunsPage() {
         allErrors.push(...details);
       }
       
-      // Add the general error message last if we have specific errors, or first if we don't
-      if (allErrors.length === 0) {
-        if (parsedError?.error) {
-          allErrors.push(parsedError.error);
-        } else if (parsedError?.message) {
-          allErrors.push(parsedError.message);
-        }
+      // If still no errors, try to extract from message
+      if (allErrors.length === 0 && parsedError?.message) {
+        allErrors.push(parsedError.message);
       }
       
       if (allErrors.length > 0) {
