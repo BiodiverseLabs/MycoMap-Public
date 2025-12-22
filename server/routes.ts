@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -8596,6 +8596,594 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error('Error running state first calculations:', error);
       res.status(500).json({ error: 'Failed to calculate state first records' });
+    }
+  });
+
+  // ============================================
+  // SHIPMENT MANAGEMENT API ENDPOINTS
+  // ============================================
+
+  // Get all shipments for the current user
+  app.get("/api/shipments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const userShipments = await db.select()
+        .from(shipments)
+        .where(eq(shipments.userId, userId))
+        .orderBy(desc(shipments.createdAt));
+
+      res.json(userShipments);
+    } catch (error) {
+      console.error("Error fetching shipments:", error);
+      res.status(500).json({ error: "Failed to fetch shipments" });
+    }
+  });
+
+  // Get a single shipment with bags and specimens
+  app.get("/api/shipments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const shipmentId = parseInt(req.params.id);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(404).json({ error: "Shipment not found" });
+      }
+
+      // Get bags for this shipment
+      const bags = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.shipmentId, shipmentId))
+        .orderBy(shipmentBags.sortOrder);
+
+      // Get specimens for each bag
+      const bagsWithSpecimens = await Promise.all(
+        bags.map(async (bag) => {
+          const specimens = await db.select()
+            .from(shipmentSpecimens)
+            .where(eq(shipmentSpecimens.bagId, bag.id))
+            .orderBy(shipmentSpecimens.sortOrder);
+          return { ...bag, specimens };
+        })
+      );
+
+      res.json({ ...shipment, bags: bagsWithSpecimens });
+    } catch (error) {
+      console.error("Error fetching shipment:", error);
+      res.status(500).json({ error: "Failed to fetch shipment" });
+    }
+  });
+
+  // Create a new shipment
+  app.post("/api/shipments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const shipmentData = {
+        ...req.body,
+        userId,
+        status: "draft",
+      };
+
+      const [newShipment] = await db.insert(shipments).values(shipmentData).returning();
+      res.json(newShipment);
+    } catch (error) {
+      console.error("Error creating shipment:", error);
+      res.status(500).json({ error: "Failed to create shipment" });
+    }
+  });
+
+  // Update a shipment (questionnaire answers, status, tracking)
+  app.patch("/api/shipments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const shipmentId = parseInt(req.params.id);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership
+      const [existing] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, shipmentId), eq(shipments.userId, userId)));
+
+      if (!existing) {
+        return res.status(404).json({ error: "Shipment not found" });
+      }
+
+      const [updated] = await db.update(shipments)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(shipments.id, shipmentId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating shipment:", error);
+      res.status(500).json({ error: "Failed to update shipment" });
+    }
+  });
+
+  // Delete a shipment
+  app.delete("/api/shipments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const shipmentId = parseInt(req.params.id);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership
+      const [existing] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, shipmentId), eq(shipments.userId, userId)));
+
+      if (!existing) {
+        return res.status(404).json({ error: "Shipment not found" });
+      }
+
+      await db.delete(shipments).where(eq(shipments.id, shipmentId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting shipment:", error);
+      res.status(500).json({ error: "Failed to delete shipment" });
+    }
+  });
+
+  // Create a new bag in a shipment
+  app.post("/api/shipments/:id/bags", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const shipmentId = parseInt(req.params.id);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify shipment ownership
+      const [existing] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, shipmentId), eq(shipments.userId, userId)));
+
+      if (!existing) {
+        return res.status(404).json({ error: "Shipment not found" });
+      }
+
+      // Get current max sort order
+      const existingBags = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.shipmentId, shipmentId));
+
+      const nextSortOrder = existingBags.length;
+      const bagName = req.body.name || `Bag ${existingBags.length + 1}`;
+
+      const [newBag] = await db.insert(shipmentBags).values({
+        shipmentId,
+        name: bagName,
+        sortOrder: nextSortOrder,
+      }).returning();
+
+      res.json(newBag);
+    } catch (error) {
+      console.error("Error creating bag:", error);
+      res.status(500).json({ error: "Failed to create bag" });
+    }
+  });
+
+  // Update a bag
+  app.patch("/api/shipments/bags/:bagId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const bagId = parseInt(req.params.bagId);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership through shipment
+      const [bag] = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.id, bagId));
+
+      if (!bag) {
+        return res.status(404).json({ error: "Bag not found" });
+      }
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, bag.shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const [updated] = await db.update(shipmentBags)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(shipmentBags.id, bagId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating bag:", error);
+      res.status(500).json({ error: "Failed to update bag" });
+    }
+  });
+
+  // Delete a bag
+  app.delete("/api/shipments/bags/:bagId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const bagId = parseInt(req.params.bagId);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership through shipment
+      const [bag] = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.id, bagId));
+
+      if (!bag) {
+        return res.status(404).json({ error: "Bag not found" });
+      }
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, bag.shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await db.delete(shipmentBags).where(eq(shipmentBags.id, bagId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting bag:", error);
+      res.status(500).json({ error: "Failed to delete bag" });
+    }
+  });
+
+  // Add specimens to a bag
+  app.post("/api/shipments/bags/:bagId/specimens", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const bagId = parseInt(req.params.bagId);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership through shipment
+      const [bag] = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.id, bagId));
+
+      if (!bag) {
+        return res.status(404).json({ error: "Bag not found" });
+      }
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, bag.shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Get current max sort order
+      const existingSpecimens = await db.select()
+        .from(shipmentSpecimens)
+        .where(eq(shipmentSpecimens.bagId, bagId));
+
+      const specimens = req.body.specimens || [req.body];
+      const insertedSpecimens = [];
+
+      for (let i = 0; i < specimens.length; i++) {
+        const specimen = specimens[i];
+        const [inserted] = await db.insert(shipmentSpecimens).values({
+          bagId,
+          platform: specimen.platform || "iNaturalist",
+          observationId: specimen.observationId,
+          sortOrder: existingSpecimens.length + i,
+        }).returning();
+        insertedSpecimens.push(inserted);
+      }
+
+      res.json(insertedSpecimens);
+    } catch (error) {
+      console.error("Error adding specimens:", error);
+      res.status(500).json({ error: "Failed to add specimens" });
+    }
+  });
+
+  // Update a specimen
+  app.patch("/api/shipments/specimens/:specimenId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const specimenId = parseInt(req.params.specimenId);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership through bag -> shipment
+      const [specimen] = await db.select()
+        .from(shipmentSpecimens)
+        .where(eq(shipmentSpecimens.id, specimenId));
+
+      if (!specimen) {
+        return res.status(404).json({ error: "Specimen not found" });
+      }
+
+      const [bag] = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.id, specimen.bagId));
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, bag.shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const [updated] = await db.update(shipmentSpecimens)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(shipmentSpecimens.id, specimenId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating specimen:", error);
+      res.status(500).json({ error: "Failed to update specimen" });
+    }
+  });
+
+  // Delete a specimen
+  app.delete("/api/shipments/specimens/:specimenId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const specimenId = parseInt(req.params.specimenId);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership through bag -> shipment
+      const [specimen] = await db.select()
+        .from(shipmentSpecimens)
+        .where(eq(shipmentSpecimens.id, specimenId));
+
+      if (!specimen) {
+        return res.status(404).json({ error: "Specimen not found" });
+      }
+
+      const [bag] = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.id, specimen.bagId));
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, bag.shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await db.delete(shipmentSpecimens).where(eq(shipmentSpecimens.id, specimenId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting specimen:", error);
+      res.status(500).json({ error: "Failed to delete specimen" });
+    }
+  });
+
+  // Validate specimens in a bag (ping iNaturalist/MO APIs)
+  app.post("/api/shipments/bags/:bagId/validate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const bagId = parseInt(req.params.bagId);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership
+      const [bag] = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.id, bagId));
+
+      if (!bag) {
+        return res.status(404).json({ error: "Bag not found" });
+      }
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, bag.shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Get all specimens in this bag
+      const specimens = await db.select()
+        .from(shipmentSpecimens)
+        .where(eq(shipmentSpecimens.bagId, bagId));
+
+      const validatedSpecimens = [];
+
+      // Validate each specimen
+      for (const specimen of specimens) {
+        try {
+          let validationResult: any = {
+            isValidated: true,
+            validationStatus: "error",
+            validationMessage: "Unknown platform",
+          };
+
+          // Extract numeric ID from URL or use as-is
+          let obsId = specimen.observationId;
+          if (obsId.includes("inaturalist.org")) {
+            const match = obsId.match(/observations\/(\d+)/);
+            if (match) obsId = match[1];
+          } else if (obsId.includes("mushroomobserver.org")) {
+            const match = obsId.match(/\/(\d+)/);
+            if (match) obsId = match[1];
+          }
+
+          if (specimen.platform === "iNaturalist") {
+            const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`);
+            if (response.ok) {
+              const data = await response.json();
+              const obs = data.results?.[0];
+              if (obs) {
+                const kingdom = obs.taxon?.ancestor_ids?.length > 0 ? 
+                  (obs.taxon?.ancestors?.find((a: any) => a.rank === "kingdom")?.name || 
+                   (obs.taxon?.iconic_taxon_name === "Fungi" ? "Fungi" : null)) : null;
+                
+                validationResult = {
+                  isValidated: true,
+                  validationStatus: kingdom === "Fungi" ? "valid" : "invalid",
+                  validationMessage: kingdom === "Fungi" ? "Valid fungal specimen" : `Not a fungus (Kingdom: ${kingdom || "Unknown"})`,
+                  scientificName: obs.taxon?.name || "Unknown",
+                  observedDate: obs.observed_on,
+                  location: obs.place_guess,
+                  username: obs.user?.login,
+                  kingdom: kingdom || obs.taxon?.iconic_taxon_name,
+                };
+              } else {
+                validationResult = {
+                  isValidated: true,
+                  validationStatus: "error",
+                  validationMessage: "Observation not found",
+                };
+              }
+            } else {
+              validationResult = {
+                isValidated: true,
+                validationStatus: "error",
+                validationMessage: `API error: ${response.status}`,
+              };
+            }
+          } else if (specimen.platform === "Mushroom Observer") {
+            // Mushroom Observer API
+            const response = await fetch(`https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`);
+            if (response.ok) {
+              const data = await response.json();
+              const obs = data.results?.[0];
+              if (obs) {
+                validationResult = {
+                  isValidated: true,
+                  validationStatus: "valid", // MO is fungi-only
+                  validationMessage: "Valid fungal specimen",
+                  scientificName: obs.consensus?.name || "Unknown",
+                  observedDate: obs.date,
+                  location: obs.location?.name || obs.where,
+                  username: obs.owner?.login_name,
+                  kingdom: "Fungi",
+                };
+              } else {
+                validationResult = {
+                  isValidated: true,
+                  validationStatus: "error",
+                  validationMessage: "Observation not found",
+                };
+              }
+            } else {
+              validationResult = {
+                isValidated: true,
+                validationStatus: "error",
+                validationMessage: `API error: ${response.status}`,
+              };
+            }
+          }
+
+          // Update the specimen with validation data
+          const [updated] = await db.update(shipmentSpecimens)
+            .set({ ...validationResult, updatedAt: new Date() })
+            .where(eq(shipmentSpecimens.id, specimen.id))
+            .returning();
+
+          validatedSpecimens.push(updated);
+        } catch (error) {
+          console.error(`Error validating specimen ${specimen.id}:`, error);
+          const [updated] = await db.update(shipmentSpecimens)
+            .set({
+              isValidated: true,
+              validationStatus: "error",
+              validationMessage: "Validation failed",
+              updatedAt: new Date(),
+            })
+            .where(eq(shipmentSpecimens.id, specimen.id))
+            .returning();
+          validatedSpecimens.push(updated);
+        }
+      }
+
+      res.json(validatedSpecimens);
+    } catch (error) {
+      console.error("Error validating specimens:", error);
+      res.status(500).json({ error: "Failed to validate specimens" });
+    }
+  });
+
+  // Submit shipment (marks as submitted and returns lab address)
+  app.post("/api/shipments/:id/submit", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const shipmentId = parseInt(req.params.id);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Verify ownership
+      const [existing] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, shipmentId), eq(shipments.userId, userId)));
+
+      if (!existing) {
+        return res.status(404).json({ error: "Shipment not found" });
+      }
+
+      const [updated] = await db.update(shipments)
+        .set({
+          status: "submitted",
+          submittedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(shipments.id, shipmentId))
+        .returning();
+
+      res.json({
+        shipment: updated,
+        labAddress: {
+          name: "Mycota Lab",
+          street: "46701 Commerce Center Dr.",
+          city: "Plymouth",
+          state: "MI",
+          zip: "48170",
+        },
+      });
+    } catch (error) {
+      console.error("Error submitting shipment:", error);
+      res.status(500).json({ error: "Failed to submit shipment" });
     }
   });
 
