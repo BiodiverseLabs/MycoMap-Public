@@ -1723,3 +1723,28 @@ export const insertLabRunBioStepSchema = createInsertSchema(labRunBioSteps).omit
 
 export type InsertLabRunBioStep = z.infer<typeof insertLabRunBioStepSchema>;
 export type LabRunBioStep = typeof labRunBioSteps.$inferSelect;
+
+// Lab Run Method Selections - links runs to selected bioinformatics methods per stage
+export const labRunMethodSelections = pgTable("lab_run_method_selections", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
+  stage: bioinformaticsStageEnum("stage").notNull(),
+  methodId: integer("method_id").notNull().references(() => bioinformaticsMethods.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  runStageUnique: index("lab_run_method_selections_run_stage_idx").on(table.runId, table.stage),
+}));
+
+export const labRunMethodSelectionsRelations = relations(labRunMethodSelections, ({ one }) => ({
+  run: one(labRuns, {
+    fields: [labRunMethodSelections.runId],
+    references: [labRuns.id],
+  }),
+  method: one(bioinformaticsMethods, {
+    fields: [labRunMethodSelections.methodId],
+    references: [bioinformaticsMethods.id],
+  }),
+}));
+
+export type LabRunMethodSelection = typeof labRunMethodSelections.$inferSelect;

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -11415,6 +11415,88 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error fetching bioinformatics steps:", error);
       res.status(500).json({ error: "Failed to fetch bioinformatics steps" });
+    }
+  });
+
+  // Get method selections for a run
+  app.get("/api/admin/runs/:runId/method-selections", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.runId);
+      
+      const selections = await db.select({
+        id: labRunMethodSelections.id,
+        runId: labRunMethodSelections.runId,
+        stage: labRunMethodSelections.stage,
+        methodId: labRunMethodSelections.methodId,
+        methodName: bioinformaticsMethods.name,
+        programName: bioinformaticsMethods.programName,
+        programVersion: bioinformaticsMethods.programVersion,
+        code: bioinformaticsMethods.code,
+      })
+        .from(labRunMethodSelections)
+        .leftJoin(bioinformaticsMethods, eq(labRunMethodSelections.methodId, bioinformaticsMethods.id))
+        .where(eq(labRunMethodSelections.runId, runId));
+      
+      // Group by stage
+      const byStage: Record<string, any> = {};
+      for (const sel of selections) {
+        byStage[sel.stage] = sel;
+      }
+      
+      res.json({ selections, byStage });
+    } catch (error) {
+      console.error("Error fetching method selections:", error);
+      res.status(500).json({ error: "Failed to fetch method selections" });
+    }
+  });
+
+  // Set method selection for a run stage
+  app.post("/api/admin/runs/:runId/method-selections", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.runId);
+      const { stage, methodId } = req.body;
+      
+      if (!stage || !methodId) {
+        return res.status(400).json({ error: "stage and methodId are required" });
+      }
+      
+      // Delete existing selection for this run/stage
+      await db.delete(labRunMethodSelections)
+        .where(and(
+          eq(labRunMethodSelections.runId, runId),
+          eq(labRunMethodSelections.stage, stage)
+        ));
+      
+      // Insert new selection
+      const [selection] = await db.insert(labRunMethodSelections).values({
+        runId,
+        stage,
+        methodId,
+      }).returning();
+      
+      res.json(selection);
+    } catch (error) {
+      console.error("Error setting method selection:", error);
+      res.status(500).json({ error: "Failed to set method selection" });
+    }
+  });
+
+  // Remove method selection for a run stage
+  app.delete("/api/admin/runs/:runId/method-selections/:stage", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.runId);
+      const stage = req.params.stage;
+      
+      await db.delete(labRunMethodSelections)
+        .where(and(
+          eq(labRunMethodSelections.runId, runId),
+          eq(labRunMethodSelections.stage, stage)
+        ));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing method selection:", error);
+      res.status(500).json({ error: "Failed to remove method selection" });
     }
   });
 
