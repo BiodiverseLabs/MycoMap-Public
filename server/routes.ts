@@ -10216,6 +10216,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const fwIndexMap = new Map(forwardIndexEntries.map(e => [e.wellPosition, e.indexSequence]));
         const rvIndexMap = new Map(reverseIndexEntries.map(e => [e.wellPosition, e.indexSequence]));
         
+        // For "Single Plate" type indices, the well_position is "plate_N"
+        const plateIndexKey = `plate_${plate.plateNumber}`;
+        
         for (const well of wells) {
           if (!well.observationId && !well.labCode) continue; // Skip empty wells
           
@@ -10252,11 +10255,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           // Get primer pool name
           const primerPoolName = well.primerPool || plate.defaultForwardPrimer?.split(' ')[0] || 'ITS';
           
-          // Get forward index sequence
-          const fwIndex = fwIndexMap.get(well.wellPosition) || fwIndexMap.get('single') || '';
+          // Get forward index sequence - check well position, then plate index (Single Plate type), then single
+          const fwIndex = fwIndexMap.get(well.wellPosition) || fwIndexMap.get(plateIndexKey) || fwIndexMap.get('single') || '';
           
-          // Get reverse index sequence
-          const rvIndex = rvIndexMap.get(well.wellPosition) || rvIndexMap.get('single') || '';
+          // Get reverse index sequence - check well position, then plate index (Single Plate type), then single
+          const rvIndex = rvIndexMap.get(well.wellPosition) || rvIndexMap.get(plateIndexKey) || rvIndexMap.get('single') || '';
           
           // Determine forward primer name (use * if it's a pool)
           const fwPrimerRaw = well.forwardPrimer || plate.defaultForwardPrimer || '';
