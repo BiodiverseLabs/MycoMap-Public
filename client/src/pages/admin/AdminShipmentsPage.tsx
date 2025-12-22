@@ -3,12 +3,14 @@ import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, ChevronLeft, RefreshCw, Eye, User, MapPin } from "lucide-react";
+import { Package, ChevronLeft, RefreshCw, Eye, User, MapPin, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useState, useMemo } from "react";
 
 interface PendingShipment {
   id: number;
@@ -25,10 +27,25 @@ interface PendingShipment {
 export default function AdminShipmentsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
   
   const { data: shipments, isLoading, refetch } = useQuery<PendingShipment[]>({
     queryKey: ['/api/admin/shipments/pending'],
   });
+
+  const filteredShipments = useMemo(() => {
+    if (!shipments) return [];
+    if (!searchTerm.trim()) return shipments;
+    
+    const term = searchTerm.toLowerCase();
+    return shipments.filter((shipment) => 
+      shipment.userName.toLowerCase().includes(term) ||
+      shipment.userId.toLowerCase().includes(term) ||
+      shipment.state.toLowerCase().includes(term) ||
+      shipment.trackingNumber?.toLowerCase().includes(term) ||
+      String(shipment.id).includes(term)
+    );
+  }, [shipments, searchTerm]);
 
   if (isLoading) {
     return (
@@ -63,6 +80,17 @@ export default function AdminShipmentsPage() {
           </Button>
         </div>
 
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by name, email, state..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+            data-testid="input-search"
+          />
+        </div>
+
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -78,15 +106,15 @@ export default function AdminShipmentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!shipments || shipments.length === 0 ? (
+                {filteredShipments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                       <Package className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                      No pending shipments
+                      {searchTerm ? "No shipments match your search" : "No pending shipments"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  shipments.map((shipment) => (
+                  filteredShipments.map((shipment) => (
                     <TableRow key={shipment.id} data-testid={`row-shipment-${shipment.id}`}>
                       <TableCell className="font-mono">#{shipment.id}</TableCell>
                       <TableCell>
