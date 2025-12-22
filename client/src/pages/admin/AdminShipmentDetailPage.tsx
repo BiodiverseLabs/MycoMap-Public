@@ -228,11 +228,11 @@ export default function AdminShipmentDetailPage() {
             <CardTitle>Specimens by Bag</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {shipment.bags.map((bag) => (
+            {shipment.bags.map((bag, index) => (
               <div key={bag.id} className="border-b last:border-0">
                 <div className="px-6 py-3 bg-gray-50 font-medium flex items-center gap-2">
                   <Package className="h-4 w-4" />
-                  {bag.bagLabel || `Bag ${bag.id}`}
+                  {bag.bagLabel || `Bag ${index + 1}`}
                   <Badge variant="secondary" className="ml-auto">{bag.specimens.length} specimens</Badge>
                 </div>
                 <Table>
