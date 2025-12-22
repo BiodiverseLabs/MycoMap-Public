@@ -9622,10 +9622,31 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
         let validationResult: any = { wellId: well.id };
         let effectivePlatform = well.platform;
+        let effectiveObsId = well.observationId;
+
+        // If we have a lab code but no observation ID, try to find it via iNaturalist observation field search
+        if (well.labCode && !well.observationId) {
+          try {
+            const searchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number(s)=${encodeURIComponent(well.labCode)}&per_page=1`;
+            const searchResponse = await fetch(searchUrl);
+            if (searchResponse.ok) {
+              const searchData = await searchResponse.json();
+              const foundObs = searchData.results?.[0];
+              if (foundObs) {
+                effectiveObsId = String(foundObs.id);
+                effectivePlatform = 'iNaturalist';
+                validationResult.foundObservationId = effectiveObsId;
+                validationResult.detectedPlatform = 'iNaturalist';
+              }
+            }
+          } catch (e) {
+            console.error('Error searching iNaturalist by voucher:', e);
+          }
+        }
 
         // Auto-detect platform based on observation ID length FIRST
-        if (!effectivePlatform && well.observationId) {
-          const digits = well.observationId.replace(/\D/g, '');
+        if (!effectivePlatform && effectiveObsId) {
+          const digits = effectiveObsId.replace(/\D/g, '');
           if (digits.length === 6) {
             validationResult.detectedPlatform = 'MO';
             effectivePlatform = 'MO';
@@ -9636,9 +9657,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
 
         // If we have an observation ID and platform is iNaturalist, fetch from API
-        if (well.observationId && effectivePlatform === 'iNaturalist') {
+        if (effectiveObsId && effectivePlatform === 'iNaturalist') {
           try {
-            const obsId = well.observationId.replace(/\D/g, '');
+            const obsId = effectiveObsId.replace(/\D/g, '');
             const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`);
             if (response.ok) {
               const data = await response.json();
@@ -9672,13 +9693,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
         // Determine final validation status
         const finalPlatform = validationResult.detectedPlatform || well.platform;
+        const finalObsId = effectiveObsId || well.observationId;
         if (!validationResult.status) {
-          if (!finalPlatform && well.observationId) {
+          if (!finalPlatform && finalObsId) {
             validationResult.status = 'missing_platform';
             validationResult.message = 'Platform not specified';
-          } else if (finalPlatform && well.observationId) {
+          } else if (finalPlatform && finalObsId) {
             validationResult.status = 'valid';
             validationResult.message = 'Ready for processing';
+          } else if (well.labCode && !finalObsId) {
+            validationResult.status = 'no_observation';
+            validationResult.message = 'No matching observation found for voucher';
           }
         }
 
@@ -9702,6 +9727,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (validationResult.detectedPlatform) {
             updateData.platform = validationResult.detectedPlatform;
             validationResult.platformUpdated = true;
+          }
+          
+          // If observation ID was found from lab code search, save it
+          if (validationResult.foundObservationId) {
+            updateData.observationId = validationResult.foundObservationId;
+            validationResult.observationIdUpdated = true;
           }
           
           await db.update(labWells)

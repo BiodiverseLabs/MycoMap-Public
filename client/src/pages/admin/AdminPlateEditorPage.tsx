@@ -48,6 +48,7 @@ const validationColors: Record<string, string> = {
   no_voucher: "bg-yellow-50",
   error: "bg-red-50",
   missing_platform: "bg-orange-50",
+  no_observation: "bg-purple-50",
 };
 
 export default function AdminPlateEditorPage() {
