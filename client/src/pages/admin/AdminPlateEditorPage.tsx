@@ -55,6 +55,23 @@ interface IndexSet {
   type: string;
 }
 
+interface PrimerSet {
+  id: number;
+  title: string;
+  orientation: string;
+  type: string;
+}
+
+interface PrimerPool {
+  id: number;
+  name: string;
+  forwardPrimerSetId: number;
+  reversePrimerSetId: number;
+  isActive?: boolean;
+  forwardPrimerSet?: PrimerSet;
+  reversePrimerSet?: PrimerSet;
+}
+
 const validationColors: Record<string, string> = {
   valid: "bg-green-50",
   mismatch: "bg-red-50",
@@ -100,6 +117,27 @@ export default function AdminPlateEditorPage() {
       return res.json();
     },
   });
+
+  const { data: primerPools } = useQuery<PrimerPool[]>({
+    queryKey: ['/api/admin/primer-pools'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/primer-pools');
+      if (!res.ok) throw new Error('Failed to fetch primer pools');
+      return res.json();
+    },
+  });
+
+  // Filter to only active primer pools
+  const activePrimerPools = primerPools?.filter(p => p.isActive !== false) || [];
+
+  const handlePrimerPoolSelect = (poolId: string) => {
+    const pool = primerPools?.find(p => p.id.toString() === poolId);
+    if (pool) {
+      setDefaultPrimerPool(pool.name);
+      setDefaultForward(pool.forwardPrimerSet?.title || "");
+      setDefaultReverse(pool.reversePrimerSet?.title || "");
+    }
+  };
 
   useEffect(() => {
     if (plate) {
@@ -493,15 +531,23 @@ export default function AdminPlateEditorPage() {
             <CardTitle className="text-base">Default Primers</CardTitle>
           </CardHeader>
           <CardContent className="flex gap-4 flex-wrap items-end">
-            <div className="flex-1 min-w-[150px]">
+            <div className="flex-1 min-w-[180px]">
               <Label htmlFor="default-pool">Primer Pool</Label>
-              <Input 
-                id="default-pool" 
-                value={defaultPrimerPool}
-                onChange={(e) => setDefaultPrimerPool(e.target.value)}
-                placeholder="e.g., Pool A"
-                data-testid="input-default-primer-pool"
-              />
+              <Select 
+                value={activePrimerPools.find(p => p.name === defaultPrimerPool)?.id.toString() || ""}
+                onValueChange={handlePrimerPoolSelect}
+              >
+                <SelectTrigger data-testid="select-default-primer-pool">
+                  <SelectValue placeholder="Select primer pool..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {activePrimerPools.map((pool) => (
+                    <SelectItem key={pool.id} value={pool.id.toString()}>
+                      {pool.name} ({pool.forwardPrimerSet?.title} / {pool.reversePrimerSet?.title})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex-1 min-w-[150px]">
               <Label htmlFor="default-fwd">Forward Primer</Label>
@@ -510,6 +556,8 @@ export default function AdminPlateEditorPage() {
                 value={defaultForward}
                 onChange={(e) => setDefaultForward(e.target.value)}
                 placeholder="e.g., ITS1F"
+                className="bg-gray-50"
+                readOnly
                 data-testid="input-default-forward"
               />
             </div>
@@ -520,12 +568,14 @@ export default function AdminPlateEditorPage() {
                 value={defaultReverse}
                 onChange={(e) => setDefaultReverse(e.target.value)}
                 placeholder="e.g., ITS4"
+                className="bg-gray-50"
+                readOnly
                 data-testid="input-default-reverse"
               />
             </div>
             <Button 
               onClick={() => bulkUpdateMutation.mutate({ primerPool: defaultPrimerPool, forwardPrimer: defaultForward, reversePrimer: defaultReverse })}
-              disabled={bulkUpdateMutation.isPending}
+              disabled={bulkUpdateMutation.isPending || !defaultPrimerPool}
               data-testid="button-apply-primers"
             >
               <Save className="h-4 w-4 mr-1" /> Apply to All
