@@ -10282,7 +10282,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               rawLabCode.toLowerCase().startsWith('inat') && rawLabCode.replace(/\D/g, '') === obsNum;
             
             if (!isJustInatNum && rawLabCode.toLowerCase() !== 'unknown') {
-              labCodePart = `-${rawLabCode}`;
+              // Remove spaces from lab code
+              labCodePart = `-${rawLabCode.replace(/\s+/g, '')}`;
             }
           }
           
