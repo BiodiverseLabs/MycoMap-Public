@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Package, Plus, Check, X, AlertCircle, Trash2, ArrowLeft, ArrowRight, Clipboard, CheckCircle2, Loader2 } from "lucide-react";
@@ -54,6 +56,9 @@ export default function ShipmentPage() {
   const [isValidating, setIsValidating] = useState(false);
   const [labAddress, setLabAddress] = useState<{ name: string; street: string; city: string; state: string; zip: string } | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [pasteDialogOpen, setPasteDialogOpen] = useState(false);
+  const [pastedText, setPastedText] = useState("");
+  const [isAddingPastedList, setIsAddingPastedList] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -254,22 +259,33 @@ export default function ShipmentPage() {
     });
   };
 
-  const handlePasteList = async () => {
-    if (!selectedBagId) return;
+  const handleOpenPasteDialog = () => {
+    setPastedText("");
+    setPasteDialogOpen(true);
+  };
+
+  const handleAddPastedObservations = async () => {
+    if (!selectedBagId || !pastedText.trim()) return;
+    setIsAddingPastedList(true);
     try {
-      const text = await navigator.clipboard.readText();
-      const lines = text.split(/[\n,]/).map(l => l.trim()).filter(l => l);
+      const lines = pastedText.split(/[\n,]/).map(l => l.trim()).filter(l => l);
       for (const line of lines) {
         await addSpecimenMutation.mutateAsync({
           bagId: selectedBagId,
           data: { observationId: line, platform: newObservationPlatform },
         });
       }
-      toast({ title: "Success", description: `Added ${lines.length} specimens` });
+      toast({ title: "Success", description: `Added ${lines.length} observations` });
+      setPasteDialogOpen(false);
+      setPastedText("");
     } catch (error) {
-      toast({ title: "Error", description: "Failed to paste from clipboard", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to add observations", variant: "destructive" });
+    } finally {
+      setIsAddingPastedList(false);
     }
   };
+
+  const pastedLines = pastedText.split(/[\n,]/).map(l => l.trim()).filter(l => l);
 
   const handleValidate = async () => {
     if (!selectedBagId) return;
@@ -546,7 +562,7 @@ export default function ShipmentPage() {
                           <Button onClick={handleAddSpecimen} disabled={addSpecimenMutation.isPending} data-testid="button-add-specimen">
                             <Plus className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" onClick={handlePasteList} data-testid="button-paste-list">
+                          <Button variant="outline" onClick={handleOpenPasteDialog} data-testid="button-paste-list">
                             <Clipboard className="h-4 w-4 mr-1" />
                             Paste List
                           </Button>
@@ -703,6 +719,46 @@ export default function ShipmentPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={pasteDialogOpen} onOpenChange={setPasteDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Paste Observation List</DialogTitle>
+            <DialogDescription>
+              Paste your observation IDs or URLs below, one per line or separated by commas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="Paste observation IDs or URLs here..."
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              rows={8}
+              className="font-mono text-sm"
+              data-testid="textarea-paste-observations"
+            />
+            {pastedLines.length > 0 && (
+              <div className="text-sm text-gray-600">
+                <strong>{pastedLines.length}</strong> observation{pastedLines.length !== 1 ? 's' : ''} detected
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasteDialogOpen(false)} data-testid="button-cancel-paste">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddPastedObservations}
+              disabled={pastedLines.length === 0 || isAddingPastedList}
+              className="bg-myco-green hover:bg-myco-green/90"
+              data-testid="button-add-observations"
+            >
+              {isAddingPastedList && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Add {pastedLines.length} Observation{pastedLines.length !== 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PublicLayout>
   );
 }
