@@ -28,8 +28,22 @@ interface LabRun {
   validatedPlateCount?: number;
 }
 
+interface SpecimenSummary {
+  inQueue: number;
+  inSequencingQueue: number;
+  tissueExtracted: number;
+  underDataAnalysis: number;
+  breakdown: {
+    inQueue: { username: string; state: string; count: number }[];
+    inSequencingQueue: { username: string; state: string; count: number }[];
+    tissueExtracted: { username: string; state: string; count: number }[];
+    underDataAnalysis: { username: string; state: string; count: number }[];
+  };
+}
+
 type SortField = 'name' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
+type SummaryPanel = 'inQueue' | 'inSequencingQueue' | 'tissueExtracted' | 'underDataAnalysis' | null;
 
 const RUN_STATUS_OPTIONS = [
   { value: 'tissue_collection', label: 'Tissue Collection In Progress', color: 'bg-purple-100 text-purple-700' },
@@ -72,7 +86,12 @@ export default function AdminRunsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [selectedPanel, setSelectedPanel] = useState<SummaryPanel>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { data: summary } = useQuery<SpecimenSummary>({
+    queryKey: ['/api/admin/specimen-summary'],
+  });
   
   const { data: runs, isLoading, refetch } = useQuery<LabRun[]>({
     queryKey: ['/api/admin/runs', searchQuery, statusFilter],
@@ -308,7 +327,7 @@ export default function AdminRunsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900" data-testid="text-page-title">
-                Lab Runs
+                Sequencing Runs
               </h1>
               <p className="text-gray-600">Manage sequencing runs and plates</p>
             </div>
@@ -488,6 +507,95 @@ export default function AdminRunsPage() {
             </div>
           </div>
         </div>
+
+        {/* Summary Panels */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setSelectedPanel('inQueue')}
+            data-testid="panel-specimens-in-queue"
+          >
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-600">Specimens in Queue</div>
+              <div className="text-2xl font-bold text-purple-600">{summary?.inQueue ?? 0}</div>
+              <div className="text-xs text-gray-500 mt-1">Not yet completed</div>
+            </CardContent>
+          </Card>
+          
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setSelectedPanel('inSequencingQueue')}
+            data-testid="panel-sequencing-queue"
+          >
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-600">In Sequencing Queue</div>
+              <div className="text-2xl font-bold text-blue-600">{summary?.inSequencingQueue ?? 0}</div>
+              <div className="text-xs text-gray-500 mt-1">Extraction through sequencing</div>
+            </CardContent>
+          </Card>
+          
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setSelectedPanel('tissueExtracted')}
+            data-testid="panel-tissue-extracted"
+          >
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-600">Tissue Extracted</div>
+              <div className="text-2xl font-bold text-orange-600">{summary?.tissueExtracted ?? 0}</div>
+              <div className="text-xs text-gray-500 mt-1">DNA extraction complete</div>
+            </CardContent>
+          </Card>
+          
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setSelectedPanel('underDataAnalysis')}
+            data-testid="panel-data-analysis"
+          >
+            <CardContent className="p-4">
+              <div className="text-sm text-gray-600">Under Data Analysis</div>
+              <div className="text-2xl font-bold text-teal-600">{summary?.underDataAnalysis ?? 0}</div>
+              <div className="text-xs text-gray-500 mt-1">Sequence analysis in progress</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Summary Panel Detail Modal */}
+        <Dialog open={selectedPanel !== null} onOpenChange={(open) => !open && setSelectedPanel(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedPanel === 'inQueue' && 'Specimens in Queue'}
+                {selectedPanel === 'inSequencingQueue' && 'Specimens in Sequencing Queue'}
+                {selectedPanel === 'tissueExtracted' && 'Tissue Extracted'}
+                {selectedPanel === 'underDataAnalysis' && 'Under Data Analysis'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[400px] overflow-y-auto">
+              {selectedPanel && summary?.breakdown[selectedPanel] && summary.breakdown[selectedPanel].length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>State</TableHead>
+                      <TableHead className="text-right">Count</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {summary.breakdown[selectedPanel].map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{item.username}</TableCell>
+                        <TableCell>{item.state}</TableCell>
+                        <TableCell className="text-right font-medium">{item.count}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-gray-500 text-center py-4">No specimens in this category</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Search and Filter Row */}
         <div className="flex gap-4 mb-4">
