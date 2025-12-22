@@ -7,16 +7,40 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { User, Settings, FlaskConical, Mail, Shield, Bell } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { User, Settings, FlaskConical, Mail, Shield, Bell, Plus, Package, Truck, Clock, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearch } from "wouter";
+import { useSearch, useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Shipment } from "@shared/schema";
 
 export default function ProfilePage() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const searchString = useSearch();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const params = new URLSearchParams(searchString);
   const initialTab = params.get('tab') || 'profile';
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [trackingInput, setTrackingInput] = useState<{ [key: number]: string }>({});
+
+  const { data: shipments = [], isLoading: shipmentsLoading } = useQuery<Shipment[]>({
+    queryKey: ["/api/shipments"],
+    enabled: isAuthenticated,
+  });
+
+  const updateTrackingMutation = useMutation({
+    mutationFn: async ({ id, trackingNumber }: { id: number; trackingNumber: string }) => {
+      const res = await apiRequest("PATCH", `/api/shipments/${id}`, { trackingNumber });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shipments"] });
+      toast({ title: "Tracking number saved" });
+    },
+  });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -28,6 +52,23 @@ export default function ProfilePage() {
     const newTab = params.get('tab') || 'profile';
     setActiveTab(newTab);
   }, [searchString]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "draft":
+        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Draft</Badge>;
+      case "submitted":
+        return <Badge className="bg-blue-500"><Truck className="h-3 w-3 mr-1" />Submitted</Badge>;
+      case "received":
+        return <Badge className="bg-yellow-500"><Package className="h-3 w-3 mr-1" />Received</Badge>;
+      case "processing":
+        return <Badge className="bg-orange-500"><FlaskConical className="h-3 w-3 mr-1" />Processing</Badge>;
+      case "completed":
+        return <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Completed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -238,34 +279,121 @@ export default function ProfilePage() {
             <TabsContent value="specimens">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FlaskConical className="h-5 w-5 text-myco-green" />
-                    Specimen Submission
-                  </CardTitle>
-                  <CardDescription>
-                    Submit fungal specimens for DNA barcoding analysis
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <FlaskConical className="h-5 w-5 text-myco-green" />
+                        Specimen Submission
+                      </CardTitle>
+                      <CardDescription>
+                        Submit fungal specimens for DNA barcoding analysis
+                      </CardDescription>
+                    </div>
+                    <Button 
+                      className="bg-myco-green hover:bg-myco-green/90"
+                      onClick={() => setLocation("/shipment")}
+                      data-testid="button-create-shipment"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create New Shipment
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-12">
-                    <FlaskConical className="h-16 w-16 text-myco-green/30 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-myco-brown mb-2">
-                      Specimen Submission Coming Soon
-                    </h3>
-                    <p className="text-gray-600 max-w-md mx-auto mb-6">
-                      We're building a streamlined process for you to submit specimens for DNA barcoding. 
-                      This feature will allow you to track your submissions, view sequencing results, 
-                      and contribute to the MycoMap Network database.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <Button variant="outline" asChild data-testid="link-protocols">
-                        <a href="/protocols">View Collection Protocols</a>
-                      </Button>
-                      <Button className="bg-myco-green hover:bg-myco-green/90" asChild data-testid="link-join">
-                        <a href="/join">Become a Supporter</a>
-                      </Button>
+                  {shipmentsLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-myco-green"></div>
                     </div>
-                  </div>
+                  ) : shipments.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Package className="h-16 w-16 text-myco-green/30 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-myco-brown mb-2">
+                        No Shipments Yet
+                      </h3>
+                      <p className="text-gray-600 max-w-md mx-auto mb-6">
+                        Create your first shipment to submit specimens for DNA barcoding analysis.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <Button variant="outline" asChild data-testid="link-protocols">
+                          <a href="/protocols">View Collection Protocols</a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-myco-brown">Your Shipments</h3>
+                      <div className="space-y-3">
+                        {shipments.map((shipment) => (
+                          <div 
+                            key={shipment.id} 
+                            className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                            data-testid={`shipment-${shipment.id}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <Package className="h-8 w-8 text-myco-green/70" />
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">Shipment #{shipment.id}</span>
+                                    {getStatusBadge(shipment.status)}
+                                  </div>
+                                  <p className="text-sm text-gray-500">
+                                    Created: {new Date(shipment.createdAt!).toLocaleDateString()}
+                                    {shipment.submittedAt && (
+                                      <> • Submitted: {new Date(shipment.submittedAt).toLocaleDateString()}</>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {shipment.status === "submitted" && !shipment.trackingNumber && (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      placeholder="Add tracking #"
+                                      value={trackingInput[shipment.id] || ""}
+                                      onChange={(e) => setTrackingInput({ ...trackingInput, [shipment.id]: e.target.value })}
+                                      className="w-40"
+                                      data-testid={`input-tracking-${shipment.id}`}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        updateTrackingMutation.mutate({ 
+                                          id: shipment.id, 
+                                          trackingNumber: trackingInput[shipment.id] 
+                                        });
+                                        setTrackingInput({ ...trackingInput, [shipment.id]: "" });
+                                      }}
+                                      disabled={!trackingInput[shipment.id]}
+                                      data-testid={`button-save-tracking-${shipment.id}`}
+                                    >
+                                      Save
+                                    </Button>
+                                  </div>
+                                )}
+                                {shipment.trackingNumber && (
+                                  <Badge variant="outline" className="font-mono">
+                                    <Truck className="h-3 w-3 mr-1" />
+                                    {shipment.trackingNumber}
+                                  </Badge>
+                                )}
+                                {shipment.status === "draft" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setLocation("/shipment")}
+                                    data-testid={`button-continue-${shipment.id}`}
+                                  >
+                                    Continue
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
