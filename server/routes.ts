@@ -9792,7 +9792,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           try {
             const obsId = effectiveObsId.replace(/\D/g, '');
             console.log(`[Validate] Fetching iNaturalist observation ${obsId}...`);
-            const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`);
+            const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`, {
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(15000) // 15 second timeout
+            });
             if (response.ok) {
               const data = await response.json();
               const obs = data.results?.[0];
@@ -9836,11 +9839,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   validationResult.status = 'no_voucher';
                   validationResult.message = 'No voucher number in iNaturalist';
                 }
+              } else {
+                console.log(`[Validate] No observation data in response for ${obsId}`);
+                validationResult.status = 'error';
+                validationResult.message = 'Observation not found in iNaturalist';
               }
+            } else {
+              console.log(`[Validate] API error for ${obsId}: ${response.status}`);
+              validationResult.status = 'error';
+              validationResult.message = `iNaturalist API error: ${response.status}`;
             }
-          } catch (e) {
+          } catch (e: any) {
+            console.error(`[Validate] Exception for observation: ${e.message}`);
             validationResult.status = 'error';
-            validationResult.message = 'Failed to fetch from iNaturalist';
+            validationResult.message = e.name === 'TimeoutError' ? 'Request timed out' : 'Failed to fetch from iNaturalist';
           }
         }
 
