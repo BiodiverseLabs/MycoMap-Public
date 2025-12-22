@@ -1261,13 +1261,15 @@ export const shipmentSpecimens = pgTable("shipment_specimens", {
   
   // Validated data from API
   isValidated: boolean("is_validated").default(false),
-  validationStatus: text("validation_status"), // valid | invalid | error
+  validationStatus: text("validation_status"), // valid | invalid | error | slime_mold
   validationMessage: text("validation_message"),
   scientificName: text("scientific_name"),
   observedDate: text("observed_date"),
   location: text("location"),
   username: text("username"),
   kingdom: text("kingdom"),
+  taxonomicClass: text("taxonomic_class"), // For detecting Myxomycetes
+  userOverride: boolean("user_override").default(false), // User clicked "This is ok"
   
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),

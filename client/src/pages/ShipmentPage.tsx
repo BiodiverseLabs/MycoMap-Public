@@ -190,6 +190,20 @@ export default function ShipmentPage() {
     },
   });
 
+  const overrideSpecimenMutation = useMutation({
+    mutationFn: async (specimenId: number) => {
+      const res = await apiRequest("POST", `/api/specimens/${specimenId}/override`);
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchShipment();
+      toast({ title: "Success", description: "Specimen confirmed" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to confirm specimen", variant: "destructive" });
+    },
+  });
+
   const submitShipmentMutation = useMutation({
     mutationFn: async (shipmentId: number) => {
       const res = await apiRequest("POST", `/api/shipments/${shipmentId}/submit`);
@@ -549,44 +563,69 @@ export default function ShipmentPage() {
                               </thead>
                               <tbody>
                                 {selectedBag.specimens.map((specimen) => (
-                                  <tr key={specimen.id} className="border-t">
-                                    <td className="px-3 py-2">
-                                      {!specimen.isValidated ? (
-                                        <span className="text-gray-400">-</span>
-                                      ) : specimen.validationStatus === "valid" ? (
-                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                      ) : specimen.validationStatus === "invalid" ? (
-                                        <X className="h-5 w-5 text-red-600" />
-                                      ) : (
-                                        <AlertCircle className="h-5 w-5 text-yellow-600" />
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">{specimen.platform}</td>
-                                    <td className="px-3 py-2 font-mono text-xs">
-                                      {(() => {
-                                        const id = specimen.observationId || '';
-                                        const inatMatch = id.match(/inaturalist\.org\/observations\/(\d+)/);
-                                        if (inatMatch) return inatMatch[1];
-                                        const moMatch = id.match(/mushroomobserver\.org\/(\d+)/);
-                                        if (moMatch) return moMatch[1];
-                                        return id;
-                                      })()}
-                                    </td>
-                                    <td className="px-3 py-2 italic">{specimen.scientificName || "-"}</td>
-                                    <td className="px-3 py-2 text-xs">{specimen.observedDate || "-"}</td>
-                                    <td className="px-3 py-2 text-xs">{specimen.username || "-"}</td>
-                                    <td className="px-3 py-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-red-600"
-                                        onClick={() => deleteSpecimenMutation.mutate(specimen.id)}
-                                        data-testid={`button-delete-specimen-${specimen.id}`}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </td>
-                                  </tr>
+                                  <>
+                                    <tr key={specimen.id} className="border-t">
+                                      <td className="px-3 py-2">
+                                        {!specimen.isValidated ? (
+                                          <span className="text-gray-400">-</span>
+                                        ) : specimen.validationStatus === "valid" ? (
+                                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                        ) : specimen.validationStatus === "invalid" || specimen.validationStatus === "slime_mold" ? (
+                                          <X className="h-5 w-5 text-red-600" />
+                                        ) : (
+                                          <AlertCircle className="h-5 w-5 text-yellow-600" />
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-2 text-xs">{specimen.platform}</td>
+                                      <td className="px-3 py-2 font-mono text-xs">
+                                        {(() => {
+                                          const id = specimen.observationId || '';
+                                          const inatMatch = id.match(/inaturalist\.org\/observations\/(\d+)/);
+                                          if (inatMatch) return inatMatch[1];
+                                          const moMatch = id.match(/mushroomobserver\.org\/(\d+)/);
+                                          if (moMatch) return moMatch[1];
+                                          return id;
+                                        })()}
+                                      </td>
+                                      <td className="px-3 py-2 italic">{specimen.scientificName || "-"}</td>
+                                      <td className="px-3 py-2 text-xs">{specimen.observedDate || "-"}</td>
+                                      <td className="px-3 py-2 text-xs">{specimen.username || "-"}</td>
+                                      <td className="px-3 py-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-red-600"
+                                          onClick={() => deleteSpecimenMutation.mutate(specimen.id)}
+                                          data-testid={`button-delete-specimen-${specimen.id}`}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                    {specimen.isValidated && (specimen.validationStatus === "invalid" || specimen.validationStatus === "slime_mold") && (
+                                      <tr key={`${specimen.id}-message`} className="bg-red-50">
+                                        <td colSpan={7} className="px-3 py-2">
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-red-600 text-sm">
+                                              {specimen.validationStatus === "slime_mold" 
+                                                ? "This observation is a slime mold and should be in its own bag" 
+                                                : "This observation is not fungal"}
+                                            </span>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                              onClick={() => overrideSpecimenMutation.mutate(specimen.id)}
+                                              disabled={overrideSpecimenMutation.isPending}
+                                              data-testid={`button-override-${specimen.id}`}
+                                            >
+                                              This is ok.
+                                            </Button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </>
                                 ))}
                               </tbody>
                             </table>

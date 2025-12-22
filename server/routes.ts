@@ -9057,15 +9057,35 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   (obs.taxon?.ancestors?.find((a: any) => a.rank === "kingdom")?.name || 
                    (obs.taxon?.iconic_taxon_name === "Fungi" ? "Fungi" : null)) : null;
                 
+                // Check for Myxomycetes (slime molds)
+                const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
+                const isSlimeMold = taxonomicClass === "Myxomycetes" || 
+                  obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
+                  obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
+                
+                let validationStatus = "invalid";
+                let validationMessage = "This observation is not fungal";
+                
+                if (kingdom === "Fungi" || isSlimeMold) {
+                  if (isSlimeMold) {
+                    validationStatus = "slime_mold";
+                    validationMessage = "This observation is a slime mold and should be in its own bag";
+                  } else {
+                    validationStatus = "valid";
+                    validationMessage = "Valid fungal specimen";
+                  }
+                }
+                
                 validationResult = {
                   isValidated: true,
-                  validationStatus: kingdom === "Fungi" ? "valid" : "invalid",
-                  validationMessage: kingdom === "Fungi" ? "Valid fungal specimen" : `Not a fungus (Kingdom: ${kingdom || "Unknown"})`,
+                  validationStatus,
+                  validationMessage,
                   scientificName: obs.taxon?.name || "Unknown",
                   observedDate: obs.observed_on,
                   location: obs.place_guess,
                   username: obs.user?.login,
                   kingdom: kingdom || obs.taxon?.iconic_taxon_name,
+                  taxonomicClass,
                 };
               } else {
                 validationResult = {
@@ -9140,6 +9160,59 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error validating specimens:", error);
       res.status(500).json({ error: "Failed to validate specimens" });
+    }
+  });
+
+  // Override specimen validation (user clicks "This is ok")
+  app.post("/api/specimens/:id/override", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const specimenId = parseInt(req.params.id);
+
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      // Get specimen and verify ownership through bag -> shipment
+      const [specimen] = await db.select()
+        .from(shipmentSpecimens)
+        .where(eq(shipmentSpecimens.id, specimenId));
+
+      if (!specimen) {
+        return res.status(404).json({ error: "Specimen not found" });
+      }
+
+      const [bag] = await db.select()
+        .from(shipmentBags)
+        .where(eq(shipmentBags.id, specimen.bagId));
+
+      if (!bag) {
+        return res.status(404).json({ error: "Bag not found" });
+      }
+
+      const [shipment] = await db.select()
+        .from(shipments)
+        .where(and(eq(shipments.id, bag.shipmentId), eq(shipments.userId, userId)));
+
+      if (!shipment) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Update specimen with user override
+      const [updated] = await db.update(shipmentSpecimens)
+        .set({
+          userOverride: true,
+          validationStatus: "valid",
+          validationMessage: "User confirmed specimen",
+          updatedAt: new Date(),
+        })
+        .where(eq(shipmentSpecimens.id, specimenId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error overriding specimen validation:", error);
+      res.status(500).json({ error: "Failed to override validation" });
     }
   });
 
