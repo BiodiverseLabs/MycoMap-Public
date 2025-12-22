@@ -1655,7 +1655,7 @@ export type InsertLabRunFile = z.infer<typeof insertLabRunFileSchema>;
 export type LabRunFile = typeof labRunFiles.$inferSelect;
 
 // =============================================
-// Bioinformatics Management - code tracking for runs
+// Bioinformatics Management - Global pipeline methods
 // =============================================
 
 export const bioinformaticsStageEnum = pgEnum('bioinformatics_stage', [
@@ -1666,6 +1666,31 @@ export const bioinformaticsStageEnum = pgEnum('bioinformatics_stage', [
   'consensus_building'
 ]);
 
+// Global bioinformatics methods - not tied to specific runs
+export const bioinformaticsMethods = pgTable("bioinformatics_methods", {
+  id: serial("id").primaryKey(),
+  stage: bioinformaticsStageEnum("stage").notNull(),
+  name: text("name").notNull(),
+  code: text("code").notNull(),
+  description: text("description"),
+  notes: text("notes"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  stageIdx: index("bioinformatics_methods_stage_idx").on(table.stage),
+}));
+
+export const insertBioinformaticsMethodSchema = createInsertSchema(bioinformaticsMethods).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBioinformaticsMethod = z.infer<typeof insertBioinformaticsMethodSchema>;
+export type BioinformaticsMethod = typeof bioinformaticsMethods.$inferSelect;
+
+// Legacy: Lab run bio steps - kept for backwards compatibility
 export const labRunBioSteps = pgTable("lab_run_bio_steps", {
   id: serial("id").primaryKey(),
   runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
