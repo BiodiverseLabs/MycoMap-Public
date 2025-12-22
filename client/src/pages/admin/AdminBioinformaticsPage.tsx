@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Plus, Pencil, Trash2, Code, Terminal, FileCode, Cpu, Filter, BarChart3, Layers, Combine } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, Code, Terminal, FileCode, Cpu, Filter, BarChart3, Layers, Combine, Package } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,9 +18,12 @@ interface BioMethod {
   id: number;
   stage: string;
   name: string;
+  programName?: string | null;
+  programVersion?: string | null;
   code: string;
   description?: string | null;
   notes?: string | null;
+  isActive?: boolean | null;
   sortOrder?: number | null;
   createdAt: string;
   updatedAt: string;
@@ -43,16 +48,20 @@ export default function AdminBioinformaticsPage() {
   const [editingMethod, setEditingMethod] = useState<BioMethod | null>(null);
   const [stage, setStage] = useState("");
   const [name, setName] = useState("");
+  const [programName, setProgramName] = useState("");
+  const [programVersion, setProgramVersion] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [showInactive, setShowInactive] = useState(false);
 
   const { data: bioData, isLoading } = useQuery<BioMethodsResponse>({
     queryKey: ['/api/admin/bioinformatics/methods'],
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { stage: string; name: string; code: string; description?: string; notes?: string }) => {
+    mutationFn: async (data: { stage: string; name: string; programName?: string; programVersion?: string; code: string; description?: string; notes?: string }) => {
       return apiRequest('POST', '/api/admin/bioinformatics/methods', data);
     },
     onSuccess: () => {
@@ -97,18 +106,24 @@ export default function AdminBioinformaticsPage() {
     setEditingMethod(null);
     setStage("");
     setName("");
+    setProgramName("");
+    setProgramVersion("");
     setCode("");
     setDescription("");
     setNotes("");
+    setIsActive(true);
   };
 
   const openAddDialog = (stageValue: string) => {
     setEditingMethod(null);
     setStage(stageValue);
     setName("");
+    setProgramName("");
+    setProgramVersion("");
     setCode("");
     setDescription("");
     setNotes("");
+    setIsActive(true);
     setDialogOpen(true);
   };
 
@@ -116,9 +131,12 @@ export default function AdminBioinformaticsPage() {
     setEditingMethod(method);
     setStage(method.stage);
     setName(method.name);
+    setProgramName(method.programName || "");
+    setProgramVersion(method.programVersion || "");
     setCode(method.code);
     setDescription(method.description || "");
     setNotes(method.notes || "");
+    setIsActive(method.isActive !== false);
     setDialogOpen(true);
   };
 
@@ -128,10 +146,20 @@ export default function AdminBioinformaticsPage() {
       return;
     }
 
+    const data = { 
+      name, 
+      programName: programName || undefined, 
+      programVersion: programVersion || undefined, 
+      code, 
+      description: description || undefined, 
+      notes: notes || undefined,
+      isActive 
+    };
+
     if (editingMethod) {
-      updateMutation.mutate({ id: editingMethod.id, data: { name, code, description, notes } });
+      updateMutation.mutate({ id: editingMethod.id, data });
     } else {
-      createMutation.mutate({ stage, name, code, description, notes });
+      createMutation.mutate({ stage, ...data });
     }
   };
 
@@ -139,9 +167,10 @@ export default function AdminBioinformaticsPage() {
     return STAGES.find(s => s.value === stageValue)?.label || stageValue;
   };
 
-  const getStageIcon = (stageValue: string) => {
-    const stage = STAGES.find(s => s.value === stageValue);
-    return stage?.icon || Code;
+  // Filter methods based on showInactive toggle
+  const filterMethods = (methods: BioMethod[]) => {
+    if (showInactive) return methods;
+    return methods.filter(m => m.isActive !== false);
   };
 
   return (
@@ -156,6 +185,16 @@ export default function AdminBioinformaticsPage() {
         </p>
       </div>
 
+      <div className="flex items-center justify-end mb-4 gap-2">
+        <Label htmlFor="show-inactive" className="text-sm text-gray-600">Show inactive methods</Label>
+        <Switch 
+          id="show-inactive" 
+          checked={showInactive} 
+          onCheckedChange={setShowInactive}
+          data-testid="switch-show-inactive"
+        />
+      </div>
+
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-24 w-full" />)}
@@ -163,7 +202,9 @@ export default function AdminBioinformaticsPage() {
       ) : (
         <div className="space-y-4">
           {STAGES.map((stageInfo) => {
-            const methods = bioData?.grouped?.[stageInfo.value] || [];
+            const allMethods = bioData?.grouped?.[stageInfo.value] || [];
+            const methods = filterMethods(allMethods);
+            const inactiveCount = allMethods.filter(m => m.isActive === false).length;
             const StageIcon = stageInfo.icon;
             
             return (
@@ -182,6 +223,9 @@ export default function AdminBioinformaticsPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
                         {methods.length} method{methods.length !== 1 ? 's' : ''}
+                        {!showInactive && inactiveCount > 0 && (
+                          <span className="text-gray-400 ml-1">(+{inactiveCount} inactive)</span>
+                        )}
                       </span>
                       <Button
                         variant="outline"
@@ -200,7 +244,7 @@ export default function AdminBioinformaticsPage() {
                   {methods.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <FileCode className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">No methods defined for this stage</p>
+                      <p className="text-sm">No {showInactive ? '' : 'active '}methods defined for this stage</p>
                       <Button
                         variant="link"
                         onClick={() => openAddDialog(stageInfo.value)}
@@ -210,18 +254,28 @@ export default function AdminBioinformaticsPage() {
                       </Button>
                     </div>
                   ) : (
-                    <Accordion type="multiple" defaultValue={methods.map(m => m.id.toString())} className="space-y-2">
+                    <Accordion type="multiple" defaultValue={methods.filter(m => m.isActive !== false).map(m => m.id.toString())} className="space-y-2">
                       {methods.map((method) => (
                         <AccordionItem 
                           key={method.id} 
                           value={method.id.toString()}
-                          className="border rounded-lg px-4 bg-gray-50"
+                          className={`border rounded-lg px-4 ${method.isActive === false ? 'bg-gray-100 opacity-60' : 'bg-gray-50'}`}
                         >
                           <AccordionTrigger className="hover:no-underline py-3">
                             <div className="flex items-center justify-between w-full pr-4">
                               <div className="flex items-center gap-2">
                                 <Code className="h-4 w-4 text-[#A87146]" />
                                 <span className="font-medium text-gray-800">{method.name}</span>
+                                {method.programName && (
+                                  <Badge variant="outline" className="ml-2 text-xs">
+                                    <Package className="h-3 w-3 mr-1" />
+                                    {method.programName}
+                                    {method.programVersion && ` v${method.programVersion}`}
+                                  </Badge>
+                                )}
+                                {method.isActive === false && (
+                                  <Badge variant="secondary" className="ml-2 text-xs">Inactive</Badge>
+                                )}
                               </div>
                             </div>
                           </AccordionTrigger>
@@ -271,7 +325,7 @@ export default function AdminBioinformaticsPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingMethod ? 'Edit Method' : `Add ${getStageLabel(stage)} Method`}
@@ -282,7 +336,7 @@ export default function AdminBioinformaticsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">Method Name</Label>
+              <Label htmlFor="name">Method Name *</Label>
               <Input
                 id="name"
                 value={name}
@@ -291,8 +345,32 @@ export default function AdminBioinformaticsPage() {
                 data-testid="input-name"
               />
             </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="programName">Program Name</Label>
+                <Input
+                  id="programName"
+                  value={programName}
+                  onChange={(e) => setProgramName(e.target.value)}
+                  placeholder="e.g., Dorado, NanoPlot, cutadapt"
+                  data-testid="input-program-name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="programVersion">Version</Label>
+                <Input
+                  id="programVersion"
+                  value={programVersion}
+                  onChange={(e) => setProgramVersion(e.target.value)}
+                  placeholder="e.g., 0.5.3, 1.42.0"
+                  data-testid="input-program-version"
+                />
+              </div>
+            </div>
+
             <div>
-              <Label htmlFor="description">Description (optional)</Label>
+              <Label htmlFor="description">Description</Label>
               <Input
                 id="description"
                 value={description}
@@ -301,8 +379,9 @@ export default function AdminBioinformaticsPage() {
                 data-testid="input-description"
               />
             </div>
+            
             <div>
-              <Label htmlFor="code">Code / Command</Label>
+              <Label htmlFor="code">Code / Command *</Label>
               <Textarea
                 id="code"
                 value={code}
@@ -312,8 +391,9 @@ export default function AdminBioinformaticsPage() {
                 data-testid="input-code"
               />
             </div>
+            
             <div>
-              <Label htmlFor="notes">Notes (optional)</Label>
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
                 value={notes}
@@ -323,6 +403,21 @@ export default function AdminBioinformaticsPage() {
                 data-testid="input-notes"
               />
             </div>
+
+            {editingMethod && (
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+                <div>
+                  <Label htmlFor="isActive" className="font-medium">Active Status</Label>
+                  <p className="text-sm text-gray-500">Inactive methods are hidden by default</p>
+                </div>
+                <Switch
+                  id="isActive"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                  data-testid="switch-is-active"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} data-testid="button-cancel">

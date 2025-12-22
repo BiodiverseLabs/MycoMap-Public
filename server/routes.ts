@@ -10853,7 +10853,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // Create a bioinformatics method
   app.post("/api/admin/bioinformatics/methods", isAdmin, async (req: any, res) => {
     try {
-      const { stage, name, code, description, notes, sortOrder } = req.body;
+      const { stage, name, programName, programVersion, code, description, notes, sortOrder } = req.body;
       
       if (!stage || !name || !code) {
         return res.status(400).json({ error: "Stage, name, and code are required" });
@@ -10867,9 +10867,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const [method] = await db.insert(bioinformaticsMethods).values({
         stage: stage as any,
         name,
+        programName,
+        programVersion,
         code,
         description,
         notes,
+        isActive: true,
         sortOrder: sortOrder || 0,
       }).returning();
       
@@ -10884,14 +10887,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.patch("/api/admin/bioinformatics/methods/:id", isAdmin, async (req: any, res) => {
     try {
       const methodId = parseInt(req.params.id);
-      const { name, code, description, notes, sortOrder } = req.body;
+      const { name, programName, programVersion, code, description, notes, sortOrder, isActive } = req.body;
       
       const updateData: any = { updatedAt: new Date() };
       if (name !== undefined) updateData.name = name;
+      if (programName !== undefined) updateData.programName = programName;
+      if (programVersion !== undefined) updateData.programVersion = programVersion;
       if (code !== undefined) updateData.code = code;
       if (description !== undefined) updateData.description = description;
       if (notes !== undefined) updateData.notes = notes;
       if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+      if (isActive !== undefined) updateData.isActive = isActive;
       
       const [updated] = await db.update(bioinformaticsMethods)
         .set(updateData)
