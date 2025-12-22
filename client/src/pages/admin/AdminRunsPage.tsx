@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 interface LabRun {
   id: number;
@@ -87,27 +87,38 @@ export default function AdminRunsPage() {
   const [hasMissingReverseIndexesOnly, setHasMissingReverseIndexesOnly] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedPanel, setSelectedPanel] = useState<SummaryPanel>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Debounce search input - wait 300ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+  
   const { data: summary } = useQuery<SpecimenSummary>({
     queryKey: ['/api/admin/specimen-summary'],
   });
   
-  const { data: runs, isLoading, refetch } = useQuery<LabRun[]>({
-    queryKey: ['/api/admin/runs', searchQuery, statusFilter],
+  // Use debounced search value for API calls, keep previous data while fetching
+  const { data: runs, isLoading, isFetching, refetch } = useQuery<LabRun[]>({
+    queryKey: ['/api/admin/runs', debouncedSearch, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchQuery) params.set('search', searchQuery);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
       const url = params.toString() ? `/api/admin/runs?${params}` : '/api/admin/runs';
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch runs');
       return res.json();
     },
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
   const toggleSort = (field: SortField) => {
@@ -322,7 +333,8 @@ export default function AdminRunsPage() {
     },
   });
 
-  if (isLoading) {
+  // Only show skeleton on initial load when there's no data yet
+  if (isLoading && !runs) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto space-y-4">
@@ -643,9 +655,12 @@ export default function AdminRunsPage() {
               placeholder="Search by run name, iNat number, or lab code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 pr-10"
               data-testid="input-search-runs"
             />
+            {isFetching && (
+              <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
+            )}
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[280px]" data-testid="select-status-filter">
