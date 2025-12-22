@@ -209,3 +209,40 @@ export const requireSubscription: RequestHandler = async (req, res, next) => {
     return res.status(500).json({ message: "Error checking subscription status" });
   }
 };
+
+// Admin role checker - used with isAdmin middleware
+let adminChecker: ((userId: string) => Promise<boolean>) | null = null;
+
+export const setAdminChecker = (checker: (userId: string) => Promise<boolean>) => {
+  adminChecker = checker;
+};
+
+// Middleware to check if user is an admin
+export const isAdmin: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const userId = user.id || user.claims?.sub;
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (!adminChecker) {
+    console.error('Admin checker not initialized');
+    return res.status(500).json({ message: "Admin service unavailable" });
+  }
+
+  try {
+    const isUserAdmin = await adminChecker(userId);
+    if (isUserAdmin) {
+      return next();
+    }
+    return res.status(403).json({ message: "Admin access required" });
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return res.status(500).json({ message: "Error checking admin status" });
+  }
+};

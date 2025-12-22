@@ -12,6 +12,7 @@ export const legacyUsers = pgTable("legacy_users", {
 
 // Re-export auth models (users, sessions) for Replit Auth integration
 export * from "./models/auth";
+import { users } from "./models/auth";
 
 export const observations = pgTable("observations", {
   id: serial("id").primaryKey(),
@@ -1332,4 +1333,131 @@ export type ShipmentSpecimen = typeof shipmentSpecimens.$inferSelect;
 // Extended types with relations
 export type ShipmentWithBags = Shipment & {
   bags: (ShipmentBag & { specimens: ShipmentSpecimen[] })[];
+};
+
+// =============================================
+// Lab Runs / Plates (Admin LIMS)
+// =============================================
+
+// Lab Runs - container for 20 plates
+export const labRuns = pgTable("lab_runs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("draft"), // draft | in_progress | completed
+  notes: text("notes"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Lab Plates - each run has up to 20 plates
+export const labPlates = pgTable("lab_plates", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
+  plateNumber: integer("plate_number").notNull(), // 1-20
+  name: text("name"), // Optional custom name
+  orientation: text("orientation").notNull().default("right-left"), // right-left | left-right
+  defaultForwardPrimer: text("default_forward_primer"),
+  defaultReversePrimer: text("default_reverse_primer"),
+  status: text("status").notNull().default("empty"), // empty | partial | complete
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  runPlateIdx: index("lab_plates_run_plate_idx").on(table.runId, table.plateNumber),
+}));
+
+// Lab Wells - 96 wells per plate (A01-H12)
+export const labWells = pgTable("lab_wells", {
+  id: serial("id").primaryKey(),
+  plateId: integer("plate_id").notNull().references(() => labPlates.id, { onDelete: "cascade" }),
+  wellPosition: text("well_position").notNull(), // A01, B01, etc.
+  sortOrder: integer("sort_order").notNull(), // 1-96
+  
+  // Specimen link
+  platform: text("platform"), // iNaturalist | Mushroom Observer
+  observationId: text("observation_id"),
+  specimenId: integer("specimen_id").references(() => shipmentSpecimens.id),
+  
+  // Lab data
+  labCode: text("lab_code"), // Internal lab tracking code
+  forwardPrimer: text("forward_primer"),
+  reversePrimer: text("reverse_primer"),
+  
+  // Validation
+  isValidated: boolean("is_validated").default(false),
+  validationStatus: text("validation_status"), // valid | invalid | mismatch
+  validationMessage: text("validation_message"),
+  voucherNumber: text("voucher_number"), // From iNaturalist
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  plateWellIdx: index("lab_wells_plate_well_idx").on(table.plateId, table.wellPosition),
+}));
+
+// Relations for lab tables
+export const labRunsRelations = relations(labRuns, ({ many, one }) => ({
+  plates: many(labPlates),
+  createdByUser: one(users, {
+    fields: [labRuns.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const labPlatesRelations = relations(labPlates, ({ one, many }) => ({
+  run: one(labRuns, {
+    fields: [labPlates.runId],
+    references: [labRuns.id],
+  }),
+  wells: many(labWells),
+}));
+
+export const labWellsRelations = relations(labWells, ({ one }) => ({
+  plate: one(labPlates, {
+    fields: [labWells.plateId],
+    references: [labPlates.id],
+  }),
+  specimen: one(shipmentSpecimens, {
+    fields: [labWells.specimenId],
+    references: [shipmentSpecimens.id],
+  }),
+}));
+
+// Insert schemas for lab tables
+export const insertLabRunSchema = createInsertSchema(labRuns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLabPlateSchema = createInsertSchema(labPlates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLabWellSchema = createInsertSchema(labWells).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for lab tables
+export type InsertLabRun = z.infer<typeof insertLabRunSchema>;
+export type LabRun = typeof labRuns.$inferSelect;
+
+export type InsertLabPlate = z.infer<typeof insertLabPlateSchema>;
+export type LabPlate = typeof labPlates.$inferSelect;
+
+export type InsertLabWell = z.infer<typeof insertLabWellSchema>;
+export type LabWell = typeof labWells.$inferSelect;
+
+// Extended types with relations
+export type LabRunWithPlates = LabRun & {
+  plates: (LabPlate & { wells: LabWell[] })[];
+};
+
+export type LabPlateWithWells = LabPlate & {
+  wells: LabWell[];
 };

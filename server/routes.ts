@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -13,7 +13,7 @@ import { sql, eq, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { WebSocketServer } from "ws";
-import { setupAuth, registerAuthRoutes, isAuthenticated, requireSubscription, setSubscriptionChecker } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, requireSubscription, setSubscriptionChecker, isAdmin, setAdminChecker } from "./replit_integrations/auth";
 
 const upload = multer({ 
   dest: 'uploads/',
@@ -688,6 +688,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize subscription checker with storage method
   setSubscriptionChecker((userId: string) => storage.getUserSubscription(userId));
+  
+  // Initialize admin checker
+  setAdminChecker(async (userId: string) => {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user?.role === 'admin';
+  });
 
   // =============================================
   // SUBSCRIPTION API ENDPOINTS  
@@ -9305,6 +9311,381 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error submitting shipment:", error);
       res.status(500).json({ error: "Failed to submit shipment" });
+    }
+  });
+
+  // =============================================
+  // ADMIN LIMS API ENDPOINTS
+  // =============================================
+
+  // Get all pending shipments (admin only)
+  app.get("/api/admin/shipments/pending", isAdmin, async (req: any, res) => {
+    try {
+      const pendingShipments = await db.select({
+        id: shipments.id,
+        userId: shipments.userId,
+        status: shipments.status,
+        trackingNumber: shipments.trackingNumber,
+        submittedAt: shipments.submittedAt,
+        createdAt: shipments.createdAt,
+      })
+      .from(shipments)
+      .where(eq(shipments.status, "submitted"))
+      .orderBy(desc(shipments.submittedAt));
+
+      // Enrich with user info and specimen counts
+      const enrichedShipments = await Promise.all(pendingShipments.map(async (shipment) => {
+        const [user] = await db.select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        }).from(users).where(eq(users.id, shipment.userId));
+
+        // Get specimen count and first specimen's state
+        const bagsWithSpecimens = await db.select()
+          .from(shipmentBags)
+          .where(eq(shipmentBags.shipmentId, shipment.id));
+        
+        let specimenCount = 0;
+        let state = null;
+        for (const bag of bagsWithSpecimens) {
+          const specimens = await db.select().from(shipmentSpecimens).where(eq(shipmentSpecimens.bagId, bag.id));
+          specimenCount += specimens.length;
+          if (!state && specimens.length > 0 && specimens[0].location) {
+            // Try to extract state from location
+            const loc = specimens[0].location;
+            const stateMatch = loc?.match(/,\s*([A-Z]{2}),?\s*U/i) || loc?.match(/([A-Z]{2})\s*$/);
+            if (stateMatch) state = stateMatch[1];
+          }
+        }
+
+        return {
+          ...shipment,
+          userName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : 'Unknown',
+          state: state || 'N/A',
+          specimenCount,
+        };
+      }));
+
+      res.json(enrichedShipments);
+    } catch (error) {
+      console.error("Error fetching pending shipments:", error);
+      res.status(500).json({ error: "Failed to fetch pending shipments" });
+    }
+  });
+
+  // Get shipment details for admin
+  app.get("/api/admin/shipments/:id", isAdmin, async (req: any, res) => {
+    try {
+      const shipmentId = parseInt(req.params.id);
+      
+      const [shipment] = await db.select().from(shipments).where(eq(shipments.id, shipmentId));
+      if (!shipment) {
+        return res.status(404).json({ error: "Shipment not found" });
+      }
+
+      // Get user info
+      const [user] = await db.select({
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      }).from(users).where(eq(users.id, shipment.userId));
+
+      // Get bags with specimens
+      const bags = await db.select().from(shipmentBags).where(eq(shipmentBags.shipmentId, shipmentId));
+      const bagsWithSpecimens = await Promise.all(bags.map(async (bag) => {
+        const specimens = await db.select().from(shipmentSpecimens).where(eq(shipmentSpecimens.bagId, bag.id));
+        return { ...bag, specimens };
+      }));
+
+      res.json({
+        ...shipment,
+        user,
+        bags: bagsWithSpecimens,
+      });
+    } catch (error) {
+      console.error("Error fetching admin shipment details:", error);
+      res.status(500).json({ error: "Failed to fetch shipment details" });
+    }
+  });
+
+  // Update shipment status (admin action: mark received, sent to indiana)
+  app.patch("/api/admin/shipments/:id/status", isAdmin, async (req: any, res) => {
+    try {
+      const shipmentId = parseInt(req.params.id);
+      const { action, newStatus } = req.body;
+
+      // Get shipment
+      const [shipment] = await db.select().from(shipments).where(eq(shipments.id, shipmentId));
+      if (!shipment) {
+        return res.status(404).json({ error: "Shipment not found" });
+      }
+
+      // Update shipment status
+      const [updated] = await db.update(shipments)
+        .set({ status: newStatus, updatedAt: new Date() })
+        .where(eq(shipments.id, shipmentId))
+        .returning();
+
+      // Update all specimens in this shipment
+      const bags = await db.select().from(shipmentBags).where(eq(shipmentBags.shipmentId, shipmentId));
+      const bagIds = bags.map(b => b.id);
+      
+      let processingStatus = newStatus;
+      if (action === "mark_received") processingStatus = "received";
+      if (action === "sent_to_indiana") processingStatus = "processing";
+
+      if (bagIds.length > 0) {
+        await db.update(shipmentSpecimens)
+          .set({ processingStatus, updatedAt: new Date() })
+          .where(inArray(shipmentSpecimens.bagId, bagIds));
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating shipment status:", error);
+      res.status(500).json({ error: "Failed to update shipment status" });
+    }
+  });
+
+  // Lab Runs CRUD
+  app.get("/api/admin/runs", isAdmin, async (req: any, res) => {
+    try {
+      const runs = await db.select().from(labRuns).orderBy(desc(labRuns.createdAt));
+      res.json(runs);
+    } catch (error) {
+      console.error("Error fetching lab runs:", error);
+      res.status(500).json({ error: "Failed to fetch lab runs" });
+    }
+  });
+
+  app.post("/api/admin/runs", isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { name, notes } = req.body;
+
+      const [run] = await db.insert(labRuns)
+        .values({ name: name || `Run ${new Date().toLocaleDateString()}`, notes, createdBy: userId })
+        .returning();
+
+      // Create 20 empty plates
+      for (let i = 1; i <= 20; i++) {
+        await db.insert(labPlates).values({
+          runId: run.id,
+          plateNumber: i,
+          name: `Plate ${i}`,
+        });
+      }
+
+      res.json(run);
+    } catch (error) {
+      console.error("Error creating lab run:", error);
+      res.status(500).json({ error: "Failed to create lab run" });
+    }
+  });
+
+  app.get("/api/admin/runs/:id", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const [run] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!run) {
+        return res.status(404).json({ error: "Run not found" });
+      }
+
+      const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId)).orderBy(labPlates.plateNumber);
+      res.json({ ...run, plates });
+    } catch (error) {
+      console.error("Error fetching lab run:", error);
+      res.status(500).json({ error: "Failed to fetch lab run" });
+    }
+  });
+
+  // Get plate with wells
+  app.get("/api/admin/plates/:id", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const [plate] = await db.select().from(labPlates).where(eq(labPlates.id, plateId));
+      if (!plate) {
+        return res.status(404).json({ error: "Plate not found" });
+      }
+
+      let wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
+      
+      // If no wells exist, create 96 empty wells
+      if (wells.length === 0) {
+        const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+        
+        const wellPositions = plate.orientation === 'right-left' 
+          ? rows.flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + ri + 1 })))
+          : rows.reverse().flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + (7 - ri) + 1 })));
+        
+        for (const { pos, order } of wellPositions) {
+          await db.insert(labWells).values({
+            plateId,
+            wellPosition: pos,
+            sortOrder: order,
+          });
+        }
+        
+        wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
+      }
+
+      res.json({ ...plate, wells });
+    } catch (error) {
+      console.error("Error fetching plate:", error);
+      res.status(500).json({ error: "Failed to fetch plate" });
+    }
+  });
+
+  // Update plate settings (orientation, primers)
+  app.patch("/api/admin/plates/:id", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const { orientation, defaultForwardPrimer, defaultReversePrimer } = req.body;
+
+      const [updated] = await db.update(labPlates)
+        .set({ 
+          orientation: orientation || undefined,
+          defaultForwardPrimer: defaultForwardPrimer || undefined,
+          defaultReversePrimer: defaultReversePrimer || undefined,
+          updatedAt: new Date() 
+        })
+        .where(eq(labPlates.id, plateId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating plate:", error);
+      res.status(500).json({ error: "Failed to update plate" });
+    }
+  });
+
+  // Bulk update wells (for applying primers to all)
+  app.post("/api/admin/plates/:id/bulk-update", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const { forwardPrimer, reversePrimer } = req.body;
+
+      const updateData: any = { updatedAt: new Date() };
+      if (forwardPrimer !== undefined) updateData.forwardPrimer = forwardPrimer;
+      if (reversePrimer !== undefined) updateData.reversePrimer = reversePrimer;
+
+      await db.update(labWells)
+        .set(updateData)
+        .where(eq(labWells.plateId, plateId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error bulk updating wells:", error);
+      res.status(500).json({ error: "Failed to bulk update wells" });
+    }
+  });
+
+  // Update single well
+  app.patch("/api/admin/wells/:id", isAdmin, async (req: any, res) => {
+    try {
+      const wellId = parseInt(req.params.id);
+      const { platform, observationId, labCode, forwardPrimer, reversePrimer } = req.body;
+
+      const [updated] = await db.update(labWells)
+        .set({
+          platform,
+          observationId,
+          labCode,
+          forwardPrimer,
+          reversePrimer,
+          updatedAt: new Date(),
+        })
+        .where(eq(labWells.id, wellId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating well:", error);
+      res.status(500).json({ error: "Failed to update well" });
+    }
+  });
+
+  // Validate plate wells (check iNaturalist for voucher numbers)
+  app.post("/api/admin/plates/:id/validate", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId));
+
+      const results: any[] = [];
+
+      for (const well of wells) {
+        if (!well.observationId && !well.labCode) continue;
+
+        let validationResult: any = { wellId: well.id };
+
+        // If we have an observation ID, fetch from iNaturalist
+        if (well.observationId && well.platform === 'iNaturalist') {
+          try {
+            const obsId = well.observationId.replace(/\D/g, '');
+            const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`);
+            if (response.ok) {
+              const data = await response.json();
+              const obs = data.results?.[0];
+              if (obs) {
+                // Get voucher number from observation fields
+                const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
+                const inatVoucher = voucherField?.value || null;
+
+                validationResult.voucherNumber = inatVoucher;
+                validationResult.scientificName = obs.taxon?.name;
+
+                // Check for mismatches
+                if (well.labCode && inatVoucher && well.labCode !== inatVoucher) {
+                  validationResult.status = 'mismatch';
+                  validationResult.message = `Lab code "${well.labCode}" doesn't match iNat voucher "${inatVoucher}"`;
+                } else if (inatVoucher) {
+                  validationResult.status = 'valid';
+                  validationResult.message = 'Validated successfully';
+                } else {
+                  validationResult.status = 'no_voucher';
+                  validationResult.message = 'No voucher number in iNaturalist';
+                }
+              }
+            }
+          } catch (e) {
+            validationResult.status = 'error';
+            validationResult.message = 'Failed to fetch from iNaturalist';
+          }
+        }
+
+        // Update well with validation result
+        if (validationResult.status) {
+          await db.update(labWells)
+            .set({
+              isValidated: true,
+              validationStatus: validationResult.status,
+              validationMessage: validationResult.message,
+              voucherNumber: validationResult.voucherNumber || well.voucherNumber,
+              updatedAt: new Date(),
+            })
+            .where(eq(labWells.id, well.id));
+        }
+
+        results.push(validationResult);
+      }
+
+      res.json({ results });
+    } catch (error) {
+      console.error("Error validating plate:", error);
+      res.status(500).json({ error: "Failed to validate plate" });
+    }
+  });
+
+  // Check if current user is admin
+  app.get("/api/admin/check", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      res.json({ isAdmin: user?.role === 'admin' });
+    } catch (error) {
+      res.json({ isAdmin: false });
     }
   });
 
