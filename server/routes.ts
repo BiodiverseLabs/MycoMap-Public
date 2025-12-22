@@ -10308,6 +10308,53 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
+      // Expand primer pools to include all their member primers
+      // Collect all unique pool names used in the run
+      const usedPoolNames = new Set<string>();
+      for (const { wells } of allWellsData) {
+        for (const well of wells) {
+          if (well.primerPool) {
+            usedPoolNames.add(well.primerPool);
+          }
+        }
+      }
+      
+      // For each pool, add all its member primers
+      for (const poolName of usedPoolNames) {
+        const pool = primerPoolsMap.get(poolName);
+        if (!pool) continue;
+        
+        // Get forward primers from the pool's forward set
+        const fwItems = primerSetItemsMap.get(pool.forwardPrimerSetId) || [];
+        for (const item of fwItems) {
+          if (!usedPrimers.has(item.label)) {
+            if (!item.sequence && !missingSequences.includes(item.label)) {
+              missingSequences.push(item.label);
+            }
+            usedPrimers.set(item.label, { 
+              sequence: item.sequence || '', 
+              pool: poolName, 
+              position: 'forward' 
+            });
+          }
+        }
+        
+        // Get reverse primers from the pool's reverse set
+        const rvItems = primerSetItemsMap.get(pool.reversePrimerSetId) || [];
+        for (const item of rvItems) {
+          if (!usedPrimers.has(item.label)) {
+            if (!item.sequence && !missingSequences.includes(item.label)) {
+              missingSequences.push(item.label);
+            }
+            usedPrimers.set(item.label, { 
+              sequence: item.sequence || '', 
+              pool: poolName, 
+              position: 'reverse' 
+            });
+          }
+        }
+      }
+      
       // Check for missing primer sequences - fail if any are missing
       if (missingSequences.length > 0) {
         return res.status(400).json({ 
