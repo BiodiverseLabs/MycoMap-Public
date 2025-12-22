@@ -1357,6 +1357,7 @@ export const labPlates = pgTable("lab_plates", {
   runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
   plateNumber: integer("plate_number").notNull(), // 1-20
   name: text("name"), // Optional custom name
+  notes: text("notes"), // Freeform plate notes
   orientation: text("orientation").notNull().default("right-left"), // right-left | left-right
   defaultForwardPrimer: text("default_forward_primer"),
   defaultReversePrimer: text("default_reverse_primer"),

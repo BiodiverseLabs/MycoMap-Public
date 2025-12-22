@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +32,7 @@ interface Plate {
   id: number;
   plateNumber: number;
   name: string | null;
+  notes: string | null;
   runId: number;
   orientation: string;
   status: string;
@@ -55,6 +57,7 @@ export default function AdminPlateEditorPage() {
   const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
   const [defaultForward, setDefaultForward] = useState("");
   const [defaultReverse, setDefaultReverse] = useState("");
+  const [plateNotes, setPlateNotes] = useState("");
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
     queryKey: ['/api/admin/plates', plateId],
@@ -64,6 +67,7 @@ export default function AdminPlateEditorPage() {
     if (plate) {
       setDefaultForward(plate.defaultForwardPrimer || "");
       setDefaultReverse(plate.defaultReversePrimer || "");
+      setPlateNotes(plate.notes || "");
     }
   }, [plate]);
 
@@ -83,6 +87,19 @@ export default function AdminPlateEditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/plates', plateId] });
       toast({ title: "Updated", description: "Applied primers to all wells" });
+    },
+  });
+
+  const saveNotesMutation = useMutation({
+    mutationFn: async (notes: string) => {
+      return apiRequest('PATCH', `/api/admin/plates/${plateId}`, { notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/plates', plateId] });
+      toast({ title: "Saved", description: "Plate notes saved" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save notes", variant: "destructive" });
     },
   });
 
@@ -206,6 +223,31 @@ export default function AdminPlateEditorPage() {
             </Button>
           </div>
         </div>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Plate Notes</CardTitle>
+          </CardHeader>
+          <CardContent className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Textarea 
+                id="plate-notes" 
+                value={plateNotes}
+                onChange={(e) => setPlateNotes(e.target.value)}
+                placeholder="Add notes about this plate..."
+                className="min-h-[80px]"
+                data-testid="input-plate-notes"
+              />
+            </div>
+            <Button 
+              onClick={() => saveNotesMutation.mutate(plateNotes)}
+              disabled={saveNotesMutation.isPending}
+              data-testid="button-save-notes"
+            >
+              <Save className="h-4 w-4 mr-1" /> {saveNotesMutation.isPending ? "Saving..." : "Save Notes"}
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="pb-3">

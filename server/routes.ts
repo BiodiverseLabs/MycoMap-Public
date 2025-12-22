@@ -9542,15 +9542,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.patch("/api/admin/plates/:id", isAdmin, async (req: any, res) => {
     try {
       const plateId = parseInt(req.params.id);
-      const { orientation, defaultForwardPrimer, defaultReversePrimer } = req.body;
+      const { orientation, defaultForwardPrimer, defaultReversePrimer, notes } = req.body;
+
+      const updateData: any = { updatedAt: new Date() };
+      if (orientation !== undefined) updateData.orientation = orientation;
+      if (defaultForwardPrimer !== undefined) updateData.defaultForwardPrimer = defaultForwardPrimer;
+      if (defaultReversePrimer !== undefined) updateData.defaultReversePrimer = defaultReversePrimer;
+      if (notes !== undefined) updateData.notes = notes;
 
       const [updated] = await db.update(labPlates)
-        .set({ 
-          orientation: orientation || undefined,
-          defaultForwardPrimer: defaultForwardPrimer || undefined,
-          defaultReversePrimer: defaultReversePrimer || undefined,
-          updatedAt: new Date() 
-        })
+        .set(updateData)
         .where(eq(labPlates.id, plateId))
         .returning();
 
