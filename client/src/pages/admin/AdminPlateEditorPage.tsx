@@ -41,7 +41,16 @@ interface Plate {
   status: string;
   defaultForwardPrimer: string | null;
   defaultReversePrimer: string | null;
+  forwardIndexSetId: number | null;
+  reverseIndexSetId: number | null;
   wells: Well[];
+}
+
+interface IndexSet {
+  id: number;
+  title: string;
+  orientation: string;
+  type: string;
 }
 
 const validationColors: Record<string, string> = {
@@ -64,6 +73,8 @@ export default function AdminPlateEditorPage() {
   const [defaultForward, setDefaultForward] = useState("");
   const [defaultReverse, setDefaultReverse] = useState("");
   const [plateNotes, setPlateNotes] = useState("");
+  const [forwardIndexSetId, setForwardIndexSetId] = useState<number | null>(null);
+  const [reverseIndexSetId, setReverseIndexSetId] = useState<number | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
@@ -75,11 +86,22 @@ export default function AdminPlateEditorPage() {
     },
   });
 
+  const { data: indexSets } = useQuery<IndexSet[]>({
+    queryKey: ['/api/admin/index-sets'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/index-sets');
+      if (!res.ok) throw new Error('Failed to fetch index sets');
+      return res.json();
+    },
+  });
+
   useEffect(() => {
     if (plate) {
       setDefaultForward(plate.defaultForwardPrimer || "");
       setDefaultReverse(plate.defaultReversePrimer || "");
       setPlateNotes(plate.notes || "");
+      setForwardIndexSetId(plate.forwardIndexSetId);
+      setReverseIndexSetId(plate.reverseIndexSetId);
     }
   }, [plate]);
 
@@ -112,6 +134,19 @@ export default function AdminPlateEditorPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to save notes", variant: "destructive" });
+    },
+  });
+
+  const saveIndexSetsMutation = useMutation({
+    mutationFn: async (data: { forwardIndexSetId: number | null; reverseIndexSetId: number | null }) => {
+      return apiRequest('PATCH', `/api/admin/plates/${plateId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/plates', plateId] });
+      toast({ title: "Saved", description: "Index sets saved" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save index sets", variant: "destructive" });
     },
   });
 
@@ -328,6 +363,62 @@ export default function AdminPlateEditorPage() {
               data-testid="button-save-notes"
             >
               <Save className="h-4 w-4 mr-1" /> {saveNotesMutation.isPending ? "Saving..." : "Save Notes"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className={(!forwardIndexSetId || !reverseIndexSetId) ? "border-red-300 bg-red-50" : ""}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              Index Sets
+              {(!forwardIndexSetId || !reverseIndexSetId) && (
+                <Badge variant="destructive" className="text-xs">Required for Validation</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex gap-4 flex-wrap items-end">
+            <div className="flex-1 min-w-[200px]">
+              <Label htmlFor="forward-index-set">Forward Index Set</Label>
+              <Select 
+                value={forwardIndexSetId?.toString() || ""} 
+                onValueChange={(val) => setForwardIndexSetId(val ? parseInt(val) : null)}
+              >
+                <SelectTrigger data-testid="select-forward-index-set">
+                  <SelectValue placeholder="Select forward index set..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {indexSets?.filter(s => s.orientation === "Forward").map(set => (
+                    <SelectItem key={set.id} value={set.id.toString()}>
+                      {set.title} ({set.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <Label htmlFor="reverse-index-set">Reverse Index Set</Label>
+              <Select 
+                value={reverseIndexSetId?.toString() || ""} 
+                onValueChange={(val) => setReverseIndexSetId(val ? parseInt(val) : null)}
+              >
+                <SelectTrigger data-testid="select-reverse-index-set">
+                  <SelectValue placeholder="Select reverse index set..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {indexSets?.filter(s => s.orientation === "Reverse").map(set => (
+                    <SelectItem key={set.id} value={set.id.toString()}>
+                      {set.title} ({set.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={() => saveIndexSetsMutation.mutate({ forwardIndexSetId, reverseIndexSetId })}
+              disabled={saveIndexSetsMutation.isPending}
+              data-testid="button-save-index-sets"
+            >
+              <Save className="h-4 w-4 mr-1" /> {saveIndexSetsMutation.isPending ? "Saving..." : "Save Index Sets"}
             </Button>
           </CardContent>
         </Card>

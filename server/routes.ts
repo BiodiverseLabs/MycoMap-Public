@@ -9587,17 +9587,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  // Update plate settings (orientation, primers)
+  // Update plate settings (orientation, primers, index sets)
   app.patch("/api/admin/plates/:id", isAdmin, async (req: any, res) => {
     try {
       const plateId = parseInt(req.params.id);
-      const { orientation, defaultForwardPrimer, defaultReversePrimer, notes } = req.body;
+      const { orientation, defaultForwardPrimer, defaultReversePrimer, notes, forwardIndexSetId, reverseIndexSetId } = req.body;
 
       const updateData: any = { updatedAt: new Date() };
       if (orientation !== undefined) updateData.orientation = orientation;
       if (defaultForwardPrimer !== undefined) updateData.defaultForwardPrimer = defaultForwardPrimer;
       if (defaultReversePrimer !== undefined) updateData.defaultReversePrimer = defaultReversePrimer;
       if (notes !== undefined) updateData.notes = notes;
+      if (forwardIndexSetId !== undefined) updateData.forwardIndexSetId = forwardIndexSetId;
+      if (reverseIndexSetId !== undefined) updateData.reverseIndexSetId = reverseIndexSetId;
 
       const [updated] = await db.update(labPlates)
         .set(updateData)

@@ -1361,6 +1361,8 @@ export const labPlates = pgTable("lab_plates", {
   orientation: text("orientation").notNull().default("right-left"), // right-left | left-right
   defaultForwardPrimer: text("default_forward_primer"),
   defaultReversePrimer: text("default_reverse_primer"),
+  forwardIndexSetId: integer("forward_index_set_id"), // References index_sets.id
+  reverseIndexSetId: integer("reverse_index_set_id"), // References index_sets.id
   status: text("status").notNull().default("empty"), // empty | partial | complete
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
