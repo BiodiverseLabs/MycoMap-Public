@@ -24,6 +24,7 @@ interface Plate {
   sampleCount?: number;
   validatedCount?: number;
   errorCount?: number;
+  clearedCount?: number;
   isFullyValidated?: boolean;
 }
 

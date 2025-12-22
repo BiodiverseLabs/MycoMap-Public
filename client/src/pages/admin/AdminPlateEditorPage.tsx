@@ -455,7 +455,7 @@ export default function AdminPlateEditorPage() {
         </div>
 
         {/* Validation Summary */}
-        {plate?.wells.some(w => w.isValidated) && (
+        {plate?.wells.some(w => w.isValidated || w.validationStatus) && (
           <Card className="bg-slate-50">
             <CardContent className="py-4">
               <div className="flex items-center gap-6">
@@ -467,7 +467,10 @@ export default function AdminPlateEditorPage() {
                   const errorCount = plate.wells.filter(w => 
                     w.validationStatus && !['valid', 'no_voucher'].includes(w.validationStatus)
                   ).length;
-                  const pendingCount = plate.wells.filter(w => !w.isValidated && w.observationId).length;
+                  // Cleared = was validated but now has no status (manually cleared)
+                  const clearedCount = plate.wells.filter(w => 
+                    w.isValidated === false && !w.validationStatus && w.observationId
+                  ).length;
                   
                   return (
                     <>
@@ -487,10 +490,10 @@ export default function AdminPlateEditorPage() {
                           <span className="text-green-700 font-medium">0 Errors</span>
                         </div>
                       )}
-                      {pendingCount > 0 && (
+                      {clearedCount > 0 && (
                         <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-blue-500" />
-                          <span className="text-blue-600">{pendingCount} Pending</span>
+                          <XCircle className="h-4 w-4 text-gray-500" />
+                          <span className="text-gray-600">{clearedCount} Cleared</span>
                         </div>
                       )}
                     </>
