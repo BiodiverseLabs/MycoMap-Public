@@ -153,6 +153,7 @@ export default function AdminRunsPage() {
 
   const createFromIndexMutation = useMutation({
     mutationFn: async () => {
+      setValidationErrors([]);
       const response = await apiRequest('POST', '/api/admin/runs/from-index', { 
         name: indexRunName || `Run ${new Date().toLocaleDateString()}`,
         indexFileContent
@@ -194,11 +195,11 @@ export default function AdminRunsPage() {
       }
       
       if (missingFwIndexes.length > 0) {
-        allErrors.push(`Missing forward indexes: ${missingFwIndexes.slice(0, 5).join(', ')}${missingFwIndexes.length > 5 ? ` (+${missingFwIndexes.length - 5} more)` : ''}`);
+        allErrors.push(`Missing forward indexes (${missingFwIndexes.length} total): ${missingFwIndexes.slice(0, 10).join(', ')}${missingFwIndexes.length > 10 ? ` (+${missingFwIndexes.length - 10} more)` : ''}`);
       }
       
       if (missingRvIndexes.length > 0) {
-        allErrors.push(`Missing reverse indexes: ${missingRvIndexes.slice(0, 5).join(', ')}${missingRvIndexes.length > 5 ? ` (+${missingRvIndexes.length - 5} more)` : ''}`);
+        allErrors.push(`Missing reverse indexes (${missingRvIndexes.length} total): ${missingRvIndexes.slice(0, 10).join(', ')}${missingRvIndexes.length > 10 ? ` (+${missingRvIndexes.length - 10} more)` : ''}`);
       }
       
       if (missingFwPrimers.length > 0) {
