@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -124,6 +124,7 @@ export default function AdminRunDetailPage() {
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [rawDataUrlInput, setRawDataUrlInput] = useState("");
   const [isEditingDriveUrl, setIsEditingDriveUrl] = useState(false);
+  const [expandedCodeStages, setExpandedCodeStages] = useState<Record<string, boolean>>({});
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
@@ -692,40 +693,80 @@ export default function AdminRunDetailPage() {
               {BIOINFORMATICS_STAGES.map(({ key, label }) => {
                 const methods = getMethodsForStage(key);
                 const currentSelection = methodSelections?.byStage[key];
+                const isExpanded = expandedCodeStages[key];
                 
                 return (
-                  <div key={key} className="flex items-center gap-4" data-testid={`bio-stage-${key}`}>
-                    <Label className="w-40 text-sm font-medium text-gray-700">{label}</Label>
-                    <Select
-                      value={currentSelection?.methodId?.toString() || ""}
-                      onValueChange={(value) => {
-                        if (value) {
-                          setMethodSelectionMutation.mutate({ stage: key, methodId: parseInt(value) });
-                        }
-                      }}
-                      disabled={setMethodSelectionMutation.isPending}
-                    >
-                      <SelectTrigger className="w-[300px]" data-testid={`select-${key}`}>
-                        <SelectValue placeholder="Select a method..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {methods.length === 0 ? (
-                          <SelectItem value="none" disabled>No methods available</SelectItem>
-                        ) : (
-                          methods.map((method) => (
-                            <SelectItem key={method.id} value={method.id.toString()}>
-                              {method.name}
-                              {method.programName && ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})`}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {currentSelection && (
-                      <Badge variant="secondary" className="bg-green-100 text-green-700">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Selected
-                      </Badge>
+                  <div key={key} className="border rounded-lg p-3" data-testid={`bio-stage-${key}`}>
+                    <div className="flex items-center gap-4">
+                      <Label className="w-40 text-sm font-medium text-gray-700 shrink-0">{label}</Label>
+                      <Select
+                        value={currentSelection?.methodId?.toString() || ""}
+                        onValueChange={(value) => {
+                          if (value) {
+                            setMethodSelectionMutation.mutate({ stage: key, methodId: parseInt(value) });
+                          }
+                        }}
+                        disabled={setMethodSelectionMutation.isPending}
+                      >
+                        <SelectTrigger className="w-[300px]" data-testid={`select-${key}`}>
+                          <SelectValue placeholder="Select a method..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {methods.length === 0 ? (
+                            <SelectItem value="none" disabled>No methods available</SelectItem>
+                          ) : (
+                            methods.map((method) => (
+                              <SelectItem key={method.id} value={method.id.toString()} className="pl-2">
+                                {method.name}
+                                {method.programName && ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})`}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {currentSelection && (
+                        <>
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 shrink-0">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Selected
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedCodeStages(prev => ({ ...prev, [key]: !prev[key] }))}
+                            className="ml-auto shrink-0"
+                            data-testid={`toggle-code-${key}`}
+                          >
+                            {isExpanded ? (
+                              <>Hide Code <ChevronUp className="h-4 w-4 ml-1" /></>
+                            ) : (
+                              <>Show Code <ChevronDown className="h-4 w-4 ml-1" /></>
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    {isExpanded && currentSelection?.code && (
+                      <div className="mt-3 relative">
+                        <div className="absolute top-2 right-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(currentSelection.code || "");
+                              toast({ title: "Copied!", description: "Code copied to clipboard" });
+                            }}
+                            className="h-8 px-2 bg-white/80 hover:bg-white"
+                            data-testid={`copy-code-${key}`}
+                          >
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy
+                          </Button>
+                        </div>
+                        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap">
+                          <code>{currentSelection.code}</code>
+                        </pre>
+                      </div>
                     )}
                   </div>
                 );
