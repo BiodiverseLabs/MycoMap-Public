@@ -61,16 +61,14 @@ export default function AdminRunsPage() {
   const [indexFileContent, setIndexFileContent] = useState("");
   const [indexRunName, setIndexRunName] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: runs, isLoading, refetch } = useQuery<LabRun[]>({
     queryKey: ['/api/admin/runs'],
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
+  const processFile = (file: File) => {
     setIndexFileName(file.name);
     setValidationErrors([]);
     
@@ -85,6 +83,32 @@ export default function AdminRunsPage() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   };
 
   const resetIndexForm = () => {
@@ -309,7 +333,14 @@ export default function AdminRunsPage() {
                       />
                       <div 
                         onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                          isDragOver 
+                            ? 'border-[#8CBD45] bg-green-50' 
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
                       >
                         {indexFileName ? (
                           <div className="flex items-center justify-center gap-2 text-green-600">
