@@ -369,7 +369,7 @@ export default function AdminRunDetailPage() {
                 <CheckCircle className="h-5 w-5 text-green-500" />
                 <span className="text-sm text-gray-500">Success %</span>
               </div>
-              {stats?.successRate !== null ? (
+              {stats?.successRate !== null && stats?.successRate !== undefined ? (
                 <p className="text-2xl font-bold text-green-600">{stats.successRate}%</p>
               ) : (
                 <p className="text-gray-400 text-sm">Pending results</p>
@@ -384,7 +384,7 @@ export default function AdminRunDetailPage() {
                 <AlertTriangle className="h-5 w-5 text-red-500" />
                 <span className="text-sm text-gray-500">Total Fails</span>
               </div>
-              {stats?.totalFails !== null ? (
+              {stats?.totalFails !== null && stats?.totalFails !== undefined ? (
                 <p className="text-2xl font-bold text-red-600">{stats.totalFails}</p>
               ) : (
                 <p className="text-gray-400 text-sm">Pending results</p>
