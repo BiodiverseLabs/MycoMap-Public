@@ -9828,15 +9828,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
         const sampleCount = wells.filter(w => w.observationId || w.labCode).length;
         const validatedCount = wells.filter(w => w.isValidated && w.validationStatus === 'valid').length;
-        // no_voucher is acceptable - don't count it as an error for plate status
-        const acceptableStatuses = ['valid', 'no_voucher'];
+        // no_voucher and cleared are acceptable - don't count them as errors for plate status
+        const acceptableStatuses = ['valid', 'no_voucher', 'cleared'];
         const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
         // Plate is "fully validated" if all samples are validated with acceptable statuses
-        const validatedOrNoVoucherCount = wells.filter(w => w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)).length;
+        const validatedOrAcceptableCount = wells.filter(w => w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)).length;
         
         // Plate is fully validated only if:
         // 1. Has samples
-        // 2. All samples have been validated with acceptable statuses (valid or no_voucher)
+        // 2. All samples have been validated with acceptable statuses (valid, no_voucher, or cleared)
         // 3. Has index sets assigned (both forward and reverse)
         // 4. Has primer configuration (either default primers or wells have primers)
         const hasIndexSets = plate.forwardIndexSetId && plate.reverseIndexSetId;
@@ -9854,7 +9854,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         const isFullyValidated = sampleCount > 0 && 
-          validatedOrNoVoucherCount === sampleCount && 
+          validatedOrAcceptableCount === sampleCount && 
           errorCount === 0 &&
           hasIndexSets &&
           (hasPrimerConfig || wellsHavePrimers);
