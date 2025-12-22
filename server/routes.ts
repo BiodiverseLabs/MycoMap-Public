@@ -39,10 +39,11 @@ function normalizeLabCode(code: string | null): string {
   return code;
 }
 
-// Check if two lab codes are equivalent (considering various formats)
+// Check if two lab codes are equivalent (considering various formats, case-insensitive)
 function labCodesMatch(code1: string | null, code2: string | null): boolean {
   if (!code1 || !code2) return false;
-  return normalizeLabCode(code1) === normalizeLabCode(code2);
+  // Compare case-insensitively using normalized versions
+  return normalizeLabCode(code1.toLowerCase()) === normalizeLabCode(code2.toLowerCase());
 }
 
 const uploadMemory = multer({ 
