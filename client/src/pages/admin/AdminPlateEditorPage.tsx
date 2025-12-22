@@ -126,10 +126,25 @@ export default function AdminPlateEditorPage() {
     },
   });
 
+  const parseObservationId = (value: string): string => {
+    if (!value) return value;
+    const inatMatch = value.match(/inaturalist\.org\/observations\/(\d+)/);
+    if (inatMatch) return inatMatch[1];
+    const moMatch = value.match(/mushroomobserver\.org\/(\d+)/);
+    if (moMatch) return moMatch[1];
+    const numericMatch = value.match(/\/(\d+)\/?$/);
+    if (numericMatch) return numericMatch[1];
+    return value;
+  };
+
   const handleWellChange = (wellId: number, field: keyof Well, value: string) => {
+    let processedValue = value;
+    if (field === 'observationId') {
+      processedValue = parseObservationId(value);
+    }
     setWellData(prev => ({
       ...prev,
-      [wellId]: { ...prev[wellId], [field]: value }
+      [wellId]: { ...prev[wellId], [field]: processedValue }
     }));
   };
 
