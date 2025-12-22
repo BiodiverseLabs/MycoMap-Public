@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -162,6 +163,8 @@ export default function AdminRunDetailPage() {
   const [showAllStates, setShowAllStates] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [rawDataUrlInput, setRawDataUrlInput] = useState("");
+  const [importNotesOpen, setImportNotesOpen] = useState(false);
+  const [plateNotes, setPlateNotes] = useState<Record<number, string>>({});
   const [isEditingDriveUrl, setIsEditingDriveUrl] = useState(false);
   const [expandedCodeStages, setExpandedCodeStages] = useState<Record<string, boolean>>({});
   
@@ -289,6 +292,36 @@ export default function AdminRunDetailPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to validate plates", variant: "destructive" });
+    },
+  });
+
+  const importNotesMutation = useMutation({
+    mutationFn: async (notesData: Record<number, string>) => {
+      const results = [];
+      for (const [plateId, notes] of Object.entries(notesData)) {
+        if (notes.trim()) {
+          try {
+            const response = await apiRequest('PATCH', `/api/admin/plates/${plateId}`, { notes });
+            results.push({ plateId: Number(plateId), success: response.ok });
+          } catch {
+            results.push({ plateId: Number(plateId), success: false });
+          }
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      await refetch();
+      const successCount = results.filter(r => r.success).length;
+      setImportNotesOpen(false);
+      setPlateNotes({});
+      toast({ 
+        title: "Notes Imported", 
+        description: `Updated notes for ${successCount} plate${successCount !== 1 ? 's' : ''}` 
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to import notes", variant: "destructive" });
     },
   });
 
@@ -1068,7 +1101,23 @@ export default function AdminRunDetailPage() {
         </Card>
 
         {/* Delete Run Section */}
-        <div className="flex justify-start mt-8 pt-6 border-t border-gray-200">
+        <div className="flex justify-start gap-4 mt-8 pt-6 border-t border-gray-200">
+          <Button 
+            variant="ghost" 
+            className="flex items-center gap-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            onClick={() => {
+              const initialNotes: Record<number, string> = {};
+              run?.plates.forEach(plate => {
+                initialNotes[plate.id] = '';
+              });
+              setPlateNotes(initialNotes);
+              setImportNotesOpen(true);
+            }}
+            data-testid="button-import-notes"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Import Notes
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button 
@@ -1100,6 +1149,80 @@ export default function AdminRunDetailPage() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
+
+        {/* Import Notes Dialog */}
+        <Dialog open={importNotesOpen} onOpenChange={setImportNotesOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-[#8CBD45]" />
+                Import Notes for Plates
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
+              <p className="text-sm text-gray-500 mb-4">
+                Enter notes for each plate. Pasting into the first field will auto-populate down the list.
+              </p>
+              <div className="space-y-3">
+                {run?.plates
+                  .sort((a, b) => a.plateNumber - b.plateNumber)
+                  .map((plate, index) => (
+                  <div key={plate.id} className="flex items-start gap-3">
+                    <Label className="w-20 pt-2 text-sm font-medium text-gray-600 flex-shrink-0">
+                      Plate {plate.plateNumber}
+                    </Label>
+                    <Textarea
+                      className="flex-1 min-h-[60px]"
+                      placeholder={`Notes for Plate ${plate.plateNumber}...`}
+                      value={plateNotes[plate.id] || ''}
+                      onChange={(e) => setPlateNotes(prev => ({
+                        ...prev,
+                        [plate.id]: e.target.value
+                      }))}
+                      onPaste={(e) => {
+                        if (index === 0) {
+                          const pastedText = e.clipboardData.getData('text');
+                          const lines = pastedText.split('\n').filter(line => line.trim());
+                          if (lines.length > 1) {
+                            e.preventDefault();
+                            const sortedPlates = [...(run?.plates || [])].sort((a, b) => a.plateNumber - b.plateNumber);
+                            const newNotes: Record<number, string> = { ...plateNotes };
+                            sortedPlates.forEach((p, i) => {
+                              if (i < lines.length) {
+                                newNotes[p.id] = lines[i].trim();
+                              }
+                            });
+                            setPlateNotes(newNotes);
+                          }
+                        }
+                      }}
+                      data-testid={`input-notes-plate-${plate.plateNumber}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setImportNotesOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => importNotesMutation.mutate(plateNotes)}
+                disabled={importNotesMutation.isPending || Object.values(plateNotes).every(v => !v.trim())}
+                className="bg-[#8CBD45] hover:bg-[#7AAD35]"
+              >
+                {importNotesMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Notes'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
