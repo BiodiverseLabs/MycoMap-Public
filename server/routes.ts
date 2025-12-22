@@ -10539,6 +10539,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Build update object, explicitly including null values for validation fields
       const updateData: any = { updatedAt: new Date() };
       
+      // When platform or observationId changes, reset validation so it can be re-validated
+      const needsRevalidation = platform !== undefined || observationId !== undefined;
+      
       if (platform !== undefined) updateData.platform = platform;
       if (observationId !== undefined) updateData.observationId = observationId;
       if (labCode !== undefined) updateData.labCode = labCode;
@@ -10550,6 +10553,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       if ('validationStatus' in req.body) updateData.validationStatus = validationStatus;
       if ('validationMessage' in req.body) updateData.validationMessage = validationMessage;
       if ('isValidated' in req.body) updateData.isValidated = isValidated;
+      
+      // If platform or observation changed and validation fields not explicitly set, reset validation
+      if (needsRevalidation && !('validationStatus' in req.body)) {
+        updateData.isValidated = false;
+        updateData.validationStatus = null;
+        updateData.validationMessage = null;
+      }
 
       const [updated] = await db.update(labWells)
         .set(updateData)
