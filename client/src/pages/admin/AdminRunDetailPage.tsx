@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2 } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +21,16 @@ interface RunFile {
   mimeType: string;
   createdAt: string;
   size: number;
+}
+
+interface RunStats {
+  totalSpecimens: number;
+  topStates: { state: string; count: number }[];
+  allStates: { state: string; count: number }[];
+  topUsers: { username: string; count: number }[];
+  allUsers: { username: string; count: number }[];
+  successRate: number | null;
+  totalFails: number | null;
 }
 
 interface Plate {
@@ -61,6 +72,8 @@ export default function AdminRunDetailPage() {
   const [addPlateOpen, setAddPlateOpen] = useState(false);
   const [newPlateName, setNewPlateName] = useState("");
   const [newPlateSampleCount, setNewPlateSampleCount] = useState(96);
+  const [showAllStates, setShowAllStates] = useState(false);
+  const [showAllUsers, setShowAllUsers] = useState(false);
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
@@ -69,6 +82,16 @@ export default function AdminRunDetailPage() {
       if (!res.ok) throw new Error('Failed to fetch run');
       return res.json();
     },
+  });
+
+  const { data: stats } = useQuery<RunStats>({
+    queryKey: ['/api/admin/runs', runId, 'stats'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/stats`);
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
+    enabled: !!runId,
   });
 
   const addPlateMutation = useMutation({
@@ -273,6 +296,140 @@ export default function AdminRunDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Run Summary Statistics */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {/* Total Specimens */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TestTube className="h-5 w-5 text-[#8CBD45]" />
+                <span className="text-sm text-gray-500">Total Specimens</span>
+              </div>
+              <p className="text-2xl font-bold" data-testid="stat-total-specimens">
+                {stats?.totalSpecimens ?? 0}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Top States */}
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => stats?.allStates?.length && setShowAllStates(true)}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="h-5 w-5 text-[#A87146]" />
+                <span className="text-sm text-gray-500">Top States</span>
+              </div>
+              {stats?.topStates?.length ? (
+                <div className="space-y-1">
+                  {stats.topStates.slice(0, 3).map((s, i) => (
+                    <div key={s.state} className="flex justify-between text-sm">
+                      <span className="truncate">{s.state}</span>
+                      <span className="text-gray-500">{s.count}</span>
+                    </div>
+                  ))}
+                  {stats.allStates.length > 3 && (
+                    <p className="text-xs text-blue-600 mt-1">+ {stats.allStates.length - 3} more</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm">No data</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Top Users */}
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => stats?.allUsers?.length && setShowAllUsers(true)}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-5 w-5 text-[#8CBD45]" />
+                <span className="text-sm text-gray-500">Top Users</span>
+              </div>
+              {stats?.topUsers?.length ? (
+                <div className="space-y-1">
+                  {stats.topUsers.slice(0, 3).map((u, i) => (
+                    <div key={u.username} className="flex justify-between text-sm">
+                      <span className="truncate">{u.username}</span>
+                      <span className="text-gray-500">{u.count}</span>
+                    </div>
+                  ))}
+                  {stats.allUsers.length > 3 && (
+                    <p className="text-xs text-blue-600 mt-1">+ {stats.allUsers.length - 3} more</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm">No data</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Success Rate */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span className="text-sm text-gray-500">Success %</span>
+              </div>
+              {stats?.successRate !== null ? (
+                <p className="text-2xl font-bold text-green-600">{stats.successRate}%</p>
+              ) : (
+                <p className="text-gray-400 text-sm">Pending results</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Total Fails */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                <span className="text-sm text-gray-500">Total Fails</span>
+              </div>
+              {stats?.totalFails !== null ? (
+                <p className="text-2xl font-bold text-red-600">{stats.totalFails}</p>
+              ) : (
+                <p className="text-gray-400 text-sm">Pending results</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* All States Dialog */}
+        <Dialog open={showAllStates} onOpenChange={setShowAllStates}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>All States ({stats?.allStates?.length || 0})</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[400px]">
+              <div className="space-y-2">
+                {stats?.allStates?.map((s, i) => (
+                  <div key={s.state} className="flex justify-between p-2 bg-gray-50 rounded">
+                    <span>{s.state}</span>
+                    <Badge variant="secondary">{s.count}</Badge>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* All Users Dialog */}
+        <Dialog open={showAllUsers} onOpenChange={setShowAllUsers}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>All Users ({stats?.allUsers?.length || 0})</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[400px]">
+              <div className="space-y-2">
+                {stats?.allUsers?.map((u, i) => (
+                  <div key={u.username} className="flex justify-between p-2 bg-gray-50 rounded">
+                    <span>{u.username}</span>
+                    <Badge variant="secondary">{u.count}</Badge>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {run.plates.map((plate) => (

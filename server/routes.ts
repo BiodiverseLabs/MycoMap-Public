@@ -10036,6 +10036,78 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // ============ RUN STATISTICS ============
+  
+  // Get run statistics (total specimens, top states, top users)
+  app.get("/api/admin/runs/:id/stats", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      // Get all plates for this run
+      const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
+      const plateIds = plates.map(p => p.id);
+      
+      if (plateIds.length === 0) {
+        return res.json({
+          totalSpecimens: 0,
+          topStates: [],
+          allStates: [],
+          topUsers: [],
+          allUsers: [],
+          successRate: null,
+          totalFails: null,
+        });
+      }
+      
+      // Get all wells for these plates that have observation data
+      const wells = await db.select().from(labWells)
+        .where(and(
+          inArray(labWells.plateId, plateIds),
+          or(
+            isNotNull(labWells.observationId),
+            isNotNull(labWells.specimenId)
+          )
+        ));
+      
+      const totalSpecimens = wells.length;
+      
+      // Aggregate states
+      const stateCounts: Record<string, number> = {};
+      for (const well of wells) {
+        if (well.state) {
+          stateCounts[well.state] = (stateCounts[well.state] || 0) + 1;
+        }
+      }
+      const sortedStates = Object.entries(stateCounts)
+        .map(([state, count]) => ({ state, count }))
+        .sort((a, b) => b.count - a.count);
+      
+      // Aggregate users
+      const userCounts: Record<string, number> = {};
+      for (const well of wells) {
+        if (well.username) {
+          userCounts[well.username] = (userCounts[well.username] || 0) + 1;
+        }
+      }
+      const sortedUsers = Object.entries(userCounts)
+        .map(([username, count]) => ({ username, count }))
+        .sort((a, b) => b.count - a.count);
+      
+      res.json({
+        totalSpecimens,
+        topStates: sortedStates.slice(0, 5),
+        allStates: sortedStates,
+        topUsers: sortedUsers.slice(0, 5),
+        allUsers: sortedUsers,
+        successRate: null,  // Will be populated when results are linked
+        totalFails: null,   // Will be populated when results are linked
+      });
+    } catch (error) {
+      console.error("Error fetching run stats:", error);
+      res.status(500).json({ error: "Failed to fetch run statistics" });
+    }
+  });
+
   // ============ RUN FILE GENERATION ============
 
   // Get files for a run
