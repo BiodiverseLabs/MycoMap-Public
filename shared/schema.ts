@@ -1529,6 +1529,7 @@ export const primerSets = pgTable("primer_sets", {
   orientation: text("orientation").notNull(), // Forward | Reverse
   type: text("type").notNull(), // Single | Pool
   poolSize: integer("pool_size"), // Number of primers in pool (only for Pool type)
+  isActive: boolean("is_active").default(true), // Whether primer shows in dropdowns
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -10100,12 +10100,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.patch("/api/admin/primer-sets/:id", isAdmin, async (req: any, res) => {
     try {
       const setId = parseInt(req.params.id);
-      const { title, orientation, type, poolSize, items } = req.body;
+      const { title, orientation, type, poolSize, items, isActive } = req.body;
       
       const updateData: any = { updatedAt: new Date() };
       if (title !== undefined) updateData.title = title;
       if (orientation !== undefined) updateData.orientation = orientation;
       if (type !== undefined) updateData.type = type;
+      if (isActive !== undefined) updateData.isActive = isActive;
       if (type === 'Pool' && poolSize !== undefined) {
         updateData.poolSize = poolSize;
       } else if (type === 'Single') {

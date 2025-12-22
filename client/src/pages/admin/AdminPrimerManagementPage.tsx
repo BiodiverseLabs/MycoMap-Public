@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, Plus, Pencil, Trash2, FlaskConical } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -26,6 +27,7 @@ interface PrimerSet {
   orientation: string;
   type: string;
   poolSize?: number | null;
+  isActive?: boolean;
   items?: PrimerItem[];
   createdAt: string;
 }
@@ -41,6 +43,7 @@ export default function AdminPrimerManagementPage() {
   const [singleLabel, setSingleLabel] = useState("");
   const [singleSequence, setSingleSequence] = useState("");
   const [poolItems, setPoolItems] = useState<PrimerItem[]>([]);
+  const [isActive, setIsActive] = useState(true);
 
   const { data: primerSets, isLoading } = useQuery<PrimerSet[]>({
     queryKey: ['/api/admin/primer-sets'],
@@ -102,6 +105,7 @@ export default function AdminPrimerManagementPage() {
     setSingleLabel("");
     setSingleSequence("");
     setPoolItems([]);
+    setIsActive(true);
   };
 
   const openAddDialog = () => {
@@ -117,6 +121,8 @@ export default function AdminPrimerManagementPage() {
       setTitle(fullSet.title);
       setOrientation(fullSet.orientation);
       setType(fullSet.type);
+      
+      setIsActive(fullSet.isActive !== false);
       
       if (fullSet.type === "Single" && fullSet.items?.length > 0) {
         setSingleLabel(fullSet.items[0].label);
@@ -217,6 +223,7 @@ export default function AdminPrimerManagementPage() {
       orientation, 
       type, 
       poolSize: type === "Pool" ? poolSize : undefined,
+      isActive,
       items 
     };
     
@@ -275,12 +282,13 @@ export default function AdminPrimerManagementPage() {
                     <TableHead>Orientation</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Pool Size</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {primerSets.map((primerSet) => (
-                    <TableRow key={primerSet.id} data-testid={`row-primer-set-${primerSet.id}`}>
+                    <TableRow key={primerSet.id} data-testid={`row-primer-set-${primerSet.id}`} className={primerSet.isActive === false ? "opacity-50" : ""}>
                       <TableCell className="font-medium">{primerSet.title}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{primerSet.orientation}</Badge>
@@ -290,6 +298,11 @@ export default function AdminPrimerManagementPage() {
                       </TableCell>
                       <TableCell>
                         {primerSet.type === "Pool" ? primerSet.poolSize : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={primerSet.isActive === false ? "destructive" : "default"}>
+                          {primerSet.isActive === false ? "Inactive" : "Active"}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -377,6 +390,21 @@ export default function AdminPrimerManagementPage() {
                   </Select>
                 </div>
               </div>
+
+              {editingSet && (
+                <div className="flex items-center justify-between border rounded-lg p-4">
+                  <div>
+                    <Label htmlFor="isActive" className="text-base font-medium">Active Status</Label>
+                    <p className="text-sm text-gray-500">Inactive primers won't appear in dropdown selections</p>
+                  </div>
+                  <Switch
+                    id="isActive"
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                    data-testid="switch-is-active"
+                  />
+                </div>
+              )}
 
               {type === "Single" && (
                 <div className="space-y-4 border rounded-lg p-4">
