@@ -9863,7 +9863,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (!finalPlatform && finalObsId) {
             validationResult.status = 'missing_platform';
             validationResult.message = 'Platform not specified';
+          } else if (finalPlatform === 'iNaturalist' && finalObsId && !validationResult.apiFetched) {
+            // For iNaturalist, we require successful API verification
+            validationResult.status = 'pending';
+            validationResult.message = 'Awaiting API verification';
           } else if (finalPlatform && finalObsId) {
+            // For non-iNaturalist platforms (MO, MyCoPortal), mark as ready
             validationResult.status = 'valid';
             validationResult.message = 'Ready for processing';
           } else if (well.labCode && !finalObsId) {

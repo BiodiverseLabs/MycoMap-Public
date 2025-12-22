@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +63,7 @@ const validationColors: Record<string, string> = {
   no_observation: "bg-purple-50",
   multiple_inat: "bg-red-100",
   not_fungal: "bg-red-200",
+  pending: "bg-blue-50",
 };
 
 export default function AdminPlateEditorPage() {
@@ -629,6 +630,8 @@ export default function AdminPlateEditorPage() {
                             <div className="flex items-center gap-1" title={well.validationMessage || undefined}>
                               {well.validationStatus === 'valid' ? (
                                 <CheckCircle className="h-4 w-4 text-green-600" />
+                              ) : well.validationStatus === 'pending' ? (
+                                <Clock className="h-4 w-4 text-blue-500" />
                               ) : (
                                 <AlertCircle className="h-4 w-4 text-red-500" />
                               )}
