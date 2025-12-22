@@ -53,6 +53,7 @@ export default function AdminIndexManagementPage() {
   const [type, setType] = useState("96");
   const [entries, setEntries] = useState<Record<string, string>>({});
   const [singleEntry, setSingleEntry] = useState("");
+  const [plateCount, setPlateCount] = useState(20);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: indexSets, isLoading } = useQuery<IndexSet[]>({
@@ -113,6 +114,7 @@ export default function AdminIndexManagementPage() {
     setType("96");
     setEntries({});
     setSingleEntry("");
+    setPlateCount(20);
   };
 
   const openAddDialog = () => {
@@ -131,6 +133,16 @@ export default function AdminIndexManagementPage() {
       
       if (fullSet.type === "Single" && fullSet.entries?.length > 0) {
         setSingleEntry(fullSet.entries[0].indexSequence);
+      } else if (fullSet.type === "Single Plate" && fullSet.entries) {
+        const entryMap: Record<string, string> = {};
+        let maxPlate = 1;
+        fullSet.entries.forEach((e: IndexEntry) => {
+          entryMap[e.wellPosition] = e.indexSequence;
+          const plateNum = parseInt(e.wellPosition.replace("plate_", ""));
+          if (!isNaN(plateNum) && plateNum > maxPlate) maxPlate = plateNum;
+        });
+        setEntries(entryMap);
+        setPlateCount(maxPlate);
       } else if (fullSet.entries) {
         const entryMap: Record<string, string> = {};
         fullSet.entries.forEach((e: IndexEntry) => {
@@ -148,6 +160,13 @@ export default function AdminIndexManagementPage() {
     if (type === "Single") {
       if (singleEntry.trim()) {
         entryList.push({ wellPosition: "single", indexSequence: singleEntry.trim() });
+      }
+    } else if (type === "Single Plate") {
+      for (let i = 1; i <= plateCount; i++) {
+        const key = `plate_${i}`;
+        if (entries[key]?.trim()) {
+          entryList.push({ wellPosition: key, indexSequence: entries[key].trim() });
+        }
       }
     } else {
       WELL_POSITIONS_96.forEach(pos => {
@@ -330,9 +349,24 @@ export default function AdminIndexManagementPage() {
                     <SelectContent>
                       <SelectItem value="96">96</SelectItem>
                       <SelectItem value="Single">Single</SelectItem>
+                      <SelectItem value="Single Plate">Single Plate</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                {type === "Single Plate" && (
+                  <div>
+                    <Label htmlFor="plate-count">Number of Plates</Label>
+                    <Input
+                      id="plate-count"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={plateCount}
+                      onChange={(e) => setPlateCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                      data-testid="input-plate-count"
+                    />
+                  </div>
+                )}
               </div>
 
               {type === "Single" ? (
@@ -346,6 +380,42 @@ export default function AdminIndexManagementPage() {
                     className="font-mono"
                     data-testid="input-single-index"
                   />
+                </div>
+              ) : type === "Single Plate" ? (
+                <div>
+                  <Label>Index Sequences (Plates 1-{plateCount})</Label>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Enter one index sequence per plate
+                  </p>
+                  <div className="border rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px] sticky top-0 bg-white">Plate</TableHead>
+                          <TableHead className="sticky top-0 bg-white">Index Sequence</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Array.from({ length: plateCount }, (_, i) => i + 1).map((plateNum) => {
+                          const key = `plate_${plateNum}`;
+                          return (
+                            <TableRow key={key}>
+                              <TableCell className="font-medium">Plate {plateNum}</TableCell>
+                              <TableCell>
+                                <Input
+                                  value={entries[key] || ""}
+                                  onChange={(e) => setEntries({ ...entries, [key]: e.target.value })}
+                                  className="font-mono h-8"
+                                  placeholder="Enter sequence"
+                                  data-testid={`input-index-plate-${plateNum}`}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               ) : (
                 <div>
