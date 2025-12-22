@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -10031,6 +10031,123 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error deleting index set:", error);
       res.status(500).json({ error: "Failed to delete index set" });
+    }
+  });
+
+  // ============ PRIMER MANAGEMENT ============
+
+  // Get all primer sets
+  app.get("/api/admin/primer-sets", isAdmin, async (req: any, res) => {
+    try {
+      const sets = await db.select().from(primerSets).orderBy(primerSets.title);
+      res.json(sets);
+    } catch (error) {
+      console.error("Error fetching primer sets:", error);
+      res.status(500).json({ error: "Failed to fetch primer sets" });
+    }
+  });
+
+  // Get single primer set with items
+  app.get("/api/admin/primer-sets/:id", isAdmin, async (req: any, res) => {
+    try {
+      const setId = parseInt(req.params.id);
+      const [primerSet] = await db.select().from(primerSets).where(eq(primerSets.id, setId));
+      if (!primerSet) {
+        return res.status(404).json({ error: "Primer set not found" });
+      }
+      const items = await db.select().from(primerItems).where(eq(primerItems.primerSetId, setId)).orderBy(primerItems.sortOrder);
+      res.json({ ...primerSet, items });
+    } catch (error) {
+      console.error("Error fetching primer set:", error);
+      res.status(500).json({ error: "Failed to fetch primer set" });
+    }
+  });
+
+  // Create primer set with items
+  app.post("/api/admin/primer-sets", isAdmin, async (req: any, res) => {
+    try {
+      const { title, orientation, type, poolSize, items } = req.body;
+      
+      const [newSet] = await db.insert(primerSets).values({
+        title,
+        orientation,
+        type,
+        poolSize: type === 'Pool' ? poolSize : null,
+      }).returning();
+      
+      // Insert items if provided
+      if (items && items.length > 0) {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          await db.insert(primerItems).values({
+            primerSetId: newSet.id,
+            label: item.label,
+            sequence: item.sequence || null,
+            sortOrder: i + 1,
+          });
+        }
+      }
+      
+      const allItems = await db.select().from(primerItems).where(eq(primerItems.primerSetId, newSet.id)).orderBy(primerItems.sortOrder);
+      res.json({ ...newSet, items: allItems });
+    } catch (error) {
+      console.error("Error creating primer set:", error);
+      res.status(500).json({ error: "Failed to create primer set" });
+    }
+  });
+
+  // Update primer set
+  app.patch("/api/admin/primer-sets/:id", isAdmin, async (req: any, res) => {
+    try {
+      const setId = parseInt(req.params.id);
+      const { title, orientation, type, poolSize, items } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      if (title !== undefined) updateData.title = title;
+      if (orientation !== undefined) updateData.orientation = orientation;
+      if (type !== undefined) updateData.type = type;
+      if (type === 'Pool' && poolSize !== undefined) {
+        updateData.poolSize = poolSize;
+      } else if (type === 'Single') {
+        updateData.poolSize = null;
+      }
+      
+      const [updated] = await db.update(primerSets)
+        .set(updateData)
+        .where(eq(primerSets.id, setId))
+        .returning();
+      
+      // If items provided, replace all items
+      if (items !== undefined) {
+        await db.delete(primerItems).where(eq(primerItems.primerSetId, setId));
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          await db.insert(primerItems).values({
+            primerSetId: setId,
+            label: item.label,
+            sequence: item.sequence || null,
+            sortOrder: i + 1,
+          });
+        }
+      }
+      
+      const allItems = await db.select().from(primerItems).where(eq(primerItems.primerSetId, setId)).orderBy(primerItems.sortOrder);
+      res.json({ ...updated, items: allItems });
+    } catch (error) {
+      console.error("Error updating primer set:", error);
+      res.status(500).json({ error: "Failed to update primer set" });
+    }
+  });
+
+  // Delete primer set
+  app.delete("/api/admin/primer-sets/:id", isAdmin, async (req: any, res) => {
+    try {
+      const setId = parseInt(req.params.id);
+      await db.delete(primerSets).where(eq(primerSets.id, setId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting primer set:", error);
+      res.status(500).json({ error: "Failed to delete primer set" });
     }
   });
 
