@@ -12,6 +12,7 @@ import { db, pool } from "./db";
 import { sql, eq, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
+import { extractLocationFromObservation, normalizeState, normalizeCountry } from "./locationService";
 import { WebSocketServer } from "ws";
 import { setupAuth, registerAuthRoutes, isAuthenticated, requireSubscription, setSubscriptionChecker, isAdmin, setAdminChecker } from "./replit_integrations/auth";
 
@@ -9864,15 +9865,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationResult.scientificName = obs.taxon?.name;
             validationResult.username = obs.user?.login || null;
             
-            // Extract location data from iNaturalist
-            const placeGuess = obs.place_guess || '';
-            const placeParts = placeGuess.split(',').map((p: string) => p.trim());
-            // iNaturalist place_guess format is typically: "City, State, Country" or "State, Country"
-            if (placeParts.length >= 2) {
-              validationResult.state = placeParts[placeParts.length - 2] || null;
-              validationResult.country = placeParts[placeParts.length - 1] || null;
-            } else if (placeParts.length === 1) {
-              validationResult.country = placeParts[0] || null;
+            // Extract location data from iNaturalist using structured place_ids
+            try {
+              const location = await extractLocationFromObservation(obs);
+              validationResult.state = location.stateCode || location.stateName || null;
+              validationResult.country = location.countryCode || location.countryName || null;
+            } catch (locError) {
+              console.error(`[Validate] Location extraction error for ${obsId}:`, locError);
+              validationResult.state = null;
+              validationResult.country = null;
             }
             
             const iconicTaxon = obs.taxon?.iconic_taxon_name;
@@ -9918,15 +9919,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationResult.scientificName = moObs.consensus?.name || moObs.name?.name || null;
             
             // Extract location data from Mushroom Observer
-            // MO location format can vary - try to extract state/country from location name
+            // MO location format can vary - use normalizer for consistent output
             const moLocation = moObs.location?.name || moObs.where || '';
             const moLocationParts = moLocation.split(',').map((p: string) => p.trim());
             if (moLocationParts.length >= 2) {
-              // Format is typically "County, State, Country" or "State, Country"
-              validationResult.state = moLocationParts[moLocationParts.length - 2] || null;
-              validationResult.country = moLocationParts[moLocationParts.length - 1] || null;
+              // Format is typically "County, State, Country" or "City, State, Country"
+              // Try to normalize the last two parts
+              const potentialState = moLocationParts[moLocationParts.length - 2];
+              const potentialCountry = moLocationParts[moLocationParts.length - 1];
+              
+              const normalizedCountry = normalizeCountry(potentialCountry);
+              const normalizedState = normalizeState(potentialState);
+              
+              validationResult.country = normalizedCountry?.code || potentialCountry || null;
+              validationResult.state = normalizedState?.code || potentialState || null;
             } else if (moLocationParts.length === 1) {
-              validationResult.country = moLocationParts[0] || null;
+              const normalizedCountry = normalizeCountry(moLocationParts[0]);
+              validationResult.country = normalizedCountry?.code || moLocationParts[0] || null;
             }
             
             // MO observations are fungi by default (it's a mycology platform)

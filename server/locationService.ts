@@ -66,13 +66,22 @@ export const COUNTRIES_REVERSE: Record<string, string> = Object.fromEntries(
   Object.entries(COUNTRIES).map(([code, name]) => [name.toLowerCase(), code])
 );
 
-// iNaturalist place types
+// iNaturalist place types and admin levels
 // See: https://www.inaturalist.org/pages/place_guide
+// Admin levels: 0=Country, 10=State/Province, 20=County, 30=City
 export const PLACE_TYPES = {
-  COUNTRY: 12,      // admin_level 0
-  STATE: 8,         // admin_level 1 (state/province)
-  COUNTY: 9,        // admin_level 2
+  COUNTRY: 12,      // place_type for countries
+  STATE: 8,         // place_type for states/provinces
+  COUNTY: 9,        // place_type for counties
   OPEN_SPACE: 100,  // Parks, reserves, etc.
+};
+
+// Admin level constants (iNaturalist uses these for administrative hierarchy)
+export const ADMIN_LEVELS = {
+  COUNTRY: 0,       // Nation level
+  STATE: 10,        // State/Province level
+  COUNTY: 20,       // County/District level
+  CITY: 30,         // City/Town level
 };
 
 // Cache for place lookups
@@ -243,30 +252,50 @@ export async function extractLocationFromObservation(
     const places = await fetchPlaces(placeIds);
     
     // Find country (admin_level 0 or place_type 12)
+    // iNaturalist admin_level 0 = Country
     const country = places.find(p => 
-      p.admin_level === 0 || p.place_type === PLACE_TYPES.COUNTRY
+      p.admin_level === ADMIN_LEVELS.COUNTRY || p.place_type === PLACE_TYPES.COUNTRY
     );
     
-    // Find state/province (admin_level 1 or place_type 8)
+    // Find state/province (admin_level 10 or place_type 8)
+    // iNaturalist admin_level 10 = State/Province
     const state = places.find(p => 
-      p.admin_level === 1 || p.place_type === PLACE_TYPES.STATE
+      p.admin_level === ADMIN_LEVELS.STATE || p.place_type === PLACE_TYPES.STATE
     );
     
     if (country) {
-      const normalized = normalizeCountry(country.name);
-      if (normalized) {
-        result.countryCode = normalized.code;
-        result.countryName = normalized.name;
+      // Use the ISO code from the API if available, otherwise normalize the name
+      if (country.code && country.code.length === 2) {
+        result.countryCode = country.code.toUpperCase();
+        result.countryName = COUNTRIES[result.countryCode] || country.name;
         result.confidence = 'exact';
+      } else {
+        const normalized = normalizeCountry(country.name);
+        if (normalized) {
+          result.countryCode = normalized.code;
+          result.countryName = normalized.name;
+          result.confidence = 'exact';
+        }
       }
     }
     
     if (state) {
-      const normalized = normalizeState(state.name);
-      if (normalized) {
-        result.stateCode = normalized.code;
-        result.stateName = normalized.name;
+      // Use the ISO code from the API if available (e.g., "US-MI" for Michigan)
+      if (state.code) {
+        // ISO 3166-2 codes are formatted like "US-MI", extract just the state part
+        const codeParts = state.code.split('-');
+        const stateCode = codeParts.length > 1 ? codeParts[1] : state.code;
+        result.stateCode = stateCode.toUpperCase();
+        // Look up the full name from our lookup tables
+        result.stateName = US_STATES[result.stateCode] || CA_PROVINCES[result.stateCode] || state.name;
         result.confidence = 'exact';
+      } else {
+        const normalized = normalizeState(state.name);
+        if (normalized) {
+          result.stateCode = normalized.code;
+          result.stateName = normalized.name;
+          result.confidence = 'exact';
+        }
       }
     }
   }
