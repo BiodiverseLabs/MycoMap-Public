@@ -9831,8 +9831,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // no_voucher and cleared are acceptable - don't count them as errors for plate status
         const acceptableStatuses = ['valid', 'no_voucher', 'cleared'];
         const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
-        // Plate is "fully validated" if all samples are validated with acceptable statuses
-        const validatedOrAcceptableCount = wells.filter(w => w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)).length;
+        // "Cleared" in the UI sense = wells that had validation cleared (isValidated=false, no status, but has data)
+        const clearedCount = wells.filter(w => 
+          w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode)
+        ).length;
+        // Plate is "fully validated" if all samples are validated with acceptable statuses OR cleared
+        const validatedOrAcceptableCount = wells.filter(w => 
+          (w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)) ||
+          (w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode))
+        ).length;
         
         // Plate is fully validated only if:
         // 1. Has samples
@@ -9864,6 +9871,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           sampleCount,
           validatedCount,
           errorCount,
+          clearedCount,
           isFullyValidated,
         };
       }));
