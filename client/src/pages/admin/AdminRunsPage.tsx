@@ -178,25 +178,34 @@ export default function AdminRunsPage() {
       setLocation(`/admin/runs/${data.run.id}`);
     },
     onError: (error: any) => {
-      console.log('[Index Upload Error]', JSON.stringify(error, null, 2));
+      // Parse error if it's a string (sometimes errors get stringified)
+      let parsedError = error;
+      if (typeof error === 'string') {
+        try {
+          parsedError = JSON.parse(error);
+        } catch {
+          parsedError = { message: error };
+        }
+      }
+      // Handle Error objects with message property containing JSON
+      if (error?.message && typeof error.message === 'string') {
+        try {
+          const match = error.message.match(/\d+:\s*(\{.*\})/);
+          if (match) {
+            parsedError = JSON.parse(match[1]);
+          }
+        } catch {
+          // Keep original error
+        }
+      }
       
-      const details = error?.details || [];
-      const missingFwIndexes = error?.missingFwIndexes || [];
-      const missingRvIndexes = error?.missingRvIndexes || [];
-      const missingFwPrimers = error?.missingFwPrimers || [];
-      const missingRvPrimers = error?.missingRvPrimers || [];
+      const details = parsedError?.details || [];
+      const missingFwIndexes = parsedError?.missingFwIndexes || [];
+      const missingRvIndexes = parsedError?.missingRvIndexes || [];
+      const missingFwPrimers = parsedError?.missingFwPrimers || [];
+      const missingRvPrimers = parsedError?.missingRvPrimers || [];
       
       const allErrors: string[] = [];
-      
-      if (error?.error) {
-        allErrors.push(error.error);
-      } else if (error?.message) {
-        allErrors.push(error.message);
-      }
-      
-      if (details.length > 0) {
-        allErrors.push(...details);
-      }
       
       if (missingFwIndexes.length > 0) {
         allErrors.push(`Missing forward indexes (${missingFwIndexes.length} total): ${missingFwIndexes.slice(0, 10).join(', ')}${missingFwIndexes.length > 10 ? ` (+${missingFwIndexes.length - 10} more)` : ''}`);
@@ -212,6 +221,19 @@ export default function AdminRunsPage() {
       
       if (missingRvPrimers.length > 0) {
         allErrors.push(`Missing reverse primers: ${missingRvPrimers.join(', ')}`);
+      }
+      
+      if (details.length > 0) {
+        allErrors.push(...details);
+      }
+      
+      // Add the general error message last if we have specific errors, or first if we don't
+      if (allErrors.length === 0) {
+        if (parsedError?.error) {
+          allErrors.push(parsedError.error);
+        } else if (parsedError?.message) {
+          allErrors.push(parsedError.message);
+        }
       }
       
       if (allErrors.length > 0) {
