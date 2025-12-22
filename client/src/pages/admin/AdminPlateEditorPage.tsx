@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -627,6 +627,7 @@ export default function AdminPlateEditorPage() {
                     <TableHead className="w-[100px]">State</TableHead>
                     <TableHead className="w-[100px]">Country</TableHead>
                     <TableHead className="w-[100px]">Primer Pool</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -748,6 +749,39 @@ export default function AdminPlateEditorPage() {
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {well.primerPool || '—'}
+                        </TableCell>
+                        <TableCell>
+                          {validationStatus && !['valid', 'no_voucher'].includes(validationStatus) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setWellData(prev => ({
+                                  ...prev,
+                                  [well.id]: { 
+                                    ...prev[well.id], 
+                                    validationStatus: null,
+                                    validationMessage: null,
+                                    isValidated: false
+                                  }
+                                }));
+                                updateWellMutation.mutate({ 
+                                  wellId: well.id, 
+                                  data: { 
+                                    validationStatus: null, 
+                                    validationMessage: null,
+                                    isValidated: false 
+                                  } 
+                                });
+                                toast({ title: "Cleared", description: "Validation error cleared" });
+                              }}
+                              title="Clear error"
+                              data-testid={`button-clear-error-${well.wellPosition}`}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
