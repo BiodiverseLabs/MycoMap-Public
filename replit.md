@@ -35,6 +35,12 @@ Preferred communication style: Simple, everyday language.
 - **IPFS Integration**: Decentralized file storage using Helia client for validated observations, including automatic upload of scientific records (BLAST results, trace files, API responses) and permanent IPFS URLs.
 - **BioRecords Management**: Metadata transparency, scientific name validation, and image generation for trading cards.
 - **NFT Minting**: Functionality for minting NFTs from biorecords, including token tracking and metadata.
+- **Specimen Shipment Tracking**: User-submitted shipments for DNA barcoding with bag/specimen tracking, iNaturalist/Mushroom Observer validation, slime mold detection (via iconic_taxon_name="Protozoa"), voucher number extraction from iNaturalist observation fields, and processing status pipeline (pending → submitted → received → processing → sequenced → complete).
+- **Admin LIMS Panel**: Laboratory Information Management System for processing specimen shipments with:
+  - **Pending Shipments**: Admin view of submitted shipments with user info, state, specimen counts, and action buttons (Mark Received, Sent to Indiana)
+  - **Lab Runs**: Container for 20 sequencing plates per run with draft/in_progress/completed status
+  - **Lab Plates**: 96-well plate editor (A01-H12) with platform selection (iNaturalist, MO, MyCoPortal), observation ID, lab code, and primer configuration
+  - **Plate Validation**: Automated lookup against iNaturalist API to verify voucher numbers and flag mismatches
 
 ### Data Flow
 - **Upload and Processing**: File upload, initial validation, background processing, batch insertion, post-processing (including contributor/species statistics), and automated classification updates.
