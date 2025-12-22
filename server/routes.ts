@@ -9689,7 +9689,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
       }
 
-      res.json({ ...plate, wells });
+      // For pending plates, runName is always null
+      res.json({ ...plate, runName: null, wells });
     } catch (error) {
       console.error("Error fetching pending plate:", error);
       res.status(500).json({ error: "Failed to fetch pending plate" });
