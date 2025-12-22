@@ -9319,6 +9319,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // ADMIN LIMS API ENDPOINTS
   // =============================================
 
+  // Get all shipments (admin only) - for dashboard statistics
+  app.get("/api/admin/shipments", isAdmin, async (req: any, res) => {
+    try {
+      const allShipments = await db.select({
+        id: shipments.id,
+        status: shipments.status,
+      }).from(shipments);
+      res.json(allShipments);
+    } catch (error) {
+      console.error("Error fetching shipments:", error);
+      res.status(500).json({ error: "Failed to fetch shipments" });
+    }
+  });
+
   // Get all pending shipments (admin only)
   app.get("/api/admin/shipments/pending", isAdmin, async (req: any, res) => {
     try {
