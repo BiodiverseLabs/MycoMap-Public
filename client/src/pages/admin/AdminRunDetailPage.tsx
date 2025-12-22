@@ -194,7 +194,8 @@ export default function AdminRunDetailPage() {
     queryFn: async () => {
       const res = await fetch('/api/admin/bioinformatics/methods');
       if (!res.ok) throw new Error('Failed to fetch methods');
-      return res.json();
+      const data = await res.json();
+      return data.methods || [];
     },
   });
 
