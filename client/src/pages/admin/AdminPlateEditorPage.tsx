@@ -387,6 +387,8 @@ export default function AdminPlateEditorPage() {
                     <TableHead className="w-[150px]">Observation Number</TableHead>
                     <TableHead className="w-[100px]">Validation</TableHead>
                     <TableHead>Voucher #</TableHead>
+                    <TableHead className="w-[100px]">Fwd Primer</TableHead>
+                    <TableHead className="w-[100px]">Rev Primer</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -473,6 +475,12 @@ export default function AdminPlateEditorPage() {
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {well.voucherNumber || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {well.forwardPrimer || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {well.reversePrimer || '—'}
                         </TableCell>
                       </TableRow>
                     );
