@@ -9094,12 +9094,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
                 
                 // Extract Voucher Number(s) from observation fields
+                // Check both "Voucher Number(s)" and "Voucher Number" (field ID 8257)
                 const observationFields = obs.ofvs || [];
-                const voucherNumberField = observationFields.find((field: any) => 
+                const voucherNumbersField = observationFields.find((field: any) => 
                   field.name === "Voucher Number(s)" || 
                   field.observation_field?.name === "Voucher Number(s)"
                 );
-                const voucherNumber = voucherNumberField?.value || null;
+                const voucherNumberField = observationFields.find((field: any) => 
+                  field.name === "Voucher Number" || 
+                  field.observation_field?.name === "Voucher Number" ||
+                  field.observation_field_id === 8257
+                );
+                // Prefer "Voucher Number(s)" but fall back to "Voucher Number"
+                const voucherNumber = voucherNumbersField?.value || voucherNumberField?.value || null;
                 
                 let validationStatus = "invalid";
                 let validationMessage = "This observation is not fungal";
@@ -10316,8 +10323,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (obs) {
             validationResult.apiFetched = true;
             
-            const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
-            const inatVoucher = voucherField?.value || null;
+            // Check both "Voucher Number(s)" and "Voucher Number" (field ID 8257)
+            const voucherNumbersField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
+            const voucherNumberField = obs.ofvs?.find((f: any) => 
+              f.name === 'Voucher Number' || f.observation_field_id === 8257
+            );
+            const inatVoucher = voucherNumbersField?.value || voucherNumberField?.value || null;
 
             validationResult.voucherNumber = inatVoucher;
             validationResult.scientificName = obs.taxon?.name;
@@ -10797,8 +10808,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (obs) {
             validationResult.apiFetched = true;
             
-            const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
-            const inatVoucher = voucherField?.value || null;
+            // Check both "Voucher Number(s)" and "Voucher Number" (field ID 8257)
+            const voucherNumbersField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
+            const voucherNumberField = obs.ofvs?.find((f: any) => 
+              f.name === 'Voucher Number' || f.observation_field_id === 8257
+            );
+            const inatVoucher = voucherNumbersField?.value || voucherNumberField?.value || null;
 
             validationResult.voucherNumber = inatVoucher;
             validationResult.scientificName = obs.taxon?.name;
