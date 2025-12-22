@@ -377,7 +377,7 @@ export default function ProfilePage() {
                                     {shipment.trackingNumber}
                                   </Badge>
                                 )}
-                                {shipment.status === "draft" && (
+                                {shipment.status === "draft" ? (
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -385,6 +385,15 @@ export default function ProfilePage() {
                                     data-testid={`button-continue-${shipment.id}`}
                                   >
                                     Continue
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setLocation(`/shipment/${shipment.id}`)}
+                                    data-testid={`button-view-${shipment.id}`}
+                                  >
+                                    View Details
                                   </Button>
                                 )}
                               </div>

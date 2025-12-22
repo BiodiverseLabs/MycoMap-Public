@@ -76,6 +76,8 @@ export default function ShipmentPage() {
     enabled: !!currentShipmentId,
   });
 
+  const isReadOnly = currentShipment?.status === "submitted";
+
   useEffect(() => {
     if (currentShipment && !initialized) {
       setQuestionnaire({
@@ -337,12 +339,19 @@ export default function ShipmentPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-6 w-6 text-myco-green" />
-                Create New Shipment
+                {isReadOnly ? `Shipment #${currentShipmentId}` : "Create New Shipment"}
               </CardTitle>
               <CardDescription>
-                {currentStep === "questionnaire" && "Answer a few questions about your specimens"}
-                {currentStep === "bags" && "Add specimens to your shipment bags"}
-                {currentStep === "complete" && "Shipment submitted successfully"}
+                {isReadOnly 
+                  ? "View your submitted shipment details" 
+                  : (
+                    <>
+                      {currentStep === "questionnaire" && "Answer a few questions about your specimens"}
+                      {currentStep === "bags" && "Add specimens to your shipment bags"}
+                      {currentStep === "complete" && "Shipment submitted successfully"}
+                    </>
+                  )
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -490,6 +499,18 @@ export default function ShipmentPage() {
 
               {currentStep === "bags" && currentShipment && (
                 <div className="space-y-6">
+                  {isReadOnly && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                        <span className="font-medium">This shipment has been submitted</span>
+                      </div>
+                      <p className="mt-1 text-blue-700">
+                        Submitted on {currentShipment.submittedAt ? new Date(currentShipment.submittedAt).toLocaleDateString() : 'N/A'}
+                        {currentShipment.trackingNumber && <> • Tracking: <span className="font-mono">{currentShipment.trackingNumber}</span></>}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2 items-center">
                     {currentShipment.bags?.map((bag) => (
                       <Button
@@ -505,69 +526,79 @@ export default function ShipmentPage() {
                         )}
                       </Button>
                     ))}
-                    <Button
-                      variant="outline"
-                      onClick={() => createBagMutation.mutate(currentShipmentId!)}
-                      disabled={createBagMutation.isPending}
-                      data-testid="button-create-bag"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Create New Bag
-                    </Button>
+                    {!isReadOnly && (
+                      <Button
+                        variant="outline"
+                        onClick={() => createBagMutation.mutate(currentShipmentId!)}
+                        disabled={createBagMutation.isPending}
+                        data-testid="button-create-bag"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Create New Bag
+                      </Button>
+                    )}
                   </div>
 
                   {selectedBag && (
                     <Card>
                       <CardHeader className="pb-2">
                         <div className="flex items-center justify-between">
-                          <Input
-                            value={selectedBag.name}
-                            onChange={(e) => updateBagMutation.mutate({ bagId: selectedBag.id, data: { name: e.target.value } })}
-                            className="text-lg font-semibold w-48"
-                            data-testid="input-bag-name"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => deleteBagMutation.mutate(selectedBag.id)}
-                            data-testid="button-delete-bag"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {isReadOnly ? (
+                            <h3 className="text-lg font-semibold">{selectedBag.name}</h3>
+                          ) : (
+                            <>
+                              <Input
+                                value={selectedBag.name}
+                                onChange={(e) => updateBagMutation.mutate({ bagId: selectedBag.id, data: { name: e.target.value } })}
+                                className="text-lg font-semibold w-48"
+                                data-testid="input-bag-name"
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => deleteBagMutation.mutate(selectedBag.id)}
+                                data-testid="button-delete-bag"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="flex gap-2">
-                          <Select
-                            value={newObservationPlatform}
-                            onValueChange={(v) => setNewObservationPlatform(v as any)}
-                          >
-                            <SelectTrigger className="w-48" data-testid="select-platform">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="iNaturalist">iNaturalist</SelectItem>
-                              <SelectItem value="Mushroom Observer">Mushroom Observer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            placeholder="Observation ID or URL"
-                            value={newObservationId}
-                            onChange={(e) => setNewObservationId(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleAddSpecimen()}
-                            className="flex-1"
-                            data-testid="input-observation-id"
-                          />
-                          <Button onClick={handleAddSpecimen} disabled={addSpecimenMutation.isPending} data-testid="button-add-specimen">
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add
-                          </Button>
-                          <Button variant="outline" onClick={handleOpenPasteDialog} data-testid="button-paste-list">
-                            <Clipboard className="h-4 w-4 mr-1" />
-                            Paste List
-                          </Button>
-                        </div>
+                        {!isReadOnly && (
+                          <div className="flex gap-2">
+                            <Select
+                              value={newObservationPlatform}
+                              onValueChange={(v) => setNewObservationPlatform(v as any)}
+                            >
+                              <SelectTrigger className="w-48" data-testid="select-platform">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="iNaturalist">iNaturalist</SelectItem>
+                                <SelectItem value="Mushroom Observer">Mushroom Observer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              placeholder="Observation ID or URL"
+                              value={newObservationId}
+                              onChange={(e) => setNewObservationId(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && handleAddSpecimen()}
+                              className="flex-1"
+                              data-testid="input-observation-id"
+                            />
+                            <Button onClick={handleAddSpecimen} disabled={addSpecimenMutation.isPending} data-testid="button-add-specimen">
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add
+                            </Button>
+                            <Button variant="outline" onClick={handleOpenPasteDialog} data-testid="button-paste-list">
+                              <Clipboard className="h-4 w-4 mr-1" />
+                              Paste List
+                            </Button>
+                          </div>
+                        )}
 
                         {selectedBag.specimens && selectedBag.specimens.length > 0 && (
                           <div className="border rounded-lg overflow-hidden">
@@ -581,7 +612,7 @@ export default function ShipmentPage() {
                                   <th className="px-3 py-2 text-left">Voucher Number(s)</th>
                                   <th className="px-3 py-2 text-left">Date</th>
                                   <th className="px-3 py-2 text-left">User</th>
-                                  <th className="px-3 py-2"></th>
+                                  {!isReadOnly && <th className="px-3 py-2"></th>}
                                 </tr>
                               </thead>
                               <tbody>
@@ -614,19 +645,21 @@ export default function ShipmentPage() {
                                       <td className="px-3 py-2 text-xs font-mono">{specimen.voucherNumber || "-"}</td>
                                       <td className="px-3 py-2 text-xs">{specimen.observedDate || "-"}</td>
                                       <td className="px-3 py-2 text-xs">{specimen.username || "-"}</td>
-                                      <td className="px-3 py-2">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="text-red-600"
-                                          onClick={() => deleteSpecimenMutation.mutate(specimen.id)}
-                                          data-testid={`button-delete-specimen-${specimen.id}`}
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </td>
+                                      {!isReadOnly && (
+                                        <td className="px-3 py-2">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-red-600"
+                                            onClick={() => deleteSpecimenMutation.mutate(specimen.id)}
+                                            data-testid={`button-delete-specimen-${specimen.id}`}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </td>
+                                      )}
                                     </tr>
-                                    {specimen.isValidated && (specimen.validationStatus === "invalid" || specimen.validationStatus === "slime_mold") && (
+                                    {!isReadOnly && specimen.isValidated && (specimen.validationStatus === "invalid" || specimen.validationStatus === "slime_mold") && (
                                       <tr key={`${specimen.id}-message`} className="bg-red-50">
                                         <td colSpan={8} className="px-3 py-2">
                                           <div className="flex items-center justify-between">
@@ -656,19 +689,21 @@ export default function ShipmentPage() {
                           </div>
                         )}
 
-                        <div className="flex gap-4">
-                          <Button variant="outline" onClick={handleSaveForLater} data-testid="button-save-later-bags">
-                            Save for Later
-                          </Button>
-                          <Button
-                            onClick={handleValidate}
-                            disabled={isValidating || !selectedBag.specimens?.length}
-                            data-testid="button-validate"
-                          >
-                            {isValidating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            Validate Specimens
-                          </Button>
-                        </div>
+                        {!isReadOnly && (
+                          <div className="flex gap-4">
+                            <Button variant="outline" onClick={handleSaveForLater} data-testid="button-save-later-bags">
+                              Save for Later
+                            </Button>
+                            <Button
+                              onClick={handleValidate}
+                              disabled={isValidating || !selectedBag.specimens?.length}
+                              data-testid="button-validate"
+                            >
+                              {isValidating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                              Validate Specimens
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )}
@@ -676,19 +711,28 @@ export default function ShipmentPage() {
                   <Separator />
 
                   <div className="flex gap-4 justify-between">
-                    <Button variant="outline" onClick={() => setCurrentStep("questionnaire")} data-testid="button-back-questionnaire">
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back to Questionnaire
-                    </Button>
-                    <Button
-                      className="bg-myco-green hover:bg-myco-green/90"
-                      onClick={handleGetAddress}
-                      disabled={!hasValidatedBag || hasInvalidSpecimens || submitShipmentMutation.isPending}
-                      data-testid="button-get-address"
-                    >
-                      {submitShipmentMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Get Address for Submission
-                    </Button>
+                    {isReadOnly ? (
+                      <Button variant="outline" onClick={() => setLocation("/profile?tab=specimens")} data-testid="button-back-profile">
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Profile
+                      </Button>
+                    ) : (
+                      <>
+                        <Button variant="outline" onClick={() => setCurrentStep("questionnaire")} data-testid="button-back-questionnaire">
+                          <ArrowLeft className="h-4 w-4 mr-2" />
+                          Back to Questionnaire
+                        </Button>
+                        <Button
+                          className="bg-myco-green hover:bg-myco-green/90"
+                          onClick={handleGetAddress}
+                          disabled={!hasValidatedBag || hasInvalidSpecimens || submitShipmentMutation.isPending}
+                          data-testid="button-get-address"
+                        >
+                          {submitShipmentMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Get Address for Submission
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
