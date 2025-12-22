@@ -6,12 +6,21 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+
+interface RunFile {
+  id: number;
+  fileType: string;
+  filename: string;
+  mimeType: string;
+  createdAt: string;
+  size: number;
+}
 
 interface Plate {
   id: number;
@@ -81,7 +90,55 @@ export default function AdminRunDetailPage() {
     },
   });
 
+  const { data: files = [], refetch: refetchFiles } = useQuery<RunFile[]>({
+    queryKey: ['/api/admin/runs', runId, 'files'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/files`);
+      if (!res.ok) throw new Error('Failed to fetch files');
+      return res.json();
+    },
+    enabled: !!runId,
+  });
+
+  const generateFilesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/admin/runs/${runId}/generate-files`, {});
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || error.error || 'Failed to generate files');
+      }
+      return response.json();
+    },
+    onSuccess: async () => {
+      await refetchFiles();
+      toast({ title: "Files Generated", description: "Index and primer files created successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to generate files", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: async (fileId: number) => {
+      return apiRequest('DELETE', `/api/admin/runs/${runId}/files/${fileId}`, {});
+    },
+    onSuccess: async () => {
+      await refetchFiles();
+      toast({ title: "File Deleted" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete file", variant: "destructive" });
+    },
+  });
+
   const nextPlateNumber = run ? run.plates.length + 1 : 1;
+  
+  const allPlatesValidated = run?.plates && run.plates.length > 0 && 
+    run.plates.every(p => p.isFullyValidated);
 
   if (isLoading) {
     return (
@@ -130,6 +187,25 @@ export default function AdminRunDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {run.plates.length > 0 && (
+              <Button 
+                onClick={() => generateFilesMutation.mutate()}
+                disabled={generateFilesMutation.isPending}
+                className={allPlatesValidated ? "bg-green-600 hover:bg-green-700" : "bg-yellow-600 hover:bg-yellow-700"}
+                data-testid="button-generate-files"
+                title={allPlatesValidated ? "Generate files for this run" : "Warning: Not all plates are validated"}
+              >
+                {generateFilesMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-1" /> Generate Files
+                  </>
+                )}
+              </Button>
+            )}
             <Badge className={statusColors[run.status] || "bg-gray-100"}>
               {run.status.replace('_', ' ')}
             </Badge>
@@ -247,6 +323,57 @@ export default function AdminRunDetailPage() {
             </Link>
           ))}
         </div>
+
+        {/* Files Section */}
+        {files.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Generated Files
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {files.map((file) => (
+                  <div 
+                    key={file.id} 
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    data-testid={`file-${file.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <p className="font-medium text-sm">{file.filename}</p>
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(file.createdAt), 'MMM d, yyyy h:mm a')} • {Math.round(file.size / 1024)}KB
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a 
+                        href={`/api/admin/runs/${runId}/files/${file.id}/download`}
+                        download
+                        className="text-blue-600 hover:text-blue-800"
+                        data-testid={`download-file-${file.id}`}
+                      >
+                        <Download className="h-4 w-4" />
+                      </a>
+                      <button
+                        onClick={() => deleteFileMutation.mutate(file.id)}
+                        className="text-red-500 hover:text-red-700"
+                        disabled={deleteFileMutation.isPending}
+                        data-testid={`delete-file-${file.id}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

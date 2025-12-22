@@ -10137,6 +10137,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Build Index.txt content
       const indexLines: string[] = ['SampleID\tPrimerPool\tFwIndex\tFwPrimer\tRvIndex\tRvPrimer'];
       const usedPrimers: Map<string, { sequence: string; pool: string; position: string }> = new Map();
+      const missingSequences: string[] = [];
       
       for (const { plate, wells, forwardIndexEntries, reverseIndexEntries } of allWellsData) {
         // Build index lookup maps by well position
@@ -10155,12 +10156,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           // Determine platform abbreviation
           let platformAbbrev = '';
           let obsNum = '';
-          if (well.platform === 'iNaturalist') {
+          if (well.platform === 'iNaturalist' && well.observationId) {
             platformAbbrev = 'iNat';
-            obsNum = well.observationId || '';
-          } else if (well.platform === 'MO') {
+            obsNum = well.observationId;
+          } else if (well.platform === 'MO' && well.observationId) {
             platformAbbrev = 'MO';
-            obsNum = well.observationId || '';
+            obsNum = well.observationId;
           } else if (well.observationId) {
             // Auto-detect from ID length
             const digits = well.observationId.replace(/\D/g, '');
@@ -10172,7 +10173,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             obsNum = well.observationId;
           }
           
-          const sampleId = `ONT${plateNum}.${wellNum}-${wellPos}-${labCode}-${platformAbbrev}${obsNum}`;
+          // Build sampleId - only include platform/observation suffix if we have observation data
+          const platformSuffix = platformAbbrev && obsNum ? `-${platformAbbrev}${obsNum}` : '';
+          const sampleId = `ONT${plateNum}.${wellNum}-${wellPos}-${labCode}${platformSuffix}`;
           
           // Get primer pool name
           const primerPoolName = well.primerPool || plate.defaultForwardPrimer?.split(' ')[0] || 'ITS';
@@ -10208,6 +10211,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   break;
                 }
               }
+              if (!seq && !missingSequences.includes(fwPrimerRaw)) {
+                missingSequences.push(fwPrimerRaw);
+              }
               usedPrimers.set(fwPrimerRaw, { sequence: seq, pool: primerPoolName, position: 'forward' });
             }
           }
@@ -10221,24 +10227,36 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   break;
                 }
               }
+              if (!seq && !missingSequences.includes(rvPrimerRaw)) {
+                missingSequences.push(rvPrimerRaw);
+              }
               usedPrimers.set(rvPrimerRaw, { sequence: seq, pool: primerPoolName, position: 'reverse' });
             }
           }
         }
       }
       
+      // Check for missing primer sequences - fail if any are missing
+      if (missingSequences.length > 0) {
+        return res.status(400).json({ 
+          error: "Missing primer sequences", 
+          missingPrimers: missingSequences,
+          message: `The following primers are missing sequences: ${missingSequences.join(', ')}. Please configure primer sequences in Primer Management before generating files.`
+        });
+      }
+      
       // Build primers.fasta content
       const fastaLines: string[] = [];
       for (const [name, info] of usedPrimers.entries()) {
         fastaLines.push(`>${name}  pool=${info.pool}    position=${info.position}`);
-        fastaLines.push(info.sequence || '');
+        fastaLines.push(info.sequence);
       }
       
       // Build primers.txt content (no metadata)
       const txtLines: string[] = [];
       for (const [name, info] of usedPrimers.entries()) {
         txtLines.push(`>${name}`);
-        txtLines.push(info.sequence || '');
+        txtLines.push(info.sequence);
       }
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -10283,6 +10301,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         stats: {
           totalSamples: indexLines.length - 1,
           uniquePrimers: usedPrimers.size,
+          missingSequences: missingSequences.length > 0 ? missingSequences : undefined,
         }
       });
     } catch (error) {
