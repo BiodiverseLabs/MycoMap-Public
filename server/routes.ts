@@ -9,7 +9,7 @@ import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
 import { db, pool } from "./db";
-import { sql, eq, desc, and, gte, lte, inArray, or, isNotNull } from "drizzle-orm";
+import { sql, eq, desc, and, gte, lte, inArray, or, isNotNull, isNull } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { extractLocationFromObservation, normalizeState, normalizeCountry } from "./locationService";
@@ -9577,7 +9577,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Get the next plate number
       const existingPlates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
       const nextPlateNumber = existingPlates.length > 0 
-        ? Math.max(...existingPlates.map(p => p.plateNumber)) + 1 
+        ? Math.max(...existingPlates.map(p => p.plateNumber ?? 0)) + 1 
         : 1;
       
       const [newPlate] = await db.insert(labPlates).values({
@@ -9592,6 +9592,452 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error adding plate:", error);
       res.status(500).json({ error: "Failed to add plate" });
+    }
+  });
+
+  // =============================================
+  // PENDING PLATES API ENDPOINTS (plates without runId)
+  // =============================================
+
+  // Get all pending plates (runId is null)
+  app.get("/api/admin/pending-plates", isAdmin, async (req: any, res) => {
+    try {
+      const pendingPlates = await db.select().from(labPlates).where(isNull(labPlates.runId));
+      
+      const platesWithWells = await Promise.all(pendingPlates.map(async (plate) => {
+        const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
+        return { ...plate, wells };
+      }));
+      
+      res.json(platesWithWells);
+    } catch (error) {
+      console.error("Error fetching pending plates:", error);
+      res.status(500).json({ error: "Failed to fetch pending plates" });
+    }
+  });
+
+  // Create a new pending plate
+  app.post("/api/admin/pending-plates", isAdmin, async (req: any, res) => {
+    try {
+      const { name, sampleCount = 96 } = req.body;
+      const validSampleCount = Math.max(1, Math.min(96, parseInt(sampleCount) || 96));
+      
+      const [newPlate] = await db.insert(labPlates).values({
+        runId: null,
+        plateNumber: null,
+        name: name || null,
+        sampleCount: validSampleCount,
+        status: 'empty',
+      }).returning();
+      
+      // Create wells for the plate
+      const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+      const allWellPositions = rows.flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + ri + 1 })));
+      allWellPositions.sort((a, b) => a.order - b.order);
+      const wellPositions = allWellPositions.slice(0, validSampleCount);
+      
+      for (const { pos, order } of wellPositions) {
+        await db.insert(labWells).values({
+          plateId: newPlate.id,
+          wellPosition: pos,
+          sortOrder: order,
+        });
+      }
+      
+      res.json(newPlate);
+    } catch (error) {
+      console.error("Error creating pending plate:", error);
+      res.status(500).json({ error: "Failed to create pending plate" });
+    }
+  });
+
+  // Get single pending plate with wells
+  app.get("/api/admin/pending-plates/:id", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const [plate] = await db.select().from(labPlates).where(eq(labPlates.id, plateId));
+      
+      if (!plate) {
+        return res.status(404).json({ error: "Plate not found" });
+      }
+      
+      let wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
+      
+      // If no wells exist, create wells based on sampleCount
+      if (wells.length === 0) {
+        const sampleCount = plate.sampleCount || 96;
+        const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+        const orientation = plate.orientation || 'right-left';
+        
+        const allWellPositions = orientation === 'right-left' 
+          ? rows.flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + ri + 1 })))
+          : rows.reverse().flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + (7 - ri) + 1 })));
+        
+        allWellPositions.sort((a, b) => a.order - b.order);
+        const wellPositions = allWellPositions.slice(0, sampleCount);
+        
+        for (const { pos, order } of wellPositions) {
+          await db.insert(labWells).values({
+            plateId,
+            wellPosition: pos,
+            sortOrder: order,
+          });
+        }
+        
+        wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
+      }
+
+      res.json({ ...plate, wells });
+    } catch (error) {
+      console.error("Error fetching pending plate:", error);
+      res.status(500).json({ error: "Failed to fetch pending plate" });
+    }
+  });
+
+  // Update pending plate settings
+  app.patch("/api/admin/pending-plates/:id", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const { name, notes, orientation } = req.body;
+
+      const updateData: any = { updatedAt: new Date() };
+      if (name !== undefined) updateData.name = name;
+      if (notes !== undefined) updateData.notes = notes;
+      if (orientation !== undefined) updateData.orientation = orientation;
+
+      const [updated] = await db.update(labPlates)
+        .set(updateData)
+        .where(eq(labPlates.id, plateId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating pending plate:", error);
+      res.status(500).json({ error: "Failed to update pending plate" });
+    }
+  });
+
+  // Delete pending plate
+  app.delete("/api/admin/pending-plates/:id", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      
+      // First delete associated wells
+      await db.delete(labWells).where(eq(labWells.plateId, plateId));
+      
+      // Then delete the plate
+      await db.delete(labPlates).where(eq(labPlates.id, plateId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting pending plate:", error);
+      res.status(500).json({ error: "Failed to delete pending plate" });
+    }
+  });
+
+  // Update pending plate sample count
+  app.patch("/api/admin/pending-plates/:id/sample-count", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const { sampleCount, name } = req.body;
+      
+      const validSampleCount = Math.max(1, Math.min(96, parseInt(sampleCount) || 96));
+      
+      const [plate] = await db.select().from(labPlates).where(eq(labPlates.id, plateId));
+      if (!plate) {
+        return res.status(404).json({ error: "Plate not found" });
+      }
+      
+      const currentWells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
+      const orientation = plate.orientation || 'right-left';
+      const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+      
+      const allWellPositions = orientation === 'right-left' 
+        ? rows.flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + ri + 1 })))
+        : rows.reverse().flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + (7 - ri) + 1 })));
+      
+      allWellPositions.sort((a, b) => a.order - b.order);
+      
+      if (validSampleCount > currentWells.length) {
+        // Add new wells
+        const existingPositions = new Set(currentWells.map(w => w.wellPosition));
+        const wellPositions = allWellPositions.slice(0, validSampleCount);
+        
+        for (const { pos, order } of wellPositions) {
+          if (!existingPositions.has(pos)) {
+            await db.insert(labWells).values({
+              plateId,
+              wellPosition: pos,
+              sortOrder: order,
+            });
+          }
+        }
+      } else if (validSampleCount < currentWells.length) {
+        // Remove excess wells
+        const wellPositionsToKeep = allWellPositions.slice(0, validSampleCount).map(w => w.pos);
+        const wellsToDelete = currentWells.filter(w => !wellPositionsToKeep.includes(w.wellPosition));
+        
+        for (const well of wellsToDelete) {
+          await db.delete(labWells).where(eq(labWells.id, well.id));
+        }
+      }
+      
+      const updateData: any = { sampleCount: validSampleCount, updatedAt: new Date() };
+      if (name !== undefined) updateData.name = name;
+      
+      const [updated] = await db.update(labPlates)
+        .set(updateData)
+        .where(eq(labPlates.id, plateId))
+        .returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating pending plate sample count:", error);
+      res.status(500).json({ error: "Failed to update sample count" });
+    }
+  });
+
+  // Validate pending plate wells
+  app.post("/api/admin/pending-plates/:id/validate", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId));
+
+      const results: any[] = [];
+      const wellsToProcess: { well: any; effectiveObsId: string; effectivePlatform: string; validationResult: any }[] = [];
+
+      // Phase 1: Pre-process wells
+      for (const well of wells) {
+        if (!well.observationId && !well.labCode) continue;
+
+        let validationResult: any = { wellId: well.id };
+        let effectivePlatform = well.platform;
+        let effectiveObsId = well.observationId;
+
+        if (!effectivePlatform && effectiveObsId) {
+          const digits = effectiveObsId.replace(/\D/g, '');
+          if (digits.length === 6) {
+            validationResult.detectedPlatform = 'MO';
+            effectivePlatform = 'MO';
+          } else if (digits.length >= 8 && digits.length <= 9) {
+            validationResult.detectedPlatform = 'iNaturalist';
+            effectivePlatform = 'iNaturalist';
+          }
+        }
+
+        wellsToProcess.push({ well, effectiveObsId: effectiveObsId || '', effectivePlatform: effectivePlatform || '', validationResult });
+      }
+
+      // Phase 2: Batch fetch iNaturalist observations
+      const inatObsIds = wellsToProcess
+        .filter(w => w.effectivePlatform === 'iNaturalist' && w.effectiveObsId)
+        .map(w => w.effectiveObsId.replace(/\D/g, ''));
+      
+      const obsDataMap: Record<string, any> = {};
+      
+      if (inatObsIds.length > 0) {
+        const batchSize = 100;
+        for (let i = 0; i < inatObsIds.length; i += batchSize) {
+          const batch = inatObsIds.slice(i, i + batchSize);
+          const batchUrl = `https://api.inaturalist.org/v1/observations?id=${batch.join(',')}&per_page=${batchSize}`;
+          
+          try {
+            const response = await fetch(batchUrl, {
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(30000)
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              for (const obs of (data.results || [])) {
+                obsDataMap[String(obs.id)] = obs;
+              }
+            }
+          } catch (e: any) {
+            console.error(`[Validate Pending] Batch fetch error: ${e.message}`);
+          }
+        }
+      }
+
+      // Phase 2b: Fetch Mushroom Observer observations
+      const moObsIds = wellsToProcess
+        .filter(w => w.effectivePlatform === 'MO' && w.effectiveObsId)
+        .map(w => w.effectiveObsId.replace(/\D/g, ''));
+      
+      const moDataMap: Record<string, any> = {};
+      
+      if (moObsIds.length > 0) {
+        const moFetchPromises = moObsIds.map(async (obsId, index) => {
+          await new Promise(resolve => setTimeout(resolve, index * 200));
+          
+          try {
+            const moUrl = `https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`;
+            const response = await fetch(moUrl, {
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(15000)
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.results && data.results.length > 0) {
+                moDataMap[obsId] = data.results[0];
+              }
+            }
+          } catch (e: any) {
+            console.error(`[Validate Pending] MO fetch error for ${obsId}: ${e.message}`);
+          }
+        });
+        
+        await Promise.all(moFetchPromises);
+      }
+
+      // Phase 3: Process each well
+      for (const { well, effectiveObsId, effectivePlatform, validationResult } of wellsToProcess) {
+        const obsId = effectiveObsId?.replace(/\D/g, '');
+        
+        if (effectivePlatform === 'iNaturalist' && obsId) {
+          const obs = obsDataMap[obsId];
+          
+          if (obs) {
+            validationResult.apiFetched = true;
+            
+            const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
+            const inatVoucher = voucherField?.value || null;
+
+            validationResult.voucherNumber = inatVoucher;
+            validationResult.scientificName = obs.taxon?.name;
+            validationResult.username = obs.user?.login || null;
+            
+            try {
+              const location = await extractLocationFromObservation(obs);
+              validationResult.state = location.stateCode || location.stateName || null;
+              validationResult.country = location.countryCode || location.countryName || null;
+            } catch (locError) {
+              validationResult.state = null;
+              validationResult.country = null;
+            }
+            
+            const iconicTaxon = obs.taxon?.iconic_taxon_name;
+            const isFungal = iconicTaxon === "Fungi";
+            const isSlimeMold = iconicTaxon === "Protozoa";
+            
+            let status = 'valid';
+            let message = 'Observation verified';
+            
+            if (!isFungal && !isSlimeMold) {
+              status = 'not_fungal';
+              message = `Organism is ${iconicTaxon || 'unknown'}, not fungal`;
+            } else if (well.labCode && inatVoucher) {
+              if (!inatVoucher.includes(well.labCode)) {
+                status = 'mismatch';
+                message = `Lab code "${well.labCode}" not found in voucher "${inatVoucher}"`;
+              }
+            } else if (!inatVoucher) {
+              status = 'no_voucher';
+              message = 'No voucher number in iNaturalist';
+            }
+            
+            validationResult.status = status;
+            validationResult.message = message;
+            
+            await db.update(labWells)
+              .set({
+                isValidated: true,
+                validationStatus: status,
+                validationMessage: message,
+                voucherNumber: inatVoucher,
+                username: validationResult.username,
+                state: validationResult.state,
+                country: validationResult.country,
+                platform: effectivePlatform,
+                updatedAt: new Date(),
+              })
+              .where(eq(labWells.id, well.id));
+          } else {
+            validationResult.status = 'error';
+            validationResult.message = 'Observation not found on iNaturalist';
+            
+            await db.update(labWells)
+              .set({
+                isValidated: true,
+                validationStatus: 'error',
+                validationMessage: 'Observation not found on iNaturalist',
+                updatedAt: new Date(),
+              })
+              .where(eq(labWells.id, well.id));
+          }
+        } else if (effectivePlatform === 'MO' && obsId) {
+          const moObs = moDataMap[obsId];
+          
+          if (moObs) {
+            validationResult.apiFetched = true;
+            
+            let username = null;
+            try {
+              const userInfo = moObs.owner || moObs.user;
+              if (typeof userInfo === 'string') {
+                const parsed = JSON.parse(userInfo);
+                username = parsed.login_name || parsed.name || null;
+              } else if (userInfo) {
+                username = userInfo.login_name || userInfo.name || null;
+              }
+            } catch (e) {
+              username = null;
+            }
+            
+            validationResult.username = username;
+            validationResult.scientificName = moObs.consensus?.name || null;
+            
+            await db.update(labWells)
+              .set({
+                isValidated: true,
+                validationStatus: 'valid',
+                validationMessage: 'MO observation verified',
+                username,
+                platform: 'MO',
+                updatedAt: new Date(),
+              })
+              .where(eq(labWells.id, well.id));
+              
+            validationResult.status = 'valid';
+            validationResult.message = 'MO observation verified';
+          } else {
+            validationResult.status = 'error';
+            validationResult.message = 'Observation not found on Mushroom Observer';
+            
+            await db.update(labWells)
+              .set({
+                isValidated: true,
+                validationStatus: 'error',
+                validationMessage: 'Observation not found on Mushroom Observer',
+                updatedAt: new Date(),
+              })
+              .where(eq(labWells.id, well.id));
+          }
+        } else if (!effectivePlatform && effectiveObsId) {
+          validationResult.status = 'missing_platform';
+          validationResult.message = 'Platform not specified';
+          
+          await db.update(labWells)
+            .set({
+              isValidated: true,
+              validationStatus: 'missing_platform',
+              validationMessage: 'Platform not specified',
+              updatedAt: new Date(),
+            })
+            .where(eq(labWells.id, well.id));
+        }
+
+        results.push(validationResult);
+      }
+
+      res.json({ success: true, results });
+    } catch (error) {
+      console.error("Error validating pending plate:", error);
+      res.status(500).json({ error: "Failed to validate plate" });
     }
   });
 

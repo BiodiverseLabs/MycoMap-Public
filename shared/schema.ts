@@ -1351,11 +1351,11 @@ export const labRuns = pgTable("lab_runs", {
   completedAt: timestamp("completed_at"),
 });
 
-// Lab Plates - each run has up to 20 plates
+// Lab Plates - each run has up to 20 plates (runId null = pending plate)
 export const labPlates = pgTable("lab_plates", {
   id: serial("id").primaryKey(),
-  runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
-  plateNumber: integer("plate_number").notNull(), // 1-20
+  runId: integer("run_id").references(() => labRuns.id, { onDelete: "cascade" }), // null for pending plates
+  plateNumber: integer("plate_number"), // 1-20 (null for pending plates)
   name: text("name"), // Optional custom name
   notes: text("notes"), // Freeform plate notes
   sampleCount: integer("sample_count").notNull().default(96), // Number of wells (1-96), default 96

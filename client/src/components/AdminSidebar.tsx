@@ -15,7 +15,8 @@ import {
   Package,
   FlaskConical,
   Archive,
-  Terminal
+  Terminal,
+  Grid3X3
 } from "lucide-react";
 import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./ui/button";
@@ -39,6 +40,7 @@ export function AdminSidebar() {
 
   const labManagementItems = [
     { href: "/admin/shipments", label: "Pending Shipments", icon: Package },
+    { href: "/admin/pending-plates", label: "Pending Plates", icon: Grid3X3 },
     { href: "/admin/runs", label: "Lab Runs", icon: FlaskConical },
     { href: "/admin/bioinformatics", label: "Bioinformatics", icon: Terminal },
   ];

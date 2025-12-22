@@ -48,6 +48,8 @@ import AdminShipmentDetailPage from "@/pages/admin/AdminShipmentDetailPage";
 import AdminRunsPage from "@/pages/admin/AdminRunsPage";
 import AdminRunDetailPage from "@/pages/admin/AdminRunDetailPage";
 import AdminPlateEditorPage from "@/pages/admin/AdminPlateEditorPage";
+import AdminPendingPlatesPage from "@/pages/admin/AdminPendingPlatesPage";
+import AdminPendingPlateEditorPage from "@/pages/admin/AdminPendingPlateEditorPage";
 import AdminIndexManagementPage from "@/pages/admin/AdminIndexManagementPage";
 import AdminPrimerManagementPage from "@/pages/admin/AdminPrimerManagementPage";
 import AdminBioinformaticsPage from "@/pages/admin/AdminBioinformaticsPage";
@@ -109,6 +111,8 @@ function AppRouter() {
           <Route path="/admin/foraging-lists" component={ForagingLists} />
           <Route path="/admin/shipments" component={AdminShipmentsPage} />
           <Route path="/admin/shipments/:id" component={AdminShipmentDetailPage} />
+          <Route path="/admin/pending-plates" component={AdminPendingPlatesPage} />
+          <Route path="/admin/pending-plates/:id" component={AdminPendingPlateEditorPage} />
           <Route path="/admin/runs" component={AdminRunsPage} />
           <Route path="/admin/runs/:id" component={AdminRunDetailPage} />
           <Route path="/admin/plates/:id" component={AdminPlateEditorPage} />
