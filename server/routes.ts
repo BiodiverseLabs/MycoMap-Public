@@ -9732,14 +9732,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  // Validate plate wells (check iNaturalist for voucher numbers)
+  // Validate plate wells (check iNaturalist for voucher numbers) - uses batch API
   app.post("/api/admin/plates/:id/validate", isAdmin, async (req: any, res) => {
     try {
       const plateId = parseInt(req.params.id);
       const wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId));
 
       const results: any[] = [];
+      const wellsToProcess: { well: any; effectiveObsId: string; effectivePlatform: string; validationResult: any }[] = [];
 
+      // Phase 1: Pre-process wells - detect platforms and collect iNaturalist observation IDs
       for (const well of wells) {
         if (!well.observationId && !well.labCode) continue;
 
@@ -9747,35 +9749,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         let effectivePlatform = well.platform;
         let effectiveObsId = well.observationId;
 
-        // If we have a lab code but no observation ID, try to find it via iNaturalist observation field search
-        if (well.labCode && !well.observationId) {
-          try {
-            const searchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number(s)=${encodeURIComponent(well.labCode)}&per_page=5`;
-            const searchResponse = await fetch(searchUrl);
-            if (searchResponse.ok) {
-              const searchData = await searchResponse.json();
-              const totalResults = searchData.total_results || 0;
-              
-              if (totalResults > 1) {
-                // Multiple matches found - this is an error condition
-                validationResult.status = 'multiple_inat';
-                validationResult.message = `Multiple iNaturalist observations (${totalResults}) found for voucher "${well.labCode}"`;
-              } else if (totalResults === 1) {
-                const foundObs = searchData.results?.[0];
-                if (foundObs) {
-                  effectiveObsId = String(foundObs.id);
-                  effectivePlatform = 'iNaturalist';
-                  validationResult.foundObservationId = effectiveObsId;
-                  validationResult.detectedPlatform = 'iNaturalist';
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Error searching iNaturalist by voucher:', e);
-          }
-        }
-
-        // Auto-detect platform based on observation ID length FIRST
+        // Auto-detect platform based on observation ID length
         if (!effectivePlatform && effectiveObsId) {
           const digits = effectiveObsId.replace(/\D/g, '');
           if (digits.length === 6) {
@@ -9787,72 +9761,92 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
         }
 
-        // If we have an observation ID and platform is iNaturalist, fetch from API
-        if (effectiveObsId && effectivePlatform === 'iNaturalist') {
+        wellsToProcess.push({ well, effectiveObsId: effectiveObsId || '', effectivePlatform: effectivePlatform || '', validationResult });
+      }
+
+      // Phase 2: Batch fetch iNaturalist observations (up to 200 per request)
+      const inatObsIds = wellsToProcess
+        .filter(w => w.effectivePlatform === 'iNaturalist' && w.effectiveObsId)
+        .map(w => w.effectiveObsId.replace(/\D/g, ''));
+      
+      const obsDataMap: Record<string, any> = {};
+      
+      if (inatObsIds.length > 0) {
+        console.log(`[Validate] Batch fetching ${inatObsIds.length} iNaturalist observations...`);
+        
+        // Split into batches of 100 (API limit is 200, but being conservative)
+        const batchSize = 100;
+        for (let i = 0; i < inatObsIds.length; i += batchSize) {
+          const batch = inatObsIds.slice(i, i + batchSize);
+          const batchUrl = `https://api.inaturalist.org/v1/observations?id=${batch.join(',')}&per_page=${batchSize}`;
+          
           try {
-            const obsId = effectiveObsId.replace(/\D/g, '');
-            console.log(`[Validate] Fetching iNaturalist observation ${obsId}...`);
-            const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`, {
+            const response = await fetch(batchUrl, {
               headers: { 'Accept': 'application/json' },
-              signal: AbortSignal.timeout(15000) // 15 second timeout
+              signal: AbortSignal.timeout(30000) // 30 second timeout for batch
             });
+            
             if (response.ok) {
               const data = await response.json();
-              const obs = data.results?.[0];
-              if (obs) {
-                // Mark that we successfully fetched fresh data
-                validationResult.apiFetched = true;
-                
-                // Get voucher number from observation fields
-                const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
-                const inatVoucher = voucherField?.value || null;
-
-                validationResult.voucherNumber = inatVoucher;
-                validationResult.scientificName = obs.taxon?.name;
-                validationResult.username = obs.user?.login || null;
-                console.log(`[Validate] Found for ${obsId}: username=${validationResult.username}, voucher=${inatVoucher}`);
-                
-                // Check if observation is fungal or slime mold
-                const iconicTaxon = obs.taxon?.iconic_taxon_name;
-                const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
-                const isSlimeMold = iconicTaxon === "Protozoa" || 
-                  taxonomicClass === "Myxomycetes" || 
-                  obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
-                  obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
-                const isFungal = iconicTaxon === "Fungi";
-                
-                validationResult.isSlimeMold = isSlimeMold;
-                validationResult.isFungal = isFungal;
-                
-                // First check if it's a valid taxon (fungi or slime mold)
-                if (!isFungal && !isSlimeMold) {
-                  validationResult.status = 'not_fungal';
-                  validationResult.message = `Not fungal: ${iconicTaxon || 'Unknown taxon'} - ${obs.taxon?.name || 'Unknown species'}`;
-                } else if (well.labCode && inatVoucher && well.labCode !== inatVoucher) {
-                  // Check for mismatches
-                  validationResult.status = 'mismatch';
-                  validationResult.message = `Lab code "${well.labCode}" doesn't match iNat voucher "${inatVoucher}"`;
-                } else if (inatVoucher) {
-                  validationResult.status = 'valid';
-                  validationResult.message = isSlimeMold ? 'Valid (Slime Mold)' : 'Validated successfully';
-                } else {
-                  validationResult.status = 'no_voucher';
-                  validationResult.message = 'No voucher number in iNaturalist';
-                }
-              } else {
-                console.log(`[Validate] No observation data in response for ${obsId}`);
-                validationResult.status = 'error';
-                validationResult.message = 'Observation not found in iNaturalist';
+              console.log(`[Validate] Batch ${Math.floor(i/batchSize) + 1}: Retrieved ${data.results?.length || 0} observations`);
+              
+              for (const obs of (data.results || [])) {
+                obsDataMap[String(obs.id)] = obs;
               }
             } else {
-              console.log(`[Validate] API error for ${obsId}: ${response.status}`);
-              validationResult.status = 'error';
-              validationResult.message = `iNaturalist API error: ${response.status}`;
+              console.error(`[Validate] Batch API error: ${response.status}`);
             }
           } catch (e: any) {
-            console.error(`[Validate] Exception for observation: ${e.message}`);
+            console.error(`[Validate] Batch fetch error: ${e.message}`);
+          }
+        }
+      }
+
+      // Phase 3: Process each well with the fetched data
+      for (const { well, effectiveObsId, effectivePlatform, validationResult } of wellsToProcess) {
+        const obsId = effectiveObsId?.replace(/\D/g, '');
+        
+        // Process iNaturalist observations using cached data
+        if (effectivePlatform === 'iNaturalist' && obsId) {
+          const obs = obsDataMap[obsId];
+          
+          if (obs) {
+            validationResult.apiFetched = true;
+            
+            const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
+            const inatVoucher = voucherField?.value || null;
+
+            validationResult.voucherNumber = inatVoucher;
+            validationResult.scientificName = obs.taxon?.name;
+            validationResult.username = obs.user?.login || null;
+            
+            const iconicTaxon = obs.taxon?.iconic_taxon_name;
+            const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
+            const isSlimeMold = iconicTaxon === "Protozoa" || 
+              taxonomicClass === "Myxomycetes" || 
+              obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
+              obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
+            const isFungal = iconicTaxon === "Fungi";
+            
+            validationResult.isSlimeMold = isSlimeMold;
+            validationResult.isFungal = isFungal;
+            
+            if (!isFungal && !isSlimeMold) {
+              validationResult.status = 'not_fungal';
+              validationResult.message = `Not fungal: ${iconicTaxon || 'Unknown taxon'} - ${obs.taxon?.name || 'Unknown species'}`;
+            } else if (well.labCode && inatVoucher && well.labCode !== inatVoucher) {
+              validationResult.status = 'mismatch';
+              validationResult.message = `Lab code "${well.labCode}" doesn't match iNat voucher "${inatVoucher}"`;
+            } else if (inatVoucher) {
+              validationResult.status = 'valid';
+              validationResult.message = isSlimeMold ? 'Valid (Slime Mold)' : 'Validated successfully';
+            } else {
+              validationResult.status = 'no_voucher';
+              validationResult.message = 'No voucher number in iNaturalist';
+            }
+          } else {
             validationResult.status = 'error';
-            validationResult.message = e.name === 'TimeoutError' ? 'Request timed out' : 'Failed to fetch from iNaturalist';
+            validationResult.message = 'Observation not found in iNaturalist';
           }
         }
 
@@ -9864,11 +9858,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationResult.status = 'missing_platform';
             validationResult.message = 'Platform not specified';
           } else if (finalPlatform === 'iNaturalist' && finalObsId && !validationResult.apiFetched) {
-            // For iNaturalist, we require successful API verification
             validationResult.status = 'pending';
             validationResult.message = 'Awaiting API verification';
           } else if (finalPlatform && finalObsId) {
-            // For non-iNaturalist platforms (MO, MyCoPortal), mark as ready
             validationResult.status = 'valid';
             validationResult.message = 'Ready for processing';
           } else if (well.labCode && !finalObsId) {
@@ -9877,7 +9869,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
         }
 
-        // Update well with validation result - always use fresh data from API
+        // Update well with validation result
         if (validationResult.status || validationResult.detectedPlatform) {
           const updateData: any = {
             isValidated: true,
@@ -9886,26 +9878,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             updatedAt: new Date(),
           };
           
-          // Only update username and voucher if we successfully fetched from API
-          // This ensures stale data is cleared when observation changes
           if (validationResult.apiFetched) {
             updateData.voucherNumber = validationResult.voucherNumber || null;
             updateData.username = validationResult.username || null;
           }
           
-          // If lab code is empty and we found a voucher number, populate the lab code
           if (!well.labCode && validationResult.voucherNumber) {
             updateData.labCode = validationResult.voucherNumber;
             validationResult.labCodeUpdated = true;
           }
           
-          // If platform was detected, set it
           if (validationResult.detectedPlatform) {
             updateData.platform = validationResult.detectedPlatform;
             validationResult.platformUpdated = true;
           }
           
-          // If observation ID was found from lab code search, save it
           if (validationResult.foundObservationId) {
             updateData.observationId = validationResult.foundObservationId;
             validationResult.observationIdUpdated = true;
@@ -9919,6 +9906,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         results.push(validationResult);
       }
 
+      console.log(`[Validate] Complete: ${results.length} wells processed`);
       res.json({ results });
     } catch (error) {
       console.error("Error validating plate:", error);
