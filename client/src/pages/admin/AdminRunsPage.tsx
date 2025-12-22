@@ -577,15 +577,15 @@ export default function AdminRunsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead className="text-right">Count</TableHead>
+                      <TableHead>Run</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Specimens</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {summary.breakdown[selectedPanel].map((item, idx) => (
                       <TableRow key={idx}>
-                        <TableCell>{item.username}</TableCell>
+                        <TableCell className="font-medium">{item.username}</TableCell>
                         <TableCell>{item.state}</TableCell>
                         <TableCell className="text-right font-medium">{item.count}</TableCell>
                       </TableRow>

@@ -9498,13 +9498,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // Specimen Summary for Sequencing Runs page
   app.get("/api/admin/specimen-summary", isAdmin, async (req: any, res) => {
     try {
-      // Get all shipments with their specimens
-      const allShipments = await db.select().from(specimenShipments);
-      const allSpecimens = await db.select().from(specimens);
-      const allUsers = await db.select().from(users);
+      // Get all lab runs with their plates and wells
+      const allRuns = await db.select().from(labRuns);
+      const allPlates = await db.select().from(labPlates);
+      const allWells = await db.select().from(labWells);
       
-      // Create user lookup
-      const userMap = new Map(allUsers.map(u => [u.id, u.username || u.email || 'Unknown']));
+      // Group plates by run
+      const platesByRun = new Map<number, typeof labPlates.$inferSelect[]>();
+      for (const plate of allPlates) {
+        if (plate.runId) {
+          if (!platesByRun.has(plate.runId)) {
+            platesByRun.set(plate.runId, []);
+          }
+          platesByRun.get(plate.runId)!.push(plate);
+        }
+      }
+      
+      // Group wells by plate
+      const wellsByPlate = new Map<number, typeof labWells.$inferSelect[]>();
+      for (const well of allWells) {
+        if (!wellsByPlate.has(well.plateId)) {
+          wellsByPlate.set(well.plateId, []);
+        }
+        wellsByPlate.get(well.plateId)!.push(well);
+      }
       
       // Define status categories
       const completedStatuses = ['complete', 'completed'];
@@ -9513,16 +9530,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const tissueExtractedStatuses = ['dna_extraction'];
       const dataAnalysisStatuses = ['sequence_analysis'];
       
-      // Group specimens by shipment
-      const shipmentSpecimens = new Map<number, typeof specimens.$inferSelect[]>();
-      for (const spec of allSpecimens) {
-        if (!shipmentSpecimens.has(spec.shipmentId)) {
-          shipmentSpecimens.set(spec.shipmentId, []);
-        }
-        shipmentSpecimens.get(spec.shipmentId)!.push(spec);
-      }
-      
-      // Calculate counts with breakdowns
+      // Calculate counts with breakdowns by run name and status
       const breakdown = {
         inQueue: [] as { username: string; state: string; count: number }[],
         inSequencingQueue: [] as { username: string; state: string; count: number }[],
@@ -9535,58 +9543,68 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       let tissueExtracted = 0;
       let underDataAnalysis = 0;
       
-      // Aggregate by user and state
-      const inQueueByUserState = new Map<string, number>();
-      const inSequencingQueueByUserState = new Map<string, number>();
-      const tissueExtractedByUserState = new Map<string, number>();
-      const underDataAnalysisByUserState = new Map<string, number>();
+      // Aggregate by run name and status
+      const inQueueByRunStatus = new Map<string, number>();
+      const inSequencingQueueByRunStatus = new Map<string, number>();
+      const tissueExtractedByRunStatus = new Map<string, number>();
+      const underDataAnalysisByRunStatus = new Map<string, number>();
       
-      for (const shipment of allShipments) {
-        const specimenCount = shipmentSpecimens.get(shipment.id)?.length || shipment.specimenCount || 0;
-        const username = userMap.get(shipment.userId) || 'Unknown';
-        const state = shipment.state || 'Unknown';
-        const key = `${username}|||${state}`;
-        const status = shipment.status || '';
+      for (const run of allRuns) {
+        const runPlates = platesByRun.get(run.id) || [];
+        let specimenCount = 0;
+        
+        // Count specimens (wells with data) in this run
+        for (const plate of runPlates) {
+          const plateWells = wellsByPlate.get(plate.id) || [];
+          specimenCount += plateWells.filter(w => w.observationId || w.labCode).length;
+        }
+        
+        if (specimenCount === 0) continue;
+        
+        const runName = run.name;
+        const status = run.status || 'draft';
+        const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const key = `${runName}|||${statusLabel}`;
         
         // Not completed = in queue
         if (!completedStatuses.includes(status)) {
           inQueue += specimenCount;
-          inQueueByUserState.set(key, (inQueueByUserState.get(key) || 0) + specimenCount);
+          inQueueByRunStatus.set(key, (inQueueByRunStatus.get(key) || 0) + specimenCount);
         }
         
         // In sequencing queue (extraction through sequencing stages)
         if (sequencingQueueStatuses.includes(status)) {
           inSequencingQueue += specimenCount;
-          inSequencingQueueByUserState.set(key, (inSequencingQueueByUserState.get(key) || 0) + specimenCount);
+          inSequencingQueueByRunStatus.set(key, (inSequencingQueueByRunStatus.get(key) || 0) + specimenCount);
         }
         
         // Tissue extracted (DNA extraction stage)
         if (tissueExtractedStatuses.includes(status)) {
           tissueExtracted += specimenCount;
-          tissueExtractedByUserState.set(key, (tissueExtractedByUserState.get(key) || 0) + specimenCount);
+          tissueExtractedByRunStatus.set(key, (tissueExtractedByRunStatus.get(key) || 0) + specimenCount);
         }
         
         // Under data analysis
         if (dataAnalysisStatuses.includes(status)) {
           underDataAnalysis += specimenCount;
-          underDataAnalysisByUserState.set(key, (underDataAnalysisByUserState.get(key) || 0) + specimenCount);
+          underDataAnalysisByRunStatus.set(key, (underDataAnalysisByRunStatus.get(key) || 0) + specimenCount);
         }
       }
       
-      // Convert maps to arrays
-      for (const [key, count] of inQueueByUserState) {
+      // Convert maps to arrays (using username for run name and state for status)
+      for (const [key, count] of inQueueByRunStatus) {
         const [username, state] = key.split('|||');
         breakdown.inQueue.push({ username, state, count });
       }
-      for (const [key, count] of inSequencingQueueByUserState) {
+      for (const [key, count] of inSequencingQueueByRunStatus) {
         const [username, state] = key.split('|||');
         breakdown.inSequencingQueue.push({ username, state, count });
       }
-      for (const [key, count] of tissueExtractedByUserState) {
+      for (const [key, count] of tissueExtractedByRunStatus) {
         const [username, state] = key.split('|||');
         breakdown.tissueExtracted.push({ username, state, count });
       }
-      for (const [key, count] of underDataAnalysisByUserState) {
+      for (const [key, count] of underDataAnalysisByRunStatus) {
         const [username, state] = key.split('|||');
         breakdown.underDataAnalysis.push({ username, state, count });
       }
