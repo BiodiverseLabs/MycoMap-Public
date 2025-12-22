@@ -788,7 +788,7 @@ export default function AdminRunDetailPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <HardDrive className="h-5 w-5" />
-              Raw Data Files
+              Raw, Intermediate, and Final Data Files
             </CardTitle>
           </CardHeader>
           <CardContent>
