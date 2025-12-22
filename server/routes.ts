@@ -9087,11 +9087,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 
                 // Check for Myxomycetes (slime molds) - iNaturalist classifies them as Protozoa
                 const taxonomicClass = obs.taxon?.ancestors?.find((a: any) => a.rank === "class")?.name || null;
+                const taxonomicGenus = obs.taxon?.ancestors?.find((a: any) => a.rank === "genus")?.name || obs.taxon?.name?.split(' ')[0] || null;
                 const iconicTaxon = obs.taxon?.iconic_taxon_name;
                 const isSlimeMold = iconicTaxon === "Protozoa" || 
                   taxonomicClass === "Myxomycetes" || 
                   obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
                   obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
+                // Nostoc is a cyanobacteria genus that is acceptable for sequencing
+                const isNostoc = taxonomicGenus === "Nostoc" || 
+                  obs.taxon?.name?.toLowerCase().startsWith("nostoc");
                 
                 // Extract Voucher Number(s) from observation fields
                 // Check both "Voucher Number(s)" and "Voucher Number" (field ID 8257)
@@ -9111,11 +9115,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 let validationStatus = "invalid";
                 let validationMessage = "This observation is not fungal";
                 
-                if (kingdom === "Fungi" || isSlimeMold) {
-                  // Both fungi and slime molds are valid specimens
+                if (kingdom === "Fungi" || isSlimeMold || isNostoc) {
+                  // Fungi, slime molds, and Nostoc (cyanobacteria) are valid specimens
                   // The bag-level check for mixing will happen after all specimens are validated
                   validationStatus = "valid";
-                  validationMessage = isSlimeMold ? "Valid slime mold specimen" : "Valid fungal specimen";
+                  validationMessage = isSlimeMold ? "Valid slime mold specimen" : 
+                    isNostoc ? "Valid Nostoc specimen" : "Valid fungal specimen";
                 }
                 
                 validationResult = {
