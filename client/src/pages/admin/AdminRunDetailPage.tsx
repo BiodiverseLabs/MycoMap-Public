@@ -52,12 +52,18 @@ interface Plate {
   isFullyValidated?: boolean;
 }
 
+interface StatusHistoryEntry {
+  status: string;
+  timestamp: string;
+}
+
 interface LabRun {
   id: number;
   name: string;
   status: string;
   notes: string | null;
   rawDataUrl: string | null;
+  statusHistory: StatusHistoryEntry[] | null;
   createdAt: string;
   plates: Plate[];
 }
@@ -1099,6 +1105,48 @@ export default function AdminRunDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Status Change History */}
+        {run?.statusHistory && run.statusHistory.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-[#8CBD45]" />
+                Status Change History
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {(() => {
+                  // Filter out entries within 1 minute of each other (keep the later one)
+                  const filteredHistory = run.statusHistory.filter((entry, index, arr) => {
+                    if (index === arr.length - 1) return true; // Always keep last entry
+                    const nextEntry = arr[index + 1];
+                    const currentTime = new Date(entry.timestamp).getTime();
+                    const nextTime = new Date(nextEntry.timestamp).getTime();
+                    return nextTime - currentTime >= 60000; // Keep if more than 1 minute apart
+                  });
+                  
+                  return filteredHistory.map((entry, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
+                      data-testid={`status-history-${index}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-[#8CBD45]" />
+                        <span className="font-medium text-sm">{getStatusLabel(entry.status)}</span>
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {format(new Date(entry.timestamp), 'MMM d, yyyy h:mm a')}
+                      </span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Delete Run Section */}
         <div className="flex justify-start gap-4 mt-8 pt-6 border-t border-gray-200">

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index, unique, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index, unique, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1346,6 +1346,7 @@ export const labRuns = pgTable("lab_runs", {
   status: text("status").notNull().default("draft"), // draft | in_progress | completed
   notes: text("notes"),
   rawDataUrl: text("raw_data_url"), // Google Drive folder URL for raw sequencing data
+  statusHistory: jsonb("status_history").$type<{ status: string; timestamp: string }[]>().default([]), // Track status changes with timestamps
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

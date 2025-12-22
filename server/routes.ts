@@ -9881,11 +9881,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const runId = parseInt(req.params.id);
       const { rawDataUrl, notes, name, status } = req.body;
       
+      // Fetch current run to check for status change
+      const [currentRun] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!currentRun) {
+        return res.status(404).json({ error: "Run not found" });
+      }
+      
       const updateData: any = { updatedAt: new Date() };
       if (rawDataUrl !== undefined) updateData.rawDataUrl = rawDataUrl;
       if (notes !== undefined) updateData.notes = notes;
       if (name !== undefined) updateData.name = name;
-      if (status !== undefined) updateData.status = status;
+      
+      // Track status change in history
+      if (status !== undefined && status !== currentRun.status) {
+        updateData.status = status;
+        const currentHistory = (currentRun.statusHistory as { status: string; timestamp: string }[]) || [];
+        const newEntry = { status, timestamp: new Date().toISOString() };
+        updateData.statusHistory = [...currentHistory, newEntry];
+      }
       
       const [updatedRun] = await db.update(labRuns)
         .set(updateData)
