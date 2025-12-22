@@ -9500,8 +9500,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
         const sampleCount = wells.filter(w => w.observationId || w.labCode).length;
         const validatedCount = wells.filter(w => w.isValidated && w.validationStatus === 'valid').length;
-        const errorCount = wells.filter(w => w.isValidated && w.validationStatus && w.validationStatus !== 'valid').length;
-        const isFullyValidated = sampleCount > 0 && sampleCount === validatedCount && errorCount === 0;
+        // no_voucher is acceptable - don't count it as an error for plate status
+        const acceptableStatuses = ['valid', 'no_voucher'];
+        const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
+        // Plate is "fully validated" if all samples are validated with acceptable statuses
+        const validatedOrNoVoucherCount = wells.filter(w => w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)).length;
+        const isFullyValidated = sampleCount > 0 && sampleCount === validatedOrNoVoucherCount && errorCount === 0;
         
         return {
           ...plate,
