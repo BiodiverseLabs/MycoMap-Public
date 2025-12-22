@@ -10721,22 +10721,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationResult.apiFetched = true;
             
             // Extract username from MO API response
-            // Handle case where user field might be a JSON string or an object
+            // MO API uses 'owner' field, not 'user'
             let moUsername: string | null = null;
-            if (moObs.user) {
-              if (typeof moObs.user === 'string') {
+            if (moObs.owner) {
+              if (typeof moObs.owner === 'string') {
                 try {
-                  const userObj = JSON.parse(moObs.user);
-                  moUsername = userObj.login_name || userObj.login || userObj.name || null;
+                  const ownerObj = JSON.parse(moObs.owner);
+                  moUsername = ownerObj.login_name || ownerObj.login || ownerObj.name || null;
                 } catch {
-                  moUsername = moObs.user; // Use as-is if not valid JSON
+                  moUsername = moObs.owner; // Use as-is if not valid JSON
                 }
-              } else if (typeof moObs.user === 'object') {
-                moUsername = moObs.user.login_name || moObs.user.login || moObs.user.name || null;
+              } else if (typeof moObs.owner === 'object') {
+                moUsername = moObs.owner.login_name || moObs.owner.login || moObs.owner.name || null;
               }
-            }
-            if (!moUsername) {
-              moUsername = moObs.owner || null;
             }
             validationResult.username = moUsername;
             validationResult.scientificName = moObs.consensus?.name || moObs.name?.name || null;
