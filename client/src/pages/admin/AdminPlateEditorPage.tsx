@@ -454,6 +454,53 @@ export default function AdminPlateEditorPage() {
           </Dialog>
         </div>
 
+        {/* Validation Summary */}
+        {plate?.wells.some(w => w.isValidated) && (
+          <Card className="bg-slate-50">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-6">
+                <span className="font-medium text-gray-700">Validation Summary:</span>
+                {(() => {
+                  const validCount = plate.wells.filter(w => 
+                    w.validationStatus === 'valid' || w.validationStatus === 'no_voucher'
+                  ).length;
+                  const errorCount = plate.wells.filter(w => 
+                    w.validationStatus && !['valid', 'no_voucher'].includes(w.validationStatus)
+                  ).length;
+                  const pendingCount = plate.wells.filter(w => !w.isValidated && w.observationId).length;
+                  
+                  return (
+                    <>
+                      <div className="flex items-center gap-1">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-green-700 font-medium">{validCount} Valid</span>
+                      </div>
+                      {errorCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                          <span className="text-red-600 font-medium">{errorCount} Errors</span>
+                        </div>
+                      )}
+                      {errorCount === 0 && (
+                        <div className="flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-green-700 font-medium">0 Errors</span>
+                        </div>
+                      )}
+                      {pendingCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4 text-blue-500" />
+                          <span className="text-blue-600">{pendingCount} Pending</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Plate Notes</CardTitle>
