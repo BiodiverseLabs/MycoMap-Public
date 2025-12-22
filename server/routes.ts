@@ -9498,8 +9498,46 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // Lab Runs CRUD
   app.get("/api/admin/runs", isAdmin, async (req: any, res) => {
     try {
-      const runs = await db.select().from(labRuns).orderBy(desc(labRuns.createdAt));
-      res.json(runs);
+      const searchQuery = req.query.search as string | undefined;
+      
+      if (searchQuery && searchQuery.trim()) {
+        const search = searchQuery.trim().toLowerCase();
+        
+        // Search in run names first
+        const allRuns = await db.select().from(labRuns).orderBy(desc(labRuns.createdAt));
+        const matchingRunIds = new Set<number>();
+        
+        // Check run names
+        for (const run of allRuns) {
+          if (run.name.toLowerCase().includes(search)) {
+            matchingRunIds.add(run.id);
+          }
+        }
+        
+        // Search in well contents (observation IDs and lab codes)
+        const matchingWells = await db.select({
+          runId: labPlates.runId
+        })
+          .from(labWells)
+          .innerJoin(labPlates, eq(labWells.plateId, labPlates.id))
+          .where(
+            or(
+              sql`LOWER(${labWells.observationId}) LIKE ${'%' + search + '%'}`,
+              sql`LOWER(${labWells.labCode}) LIKE ${'%' + search + '%'}`
+            )
+          );
+        
+        for (const well of matchingWells) {
+          if (well.runId) matchingRunIds.add(well.runId);
+        }
+        
+        // Filter and return matching runs
+        const filteredRuns = allRuns.filter(run => matchingRunIds.has(run.id));
+        res.json(filteredRuns);
+      } else {
+        const runs = await db.select().from(labRuns).orderBy(desc(labRuns.createdAt));
+        res.json(runs);
+      }
     } catch (error) {
       console.error("Error fetching lab runs:", error);
       res.status(500).json({ error: "Failed to fetch lab runs" });

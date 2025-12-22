@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit, Database, Upload, FileText, AlertCircle, Loader2 } from "lucide-react";
+import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit, Database, Upload, FileText, AlertCircle, Loader2, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -32,7 +32,7 @@ const RUN_STATUS_OPTIONS = [
   { value: 'dna_sequencing_pooled', label: 'DNA Sequencing In Progress (DNA Pooled)', color: 'bg-blue-100 text-blue-700' },
   { value: 'dna_sequencing_library', label: 'DNA Sequencing In Progress (DNA Library Created)', color: 'bg-blue-100 text-blue-700' },
   { value: 'dna_sequencing_raw_data', label: 'DNA Sequencing In Progress (Raw Data Available)', color: 'bg-blue-100 text-blue-700' },
-  { value: 'sequence_analysis', label: 'Sequence Analysis In Progress', color: 'bg-indigo-100 text-indigo-700' },
+  { value: 'sequence_analysis', label: 'Sequence Analysis In Progress', color: 'bg-teal-100 text-teal-700' },
   { value: 'complete', label: 'Complete', color: 'bg-green-100 text-green-700' },
   { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
   { value: 'in_progress', label: 'In Progress', color: 'bg-blue-100 text-blue-700' },
@@ -62,10 +62,19 @@ export default function AdminRunsPage() {
   const [indexRunName, setIndexRunName] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: runs, isLoading, refetch } = useQuery<LabRun[]>({
-    queryKey: ['/api/admin/runs'],
+    queryKey: ['/api/admin/runs', searchQuery],
+    queryFn: async () => {
+      const url = searchQuery 
+        ? `/api/admin/runs?search=${encodeURIComponent(searchQuery)}`
+        : '/api/admin/runs';
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch runs');
+      return res.json();
+    },
   });
 
   const processFile = (file: File) => {
@@ -452,12 +461,23 @@ export default function AdminRunsPage() {
           </div>
         </div>
 
+        {/* Search Input */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by run name, iNat number, or lab code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-search-runs"
+          />
+        </div>
+
         <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Notes</TableHead>
@@ -469,15 +489,14 @@ export default function AdminRunsPage() {
               <TableBody>
                 {!runs || runs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                       <FlaskConical className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                      No lab runs yet. Create your first run to get started.
+                      {searchQuery ? 'No runs match your search.' : 'No lab runs yet. Create your first run to get started.'}
                     </TableCell>
                   </TableRow>
                 ) : (
                   runs.map((run) => (
                     <TableRow key={run.id} data-testid={`row-run-${run.id}`}>
-                      <TableCell className="font-mono">#{run.id}</TableCell>
                       <TableCell className="font-medium" data-testid={`text-run-name-${run.id}`}>
                         {run.name}
                       </TableCell>
