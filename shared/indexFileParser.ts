@@ -143,10 +143,10 @@ interface SampleIdParseResult {
 
 function parseSampleId(sampleId: string, lineNumber: number): SampleIdParseResult {
   const parts = sampleId.split('-');
-  if (parts.length < 5) {
+  if (parts.length < 2) {
     return {
       success: false,
-      error: `Line ${lineNumber}: SampleID "${sampleId}" has invalid format. Expected at least 5 parts separated by hyphens.`,
+      error: `Line ${lineNumber}: SampleID "${sampleId}" has invalid format. Expected at least 2 parts separated by hyphens.`,
     };
   }
   
@@ -170,22 +170,58 @@ function parseSampleId(sampleId: string, lineNumber: number): SampleIdParseResul
     };
   }
   
-  const labCode = `${parts[2]}-${parts[3]}`;
+  // Remaining parts could be: labCode parts and/or platform+observationId
+  // Format variations:
+  // ONT01.01-A01 (just plate/position/well)
+  // ONT01.01-A01-iNat123456 (no lab code, has platform)
+  // ONT01.01-A01-RS-754 (lab code only)
+  // ONT01.01-A01-RS-754-iNat123456 (both lab code and platform)
   
-  const platformObservation = parts.slice(4).join('-');
-  
+  let labCode = '';
   let platform: 'iNat' | 'MO' | 'MyCoPortal' | 'unknown' = 'unknown';
-  let observationId = platformObservation;
+  let observationId = '';
   
-  if (platformObservation.startsWith('iNat')) {
-    platform = 'iNat';
-    observationId = platformObservation.substring(4);
-  } else if (platformObservation.startsWith('MO')) {
-    platform = 'MO';
-    observationId = platformObservation.substring(2);
-  } else if (platformObservation.startsWith('MyCoPortal')) {
-    platform = 'MyCoPortal';
-    observationId = platformObservation.substring(10);
+  if (parts.length > 2) {
+    // Find where platform identifier starts (if present)
+    let platformIndex = -1;
+    for (let i = 2; i < parts.length; i++) {
+      if (parts[i].startsWith('iNat') || parts[i].startsWith('MO') || parts[i].startsWith('MyCoPortal')) {
+        platformIndex = i;
+        break;
+      }
+    }
+    
+    if (platformIndex === -1) {
+      // No platform found, everything after well position is lab code
+      labCode = parts.slice(2).join('-');
+    } else if (platformIndex === 2) {
+      // Platform is right after well, no lab code
+      const platformPart = parts.slice(2).join('-');
+      if (platformPart.startsWith('iNat')) {
+        platform = 'iNat';
+        observationId = platformPart.substring(4);
+      } else if (platformPart.startsWith('MyCoPortal')) {
+        platform = 'MyCoPortal';
+        observationId = platformPart.substring(10);
+      } else if (platformPart.startsWith('MO')) {
+        platform = 'MO';
+        observationId = platformPart.substring(2);
+      }
+    } else {
+      // Lab code is before platform
+      labCode = parts.slice(2, platformIndex).join('-');
+      const platformPart = parts.slice(platformIndex).join('-');
+      if (platformPart.startsWith('iNat')) {
+        platform = 'iNat';
+        observationId = platformPart.substring(4);
+      } else if (platformPart.startsWith('MyCoPortal')) {
+        platform = 'MyCoPortal';
+        observationId = platformPart.substring(10);
+      } else if (platformPart.startsWith('MO')) {
+        platform = 'MO';
+        observationId = platformPart.substring(2);
+      }
+    }
   }
   
   return {
