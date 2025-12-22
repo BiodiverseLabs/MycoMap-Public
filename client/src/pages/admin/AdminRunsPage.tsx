@@ -26,6 +26,8 @@ interface LabRun {
   completedAt: string | null;
   plateCount?: number;
   validatedPlateCount?: number;
+  successRate?: number;
+  rerunCount?: number;
 }
 
 interface SpecimenSummary {
@@ -655,14 +657,15 @@ export default function AdminRunsPage() {
                       )}
                     </button>
                   </TableHead>
-                  <TableHead>Completed</TableHead>
+                  <TableHead>Success Rate</TableHead>
+                  <TableHead># to Rerun</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {!sortedRuns || sortedRuns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                       <FlaskConical className="h-12 w-12 mx-auto mb-2 opacity-30" />
                       {searchQuery || statusFilter !== 'all' ? 'No runs match your filters.' : 'No lab runs yet. Create your first run to get started.'}
                     </TableCell>
@@ -689,7 +692,18 @@ export default function AdminRunsPage() {
                         {format(new Date(run.createdAt), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell>
-                        {run.completedAt ? format(new Date(run.completedAt), 'MMM d, yyyy') : '—'}
+                        {run.successRate !== undefined ? (
+                          <span className={run.successRate >= 90 ? 'text-green-600 font-medium' : run.successRate >= 70 ? 'text-yellow-600' : 'text-red-600'}>
+                            {run.successRate.toFixed(1)}%
+                          </span>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {run.rerunCount !== undefined ? (
+                          <span className={run.rerunCount === 0 ? 'text-green-600' : 'text-orange-600 font-medium'}>
+                            {run.rerunCount}
+                          </span>
+                        ) : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Link href={`/admin/runs/${run.id}`}>
