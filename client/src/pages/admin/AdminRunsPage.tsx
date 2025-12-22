@@ -104,6 +104,11 @@ export default function AdminRunsPage() {
             <Button onClick={() => refetch()} variant="outline" data-testid="button-refresh">
               <RefreshCw className="h-4 w-4 mr-2" /> Refresh
             </Button>
+            <Link href="/admin/primer-management">
+              <Button variant="outline" data-testid="button-primer-management">
+                <FlaskConical className="h-4 w-4 mr-2" /> Primer Management
+              </Button>
+            </Link>
             <Link href="/admin/index-management">
               <Button variant="outline" data-testid="button-index-management">
                 <Database className="h-4 w-4 mr-2" /> Index Management
