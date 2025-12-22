@@ -152,12 +152,22 @@ export default function AdminPlateEditorPage() {
     }
   }, [plate]);
 
+  const pendingRefetchRef = useRef<NodeJS.Timeout | null>(null);
+  
   const updateWellMutation = useMutation({
     mutationFn: async ({ wellId, data }: { wellId: number; data: any }) => {
       return apiRequest('PATCH', `/api/admin/wells/${wellId}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/plates', plateId] });
+      // Debounce the refetch to avoid cascading updates
+      // Only refetch after 1 second of no new mutations
+      if (pendingRefetchRef.current) {
+        clearTimeout(pendingRefetchRef.current);
+      }
+      pendingRefetchRef.current = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/plates', plateId] });
+        pendingRefetchRef.current = null;
+      }, 1000);
     },
   });
 
