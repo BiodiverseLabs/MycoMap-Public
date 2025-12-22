@@ -9727,14 +9727,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // no_voucher is acceptable - don't count it as an error for plate status
         const acceptableStatuses = ['valid', 'no_voucher'];
         const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
-        // Plate is "fully validated" if all samples are validated with acceptable statuses OR manually cleared
+        // Plate is "fully validated" if all samples are validated with acceptable statuses
         const validatedOrNoVoucherCount = wells.filter(w => w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)).length;
-        // Cleared wells = was part of validation but status manually cleared (isValidated=false, no status, but has sample)
-        const clearedCount = wells.filter(w => !w.isValidated && !w.validationStatus && (w.observationId || w.labCode)).length;
-        // Green if: has samples, no errors, and all samples are either validated/no_voucher OR cleared
+        
         // Plate is fully validated only if:
         // 1. Has samples
-        // 2. All samples are validated or cleared
+        // 2. All samples have been validated with acceptable statuses (valid or no_voucher)
         // 3. Has index sets assigned (both forward and reverse)
         // 4. Has primer configuration (either default primers or wells have primers)
         const hasIndexSets = plate.forwardIndexSetId && plate.reverseIndexSetId;
@@ -9752,7 +9750,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         const isFullyValidated = sampleCount > 0 && 
-          (validatedOrNoVoucherCount + clearedCount) === sampleCount && 
+          validatedOrNoVoucherCount === sampleCount && 
           errorCount === 0 &&
           hasIndexSets &&
           (hasPrimerConfig || wellsHavePrimers);
@@ -9762,7 +9760,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           sampleCount,
           validatedCount,
           errorCount,
-          clearedCount,
           isFullyValidated,
         };
       }));
