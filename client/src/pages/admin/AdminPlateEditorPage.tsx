@@ -173,6 +173,39 @@ export default function AdminPlateEditorPage() {
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent, wellId: number, currentIndex: number, field: keyof Well) => {
+    const pastedText = e.clipboardData.getData('text');
+    const lines = pastedText.split(/[\r\n]+/).map(line => line.trim()).filter(line => line.length > 0);
+    
+    if (lines.length > 1) {
+      e.preventDefault();
+      const sortedWells = plate ? [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder) : [];
+      
+      const updates: Record<number, Partial<Well>> = {};
+      lines.forEach((line, i) => {
+        const targetWell = sortedWells[currentIndex + i];
+        if (targetWell) {
+          let processedValue = line;
+          if (field === 'observationId') {
+            processedValue = parseObservationId(line);
+          }
+          updates[targetWell.id] = { ...wellData[targetWell.id], [field]: processedValue };
+        }
+      });
+      
+      setWellData(prev => ({ ...prev, ...updates }));
+      
+      Object.entries(updates).forEach(([id, data]) => {
+        updateWellMutation.mutate({ wellId: parseInt(id), data });
+      });
+      
+      toast({
+        title: "Pasted",
+        description: `Applied ${Math.min(lines.length, sortedWells.length - currentIndex)} values to rows`,
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -358,6 +391,7 @@ export default function AdminPlateEditorPage() {
                             onChange={(e) => handleWellChange(well.id, 'labCode', e.target.value)}
                             onBlur={() => saveWell(well.id)}
                             onKeyDown={(e) => handleKeyDown(e, well.id, index, 'labCode')}
+                            onPaste={(e) => handlePaste(e, well.id, index, 'labCode')}
                             data-testid={`input-labcode-${well.wellPosition}`}
                           />
                         </TableCell>
@@ -389,6 +423,7 @@ export default function AdminPlateEditorPage() {
                             onChange={(e) => handleWellChange(well.id, 'observationId', e.target.value)}
                             onBlur={() => saveWell(well.id)}
                             onKeyDown={(e) => handleKeyDown(e, well.id, index, 'observationId')}
+                            onPaste={(e) => handlePaste(e, well.id, index, 'observationId')}
                             data-testid={`input-obs-${well.wellPosition}`}
                           />
                         </TableCell>
