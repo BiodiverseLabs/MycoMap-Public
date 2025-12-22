@@ -9527,7 +9527,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Validate indexes exist in our system
       const allIndexEntries = await db.select().from(indexEntries);
-      const allIndexSequences = new Set(allIndexEntries.map(e => e.sequence));
+      const allIndexSequences = new Set(allIndexEntries.map(e => e.indexSequence));
+      
+      console.log(`[Index Upload] Checking ${parseResult.uniqueFwIndexes.size} unique forward indexes and ${parseResult.uniqueRvIndexes.size} unique reverse indexes`);
+      console.log(`[Index Upload] Database has ${allIndexSequences.size} unique index sequences`);
+      console.log(`[Index Upload] Sample from file - FwIndexes:`, Array.from(parseResult.uniqueFwIndexes).slice(0, 3));
+      console.log(`[Index Upload] Sample from DB:`, Array.from(allIndexSequences).slice(0, 3));
       
       const missingFwIndexes: string[] = [];
       const missingRvIndexes: string[] = [];
@@ -9545,10 +9550,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       });
       
       if (missingFwIndexes.length > 0 || missingRvIndexes.length > 0) {
+        console.log(`[Index Upload] Missing FW indexes (first 5):`, missingFwIndexes.slice(0, 5));
+        console.log(`[Index Upload] Missing RV indexes (first 5):`, missingRvIndexes.slice(0, 5));
         return res.status(400).json({
           error: "Some index sequences not found in the system",
-          missingFwIndexes,
-          missingRvIndexes,
+          missingFwIndexes: missingFwIndexes.slice(0, 10),
+          missingRvIndexes: missingRvIndexes.slice(0, 10),
         });
       }
       
