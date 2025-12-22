@@ -178,21 +178,43 @@ export default function AdminRunsPage() {
     },
     onError: (error: any) => {
       const details = error.details || [];
-      const missingIndexes = [...(error.missingFwIndexes || []), ...(error.missingRvIndexes || [])];
-      const missingPrimers = [...(error.missingFwPrimers || []), ...(error.missingRvPrimers || [])];
+      const missingFwIndexes = error.missingFwIndexes || [];
+      const missingRvIndexes = error.missingRvIndexes || [];
+      const missingFwPrimers = error.missingFwPrimers || [];
+      const missingRvPrimers = error.missingRvPrimers || [];
       
-      const allErrors = [
-        ...details,
-        ...(missingIndexes.length > 0 ? [`Missing indexes: ${missingIndexes.join(', ')}`] : []),
-        ...(missingPrimers.length > 0 ? [`Missing primers: ${missingPrimers.join(', ')}`] : []),
-      ];
+      const allErrors: string[] = [];
+      
+      if (error.error) {
+        allErrors.push(error.error);
+      }
+      
+      if (details.length > 0) {
+        allErrors.push(...details);
+      }
+      
+      if (missingFwIndexes.length > 0) {
+        allErrors.push(`Missing forward indexes: ${missingFwIndexes.slice(0, 5).join(', ')}${missingFwIndexes.length > 5 ? ` (+${missingFwIndexes.length - 5} more)` : ''}`);
+      }
+      
+      if (missingRvIndexes.length > 0) {
+        allErrors.push(`Missing reverse indexes: ${missingRvIndexes.slice(0, 5).join(', ')}${missingRvIndexes.length > 5 ? ` (+${missingRvIndexes.length - 5} more)` : ''}`);
+      }
+      
+      if (missingFwPrimers.length > 0) {
+        allErrors.push(`Missing forward primers: ${missingFwPrimers.join(', ')}`);
+      }
+      
+      if (missingRvPrimers.length > 0) {
+        allErrors.push(`Missing reverse primers: ${missingRvPrimers.join(', ')}`);
+      }
       
       if (allErrors.length > 0) {
         setValidationErrors(allErrors);
       } else {
         toast({
           title: "Error",
-          description: error.error || "Failed to create run from index file",
+          description: "Failed to create run from index file",
           variant: "destructive",
         });
       }
