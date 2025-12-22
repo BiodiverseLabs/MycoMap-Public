@@ -1621,3 +1621,34 @@ export type PrimerPoolWithSets = PrimerPool & {
   forwardPrimerSet: PrimerSetWithItems;
   reversePrimerSet: PrimerSetWithItems;
 };
+
+// =============================================
+// Lab Run Files - generated export files
+// =============================================
+
+export const labRunFiles = pgTable("lab_run_files", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
+  fileType: text("file_type").notNull(), // index | primers_fasta | primers_txt
+  filename: text("filename").notNull(),
+  content: text("content").notNull(),
+  mimeType: text("mime_type").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  runFileIdx: index("lab_run_files_run_idx").on(table.runId, table.fileType),
+}));
+
+export const labRunFilesRelations = relations(labRunFiles, ({ one }) => ({
+  run: one(labRuns, {
+    fields: [labRunFiles.runId],
+    references: [labRuns.id],
+  }),
+}));
+
+export const insertLabRunFileSchema = createInsertSchema(labRunFiles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertLabRunFile = z.infer<typeof insertLabRunFileSchema>;
+export type LabRunFile = typeof labRunFiles.$inferSelect;

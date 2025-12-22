@@ -1,0 +1,16 @@
+>ITS9MUNngs  pool=FungalITS    position=forward
+TACACACCGCCCGTCG
+>ITS1catta  pool=FungalITS    position=forward
+ACCWGCGGARGGATCATTA
+>ITS1Fngs  pool=FungalITS    position=forward
+GGTCATTTAGAGGAAGTAA
+>ITS1ngs  pool=FungalITS    position=forward
+TCCGTAGGTGAACCTGC
+>ITS5  pool=FungalITS    position=forward
+GGAAGTAAAAGTCGTAACAAGG
+>gITS7ngs  pool=FungalITS    position=forward
+GTGARTCATCRARTYTTTG
+>ITS2ngs   pool=FungalITS    position=reverse
+TTYRCKRCGTTCTTCATCG
+>ITS4ngsUni-SDR   pool=FungalITS    position=reverse
+TTYRCKRCGTTCTTCATCGCCTSCSCTTANTDATATGC
