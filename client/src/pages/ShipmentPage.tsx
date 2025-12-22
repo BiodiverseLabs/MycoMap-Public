@@ -561,7 +561,7 @@ export default function ShipmentPage() {
                                   <th className="px-3 py-2 text-left">Platform</th>
                                   <th className="px-3 py-2 text-left">Observation</th>
                                   <th className="px-3 py-2 text-left">Species</th>
-                                  <th className="px-3 py-2 text-left">Voucher</th>
+                                  <th className="px-3 py-2 text-left">Voucher Number(s)</th>
                                   <th className="px-3 py-2 text-left">Date</th>
                                   <th className="px-3 py-2 text-left">User</th>
                                   <th className="px-3 py-2"></th>
