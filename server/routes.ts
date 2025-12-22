@@ -10633,10 +10633,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
 
-      // Phase 2b: Fetch Mushroom Observer observations
-      const moObsIds = wellsToProcess
-        .filter(w => w.effectivePlatform === 'MO' && w.effectiveObsId)
-        .map(w => w.effectiveObsId.replace(/\D/g, ''));
+      // Phase 2b: Validate and fetch Mushroom Observer observations
+      // MO observation IDs should be 5-6 digits (currently in ~300000-600000 range)
+      const moWells = wellsToProcess.filter(w => w.effectivePlatform === 'MO' && w.effectiveObsId);
+      
+      // Pre-validate MO IDs and mark invalid ones
+      for (const moWell of moWells) {
+        const digits = moWell.effectiveObsId.replace(/\D/g, '');
+        if (digits.length < 5 || digits.length > 6) {
+          moWell.validationResult.status = 'invalid_observation';
+          moWell.validationResult.message = `Invalid MO ID format: "${moWell.effectiveObsId}" has ${digits.length} digits (expected 5-6). This may be an iNaturalist ID.`;
+          moWell.validationResult.apiFetched = false;
+        }
+      }
+      
+      // Only fetch valid MO IDs
+      const validMoWells = moWells.filter(w => !w.validationResult.status);
+      const moObsIds = validMoWells.map(w => w.effectiveObsId.replace(/\D/g, ''));
       
       const moDataMap: Record<string, any> = {};
       
@@ -10730,59 +10743,94 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
         }
 
-        // Process Mushroom Observer observations
-        if (effectivePlatform === 'MO' && obsId) {
+        // Process Mushroom Observer observations (skip if already marked invalid)
+        if (effectivePlatform === 'MO' && obsId && validationResult.status !== 'invalid_observation') {
           const moObs = moDataMap[obsId];
           
           if (moObs) {
             validationResult.apiFetched = true;
             
             // Extract username from MO API response
-            // MO API uses 'owner' field, not 'user'
+            // MO API uses 'user' field (with login_name), falling back to 'owner'
             let moUsername: string | null = null;
-            if (moObs.owner) {
-              if (typeof moObs.owner === 'string') {
-                try {
-                  const ownerObj = JSON.parse(moObs.owner);
-                  moUsername = ownerObj.login_name || ownerObj.login || ownerObj.name || null;
-                } catch {
-                  moUsername = moObs.owner; // Use as-is if not valid JSON
-                }
-              } else if (typeof moObs.owner === 'object') {
+            // Try 'user' field first (more common in API v2)
+            if (moObs.user) {
+              if (typeof moObs.user === 'object') {
+                moUsername = moObs.user.login_name || moObs.user.login || moObs.user.name || null;
+              } else if (typeof moObs.user === 'string') {
+                moUsername = moObs.user;
+              }
+            }
+            // Fallback to 'owner' field
+            if (!moUsername && moObs.owner) {
+              if (typeof moObs.owner === 'object') {
                 moUsername = moObs.owner.login_name || moObs.owner.login || moObs.owner.name || null;
+              } else if (typeof moObs.owner === 'string') {
+                moUsername = moObs.owner;
               }
             }
             validationResult.username = moUsername;
             validationResult.scientificName = moObs.consensus?.name || moObs.name?.name || null;
             
             // Extract location data from Mushroom Observer
-            // MO location format can vary - use normalizer for consistent output
-            const moLocation = moObs.location?.name || moObs.where || '';
-            const moLocationParts = moLocation.split(',').map((p: string) => p.trim());
-            if (moLocationParts.length >= 2) {
-              // Format is typically "County, State, Country" or "City, State, Country"
-              // Try to normalize the last two parts
-              const potentialState = moLocationParts[moLocationParts.length - 2];
-              const potentialCountry = moLocationParts[moLocationParts.length - 1];
-              
-              const normalizedCountry = normalizeCountry(potentialCountry);
-              const normalizedState = normalizeState(potentialState);
-              
-              validationResult.country = normalizedCountry?.code || potentialCountry || null;
-              validationResult.state = normalizedState?.code || potentialState || null;
-            } else if (moLocationParts.length === 1) {
-              const normalizedCountry = normalizeCountry(moLocationParts[0]);
-              validationResult.country = normalizedCountry?.code || moLocationParts[0] || null;
+            // Try structured location fields first, then fall back to 'where' string
+            let moState: string | null = null;
+            let moCountry: string | null = null;
+            
+            // Check for structured location object
+            if (moObs.location) {
+              if (typeof moObs.location === 'object') {
+                // Structured location - try direct fields
+                if (moObs.location.country) {
+                  const normalizedCountry = normalizeCountry(moObs.location.country);
+                  moCountry = normalizedCountry?.code || moObs.location.country;
+                }
+                if (moObs.location.state) {
+                  const normalizedState = normalizeState(moObs.location.state);
+                  moState = normalizedState?.code || moObs.location.state;
+                }
+                // Fall back to name field if structured fields don't exist
+                if (!moCountry && moObs.location.name) {
+                  const parts = moObs.location.name.split(',').map((p: string) => p.trim());
+                  if (parts.length >= 2) {
+                    const normalizedCountry = normalizeCountry(parts[parts.length - 1]);
+                    const normalizedState = normalizeState(parts[parts.length - 2]);
+                    moCountry = normalizedCountry?.code || parts[parts.length - 1];
+                    moState = normalizedState?.code || parts[parts.length - 2];
+                  }
+                }
+              }
             }
+            
+            // Fall back to 'where' string if no structured data
+            if (!moCountry && moObs.where) {
+              const moLocationParts = moObs.where.split(',').map((p: string) => p.trim());
+              if (moLocationParts.length >= 2) {
+                const potentialState = moLocationParts[moLocationParts.length - 2];
+                const potentialCountry = moLocationParts[moLocationParts.length - 1];
+                
+                const normalizedCountry = normalizeCountry(potentialCountry);
+                const normalizedState = normalizeState(potentialState);
+                
+                moCountry = normalizedCountry?.code || potentialCountry || null;
+                moState = normalizedState?.code || potentialState || null;
+              } else if (moLocationParts.length === 1) {
+                const normalizedCountry = normalizeCountry(moLocationParts[0]);
+                moCountry = normalizedCountry?.code || moLocationParts[0] || null;
+              }
+            }
+            
+            validationResult.country = moCountry;
+            validationResult.state = moState;
             
             // MO observations are fungi by default (it's a mycology platform)
             validationResult.isFungal = true;
             validationResult.status = 'valid';
             validationResult.message = 'Validated via Mushroom Observer';
-          } else {
-            // Still mark as valid even if API fetch failed - MO is a trusted source
-            validationResult.status = 'valid';
-            validationResult.message = 'Mushroom Observer observation (API lookup pending)';
+          } else if (!validationResult.status) {
+            // Only set error if not already marked (e.g., invalid_observation)
+            validationResult.status = 'error';
+            validationResult.message = 'Observation not found on Mushroom Observer';
           }
         }
 
