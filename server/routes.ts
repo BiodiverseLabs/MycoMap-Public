@@ -9958,7 +9958,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationResult.apiFetched = true;
             
             // Extract username from MO API response
-            const moUsername = moObs.user?.login || moObs.user?.name || moObs.owner || null;
+            // Handle case where user field might be a JSON string or an object
+            let moUsername: string | null = null;
+            if (moObs.user) {
+              if (typeof moObs.user === 'string') {
+                try {
+                  const userObj = JSON.parse(moObs.user);
+                  moUsername = userObj.login_name || userObj.login || userObj.name || null;
+                } catch {
+                  moUsername = moObs.user; // Use as-is if not valid JSON
+                }
+              } else if (typeof moObs.user === 'object') {
+                moUsername = moObs.user.login_name || moObs.user.login || moObs.user.name || null;
+              }
+            }
+            if (!moUsername) {
+              moUsername = moObs.owner || null;
+            }
             validationResult.username = moUsername;
             validationResult.scientificName = moObs.consensus?.name || moObs.name?.name || null;
             
