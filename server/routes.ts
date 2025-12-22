@@ -9614,15 +9614,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         // Create wells for each sample
         for (const sample of plateData.samples) {
+          // Map platform names to match database expected values
+          let dbPlatform: string | null = null;
+          if (sample.platform === 'iNat') {
+            dbPlatform = 'iNaturalist';
+          } else if (sample.platform === 'MO') {
+            dbPlatform = 'MO';
+          } else if (sample.platform === 'MyCoPortal') {
+            dbPlatform = 'MyCoPortal';
+          }
+          
           await db.insert(labWells).values({
             plateId: plate.id,
             wellPosition: sample.wellPosition,
-            labCode: sample.labCode,
-            platform: sample.platform === 'unknown' ? null : sample.platform,
-            observationId: sample.observationId,
-            primerPool: sample.primerPool,
-            forwardPrimer: sample.fwPrimer,
-            reversePrimer: sample.rvPrimer,
+            sortOrder: sample.position,
+            labCode: sample.labCode || null,
+            platform: dbPlatform,
+            observationId: sample.observationId || null,
+            primerPool: sample.primerPool || null,
+            forwardPrimer: sample.fwPrimer || null,
+            reversePrimer: sample.rvPrimer || null,
           });
         }
       }
