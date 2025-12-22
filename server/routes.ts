@@ -9509,6 +9509,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       if (!plate) {
         return res.status(404).json({ error: "Plate not found" });
       }
+      
+      // Fetch run name
+      const [run] = await db.select({ name: labRuns.name }).from(labRuns).where(eq(labRuns.id, plate.runId));
+      const runName = run?.name || null;
 
       let wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
       
@@ -9532,7 +9536,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
       }
 
-      res.json({ ...plate, wells });
+      res.json({ ...plate, runName, wells });
     } catch (error) {
       console.error("Error fetching plate:", error);
       res.status(500).json({ error: "Failed to fetch plate" });

@@ -36,6 +36,7 @@ interface Plate {
   name: string | null;
   notes: string | null;
   runId: number;
+  runName?: string;
   orientation: string;
   status: string;
   defaultForwardPrimer: string | null;
@@ -274,9 +275,16 @@ export default function AdminPlateEditorPage() {
             </Link>
             <div>
               <h1 className="text-xl font-bold text-gray-900" data-testid="text-plate-title">
-                Plate {plate.plateNumber} - {plate.name || 'Untitled'}
+                {plate.runName || `Run ${plate.runId}`} - Plate {plate.plateNumber}
               </h1>
-              <Badge variant="secondary">{plate.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{plate.status}</Badge>
+                {plate.wells.filter(w => w.observationId || w.labCode).length > 0 && (
+                  <span className="text-sm text-gray-600">
+                    {plate.wells.filter(w => w.observationId || w.labCode).length} samples
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
