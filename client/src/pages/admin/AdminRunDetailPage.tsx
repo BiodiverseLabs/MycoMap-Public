@@ -1002,8 +1002,8 @@ export default function AdminRunDetailPage() {
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button 
-                variant="destructive" 
-                className="flex items-center gap-2"
+                variant="ghost" 
+                className="flex items-center gap-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
                 data-testid="button-delete-run"
               >
                 <Trash2 className="h-4 w-4" />
