@@ -483,16 +483,30 @@ export default function ShipmentPage() {
                     <Button variant="outline" onClick={handleSaveForLater} data-testid="button-save-later">
                       Save for Later
                     </Button>
-                    <Button
-                      className="bg-myco-green hover:bg-myco-green/90"
-                      onClick={handleContinueFromQuestionnaire}
-                      disabled={createShipmentMutation.isPending}
-                      data-testid="button-continue"
-                    >
-                      {createShipmentMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Continue
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
+                    {(() => {
+                      const isQuestionnaireComplete = 
+                        questionnaire.isNorthAmerica !== null &&
+                        questionnaire.isMycoMapProject !== null &&
+                        (!questionnaire.isMycoMapProject || questionnaire.mycoMapProjectName.trim() !== "") &&
+                        questionnaire.hasObservations !== null &&
+                        questionnaire.isCompletelyDried !== null &&
+                        questionnaire.isProperlyPackaged !== null &&
+                        questionnaire.hasSlimeMolds !== "";
+                      
+                      return (
+                        <Button
+                          className={isQuestionnaireComplete ? "bg-myco-green hover:bg-myco-green/90" : ""}
+                          variant={isQuestionnaireComplete ? "default" : "secondary"}
+                          onClick={handleContinueFromQuestionnaire}
+                          disabled={!isQuestionnaireComplete || createShipmentMutation.isPending}
+                          data-testid="button-continue"
+                        >
+                          {createShipmentMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Continue
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
