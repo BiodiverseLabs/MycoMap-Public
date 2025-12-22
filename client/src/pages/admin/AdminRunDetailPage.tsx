@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2 } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -240,6 +240,36 @@ export default function AdminRunDetailPage() {
     },
   });
 
+  const validateAllMutation = useMutation({
+    mutationFn: async (plateIds: number[]) => {
+      const results = [];
+      for (const plateId of plateIds) {
+        try {
+          const response = await apiRequest('POST', `/api/admin/plates/${plateId}/validate`, {});
+          if (response.ok) {
+            results.push({ plateId, success: true });
+          } else {
+            results.push({ plateId, success: false });
+          }
+        } catch {
+          results.push({ plateId, success: false });
+        }
+      }
+      return results;
+    },
+    onSuccess: async (results) => {
+      await refetch();
+      const successCount = results.filter(r => r.success).length;
+      toast({ 
+        title: "Validation Complete", 
+        description: `Validated ${successCount} of ${results.length} plates` 
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to validate plates", variant: "destructive" });
+    },
+  });
+
   const { data: bioMethods = [] } = useQuery<BioinformaticsMethod[]>({
     queryKey: ['/api/admin/bioinformatics/methods'],
     queryFn: async () => {
@@ -403,6 +433,24 @@ export default function AdminRunDetailPage() {
                 ) : (
                   <>
                     <FileText className="h-4 w-4 mr-1" /> Generate Files
+                  </>
+                )}
+              </Button>
+            )}
+            {run.plates.length > 0 && (
+              <Button 
+                onClick={() => validateAllMutation.mutate(run.plates.map(p => p.id))}
+                disabled={validateAllMutation.isPending}
+                variant="outline"
+                data-testid="button-validate-all"
+              >
+                {validateAllMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Validating...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4 mr-1" /> Validate All
                   </>
                 )}
               </Button>
