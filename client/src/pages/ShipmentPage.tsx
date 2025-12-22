@@ -561,6 +561,7 @@ export default function ShipmentPage() {
                                   <th className="px-3 py-2 text-left">Platform</th>
                                   <th className="px-3 py-2 text-left">Observation</th>
                                   <th className="px-3 py-2 text-left">Species</th>
+                                  <th className="px-3 py-2 text-left">Voucher</th>
                                   <th className="px-3 py-2 text-left">Date</th>
                                   <th className="px-3 py-2 text-left">User</th>
                                   <th className="px-3 py-2"></th>
@@ -593,6 +594,7 @@ export default function ShipmentPage() {
                                         })()}
                                       </td>
                                       <td className="px-3 py-2 italic">{specimen.scientificName || "-"}</td>
+                                      <td className="px-3 py-2 text-xs font-mono">{specimen.voucherNumber || "-"}</td>
                                       <td className="px-3 py-2 text-xs">{specimen.observedDate || "-"}</td>
                                       <td className="px-3 py-2 text-xs">{specimen.username || "-"}</td>
                                       <td className="px-3 py-2">
@@ -609,7 +611,7 @@ export default function ShipmentPage() {
                                     </tr>
                                     {specimen.isValidated && (specimen.validationStatus === "invalid" || specimen.validationStatus === "slime_mold") && (
                                       <tr key={`${specimen.id}-message`} className="bg-red-50">
-                                        <td colSpan={7} className="px-3 py-2">
+                                        <td colSpan={8} className="px-3 py-2">
                                           <div className="flex items-center justify-between">
                                             <span className="text-red-600 text-sm">
                                               {specimen.validationStatus === "slime_mold" 

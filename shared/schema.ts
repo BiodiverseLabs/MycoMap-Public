@@ -1269,6 +1269,7 @@ export const shipmentSpecimens = pgTable("shipment_specimens", {
   username: text("username"),
   kingdom: text("kingdom"),
   taxonomicClass: text("taxonomic_class"), // For detecting Myxomycetes
+  voucherNumber: text("voucher_number"), // From iNaturalist Voucher Number(s) observation field
   userOverride: boolean("user_override").default(false), // User clicked "This is ok"
   
   sortOrder: integer("sort_order").default(0),

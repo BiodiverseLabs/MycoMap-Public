@@ -9048,7 +9048,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
 
           if (specimen.platform === "iNaturalist") {
-            const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`);
+            // Include observation fields in the API request
+            const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}?include=ofvs`);
             if (response.ok) {
               const data = await response.json();
               const obs = data.results?.[0];
@@ -9062,6 +9063,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 const isSlimeMold = taxonomicClass === "Myxomycetes" || 
                   obs.taxon?.name?.toLowerCase().includes("myxomycete") ||
                   obs.taxon?.ancestors?.some((a: any) => a.name === "Myxomycetes");
+                
+                // Extract Voucher Number(s) from observation fields
+                const observationFields = obs.ofvs || [];
+                const voucherNumberField = observationFields.find((field: any) => 
+                  field.name === "Voucher Number(s)" || 
+                  field.observation_field?.name === "Voucher Number(s)"
+                );
+                const voucherNumber = voucherNumberField?.value || null;
                 
                 let validationStatus = "invalid";
                 let validationMessage = "This observation is not fungal";
@@ -9086,6 +9095,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   username: obs.user?.login,
                   kingdom: kingdom || obs.taxon?.iconic_taxon_name,
                   taxonomicClass,
+                  voucherNumber,
                 };
               } else {
                 validationResult = {
