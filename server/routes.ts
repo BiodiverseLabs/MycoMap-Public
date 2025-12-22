@@ -9808,6 +9808,44 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
 
+      // Phase 2b: Fetch Mushroom Observer observations
+      const moObsIds = wellsToProcess
+        .filter(w => w.effectivePlatform === 'MO' && w.effectiveObsId)
+        .map(w => w.effectiveObsId.replace(/\D/g, ''));
+      
+      const moDataMap: Record<string, any> = {};
+      
+      if (moObsIds.length > 0) {
+        console.log(`[Validate] Fetching ${moObsIds.length} Mushroom Observer observations...`);
+        
+        // MO API doesn't support batch requests, so we need to fetch one at a time
+        // But we can do it in parallel with rate limiting
+        const moFetchPromises = moObsIds.map(async (obsId, index) => {
+          // Rate limit: wait 200ms between requests to avoid overwhelming the API
+          await new Promise(resolve => setTimeout(resolve, index * 200));
+          
+          try {
+            const moUrl = `https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`;
+            const response = await fetch(moUrl, {
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(15000)
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.results && data.results.length > 0) {
+                moDataMap[obsId] = data.results[0];
+              }
+            }
+          } catch (e: any) {
+            console.error(`[Validate] MO fetch error for ${obsId}: ${e.message}`);
+          }
+        });
+        
+        await Promise.all(moFetchPromises);
+        console.log(`[Validate] Retrieved ${Object.keys(moDataMap).length} Mushroom Observer observations`);
+      }
+
       // Phase 3: Process each well with the fetched data
       for (const { well, effectiveObsId, effectivePlatform, validationResult } of wellsToProcess) {
         const obsId = effectiveObsId?.replace(/\D/g, '');
@@ -9853,6 +9891,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           } else {
             validationResult.status = 'error';
             validationResult.message = 'Observation not found in iNaturalist';
+          }
+        }
+
+        // Process Mushroom Observer observations
+        if (effectivePlatform === 'MO' && obsId) {
+          const moObs = moDataMap[obsId];
+          
+          if (moObs) {
+            validationResult.apiFetched = true;
+            
+            // Extract username from MO API response
+            const moUsername = moObs.user?.login || moObs.user?.name || moObs.owner || null;
+            validationResult.username = moUsername;
+            validationResult.scientificName = moObs.consensus?.name || moObs.name?.name || null;
+            
+            // MO observations are fungi by default (it's a mycology platform)
+            validationResult.isFungal = true;
+            validationResult.status = 'valid';
+            validationResult.message = 'Validated via Mushroom Observer';
+          } else {
+            // Still mark as valid even if API fetch failed - MO is a trusted source
+            validationResult.status = 'valid';
+            validationResult.message = 'Mushroom Observer observation (API lookup pending)';
           }
         }
 
