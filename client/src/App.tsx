@@ -47,6 +47,7 @@ import AdminShipmentDetailPage from "@/pages/admin/AdminShipmentDetailPage";
 import AdminRunsPage from "@/pages/admin/AdminRunsPage";
 import AdminRunDetailPage from "@/pages/admin/AdminRunDetailPage";
 import AdminPlateEditorPage from "@/pages/admin/AdminPlateEditorPage";
+import AdminIndexManagementPage from "@/pages/admin/AdminIndexManagementPage";
 import FieldGuides from "@/pages/FieldGuides";
 import FieldGuideCreate from "@/pages/FieldGuideCreate";
 import FieldGuideDetail from "@/pages/FieldGuideDetail";
@@ -133,6 +134,7 @@ function AppRouter() {
         <Route path="/admin/runs" component={AdminRunsPage} />
         <Route path="/admin/runs/:id" component={AdminRunDetailPage} />
         <Route path="/admin/plates/:id" component={AdminPlateEditorPage} />
+        <Route path="/admin/index-management" component={AdminIndexManagementPage} />
         <Route path="/api-docs" component={ApiDocumentation} />
         <Route path="/species/:name" component={SpeciesDetail} />
         <Route path="/species" component={Species} />

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit } from "lucide-react";
+import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit, Database } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -104,6 +104,11 @@ export default function AdminRunsPage() {
             <Button onClick={() => refetch()} variant="outline" data-testid="button-refresh">
               <RefreshCw className="h-4 w-4 mr-2" /> Refresh
             </Button>
+            <Link href="/admin/index-management">
+              <Button variant="outline" data-testid="button-index-management">
+                <Database className="h-4 w-4 mr-2" /> Index Management
+              </Button>
+            </Link>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-[#8CBD45] hover:bg-[#7aa93d]" data-testid="button-new-run">
