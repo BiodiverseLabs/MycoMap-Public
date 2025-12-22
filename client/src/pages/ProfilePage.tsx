@@ -381,7 +381,7 @@ export default function ProfilePage() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setLocation("/shipment")}
+                                    onClick={() => setLocation(`/shipment/${shipment.id}`)}
                                     data-testid={`button-continue-${shipment.id}`}
                                   >
                                     Continue

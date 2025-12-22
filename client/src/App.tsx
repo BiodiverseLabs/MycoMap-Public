@@ -62,7 +62,8 @@ function AppRouter() {
   const [location] = useLocation();
   const isPublicRoute = publicPaths.includes(location) || 
     networkSubpages.some(path => location.startsWith(path)) ||
-    location.startsWith('/network/');
+    location.startsWith('/network/') ||
+    location.startsWith('/shipment');
 
   if (isPublicRoute) {
     return (
@@ -80,7 +81,7 @@ function AppRouter() {
         <Route path="/edna"><CMSPage slug="edna" /></Route>
         <Route path="/barcoding"><CMSPage slug="barcoding" /></Route>
         <Route path="/profile" component={ProfilePage} />
-        <Route path="/shipment" component={ShipmentPage} />
+        <Route path="/shipment/:id?" component={ShipmentPage} />
       </Switch>
     );
   }

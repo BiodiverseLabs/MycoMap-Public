@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { PublicLayout } from "@/components/PublicLayout";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,10 +32,12 @@ interface QuestionnaireData {
 export default function ShipmentPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
+  const params = useParams<{ id?: string }>();
   const { toast } = useToast();
 
+  const routeShipmentId = params.id ? parseInt(params.id) : null;
   const [currentStep, setCurrentStep] = useState<Step>("questionnaire");
-  const [currentShipmentId, setCurrentShipmentId] = useState<number | null>(null);
+  const [currentShipmentId, setCurrentShipmentId] = useState<number | null>(routeShipmentId);
   const [selectedBagId, setSelectedBagId] = useState<number | null>(null);
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData>({
     isNorthAmerica: null,
@@ -51,6 +53,7 @@ export default function ShipmentPage() {
   const [newObservationPlatform, setNewObservationPlatform] = useState<"iNaturalist" | "Mushroom Observer">("iNaturalist");
   const [isValidating, setIsValidating] = useState(false);
   const [labAddress, setLabAddress] = useState<{ name: string; street: string; city: string; state: string; zip: string } | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -58,10 +61,34 @@ export default function ShipmentPage() {
     }
   }, [authLoading, isAuthenticated]);
 
-  const { data: currentShipment, refetch: refetchShipment } = useQuery<ShipmentWithBags>({
-    queryKey: ["/api/shipments", currentShipmentId],
+  const { data: currentShipment, refetch: refetchShipment, isLoading: shipmentLoading } = useQuery<ShipmentWithBags>({
+    queryKey: ["shipment-detail", currentShipmentId],
+    queryFn: async () => {
+      const res = await fetch(`/api/shipments/${currentShipmentId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch shipment");
+      return res.json();
+    },
     enabled: !!currentShipmentId,
   });
+
+  useEffect(() => {
+    if (currentShipment && !initialized) {
+      setQuestionnaire({
+        isNorthAmerica: currentShipment.isNorthAmerica ?? null,
+        isMycoMapProject: currentShipment.isMycoMapProject ?? null,
+        mycoMapProjectName: currentShipment.mycoMapProjectName || "",
+        hasObservations: currentShipment.hasObservations ?? null,
+        isCompletelyDried: currentShipment.isCompletelyDried ?? null,
+        isProperlyPackaged: currentShipment.isProperlyPackaged ?? null,
+        hasSlimeMolds: currentShipment.hasSlimeMolds || "",
+      });
+      if (currentShipment.bags && currentShipment.bags.length > 0) {
+        setCurrentStep("bags");
+        setSelectedBagId(currentShipment.bags[0].id);
+      }
+      setInitialized(true);
+    }
+  }, [currentShipment, initialized]);
 
   const createShipmentMutation = useMutation({
     mutationFn: async (data: Partial<Shipment>) => {
@@ -83,7 +110,7 @@ export default function ShipmentPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments", currentShipmentId] });
+      queryClient.invalidateQueries({ queryKey: ["shipment-detail", currentShipmentId] });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update shipment", variant: "destructive" });
