@@ -357,6 +357,7 @@ export default function AdminPlateEditorPage() {
               <Table>
                 <TableHeader className="sticky top-0 bg-white z-10">
                   <TableRow>
+                    <TableHead className="w-[60px]">Well Number</TableHead>
                     <TableHead className="w-[80px]">Well Position</TableHead>
                     <TableHead className="w-[180px]">Lab Code</TableHead>
                     <TableHead className="w-[120px]">Platform</TableHead>
@@ -379,6 +380,9 @@ export default function AdminPlateEditorPage() {
                         className={validationClass}
                         data-testid={`row-well-${well.wellPosition}`}
                       >
+                        <TableCell className="font-mono text-center text-gray-500">
+                          {String(index + 1).padStart(2, '0')}
+                        </TableCell>
                         <TableCell className="font-mono font-medium">
                           {well.wellPosition}
                         </TableCell>
