@@ -1426,6 +1426,38 @@ export const labWellsRelations = relations(labWells, ({ one }) => ({
   }),
 }));
 
+// Index Sets - collections of index sequences for plates
+export const indexSets = pgTable("index_sets", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  orientation: text("orientation").notNull(), // Forward | Reverse
+  type: text("type").notNull(), // Single | 96
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Index Entries - individual index sequences within a set
+export const indexEntries = pgTable("index_entries", {
+  id: serial("id").primaryKey(),
+  indexSetId: integer("index_set_id").notNull().references(() => indexSets.id, { onDelete: "cascade" }),
+  wellPosition: text("well_position").notNull(), // A01, B01, etc. or "single" for Single type
+  indexSequence: text("index_sequence").notNull(),
+}, (table) => ({
+  setPositionIdx: index("index_entries_set_position_idx").on(table.indexSetId, table.wellPosition),
+}));
+
+// Relations for index tables
+export const indexSetsRelations = relations(indexSets, ({ many }) => ({
+  entries: many(indexEntries),
+}));
+
+export const indexEntriesRelations = relations(indexEntries, ({ one }) => ({
+  indexSet: one(indexSets, {
+    fields: [indexEntries.indexSetId],
+    references: [indexSets.id],
+  }),
+}));
+
 // Insert schemas for lab tables
 export const insertLabRunSchema = createInsertSchema(labRuns).omit({
   id: true,
@@ -1462,4 +1494,26 @@ export type LabRunWithPlates = LabRun & {
 
 export type LabPlateWithWells = LabPlate & {
   wells: LabWell[];
+};
+
+// Insert schemas for index tables
+export const insertIndexSetSchema = createInsertSchema(indexSets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertIndexEntrySchema = createInsertSchema(indexEntries).omit({
+  id: true,
+});
+
+// Types for index tables
+export type InsertIndexSet = z.infer<typeof insertIndexSetSchema>;
+export type IndexSet = typeof indexSets.$inferSelect;
+
+export type InsertIndexEntry = z.infer<typeof insertIndexEntrySchema>;
+export type IndexEntry = typeof indexEntries.$inferSelect;
+
+export type IndexSetWithEntries = IndexSet & {
+  entries: IndexEntry[];
 };
