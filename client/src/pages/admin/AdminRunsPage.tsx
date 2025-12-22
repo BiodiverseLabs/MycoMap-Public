@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit, Database } from "lucide-react";
+import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit, Database, Upload, FileText, AlertCircle, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useRef } from "react";
 
 interface LabRun {
   id: number;
@@ -55,10 +56,46 @@ export default function AdminRunsPage() {
   const [newRunName, setNewRunName] = useState("");
   const [newRunNotes, setNewRunNotes] = useState("");
   const [plateCount, setPlateCount] = useState(20);
+  const [activeTab, setActiveTab] = useState("scratch");
+  const [indexFileName, setIndexFileName] = useState("");
+  const [indexFileContent, setIndexFileContent] = useState("");
+  const [indexRunName, setIndexRunName] = useState("");
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: runs, isLoading, refetch } = useQuery<LabRun[]>({
     queryKey: ['/api/admin/runs'],
   });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIndexFileName(file.name);
+    setValidationErrors([]);
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setIndexFileContent(content);
+      
+      if (!indexRunName) {
+        const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+        setIndexRunName(baseName);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const resetIndexForm = () => {
+    setIndexFileName("");
+    setIndexFileContent("");
+    setIndexRunName("");
+    setValidationErrors([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const createRunMutation = useMutation({
     mutationFn: async () => {
@@ -87,6 +124,54 @@ export default function AdminRunsPage() {
         description: error.message || "Failed to create run",
         variant: "destructive",
       });
+    },
+  });
+
+  const createFromIndexMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/admin/runs/from-index', { 
+        name: indexRunName || `Run ${new Date().toLocaleDateString()}`,
+        indexFileContent
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw errorData;
+      }
+      
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/runs'] });
+      setIsDialogOpen(false);
+      resetIndexForm();
+      setActiveTab("scratch");
+      toast({
+        title: "Run Created from Index File",
+        description: `${data.run.name} has been created with ${data.plateCount} plates and ${data.sampleCount} samples.`,
+      });
+      setLocation(`/admin/runs/${data.run.id}`);
+    },
+    onError: (error: any) => {
+      const details = error.details || [];
+      const missingIndexes = [...(error.missingFwIndexes || []), ...(error.missingRvIndexes || [])];
+      const missingPrimers = [...(error.missingFwPrimers || []), ...(error.missingRvPrimers || [])];
+      
+      const allErrors = [
+        ...details,
+        ...(missingIndexes.length > 0 ? [`Missing indexes: ${missingIndexes.join(', ')}`] : []),
+        ...(missingPrimers.length > 0 ? [`Missing primers: ${missingPrimers.join(', ')}`] : []),
+      ];
+      
+      if (allErrors.length > 0) {
+        setValidationErrors(allErrors);
+      } else {
+        toast({
+          title: "Error",
+          description: error.error || "Failed to create run from index file",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -132,58 +217,156 @@ export default function AdminRunsPage() {
                 <Database className="h-4 w-4 mr-2" /> Index Management
               </Button>
             </Link>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) {
+                  setActiveTab("scratch");
+                  setNewRunName("");
+                  setNewRunNotes("");
+                  setPlateCount(20);
+                  resetIndexForm();
+                }
+              }}>
               <DialogTrigger asChild>
                 <Button className="bg-[#8CBD45] hover:bg-[#7aa93d]" data-testid="button-new-run">
                   <Plus className="h-4 w-4 mr-2" /> New Run
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Create New Lab Run</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="run-name">Run Name</Label>
-                    <Input 
-                      id="run-name"
-                      placeholder={`Run ${new Date().toLocaleDateString()}`}
-                      value={newRunName}
-                      onChange={(e) => setNewRunName(e.target.value)}
-                      data-testid="input-run-name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="run-notes">Notes (optional)</Label>
-                    <Textarea 
-                      id="run-notes"
-                      placeholder="Any notes about this run..."
-                      value={newRunNotes}
-                      onChange={(e) => setNewRunNotes(e.target.value)}
-                      data-testid="input-run-notes"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="plate-count">Number of Plates</Label>
-                    <Input 
-                      id="plate-count"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={plateCount}
-                      onChange={(e) => setPlateCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                      data-testid="input-plate-count"
-                    />
-                  </div>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => createRunMutation.mutate()}
-                    disabled={createRunMutation.isPending}
-                    data-testid="button-create-run"
-                  >
-                    {createRunMutation.isPending ? "Creating..." : `Create Run (${plateCount} Plates)`}
-                  </Button>
-                </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="scratch" data-testid="tab-from-scratch">From Scratch</TabsTrigger>
+                    <TabsTrigger value="index" data-testid="tab-from-index">From Index File</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="scratch" className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="run-name">Run Name</Label>
+                      <Input 
+                        id="run-name"
+                        placeholder={`Run ${new Date().toLocaleDateString()}`}
+                        value={newRunName}
+                        onChange={(e) => setNewRunName(e.target.value)}
+                        data-testid="input-run-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="run-notes">Notes (optional)</Label>
+                      <Textarea 
+                        id="run-notes"
+                        placeholder="Any notes about this run..."
+                        value={newRunNotes}
+                        onChange={(e) => setNewRunNotes(e.target.value)}
+                        data-testid="input-run-notes"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="plate-count">Number of Plates</Label>
+                      <Input 
+                        id="plate-count"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={plateCount}
+                        onChange={(e) => setPlateCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                        data-testid="input-plate-count"
+                      />
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={() => createRunMutation.mutate()}
+                      disabled={createRunMutation.isPending}
+                      data-testid="button-create-run"
+                    >
+                      {createRunMutation.isPending ? "Creating..." : `Create Run (${plateCount} Plates)`}
+                    </Button>
+                  </TabsContent>
+                  
+                  <TabsContent value="index" className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="index-run-name">Run Name</Label>
+                      <Input 
+                        id="index-run-name"
+                        placeholder={`Run ${new Date().toLocaleDateString()}`}
+                        value={indexRunName}
+                        onChange={(e) => setIndexRunName(e.target.value)}
+                        data-testid="input-index-run-name"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Index File (.txt)</Label>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept=".txt"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        data-testid="input-index-file"
+                      />
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
+                      >
+                        {indexFileName ? (
+                          <div className="flex items-center justify-center gap-2 text-green-600">
+                            <FileText className="h-5 w-5" />
+                            <span className="font-medium">{indexFileName}</span>
+                          </div>
+                        ) : (
+                          <div className="text-gray-500">
+                            <Upload className="h-8 w-8 mx-auto mb-2" />
+                            <p>Click to upload or drag and drop</p>
+                            <p className="text-sm">Tab-delimited .txt file</p>
+                          </div>
+                        )}
+                      </div>
+                      {indexFileContent && (
+                        <p className="text-sm text-gray-500">
+                          {indexFileContent.split('\n').length - 1} samples detected
+                        </p>
+                      )}
+                    </div>
+                    
+                    {validationErrors.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2 text-red-700">
+                          <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                          <div className="text-sm">
+                            <p className="font-medium mb-1">Validation Errors:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                              {validationErrors.slice(0, 5).map((err, i) => (
+                                <li key={i}>{err}</li>
+                              ))}
+                              {validationErrors.length > 5 && (
+                                <li>...and {validationErrors.length - 5} more errors</li>
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <Button 
+                      className="w-full" 
+                      onClick={() => createFromIndexMutation.mutate()}
+                      disabled={createFromIndexMutation.isPending || !indexFileContent}
+                      data-testid="button-create-from-index"
+                    >
+                      {createFromIndexMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Creating Run...
+                        </>
+                      ) : (
+                        "Create Run from Index File"
+                      )}
+                    </Button>
+                  </TabsContent>
+                </Tabs>
               </DialogContent>
             </Dialog>
           </div>
