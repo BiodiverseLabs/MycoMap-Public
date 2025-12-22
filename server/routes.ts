@@ -9762,7 +9762,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       await db.delete(labRunFiles).where(eq(labRunFiles.runId, runId));
       
       // Delete method selections
-      await db.delete(runMethodSelections).where(eq(runMethodSelections.runId, runId));
+      await db.delete(labRunMethodSelections).where(eq(labRunMethodSelections.runId, runId));
       
       // Delete the run itself
       await db.delete(labRuns).where(eq(labRuns.id, runId));
