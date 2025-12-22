@@ -9758,8 +9758,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const { name, notes, plateCount } = req.body;
       const numPlates = Math.min(Math.max(parseInt(plateCount) || 20, 1), 100);
 
+      const initialStatus = 'tissue_collection';
+      const initialHistory = [{ status: initialStatus, timestamp: new Date().toISOString() }];
+      
       const [run] = await db.insert(labRuns)
-        .values({ name: name || `Run ${new Date().toLocaleDateString()}`, notes, createdBy: userId })
+        .values({ 
+          name: name || `Run ${new Date().toLocaleDateString()}`, 
+          notes, 
+          createdBy: userId,
+          status: initialStatus,
+          statusHistory: initialHistory,
+        })
         .returning();
 
       // Create plates based on user selection
@@ -9872,11 +9881,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       // Create the run
+      const initialStatus = 'tissue_collection';
+      const initialHistory = [{ status: initialStatus, timestamp: new Date().toISOString() }];
+      
       const [run] = await db.insert(labRuns)
         .values({ 
           name: name || `Run ${new Date().toLocaleDateString()}`, 
           createdBy: userId,
-          status: 'tissue_collection'
+          status: initialStatus,
+          statusHistory: initialHistory,
         })
         .returning();
       
