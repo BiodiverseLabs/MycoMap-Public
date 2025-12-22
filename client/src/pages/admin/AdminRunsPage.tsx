@@ -36,6 +36,7 @@ export default function AdminRunsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newRunName, setNewRunName] = useState("");
   const [newRunNotes, setNewRunNotes] = useState("");
+  const [plateCount, setPlateCount] = useState(20);
   
   const { data: runs, isLoading, refetch } = useQuery<LabRun[]>({
     queryKey: ['/api/admin/runs'],
@@ -45,7 +46,8 @@ export default function AdminRunsPage() {
     mutationFn: async () => {
       return apiRequest('POST', '/api/admin/runs', { 
         name: newRunName || `Run ${new Date().toLocaleDateString()}`,
-        notes: newRunNotes || null
+        notes: newRunNotes || null,
+        plateCount: plateCount
       });
     },
     onSuccess: async (response) => {
@@ -54,9 +56,10 @@ export default function AdminRunsPage() {
       setIsDialogOpen(false);
       setNewRunName("");
       setNewRunNotes("");
+      setPlateCount(20);
       toast({
         title: "Run Created",
-        description: `${run.name} has been created with 20 plates.`,
+        description: `${run.name} has been created with ${plateCount} plates.`,
       });
       setLocation(`/admin/runs/${run.id}`);
     },
@@ -132,13 +135,25 @@ export default function AdminRunsPage() {
                       data-testid="input-run-notes"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="plate-count">Number of Plates</Label>
+                    <Input 
+                      id="plate-count"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={plateCount}
+                      onChange={(e) => setPlateCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                      data-testid="input-plate-count"
+                    />
+                  </div>
                   <Button 
                     className="w-full" 
                     onClick={() => createRunMutation.mutate()}
                     disabled={createRunMutation.isPending}
                     data-testid="button-create-run"
                   >
-                    {createRunMutation.isPending ? "Creating..." : "Create Run (20 Plates)"}
+                    {createRunMutation.isPending ? "Creating..." : `Create Run (${plateCount} Plates)`}
                   </Button>
                 </div>
               </DialogContent>

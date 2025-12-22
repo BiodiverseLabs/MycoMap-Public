@@ -9462,14 +9462,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.post("/api/admin/runs", isAdmin, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      const { name, notes } = req.body;
+      const { name, notes, plateCount } = req.body;
+      const numPlates = Math.min(Math.max(parseInt(plateCount) || 20, 1), 100);
 
       const [run] = await db.insert(labRuns)
         .values({ name: name || `Run ${new Date().toLocaleDateString()}`, notes, createdBy: userId })
         .returning();
 
-      // Create 20 empty plates
-      for (let i = 1; i <= 20; i++) {
+      // Create plates based on user selection
+      for (let i = 1; i <= numPlates; i++) {
         await db.insert(labPlates).values({
           runId: run.id,
           plateNumber: i,
