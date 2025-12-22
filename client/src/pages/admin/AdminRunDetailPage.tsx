@@ -50,6 +50,7 @@ export default function AdminRunDetailPage() {
   const { toast } = useToast();
   const [addPlateOpen, setAddPlateOpen] = useState(false);
   const [newPlateName, setNewPlateName] = useState("");
+  const [newPlateSampleCount, setNewPlateSampleCount] = useState(96);
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
@@ -61,13 +62,17 @@ export default function AdminRunDetailPage() {
   });
 
   const addPlateMutation = useMutation({
-    mutationFn: async (name: string) => {
-      return apiRequest('POST', `/api/admin/runs/${runId}/plates`, { name: name || undefined });
+    mutationFn: async (data: { name: string; sampleCount: number }) => {
+      return apiRequest('POST', `/api/admin/runs/${runId}/plates`, { 
+        name: data.name || undefined,
+        sampleCount: data.sampleCount
+      });
     },
     onSuccess: async () => {
       await refetch();
       setAddPlateOpen(false);
       setNewPlateName("");
+      setNewPlateSampleCount(96);
       toast({ title: "Plate Added", description: "New plate created successfully" });
     },
     onError: () => {
@@ -137,25 +142,42 @@ export default function AdminRunDetailPage() {
                 <DialogHeader>
                   <DialogTitle>Add New Plate</DialogTitle>
                 </DialogHeader>
-                <div className="py-4">
-                  <Label htmlFor="plate-name">Plate Name</Label>
-                  <Input
-                    id="plate-name"
-                    placeholder={`Plate ${nextPlateNumber}`}
-                    value={newPlateName}
-                    onChange={(e) => setNewPlateName(e.target.value)}
-                    data-testid="input-plate-name"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Leave blank to use default: Plate {nextPlateNumber}
-                  </p>
+                <div className="py-4 space-y-4">
+                  <div>
+                    <Label htmlFor="plate-name">Plate Name</Label>
+                    <Input
+                      id="plate-name"
+                      placeholder={`Plate ${nextPlateNumber}`}
+                      value={newPlateName}
+                      onChange={(e) => setNewPlateName(e.target.value)}
+                      data-testid="input-plate-name"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Leave blank to use default: Plate {nextPlateNumber}
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="sample-count">Number of Samples</Label>
+                    <Input
+                      id="sample-count"
+                      type="number"
+                      min={1}
+                      max={96}
+                      value={newPlateSampleCount}
+                      onChange={(e) => setNewPlateSampleCount(Math.max(1, Math.min(96, parseInt(e.target.value) || 96)))}
+                      data-testid="input-sample-count"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      1-96 wells (default: 96)
+                    </p>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setAddPlateOpen(false)}>
                     Cancel
                   </Button>
                   <Button 
-                    onClick={() => addPlateMutation.mutate(newPlateName)}
+                    onClick={() => addPlateMutation.mutate({ name: newPlateName, sampleCount: newPlateSampleCount })}
                     disabled={addPlateMutation.isPending}
                     data-testid="button-confirm-add-plate"
                   >

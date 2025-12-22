@@ -1358,6 +1358,7 @@ export const labPlates = pgTable("lab_plates", {
   plateNumber: integer("plate_number").notNull(), // 1-20
   name: text("name"), // Optional custom name
   notes: text("notes"), // Freeform plate notes
+  sampleCount: integer("sample_count").notNull().default(96), // Number of wells (1-96), default 96
   orientation: text("orientation").notNull().default("right-left"), // right-left | left-right
   defaultForwardPrimer: text("default_forward_primer"),
   defaultReversePrimer: text("default_reverse_primer"),

@@ -9523,7 +9523,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.post("/api/admin/runs/:id/plates", isAdmin, async (req: any, res) => {
     try {
       const runId = parseInt(req.params.id);
-      const { name } = req.body;
+      const { name, sampleCount = 96 } = req.body;
+      
+      // Validate sampleCount is between 1 and 96
+      const validSampleCount = Math.max(1, Math.min(96, parseInt(sampleCount) || 96));
       
       // Get the next plate number
       const existingPlates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
@@ -9535,6 +9538,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         runId,
         plateNumber: nextPlateNumber,
         name: name || `Plate ${nextPlateNumber}`,
+        sampleCount: validSampleCount,
         status: 'empty',
       }).returning();
       
@@ -9560,14 +9564,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
       let wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
       
-      // If no wells exist, create 96 empty wells
+      // If no wells exist, create wells based on sampleCount
       if (wells.length === 0) {
+        const sampleCount = plate.sampleCount || 96;
         const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
         
-        const wellPositions = plate.orientation === 'right-left' 
+        // Generate all 96 well positions in order
+        const allWellPositions = plate.orientation === 'right-left' 
           ? rows.flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + ri + 1 })))
           : rows.reverse().flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + (7 - ri) + 1 })));
+        
+        // Sort by order and take only the first sampleCount wells
+        allWellPositions.sort((a, b) => a.order - b.order);
+        const wellPositions = allWellPositions.slice(0, sampleCount);
         
         for (const { pos, order } of wellPositions) {
           await db.insert(labWells).values({
