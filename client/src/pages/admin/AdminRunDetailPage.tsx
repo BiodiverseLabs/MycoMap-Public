@@ -694,6 +694,13 @@ export default function AdminRunDetailPage() {
                 const currentSelection = methodSelections?.byStage[key];
                 const isExpanded = expandedCodeStages[key];
                 
+                const getDisplayText = (method: BioinformaticsMethod) => {
+                  return `${method.name}${method.programName ? ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})` : ''}`.trim();
+                };
+                
+                const selectedMethod = methods.find(m => m.id === currentSelection?.methodId);
+                const selectedDisplayText = selectedMethod ? getDisplayText(selectedMethod) : null;
+                
                 return (
                   <div key={key} className="border rounded-lg p-3" data-testid={`bio-stage-${key}`}>
                     <div className="flex items-center gap-4">
@@ -708,20 +715,21 @@ export default function AdminRunDetailPage() {
                         disabled={setMethodSelectionMutation.isPending}
                       >
                         <SelectTrigger className="w-[300px]" data-testid={`select-${key}`}>
-                          <SelectValue placeholder="Select a method..." />
+                          {selectedDisplayText ? (
+                            <span className="truncate">{selectedDisplayText}</span>
+                          ) : (
+                            <SelectValue placeholder="Select a method..." />
+                          )}
                         </SelectTrigger>
                         <SelectContent>
                           {methods.length === 0 ? (
                             <SelectItem value="none" disabled>No methods available</SelectItem>
                           ) : (
-                            methods.map((method) => {
-                              const displayText = `${method.name}${method.programName ? ` (${method.programName}${method.programVersion ? ` v${method.programVersion}` : ''})` : ''}`.trim();
-                              return (
-                                <SelectItem key={method.id} value={method.id.toString()}>
-                                  {displayText}
-                                </SelectItem>
-                              );
-                            })
+                            methods.map((method) => (
+                              <SelectItem key={method.id} value={method.id.toString()}>
+                                {getDisplayText(method)}
+                              </SelectItem>
+                            ))
                           )}
                         </SelectContent>
                       </Select>
