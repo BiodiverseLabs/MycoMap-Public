@@ -413,45 +413,45 @@ export default function AdminRunDetailPage() {
 
         {/* All States Dialog */}
         <Dialog open={showAllStates} onOpenChange={setShowAllStates}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-[#A87146]" />
                 All States ({stats?.allStates?.length || 0})
               </DialogTitle>
             </DialogHeader>
-            <ScrollArea className="max-h-[400px]">
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
               <div className="space-y-2">
                 {stats?.allStates?.map((s) => (
                   <div key={s.state} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <span className="font-medium text-gray-700">{s.state}</span>
-                    <Badge className="bg-[#A87146] text-white">{s.count} specimens</Badge>
+                    <span className="bg-[#A87146] text-white text-sm px-2 py-1 rounded-full font-medium">{s.count}</span>
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </DialogContent>
         </Dialog>
 
         {/* All Users Dialog */}
         <Dialog open={showAllUsers} onOpenChange={setShowAllUsers}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-[#8CBD45]" />
                 All Contributors ({stats?.allUsers?.length || 0})
               </DialogTitle>
             </DialogHeader>
-            <ScrollArea className="max-h-[400px]">
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
               <div className="space-y-2">
                 {stats?.allUsers?.map((u) => (
                   <div key={u.username} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <span className="font-medium text-gray-700">{u.username}</span>
-                    <Badge className="bg-[#8CBD45] text-white">{u.count} specimens</Badge>
+                    <span className="bg-[#8CBD45] text-white text-sm px-2 py-1 rounded-full font-medium">{u.count}</span>
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </DialogContent>
         </Dialog>
 
