@@ -10980,6 +10980,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const safeRunName = run.name.replace(/[^a-zA-Z0-9_-]/g, '_');
       
       // Delete existing files for this run (replace with new ones)
       await db.delete(labRunFiles).where(eq(labRunFiles.runId, runId));
@@ -10989,21 +10990,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         {
           runId,
           fileType: 'index',
-          filename: `Index_Run${runId}_${timestamp}.txt`,
+          filename: `Index_${safeRunName}_${timestamp}.txt`,
           content: indexLines.join('\n'),
           mimeType: 'text/plain',
         },
         {
           runId,
           fileType: 'primers_fasta',
-          filename: `primers_Run${runId}_${timestamp}.fasta`,
+          filename: `primers_${safeRunName}_${timestamp}.fasta`,
           content: fastaLines.join('\n'),
           mimeType: 'text/plain',
         },
         {
           runId,
           fileType: 'primers_txt',
-          filename: `primers_Run${runId}_${timestamp}.txt`,
+          filename: `primers_${safeRunName}_${timestamp}.txt`,
           content: txtLines.join('\n'),
           mimeType: 'text/plain',
         },
