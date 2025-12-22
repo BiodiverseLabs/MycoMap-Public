@@ -9602,14 +9602,53 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         })
         .returning();
       
+      // Build a map of index sequences to their index sets
+      const indexSetMap = new Map<string, { setId: number; setTitle: string; orientation: string }>();
+      const allIndexSets = await db.select().from(indexSets);
+      
+      for (const entry of allIndexEntries) {
+        const set = allIndexSets.find(s => s.id === entry.indexSetId);
+        if (set) {
+          indexSetMap.set(entry.indexSequence, { 
+            setId: set.id, 
+            setTitle: set.title, 
+            orientation: set.orientation 
+          });
+        }
+      }
+      
       // Create plates and wells
       for (const plateData of parseResult.plates) {
+        // Detect index sets from the first sample's indexes
+        let forwardIndexSetId: number | null = null;
+        let reverseIndexSetId: number | null = null;
+        
+        if (plateData.samples.length > 0) {
+          const firstSample = plateData.samples[0];
+          
+          // Look up forward index
+          const fwIndexInfo = indexSetMap.get(firstSample.fwIndex);
+          if (fwIndexInfo && fwIndexInfo.orientation === 'Forward') {
+            forwardIndexSetId = fwIndexInfo.setId;
+            console.log(`[Index Upload] Plate ${plateData.plateNumber}: Detected forward index set "${fwIndexInfo.setTitle}" (ID: ${fwIndexInfo.setId})`);
+          }
+          
+          // Look up reverse index
+          const rvIndexInfo = indexSetMap.get(firstSample.rvIndex);
+          if (rvIndexInfo && rvIndexInfo.orientation === 'Reverse') {
+            reverseIndexSetId = rvIndexInfo.setId;
+            console.log(`[Index Upload] Plate ${plateData.plateNumber}: Detected reverse index set "${rvIndexInfo.setTitle}" (ID: ${rvIndexInfo.setId})`);
+          }
+        }
+        
         const [plate] = await db.insert(labPlates).values({
           runId: run.id,
           plateNumber: plateData.plateNumber,
           name: `Plate ${plateData.plateNumber}`,
           orientation: plateData.orientation,
           sampleCount: plateData.samples.length,
+          forwardIndexSetId,
+          reverseIndexSetId,
         }).returning();
         
         // Create wells for each sample
