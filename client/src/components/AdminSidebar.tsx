@@ -25,11 +25,22 @@ export function AdminSidebar() {
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isArchiveExpanded, setIsArchiveExpanded] = useState(false);
-  const [isLabExpanded, setIsLabExpanded] = useState(false);
 
   const mainNavItems = [
     { href: "/admin", label: "Admin Dashboard", icon: BarChart3 },
     { href: "/dashboard", label: "Research Dashboard", icon: Home },
+  ];
+
+  const dataManagementItems = [
+    { href: "/admin/upload", label: "Data Upload", icon: Upload },
+    { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
+    { href: "/admin/foraging-lists", label: "Foraging Lists", icon: Leaf },
+  ];
+
+  const labManagementItems = [
+    { href: "/admin/shipments", label: "Pending Shipments", icon: Package },
+    { href: "/admin/runs", label: "Lab Runs", icon: FlaskConical },
+    { href: "/admin/bioinformatics", label: "Bioinformatics", icon: Terminal },
   ];
 
   const archiveItems = [
@@ -37,25 +48,9 @@ export function AdminSidebar() {
     { href: "/admin/biorecords", label: "BioRecord Management", icon: Dna },
   ];
 
-  const labItems = [
-    { href: "/admin/shipments", label: "Pending Shipments", icon: Package },
-    { href: "/admin/runs", label: "Lab Runs", icon: FlaskConical },
-    { href: "/admin/bioinformatics", label: "Bioinformatics", icon: Terminal },
-  ];
-
-  const otherItems = [
-    { href: "/admin/upload", label: "Data Upload", icon: Upload },
-    { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
-    { href: "/admin/foraging-lists", label: "Foraging Lists", icon: Leaf },
-    { href: "/admin/settings", label: "System Settings", icon: Settings },
-  ];
-
   useEffect(() => {
     if (location.startsWith('/admin/validation') || location.startsWith('/admin/biorecords')) {
       setIsArchiveExpanded(true);
-    }
-    if (location.startsWith('/admin/shipments') || location.startsWith('/admin/runs') || location.startsWith('/admin/bioinformatics')) {
-      setIsLabExpanded(true);
     }
   }, [location]);
 
@@ -120,8 +115,16 @@ export function AdminSidebar() {
             Data Management
           </p>
         </div>
+        {dataManagementItems.map(renderNavItem)}
 
-        <div>
+        <div className="pt-4">
+          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Lab Management
+          </p>
+        </div>
+        {labManagementItems.map(renderNavItem)}
+
+        <div className="pt-4">
           <button
             onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
@@ -148,40 +151,9 @@ export function AdminSidebar() {
           )}
         </div>
 
-        <div>
-          <button
-            onClick={() => setIsLabExpanded(!isLabExpanded)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
-              labItems.some(item => location.startsWith(item.href))
-                ? "bg-[#A87146]/10 text-[#A87146]"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-            data-testid="nav-lab-toggle"
-          >
-            <div className="flex items-center space-x-3">
-              <FlaskConical className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">Laboratory</span>
-            </div>
-            {isLabExpanded ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
-          </button>
-          {isLabExpanded && (
-            <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-200 pl-2">
-              {labItems.map(renderNavItem)}
-            </div>
-          )}
+        <div className="pt-2">
+          {renderNavItem({ href: "/admin/settings", label: "System Settings", icon: Settings })}
         </div>
-
-        <div className="pt-4">
-          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Configuration
-          </p>
-        </div>
-
-        {otherItems.map(renderNavItem)}
       </nav>
 
       <div className="p-4 border-t border-slate-200">
