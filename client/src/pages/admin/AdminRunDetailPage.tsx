@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -290,121 +291,141 @@ export default function AdminRunDetailPage() {
         </div>
 
         {run.notes && (
-          <Card>
+          <Card className="border-l-4 border-l-[#A87146]">
             <CardContent className="py-4">
               <p className="text-gray-600">{run.notes}</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Run Summary Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {/* Total Specimens */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TestTube className="h-5 w-5 text-[#8CBD45]" />
-                <span className="text-sm text-gray-500">Total Specimens</span>
-              </div>
-              <p className="text-2xl font-bold" data-testid="stat-total-specimens">
-                {stats?.totalSpecimens ?? 0}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Top States */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => stats?.allStates?.length && setShowAllStates(true)}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="h-5 w-5 text-[#A87146]" />
-                <span className="text-sm text-gray-500">Top States</span>
-              </div>
-              {stats?.topStates?.length ? (
-                <div className="space-y-1">
-                  {stats.topStates.slice(0, 3).map((s, i) => (
-                    <div key={s.state} className="flex justify-between text-sm">
-                      <span className="truncate">{s.state}</span>
-                      <span className="text-gray-500">{s.count}</span>
-                    </div>
-                  ))}
-                  {stats.allStates.length > 3 && (
-                    <p className="text-xs text-blue-600 mt-1">+ {stats.allStates.length - 3} more</p>
-                  )}
+        {/* Run Summary Statistics Section */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-[#8CBD45]/10 to-[#A87146]/10 px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-[#8CBD45]" />
+              <h2 className="text-lg font-semibold text-gray-800">Run Summary</h2>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">Overview of specimens and contributors in this run</p>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {/* Total Specimens */}
+              <div className="bg-gradient-to-br from-[#8CBD45]/5 to-white rounded-xl p-4 border border-[#8CBD45]/20 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-[#8CBD45]/20 rounded-lg">
+                    <TestTube className="h-4 w-4 text-[#8CBD45]" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Total Specimens</span>
                 </div>
-              ) : (
-                <p className="text-gray-400 text-sm">No data</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Top Users */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => stats?.allUsers?.length && setShowAllUsers(true)}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-5 w-5 text-[#8CBD45]" />
-                <span className="text-sm text-gray-500">Top Users</span>
+                <p className="text-3xl font-bold text-gray-900" data-testid="stat-total-specimens">
+                  {stats?.totalSpecimens ?? 0}
+                </p>
               </div>
-              {stats?.topUsers?.length ? (
-                <div className="space-y-1">
-                  {stats.topUsers.slice(0, 3).map((u, i) => (
-                    <div key={u.username} className="flex justify-between text-sm">
-                      <span className="truncate">{u.username}</span>
-                      <span className="text-gray-500">{u.count}</span>
-                    </div>
-                  ))}
-                  {stats.allUsers.length > 3 && (
-                    <p className="text-xs text-blue-600 mt-1">+ {stats.allUsers.length - 3} more</p>
-                  )}
+
+              {/* Top States */}
+              <div 
+                className="bg-gradient-to-br from-[#A87146]/5 to-white rounded-xl p-4 border border-[#A87146]/20 hover:shadow-md transition-all cursor-pointer" 
+                onClick={() => stats?.allStates?.length && setShowAllStates(true)}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-[#A87146]/20 rounded-lg">
+                    <MapPin className="h-4 w-4 text-[#A87146]" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Top States</span>
                 </div>
-              ) : (
-                <p className="text-gray-400 text-sm">No data</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Success Rate */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                <span className="text-sm text-gray-500">Success %</span>
+                {stats?.topStates?.length ? (
+                  <div className="space-y-1.5">
+                    {stats.topStates.slice(0, 3).map((s) => (
+                      <div key={s.state} className="flex justify-between text-sm">
+                        <span className="truncate text-gray-700">{s.state}</span>
+                        <span className="font-medium text-[#A87146]">{s.count}</span>
+                      </div>
+                    ))}
+                    {stats.allStates.length > 3 && (
+                      <p className="text-xs text-[#8CBD45] font-medium mt-2">Click to see all {stats.allStates.length}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm">No data</p>
+                )}
               </div>
-              {stats?.successRate !== null && stats?.successRate !== undefined ? (
-                <p className="text-2xl font-bold text-green-600">{stats.successRate}%</p>
-              ) : (
-                <p className="text-gray-400 text-sm">Pending results</p>
-              )}
-            </CardContent>
-          </Card>
 
-          {/* Total Fails */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-                <span className="text-sm text-gray-500">Total Fails</span>
+              {/* Top Users */}
+              <div 
+                className="bg-gradient-to-br from-[#8CBD45]/5 to-white rounded-xl p-4 border border-[#8CBD45]/20 hover:shadow-md transition-all cursor-pointer" 
+                onClick={() => stats?.allUsers?.length && setShowAllUsers(true)}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-[#8CBD45]/20 rounded-lg">
+                    <Users className="h-4 w-4 text-[#8CBD45]" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Top Users</span>
+                </div>
+                {stats?.topUsers?.length ? (
+                  <div className="space-y-1.5">
+                    {stats.topUsers.slice(0, 3).map((u) => (
+                      <div key={u.username} className="flex justify-between text-sm">
+                        <span className="truncate text-gray-700">{u.username}</span>
+                        <span className="font-medium text-[#8CBD45]">{u.count}</span>
+                      </div>
+                    ))}
+                    {stats.allUsers.length > 3 && (
+                      <p className="text-xs text-[#8CBD45] font-medium mt-2">Click to see all {stats.allUsers.length}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm">No data</p>
+                )}
               </div>
-              {stats?.totalFails !== null && stats?.totalFails !== undefined ? (
-                <p className="text-2xl font-bold text-red-600">{stats.totalFails}</p>
-              ) : (
-                <p className="text-gray-400 text-sm">Pending results</p>
-              )}
-            </CardContent>
-          </Card>
+
+              {/* Success Rate */}
+              <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-4 border border-green-100 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Success %</span>
+                </div>
+                {stats?.successRate !== null && stats?.successRate !== undefined ? (
+                  <p className="text-3xl font-bold text-green-600">{stats.successRate}%</p>
+                ) : (
+                  <p className="text-gray-400 text-sm italic">Pending results</p>
+                )}
+              </div>
+
+              {/* Total Fails */}
+              <div className="bg-gradient-to-br from-red-50 to-white rounded-xl p-4 border border-red-100 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Total Fails</span>
+                </div>
+                {stats?.totalFails !== null && stats?.totalFails !== undefined ? (
+                  <p className="text-3xl font-bold text-red-600">{stats.totalFails}</p>
+                ) : (
+                  <p className="text-gray-400 text-sm italic">Pending results</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* All States Dialog */}
         <Dialog open={showAllStates} onOpenChange={setShowAllStates}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>All States ({stats?.allStates?.length || 0})</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-[#A87146]" />
+                All States ({stats?.allStates?.length || 0})
+              </DialogTitle>
             </DialogHeader>
             <ScrollArea className="max-h-[400px]">
               <div className="space-y-2">
-                {stats?.allStates?.map((s, i) => (
-                  <div key={s.state} className="flex justify-between p-2 bg-gray-50 rounded">
-                    <span>{s.state}</span>
-                    <Badge variant="secondary">{s.count}</Badge>
+                {stats?.allStates?.map((s) => (
+                  <div key={s.state} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <span className="font-medium text-gray-700">{s.state}</span>
+                    <Badge className="bg-[#A87146] text-white">{s.count} specimens</Badge>
                   </div>
                 ))}
               </div>
@@ -416,14 +437,17 @@ export default function AdminRunDetailPage() {
         <Dialog open={showAllUsers} onOpenChange={setShowAllUsers}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>All Users ({stats?.allUsers?.length || 0})</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-[#8CBD45]" />
+                All Contributors ({stats?.allUsers?.length || 0})
+              </DialogTitle>
             </DialogHeader>
             <ScrollArea className="max-h-[400px]">
               <div className="space-y-2">
-                {stats?.allUsers?.map((u, i) => (
-                  <div key={u.username} className="flex justify-between p-2 bg-gray-50 rounded">
-                    <span>{u.username}</span>
-                    <Badge variant="secondary">{u.count}</Badge>
+                {stats?.allUsers?.map((u) => (
+                  <div key={u.username} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <span className="font-medium text-gray-700">{u.username}</span>
+                    <Badge className="bg-[#8CBD45] text-white">{u.count} specimens</Badge>
                   </div>
                 ))}
               </div>
@@ -431,7 +455,18 @@ export default function AdminRunDetailPage() {
           </DialogContent>
         </Dialog>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {/* Plates Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#A87146]/30 to-transparent"></div>
+            <div className="flex items-center gap-2 px-4">
+              <Grid3X3 className="h-5 w-5 text-[#A87146]" />
+              <h2 className="text-lg font-semibold text-gray-700">Plates ({run.plates.length})</h2>
+            </div>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#A87146]/30 to-transparent"></div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {run.plates.map((plate) => (
             <Link key={plate.id} href={`/admin/plates/${plate.id}`}>
               <Card 
@@ -479,6 +514,7 @@ export default function AdminRunDetailPage() {
               </Card>
             </Link>
           ))}
+          </div>
         </div>
 
         {/* Files Section */}
