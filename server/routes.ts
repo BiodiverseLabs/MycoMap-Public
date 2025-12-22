@@ -9685,9 +9685,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
           const sampleCount = wells.filter(w => w.observationId || w.labCode).length;
           const acceptableStatuses = ['valid', 'no_voucher', 'cleared'];
+          // Only count wells that have actually been validated with acceptable status
+          // "Cleared" status now requires explicit 'cleared' validationStatus, not just missing validation
           const validatedOrAcceptableCount = wells.filter(w => 
-            (w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)) ||
-            (w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode))
+            w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)
           ).length;
           const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
           const hasIndexSets = plate.forwardIndexSetId && plate.reverseIndexSetId;
@@ -10076,14 +10077,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // no_voucher and cleared are acceptable - don't count them as errors for plate status
         const acceptableStatuses = ['valid', 'no_voucher', 'cleared'];
         const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
-        // "Cleared" in the UI sense = wells that had validation cleared (isValidated=false, no status, but has data)
+        // "Cleared" wells are those explicitly marked with 'cleared' status
         const clearedCount = wells.filter(w => 
-          w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode)
+          w.isValidated && w.validationStatus === 'cleared'
         ).length;
-        // Plate is "fully validated" if all samples are validated with acceptable statuses OR cleared
+        // Plate is "fully validated" if all samples are validated with acceptable statuses
+        // Fresh/unvalidated wells do NOT count as validated
         const validatedOrAcceptableCount = wells.filter(w => 
-          (w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)) ||
-          (w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode))
+          w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)
         ).length;
         
         // Plate is fully validated only if:
