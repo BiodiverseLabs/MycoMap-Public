@@ -9622,14 +9622,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         })
         .returning();
       
-      // Build a map of index sequences to their index sets
-      const indexSetMap = new Map<string, { setId: number; setTitle: string; orientation: string }>();
+      // Build index set lookup structures
       const allIndexSets = await db.select().from(indexSets);
       
+      // Build map of indexSetId -> { wellPosition -> sequence }
+      const indexSetEntriesMap = new Map<number, Map<string, string>>();
+      for (const entry of allIndexEntries) {
+        if (!indexSetEntriesMap.has(entry.indexSetId)) {
+          indexSetEntriesMap.set(entry.indexSetId, new Map());
+        }
+        indexSetEntriesMap.get(entry.indexSetId)!.set(entry.wellPosition, entry.indexSequence);
+      }
+      
+      // Build map of sequence -> indexSetId (for single-index detection)
+      const sequenceToSetMap = new Map<string, { setId: number; setTitle: string; orientation: string }>();
       for (const entry of allIndexEntries) {
         const set = allIndexSets.find(s => s.id === entry.indexSetId);
         if (set) {
-          indexSetMap.set(entry.indexSequence, { 
+          sequenceToSetMap.set(entry.indexSequence, { 
             setId: set.id, 
             setTitle: set.title, 
             orientation: set.orientation 
@@ -9637,27 +9647,92 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
+      // Helper function to find matching index set for a plate's indexes
+      const findMatchingIndexSet = (
+        samples: typeof parseResult.plates[0]['samples'],
+        orientation: 'Forward' | 'Reverse',
+        indexExtractor: (sample: typeof samples[0]) => string
+      ): { setId: number | null; matchType: 'full_plate' | 'single_index' | 'none'; setTitle?: string } => {
+        if (samples.length === 0) return { setId: null, matchType: 'none' };
+        
+        // Collect all unique indexes and their well positions
+        const indexByWell = new Map<string, string>();
+        const uniqueIndexes = new Set<string>();
+        for (const sample of samples) {
+          const idx = indexExtractor(sample);
+          if (idx) {
+            indexByWell.set(sample.wellPosition, idx);
+            uniqueIndexes.add(idx);
+          }
+        }
+        
+        // Case 1: Single index (all samples have the same index)
+        if (uniqueIndexes.size === 1) {
+          const singleIndex = Array.from(uniqueIndexes)[0];
+          const setInfo = sequenceToSetMap.get(singleIndex);
+          if (setInfo && setInfo.orientation === orientation) {
+            return { setId: setInfo.setId, matchType: 'single_index', setTitle: setInfo.setTitle };
+          }
+        }
+        
+        // Case 2: Full plate (96 different indexes matching a set by well position)
+        const orientedSets = allIndexSets.filter(s => s.orientation === orientation);
+        
+        for (const set of orientedSets) {
+          const setEntries = indexSetEntriesMap.get(set.id);
+          if (!setEntries) continue;
+          
+          // Check if all plate indexes match this set by well position
+          let allMatch = true;
+          let matchCount = 0;
+          
+          for (const [wellPos, plateIndex] of indexByWell) {
+            const setIndex = setEntries.get(wellPos);
+            if (setIndex === plateIndex) {
+              matchCount++;
+            } else {
+              allMatch = false;
+              break;
+            }
+          }
+          
+          if (allMatch && matchCount === indexByWell.size) {
+            return { setId: set.id, matchType: 'full_plate', setTitle: set.title };
+          }
+        }
+        
+        return { setId: null, matchType: 'none' };
+      };
+      
       // Create plates and wells
       for (const plateData of parseResult.plates) {
-        // Detect index sets from the first sample's indexes
         let forwardIndexSetId: number | null = null;
         let reverseIndexSetId: number | null = null;
         
         if (plateData.samples.length > 0) {
-          const firstSample = plateData.samples[0];
-          
-          // Look up forward index
-          const fwIndexInfo = indexSetMap.get(firstSample.fwIndex);
-          if (fwIndexInfo && fwIndexInfo.orientation === 'Forward') {
-            forwardIndexSetId = fwIndexInfo.setId;
-            console.log(`[Index Upload] Plate ${plateData.plateNumber}: Detected forward index set "${fwIndexInfo.setTitle}" (ID: ${fwIndexInfo.setId})`);
+          // Detect forward index set
+          const fwMatch = findMatchingIndexSet(plateData.samples, 'Forward', s => s.fwIndex);
+          if (fwMatch.setId) {
+            forwardIndexSetId = fwMatch.setId;
+            console.log(`[Index Upload] Plate ${plateData.plateNumber}: Detected forward index set "${fwMatch.setTitle}" (${fwMatch.matchType})`);
+          } else if (plateData.samples[0].fwIndex) {
+            console.log(`[Index Upload] Plate ${plateData.plateNumber}: WARNING - No matching Forward index set found`);
           }
           
-          // Look up reverse index
-          const rvIndexInfo = indexSetMap.get(firstSample.rvIndex);
-          if (rvIndexInfo && rvIndexInfo.orientation === 'Reverse') {
-            reverseIndexSetId = rvIndexInfo.setId;
-            console.log(`[Index Upload] Plate ${plateData.plateNumber}: Detected reverse index set "${rvIndexInfo.setTitle}" (ID: ${rvIndexInfo.setId})`);
+          // Detect reverse index set
+          const rvMatch = findMatchingIndexSet(plateData.samples, 'Reverse', s => s.rvIndex);
+          if (rvMatch.setId) {
+            reverseIndexSetId = rvMatch.setId;
+            console.log(`[Index Upload] Plate ${plateData.plateNumber}: Detected reverse index set "${rvMatch.setTitle}" (${rvMatch.matchType})`);
+          } else if (plateData.samples[0].rvIndex) {
+            // Fallback: try General Reverse as default if no exact match
+            const generalReverseSet = allIndexSets.find(s => s.orientation === 'Reverse' && s.title.toLowerCase().includes('general'));
+            if (generalReverseSet) {
+              reverseIndexSetId = generalReverseSet.id;
+              console.log(`[Index Upload] Plate ${plateData.plateNumber}: Defaulting to General Reverse (no exact match found)`);
+            } else {
+              console.log(`[Index Upload] Plate ${plateData.plateNumber}: WARNING - No matching Reverse index set found`);
+            }
           }
         }
         
