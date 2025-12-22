@@ -150,6 +150,53 @@ export default function AdminPrimerManagementPage() {
     setPoolItems(newItems);
   };
 
+  const handlePaste = (e: React.ClipboardEvent, startIndex: number, field: 'label' | 'sequence') => {
+    const pasteData = e.clipboardData.getData('text');
+    const lines = pasteData.split('\n').filter(line => line.trim());
+    
+    if (lines.length > 1) {
+      e.preventDefault();
+      const newItems = [...poolItems];
+      
+      lines.forEach((line, i) => {
+        const targetIndex = startIndex + i;
+        if (targetIndex < newItems.length) {
+          const parts = line.split('\t');
+          if (parts.length >= 2) {
+            newItems[targetIndex] = { 
+              ...newItems[targetIndex], 
+              label: parts[0].trim(),
+              sequence: parts[1].trim() 
+            };
+          } else {
+            newItems[targetIndex] = { 
+              ...newItems[targetIndex], 
+              [field]: parts[0].trim() 
+            };
+          }
+        } else if (targetIndex < 20) {
+          const parts = line.split('\t');
+          if (parts.length >= 2) {
+            newItems.push({ label: parts[0].trim(), sequence: parts[1].trim() });
+          } else {
+            newItems.push({ 
+              label: field === 'label' ? parts[0].trim() : `Primer ${targetIndex + 1}`, 
+              sequence: field === 'sequence' ? parts[0].trim() : '' 
+            });
+          }
+        }
+      });
+      
+      setPoolItems(newItems);
+      setPoolSize(newItems.length);
+      
+      toast({
+        title: "Pasted",
+        description: `Applied ${Math.min(lines.length, 20 - startIndex)} primer entries`,
+      });
+    }
+  };
+
   const handleSave = () => {
     const items: PrimerItem[] = [];
     
@@ -377,18 +424,21 @@ export default function AdminPrimerManagementPage() {
                       />
                     </div>
                   </div>
+                  <p className="text-sm text-gray-500">Tip: Paste multiple lines to populate fields automatically</p>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto">
                     {poolItems.map((item, index) => (
                       <div key={index} className="grid grid-cols-2 gap-2">
                         <Input
                           value={item.label}
                           onChange={(e) => updatePoolItem(index, 'label', e.target.value)}
+                          onPaste={(e) => handlePaste(e, index, 'label')}
                           placeholder={`Primer ${index + 1} name`}
                           data-testid={`input-pool-label-${index}`}
                         />
                         <Input
                           value={item.sequence || ""}
                           onChange={(e) => updatePoolItem(index, 'sequence', e.target.value)}
+                          onPaste={(e) => handlePaste(e, index, 'sequence')}
                           placeholder="Sequence (optional)"
                           data-testid={`input-pool-sequence-${index}`}
                         />
