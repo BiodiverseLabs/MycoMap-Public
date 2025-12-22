@@ -9717,18 +9717,35 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.patch("/api/admin/wells/:id", isAdmin, async (req: any, res) => {
     try {
       const wellId = parseInt(req.params.id);
-      const { platform, observationId, labCode, primerPool, forwardPrimer, reversePrimer } = req.body;
+      const { 
+        platform, 
+        observationId, 
+        labCode, 
+        primerPool, 
+        forwardPrimer, 
+        reversePrimer,
+        validationStatus,
+        validationMessage,
+        isValidated
+      } = req.body;
+
+      // Build update object, explicitly including null values for validation fields
+      const updateData: any = { updatedAt: new Date() };
+      
+      if (platform !== undefined) updateData.platform = platform;
+      if (observationId !== undefined) updateData.observationId = observationId;
+      if (labCode !== undefined) updateData.labCode = labCode;
+      if (primerPool !== undefined) updateData.primerPool = primerPool;
+      if (forwardPrimer !== undefined) updateData.forwardPrimer = forwardPrimer;
+      if (reversePrimer !== undefined) updateData.reversePrimer = reversePrimer;
+      
+      // Explicitly handle validation fields - allow null to clear them
+      if ('validationStatus' in req.body) updateData.validationStatus = validationStatus;
+      if ('validationMessage' in req.body) updateData.validationMessage = validationMessage;
+      if ('isValidated' in req.body) updateData.isValidated = isValidated;
 
       const [updated] = await db.update(labWells)
-        .set({
-          platform,
-          observationId,
-          labCode,
-          primerPool,
-          forwardPrimer,
-          reversePrimer,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(labWells.id, wellId))
         .returning();
 
