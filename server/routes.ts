@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -10816,6 +10816,116 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error deleting primer pool:", error);
       res.status(500).json({ error: "Failed to delete primer pool" });
+    }
+  });
+
+  // ============ BIOINFORMATICS MANAGEMENT ============
+
+  // Get all bio steps for a run (grouped by stage)
+  app.get("/api/admin/runs/:runId/bioinformatics", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.runId);
+      const steps = await db.select()
+        .from(labRunBioSteps)
+        .where(eq(labRunBioSteps.runId, runId))
+        .orderBy(labRunBioSteps.stage, labRunBioSteps.sequence);
+      
+      // Group by stage
+      const grouped: Record<string, typeof steps> = {
+        basecalling: [],
+        qc_filtering: [],
+        qc_reports: [],
+        demultiplexing: [],
+        consensus_building: [],
+      };
+      
+      for (const step of steps) {
+        if (grouped[step.stage]) {
+          grouped[step.stage].push(step);
+        }
+      }
+      
+      res.json({ steps, grouped });
+    } catch (error) {
+      console.error("Error fetching bioinformatics steps:", error);
+      res.status(500).json({ error: "Failed to fetch bioinformatics steps" });
+    }
+  });
+
+  // Create a bio step
+  app.post("/api/admin/runs/:runId/bioinformatics", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.runId);
+      const { stage, name, code, notes, sequence } = req.body;
+      
+      if (!stage || !name || !code) {
+        return res.status(400).json({ error: "Stage, name, and code are required" });
+      }
+      
+      const validStages = ['basecalling', 'qc_filtering', 'qc_reports', 'demultiplexing', 'consensus_building'];
+      if (!validStages.includes(stage)) {
+        return res.status(400).json({ error: "Invalid stage" });
+      }
+      
+      // Check run exists
+      const [run] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!run) {
+        return res.status(404).json({ error: "Run not found" });
+      }
+      
+      const [step] = await db.insert(labRunBioSteps).values({
+        runId,
+        stage: stage as any,
+        name,
+        code,
+        notes,
+        sequence: sequence || 0,
+      }).returning();
+      
+      res.json(step);
+    } catch (error) {
+      console.error("Error creating bioinformatics step:", error);
+      res.status(500).json({ error: "Failed to create bioinformatics step" });
+    }
+  });
+
+  // Update a bio step
+  app.patch("/api/admin/bioinformatics/:id", isAdmin, async (req: any, res) => {
+    try {
+      const stepId = parseInt(req.params.id);
+      const { name, code, notes, sequence } = req.body;
+      
+      const updateData: any = { updatedAt: new Date() };
+      if (name !== undefined) updateData.name = name;
+      if (code !== undefined) updateData.code = code;
+      if (notes !== undefined) updateData.notes = notes;
+      if (sequence !== undefined) updateData.sequence = sequence;
+      
+      const [updated] = await db.update(labRunBioSteps)
+        .set(updateData)
+        .where(eq(labRunBioSteps.id, stepId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Step not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating bioinformatics step:", error);
+      res.status(500).json({ error: "Failed to update bioinformatics step" });
+    }
+  });
+
+  // Delete a bio step
+  app.delete("/api/admin/bioinformatics/:id", isAdmin, async (req: any, res) => {
+    try {
+      const stepId = parseInt(req.params.id);
+      await db.delete(labRunBioSteps).where(eq(labRunBioSteps.id, stepId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting bioinformatics step:", error);
+      res.status(500).json({ error: "Failed to delete bioinformatics step" });
     }
   });
 
