@@ -43,6 +43,11 @@ export default function AdminRunDetailPage() {
   
   const { data: run, isLoading } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}`);
+      if (!res.ok) throw new Error('Failed to fetch run');
+      return res.json();
+    },
   });
 
   if (isLoading) {

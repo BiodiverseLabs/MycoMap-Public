@@ -59,6 +59,11 @@ export default function AdminShipmentDetailPage() {
   
   const { data: shipment, isLoading, refetch } = useQuery<ShipmentDetail>({
     queryKey: ['/api/admin/shipments', shipmentId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/shipments/${shipmentId}`);
+      if (!res.ok) throw new Error('Failed to fetch shipment');
+      return res.json();
+    },
   });
 
   const updateStatusMutation = useMutation({

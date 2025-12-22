@@ -61,6 +61,11 @@ export default function AdminPlateEditorPage() {
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
     queryKey: ['/api/admin/plates', plateId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/plates/${plateId}`);
+      if (!res.ok) throw new Error('Failed to fetch plate');
+      return res.json();
+    },
   });
 
   useEffect(() => {
