@@ -9739,6 +9739,41 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Delete run and all associated data
+  app.delete("/api/admin/runs/:id", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      // Get all plates for this run
+      const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
+      const plateIds = plates.map(p => p.id);
+      
+      // Delete wells for all plates
+      if (plateIds.length > 0) {
+        for (const plateId of plateIds) {
+          await db.delete(labWells).where(eq(labWells.plateId, plateId));
+        }
+      }
+      
+      // Delete plates
+      await db.delete(labPlates).where(eq(labPlates.runId, runId));
+      
+      // Delete run files
+      await db.delete(labRunFiles).where(eq(labRunFiles.runId, runId));
+      
+      // Delete method selections
+      await db.delete(runMethodSelections).where(eq(runMethodSelections.runId, runId));
+      
+      // Delete the run itself
+      await db.delete(labRuns).where(eq(labRuns.id, runId));
+      
+      res.json({ success: true, message: "Run deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting lab run:", error);
+      res.status(500).json({ error: "Failed to delete lab run" });
+    }
+  });
+
   // Fetch Google Drive folder contents
   app.get("/api/admin/runs/:id/drive-files", isAdmin, async (req: any, res) => {
     try {

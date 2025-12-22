@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -222,6 +223,20 @@ export default function AdminRunDetailPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to delete file", variant: "destructive" });
+    },
+  });
+
+  const deleteRunMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('DELETE', `/api/admin/runs/${runId}`, {});
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/runs'] });
+      toast({ title: "Run Deleted", description: "The run and all associated data have been deleted" });
+      setLocation('/admin/runs');
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete run", variant: "destructive" });
     },
   });
 
@@ -981,6 +996,40 @@ export default function AdminRunDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Delete Run Section */}
+        <div className="flex justify-start mt-8 pt-6 border-t border-gray-200">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive" 
+                className="flex items-center gap-2"
+                data-testid="button-delete-run"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Run
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete <strong>{run?.name}</strong> and all associated plates, wells, and files. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteRunMutation.mutate()}
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={deleteRunMutation.isPending}
+                >
+                  {deleteRunMutation.isPending ? "Deleting..." : "Yes, Delete Run"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </div>
   );
