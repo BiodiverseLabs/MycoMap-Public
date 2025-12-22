@@ -10249,7 +10249,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const plateNum = plate.plateNumber.toString().padStart(2, '0');
           const wellNum = well.sortOrder.toString().padStart(2, '0');
           const wellPos = well.wellPosition;
-          const labCode = well.labCode || 'Unknown';
           
           // Determine platform abbreviation
           let platformAbbrev = '';
@@ -10271,9 +10270,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             obsNum = well.observationId;
           }
           
+          // Determine lab code - exclude if empty, "Unknown", or is just the iNat number
+          let labCodePart = '';
+          if (well.labCode) {
+            const rawLabCode = well.labCode.trim();
+            // Check if lab code is just the iNat number in various formats
+            const isJustInatNum = 
+              rawLabCode === obsNum ||
+              rawLabCode.toLowerCase().replace(/\s+/g, '') === `inat${obsNum}` ||
+              rawLabCode.toLowerCase().startsWith('inat ') && rawLabCode.replace(/\D/g, '') === obsNum ||
+              rawLabCode.toLowerCase().startsWith('inat') && rawLabCode.replace(/\D/g, '') === obsNum;
+            
+            if (!isJustInatNum && rawLabCode.toLowerCase() !== 'unknown') {
+              labCodePart = `-${rawLabCode}`;
+            }
+          }
+          
           // Build sampleId - only include platform/observation suffix if we have observation data
           const platformSuffix = platformAbbrev && obsNum ? `-${platformAbbrev}${obsNum}` : '';
-          const sampleId = `ONT${plateNum}.${wellNum}-${wellPos}-${labCode}${platformSuffix}`;
+          let sampleId = `ONT${plateNum}.${wellNum}-${wellPos}${labCodePart}${platformSuffix}`;
+          
+          // Replace -MOXX- with -MissouriXX- (where XX is any number for state abbreviation, not platform)
+          // This matches -MO followed by digits and a dash (state abbreviation in lab code)
+          sampleId = sampleId.replace(/-MO(\d+)-/g, '-Missouri$1-');
           
           // Get primer pool name
           const primerPoolName = well.primerPool || plate.defaultForwardPrimer?.split(' ')[0] || 'ITS';
