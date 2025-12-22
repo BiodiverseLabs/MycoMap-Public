@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +76,8 @@ export default function AdminPlateEditorPage() {
   const [plateNotes, setPlateNotes] = useState("");
   const [forwardIndexSetId, setForwardIndexSetId] = useState<number | null>(null);
   const [reverseIndexSetId, setReverseIndexSetId] = useState<number | null>(null);
+  const [editPlateOpen, setEditPlateOpen] = useState(false);
+  const [editSampleCount, setEditSampleCount] = useState(96);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
@@ -102,6 +105,7 @@ export default function AdminPlateEditorPage() {
       setPlateNotes(plate.notes || "");
       setForwardIndexSetId(plate.forwardIndexSetId);
       setReverseIndexSetId(plate.reverseIndexSetId);
+      setEditSampleCount(plate.wells.length || 96);
     }
   }, [plate]);
 
@@ -147,6 +151,20 @@ export default function AdminPlateEditorPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to save index sets", variant: "destructive" });
+    },
+  });
+
+  const updateSampleCountMutation = useMutation({
+    mutationFn: async (sampleCount: number) => {
+      return apiRequest('PATCH', `/api/admin/plates/${plateId}/sample-count`, { sampleCount });
+    },
+    onSuccess: async () => {
+      await refetch();
+      setEditPlateOpen(false);
+      toast({ title: "Updated", description: "Sample count updated" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update sample count", variant: "destructive" });
     },
   });
 
@@ -331,6 +349,13 @@ export default function AdminPlateEditorPage() {
               <RefreshCw className="h-4 w-4 mr-1" /> Refresh
             </Button>
             <Button 
+              variant="outline"
+              onClick={() => setEditPlateOpen(true)}
+              data-testid="button-edit-plate"
+            >
+              <Settings className="h-4 w-4 mr-1" /> Edit Plate
+            </Button>
+            <Button 
               onClick={() => validateMutation.mutate()}
               disabled={validateMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
@@ -340,6 +365,43 @@ export default function AdminPlateEditorPage() {
               {validateMutation.isPending ? "Validating..." : "Validate Plate"}
             </Button>
           </div>
+
+          <Dialog open={editPlateOpen} onOpenChange={setEditPlateOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Plate Settings</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div>
+                  <Label htmlFor="edit-sample-count">Number of Samples</Label>
+                  <Input
+                    id="edit-sample-count"
+                    type="number"
+                    min={1}
+                    max={96}
+                    value={editSampleCount}
+                    onChange={(e) => setEditSampleCount(Math.max(1, Math.min(96, parseInt(e.target.value) || 1)))}
+                    data-testid="input-edit-sample-count"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Current: {plate?.wells.length || 0} wells. Reducing will remove excess wells.
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditPlateOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => updateSampleCountMutation.mutate(editSampleCount)}
+                  disabled={updateSampleCountMutation.isPending}
+                  data-testid="button-confirm-edit-plate"
+                >
+                  {updateSampleCountMutation.isPending ? "Updating..." : "Update Plate"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Card>

@@ -9623,6 +9623,69 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Update plate sample count (add/remove wells)
+  app.patch("/api/admin/plates/:id/sample-count", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const { sampleCount } = req.body;
+      
+      // Validate sampleCount
+      const validSampleCount = Math.max(1, Math.min(96, parseInt(sampleCount) || 96));
+      
+      // Get current wells
+      const currentWells = await db.select().from(labWells)
+        .where(eq(labWells.plateId, plateId))
+        .orderBy(labWells.sortOrder);
+      
+      if (validSampleCount < currentWells.length) {
+        // Remove excess wells (those with sortOrder > sampleCount)
+        const wellsToDelete = currentWells.slice(validSampleCount);
+        for (const well of wellsToDelete) {
+          await db.delete(labWells).where(eq(labWells.id, well.id));
+        }
+      } else if (validSampleCount > currentWells.length) {
+        // Add more wells
+        const [plate] = await db.select().from(labPlates).where(eq(labPlates.id, plateId));
+        if (plate) {
+          const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+          const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+          
+          const allWellPositions = plate.orientation === 'right-left' 
+            ? rows.flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + ri + 1 })))
+            : rows.reverse().flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + (7 - ri) + 1 })));
+          
+          allWellPositions.sort((a, b) => a.order - b.order);
+          
+          // Get positions that already exist
+          const existingPositions = new Set(currentWells.map(w => w.wellPosition));
+          
+          // Add wells for positions that don't exist yet, up to sampleCount
+          const wellsNeeded = allWellPositions.slice(0, validSampleCount);
+          for (const { pos, order } of wellsNeeded) {
+            if (!existingPositions.has(pos)) {
+              await db.insert(labWells).values({
+                plateId,
+                wellPosition: pos,
+                sortOrder: order,
+              });
+            }
+          }
+        }
+      }
+      
+      // Update plate sampleCount
+      const [updated] = await db.update(labPlates)
+        .set({ sampleCount: validSampleCount, updatedAt: new Date() })
+        .where(eq(labPlates.id, plateId))
+        .returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating sample count:", error);
+      res.status(500).json({ error: "Failed to update sample count" });
+    }
+  });
+
   // Bulk update wells (for applying primers to all)
   app.post("/api/admin/plates/:id/bulk-update", isAdmin, async (req: any, res) => {
     try {
