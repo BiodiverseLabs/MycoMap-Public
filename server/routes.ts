@@ -9509,7 +9509,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Cleared wells = was part of validation but status manually cleared (isValidated=false, no status, but has sample)
         const clearedCount = wells.filter(w => !w.isValidated && !w.validationStatus && (w.observationId || w.labCode)).length;
         // Green if: has samples, no errors, and all samples are either validated/no_voucher OR cleared
-        const isFullyValidated = sampleCount > 0 && (validatedOrNoVoucherCount + clearedCount) === sampleCount && errorCount === 0;
+        // Plate is fully validated only if:
+        // 1. Has samples
+        // 2. All samples are validated or cleared
+        // 3. Has index sets assigned (both forward and reverse)
+        // 4. Has primer configuration (either default primers or wells have primers)
+        const hasIndexSets = plate.forwardIndexSetId && plate.reverseIndexSetId;
+        const hasPrimerConfig = plate.defaultForwardPrimer && plate.defaultReversePrimer;
+        
+        // Check if any wells have primer pool or individual primers (if no defaults)
+        let wellsHavePrimers = false;
+        if (!hasPrimerConfig && sampleCount > 0) {
+          // Check if wells have primer configuration
+          const wellsWithPrimers = wells.filter(w => 
+            (w.observationId || w.labCode) && 
+            (w.primerPool || (w.forwardPrimer && w.reversePrimer))
+          );
+          wellsHavePrimers = wellsWithPrimers.length === sampleCount;
+        }
+        
+        const isFullyValidated = sampleCount > 0 && 
+          (validatedOrNoVoucherCount + clearedCount) === sampleCount && 
+          errorCount === 0 &&
+          hasIndexSets &&
+          (hasPrimerConfig || wellsHavePrimers);
         
         return {
           ...plate,
