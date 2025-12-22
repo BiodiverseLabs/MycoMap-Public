@@ -290,7 +290,7 @@ export default function ShipmentPage() {
   return (
     <PublicLayout>
       <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto px-4 max-w-3xl">
+        <div className="container mx-auto px-4 max-w-5xl">
           <div className="flex items-center gap-4 mb-8">
             <Button variant="ghost" onClick={() => setLocation("/profile?tab=specimens")} data-testid="button-back">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -562,7 +562,16 @@ export default function ShipmentPage() {
                                       )}
                                     </td>
                                     <td className="px-3 py-2 text-xs">{specimen.platform}</td>
-                                    <td className="px-3 py-2 font-mono text-xs">{specimen.observationId}</td>
+                                    <td className="px-3 py-2 font-mono text-xs">
+                                      {(() => {
+                                        const id = specimen.observationId || '';
+                                        const inatMatch = id.match(/inaturalist\.org\/observations\/(\d+)/);
+                                        if (inatMatch) return inatMatch[1];
+                                        const moMatch = id.match(/mushroomobserver\.org\/(\d+)/);
+                                        if (moMatch) return moMatch[1];
+                                        return id;
+                                      })()}
+                                    </td>
                                     <td className="px-3 py-2 italic">{specimen.scientificName || "-"}</td>
                                     <td className="px-3 py-2 text-xs">{specimen.observedDate || "-"}</td>
                                     <td className="px-3 py-2 text-xs">{specimen.username || "-"}</td>
