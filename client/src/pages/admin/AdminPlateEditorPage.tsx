@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface Well {
   id: number;
@@ -42,10 +43,10 @@ interface Plate {
 }
 
 const validationColors: Record<string, string> = {
-  valid: "border-green-500 bg-green-50",
-  mismatch: "border-red-500 bg-red-50",
-  no_voucher: "border-yellow-500 bg-yellow-50",
-  error: "border-red-500 bg-red-50",
+  valid: "bg-green-50",
+  mismatch: "bg-red-50",
+  no_voucher: "bg-yellow-50",
+  error: "bg-red-50",
 };
 
 export default function AdminPlateEditorPage() {
@@ -54,10 +55,10 @@ export default function AdminPlateEditorPage() {
   const { toast } = useToast();
   
   const [wellData, setWellData] = useState<Record<number, Partial<Well>>>({});
-  const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
   const [defaultForward, setDefaultForward] = useState("");
   const [defaultReverse, setDefaultReverse] = useState("");
   const [plateNotes, setPlateNotes] = useState("");
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
     queryKey: ['/api/admin/plates', plateId],
@@ -143,16 +144,15 @@ export default function AdminPlateEditorPage() {
     }
   }, [wellData, updateWellMutation]);
 
-  const handleKeyDown = (e: React.KeyboardEvent, wellId: number, currentIndex: number) => {
-    if (e.key === 'Tab' || e.key === 'Enter') {
+  const handleKeyDown = (e: React.KeyboardEvent, wellId: number, currentIndex: number, field: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
       saveWell(wellId);
-      if (e.key === 'Enter') {
-        const nextWell = plate?.wells[currentIndex + 1];
-        if (nextWell) {
-          setSelectedWellId(nextWell.id);
-          setTimeout(() => {
-            document.getElementById(`well-obs-${nextWell.id}`)?.focus();
-          }, 0);
+      const nextWell = plate?.wells[currentIndex + 1];
+      if (nextWell) {
+        const nextRef = inputRefs.current[`${nextWell.id}-${field}`];
+        if (nextRef) {
+          nextRef.focus();
         }
       }
     }
@@ -185,16 +185,11 @@ export default function AdminPlateEditorPage() {
     );
   }
 
-  const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
-
-  const wellsByPosition = Object.fromEntries(
-    plate.wells.map(w => [w.wellPosition, w])
-  );
+  const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-full mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Link href={`/admin/runs/${plate.runId}`}>
@@ -206,7 +201,7 @@ export default function AdminPlateEditorPage() {
               <h1 className="text-xl font-bold text-gray-900" data-testid="text-plate-title">
                 Plate {plate.plateNumber} - {plate.name || 'Untitled'}
               </h1>
-              <Badge variant="secondary">{plate.orientation}</Badge>
+              <Badge variant="secondary">{plate.status}</Badge>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -289,113 +284,121 @@ export default function AdminPlateEditorPage() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-x-auto">
-          <CardContent className="p-2">
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr>
-                  <th className="w-8 p-1 border bg-gray-100"></th>
-                  {cols.map((col) => (
-                    <th key={col} className="w-24 p-1 border bg-gray-100 text-center font-semibold">
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row}>
-                    <td className="p-1 border bg-gray-100 text-center font-semibold">{row}</td>
-                    {cols.map((col) => {
-                      const pos = `${row}${col}`;
-                      const well = wellsByPosition[pos];
-                      if (!well) return <td key={pos} className="border bg-gray-50" />;
-                      
-                      const localData = wellData[well.id] || {};
-                      const obsId = localData.observationId ?? well.observationId ?? "";
-                      const labCode = localData.labCode ?? well.labCode ?? "";
-                      const platform = localData.platform ?? well.platform ?? "";
-                      
-                      const validationClass = well.validationStatus ? validationColors[well.validationStatus] : "";
-                      
-                      return (
-                        <td 
-                          key={pos} 
-                          className={`border p-1 ${validationClass}`}
-                          title={well.validationMessage || undefined}
-                          data-testid={`cell-${pos}`}
-                        >
-                          <div className="space-y-1">
-                            <Select 
-                              value={platform || "empty"}
-                              onValueChange={(val) => handleWellChange(well.id, 'platform', val === "empty" ? "" : val)}
-                            >
-                              <SelectTrigger className="h-6 text-xs">
-                                <SelectValue placeholder="—" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="empty">—</SelectItem>
-                                <SelectItem value="iNaturalist">iNat</SelectItem>
-                                <SelectItem value="MO">MO</SelectItem>
-                                <SelectItem value="MyCoPortal">MCP</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Input 
-                              id={`well-obs-${well.id}`}
-                              className="h-6 text-xs"
-                              placeholder="Obs ID"
-                              value={obsId}
-                              onChange={(e) => handleWellChange(well.id, 'observationId', e.target.value)}
-                              onBlur={() => saveWell(well.id)}
-                              onKeyDown={(e) => handleKeyDown(e, well.id, plate.wells.findIndex(w => w.id === well.id))}
-                              data-testid={`input-obs-${pos}`}
-                            />
-                            <Input 
-                              className="h-6 text-xs"
-                              placeholder="Lab Code"
-                              value={labCode}
-                              onChange={(e) => handleWellChange(well.id, 'labCode', e.target.value)}
-                              onBlur={() => saveWell(well.id)}
-                              data-testid={`input-code-${pos}`}
-                            />
-                            {well.isValidated && (
-                              <div className="flex items-center gap-1">
-                                {well.validationStatus === 'valid' ? (
-                                  <CheckCircle className="h-3 w-3 text-green-600" />
-                                ) : (
-                                  <AlertCircle className="h-3 w-3 text-red-500" />
-                                )}
-                                {well.voucherNumber && (
-                                  <span className="text-xs text-gray-500 truncate">{well.voucherNumber}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-
         <Card>
-          <CardContent className="py-4">
-            <div className="flex gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-green-500 bg-green-50 rounded" />
-                <span>Valid</span>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Well Data</CardTitle>
+              <div className="flex gap-4 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-50 border border-green-300 rounded" />
+                  <span>Valid</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-yellow-50 border border-yellow-300 rounded" />
+                  <span>No Voucher</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-red-50 border border-red-300 rounded" />
+                  <span>Mismatch</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-yellow-500 bg-yellow-50 rounded" />
-                <span>No Voucher</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-red-500 bg-red-50 rounded" />
-                <span>Mismatch/Error</span>
-              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[600px] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-white z-10">
+                  <TableRow>
+                    <TableHead className="w-[80px]">Well Position</TableHead>
+                    <TableHead className="w-[180px]">Lab Code</TableHead>
+                    <TableHead className="w-[120px]">Platform</TableHead>
+                    <TableHead className="w-[150px]">Observation Number</TableHead>
+                    <TableHead className="w-[100px]">Validation</TableHead>
+                    <TableHead>Voucher #</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedWells.map((well, index) => {
+                    const localData = wellData[well.id] || {};
+                    const obsId = localData.observationId ?? well.observationId ?? "";
+                    const labCode = localData.labCode ?? well.labCode ?? "";
+                    const platform = localData.platform ?? well.platform ?? "";
+                    const validationClass = well.validationStatus ? validationColors[well.validationStatus] : "";
+                    
+                    return (
+                      <TableRow 
+                        key={well.id} 
+                        className={validationClass}
+                        data-testid={`row-well-${well.wellPosition}`}
+                      >
+                        <TableCell className="font-mono font-medium">
+                          {well.wellPosition}
+                        </TableCell>
+                        <TableCell>
+                          <Input 
+                            ref={el => inputRefs.current[`${well.id}-labCode`] = el}
+                            className="h-8"
+                            placeholder="Enter lab code"
+                            value={labCode}
+                            onChange={(e) => handleWellChange(well.id, 'labCode', e.target.value)}
+                            onBlur={() => saveWell(well.id)}
+                            onKeyDown={(e) => handleKeyDown(e, well.id, index, 'labCode')}
+                            data-testid={`input-labcode-${well.wellPosition}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select 
+                            value={platform || "empty"}
+                            onValueChange={(val) => {
+                              handleWellChange(well.id, 'platform', val === "empty" ? "" : val);
+                              setTimeout(() => saveWell(well.id), 0);
+                            }}
+                          >
+                            <SelectTrigger className="h-8" data-testid={`select-platform-${well.wellPosition}`}>
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="empty">—</SelectItem>
+                              <SelectItem value="iNaturalist">iNat</SelectItem>
+                              <SelectItem value="MO">MO</SelectItem>
+                              <SelectItem value="MyCoPortal">MyCoPortal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input 
+                            ref={el => inputRefs.current[`${well.id}-observationId`] = el}
+                            className="h-8"
+                            placeholder="Enter obs ID"
+                            value={obsId}
+                            onChange={(e) => handleWellChange(well.id, 'observationId', e.target.value)}
+                            onBlur={() => saveWell(well.id)}
+                            onKeyDown={(e) => handleKeyDown(e, well.id, index, 'observationId')}
+                            data-testid={`input-obs-${well.wellPosition}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {well.isValidated && (
+                            <div className="flex items-center gap-1" title={well.validationMessage || undefined}>
+                              {well.validationStatus === 'valid' ? (
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-red-500" />
+                              )}
+                              <span className="text-xs capitalize">
+                                {well.validationStatus?.replace('_', ' ')}
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {well.voucherNumber || '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
