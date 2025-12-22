@@ -254,7 +254,7 @@ export default function AdminBioinformaticsPage() {
                       </Button>
                     </div>
                   ) : (
-                    <Accordion type="multiple" defaultValue={methods.filter(m => m.isActive !== false).map(m => m.id.toString())} className="space-y-2">
+                    <Accordion type="multiple" defaultValue={[]} className="space-y-2">
                       {methods.map((method) => (
                         <AccordionItem 
                           key={method.id} 
