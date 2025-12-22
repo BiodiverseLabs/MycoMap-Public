@@ -24,7 +24,7 @@ interface Specimen {
 
 interface Bag {
   id: number;
-  bagLabel: string;
+  name: string;
   specimens: Specimen[];
 }
 
@@ -232,7 +232,7 @@ export default function AdminShipmentDetailPage() {
               <div key={bag.id} className="border-b last:border-0">
                 <div className="px-6 py-3 bg-gray-50 font-medium flex items-center gap-2">
                   <Package className="h-4 w-4" />
-                  {bag.bagLabel || `Bag ${index + 1}`}
+                  {bag.name || `Bag ${index + 1}`}
                   <Badge variant="secondary" className="ml-auto">{bag.specimens.length} specimens</Badge>
                 </div>
                 <Table>
