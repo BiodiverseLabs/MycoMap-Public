@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit, Database, Upload, FileText, AlertCircle, Loader2, Search } from "lucide-react";
+import { ChevronLeft, Plus, FlaskConical, RefreshCw, Edit, Database, Upload, FileText, AlertCircle, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -23,7 +24,12 @@ interface LabRun {
   notes: string | null;
   createdAt: string;
   completedAt: string | null;
+  plateCount?: number;
+  validatedPlateCount?: number;
 }
+
+type SortField = 'name' | 'createdAt';
+type SortDirection = 'asc' | 'desc';
 
 const RUN_STATUS_OPTIONS = [
   { value: 'tissue_collection', label: 'Tissue Collection In Progress', color: 'bg-purple-100 text-purple-700' },
@@ -63,19 +69,41 @@ export default function AdminRunsPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: runs, isLoading, refetch } = useQuery<LabRun[]>({
-    queryKey: ['/api/admin/runs', searchQuery],
+    queryKey: ['/api/admin/runs', searchQuery, statusFilter],
     queryFn: async () => {
-      const url = searchQuery 
-        ? `/api/admin/runs?search=${encodeURIComponent(searchQuery)}`
-        : '/api/admin/runs';
+      const params = new URLSearchParams();
+      if (searchQuery) params.set('search', searchQuery);
+      if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
+      const url = params.toString() ? `/api/admin/runs?${params}` : '/api/admin/runs';
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch runs');
       return res.json();
     },
   });
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedRuns = runs ? [...runs].sort((a, b) => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    if (sortField === 'name') {
+      return a.name.localeCompare(b.name) * direction;
+    } else {
+      return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
+    }
+  }) : [];
 
   const processFile = (file: File) => {
     setIndexFileName(file.name);
@@ -461,16 +489,29 @@ export default function AdminRunsPage() {
           </div>
         </div>
 
-        {/* Search Input */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search by run name, iNat number, or lab code..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-runs"
-          />
+        {/* Search and Filter Row */}
+        <div className="flex gap-4 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by run name, iNat number, or lab code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-runs"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[280px]" data-testid="select-status-filter">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {RUN_STATUS_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Card>
@@ -478,24 +519,48 @@ export default function AdminRunsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
+                  <TableHead>
+                    <button 
+                      className="flex items-center gap-1 hover:text-gray-900"
+                      onClick={() => toggleSort('name')}
+                    >
+                      Name
+                      {sortField === 'name' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Plates Validated</TableHead>
+                  <TableHead>
+                    <button 
+                      className="flex items-center gap-1 hover:text-gray-900"
+                      onClick={() => toggleSort('createdAt')}
+                    >
+                      Created
+                      {sortField === 'createdAt' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>Completed</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!runs || runs.length === 0 ? (
+                {!sortedRuns || sortedRuns.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                       <FlaskConical className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                      {searchQuery ? 'No runs match your search.' : 'No lab runs yet. Create your first run to get started.'}
+                      {searchQuery || statusFilter !== 'all' ? 'No runs match your filters.' : 'No lab runs yet. Create your first run to get started.'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  runs.map((run) => (
+                  sortedRuns.map((run) => (
                     <TableRow key={run.id} data-testid={`row-run-${run.id}`}>
                       <TableCell className="font-medium" data-testid={`text-run-name-${run.id}`}>
                         {run.name}
@@ -505,8 +570,12 @@ export default function AdminRunsPage() {
                           {getStatusLabel(run.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600 max-w-[200px] truncate">
-                        {run.notes || '—'}
+                      <TableCell className="text-sm">
+                        {run.plateCount !== undefined ? (
+                          <span className={run.validatedPlateCount === run.plateCount ? 'text-green-600 font-medium' : 'text-gray-600'}>
+                            {run.validatedPlateCount ?? 0}/{run.plateCount}
+                          </span>
+                        ) : '—'}
                       </TableCell>
                       <TableCell>
                         {format(new Date(run.createdAt), 'MMM d, yyyy')}

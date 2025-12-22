@@ -9499,12 +9499,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/admin/runs", isAdmin, async (req: any, res) => {
     try {
       const searchQuery = req.query.search as string | undefined;
+      const statusFilter = req.query.status as string | undefined;
       
+      // Fetch all runs with plate counts
+      let allRuns = await db.select().from(labRuns).orderBy(desc(labRuns.createdAt));
+      
+      // Apply status filter
+      if (statusFilter && statusFilter.trim()) {
+        allRuns = allRuns.filter(run => run.status === statusFilter);
+      }
+      
+      // Apply search filter
       if (searchQuery && searchQuery.trim()) {
         const search = searchQuery.trim().toLowerCase();
-        
-        // Search in run names first
-        const allRuns = await db.select().from(labRuns).orderBy(desc(labRuns.createdAt));
         const matchingRunIds = new Set<number>();
         
         // Check run names
@@ -9531,13 +9538,50 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (well.runId) matchingRunIds.add(well.runId);
         }
         
-        // Filter and return matching runs
-        const filteredRuns = allRuns.filter(run => matchingRunIds.has(run.id));
-        res.json(filteredRuns);
-      } else {
-        const runs = await db.select().from(labRuns).orderBy(desc(labRuns.createdAt));
-        res.json(runs);
+        allRuns = allRuns.filter(run => matchingRunIds.has(run.id));
       }
+      
+      // Add plate counts for each run
+      const runsWithCounts = await Promise.all(allRuns.map(async (run) => {
+        const plates = await db.select().from(labPlates).where(eq(labPlates.runId, run.id));
+        const plateCount = plates.length;
+        
+        // Count validated plates (same logic as run detail page)
+        let validatedPlateCount = 0;
+        for (const plate of plates) {
+          const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
+          const sampleCount = wells.filter(w => w.observationId || w.labCode).length;
+          const acceptableStatuses = ['valid', 'no_voucher', 'cleared'];
+          const validatedOrAcceptableCount = wells.filter(w => 
+            (w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)) ||
+            (w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode))
+          ).length;
+          const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
+          const hasIndexSets = plate.forwardIndexSetId && plate.reverseIndexSetId;
+          const hasPrimerConfig = plate.defaultForwardPrimer && plate.defaultReversePrimer;
+          
+          let wellsHavePrimers = false;
+          if (!hasPrimerConfig && sampleCount > 0) {
+            const wellsWithPrimers = wells.filter(w => 
+              (w.observationId || w.labCode) && 
+              (w.primerPool || (w.forwardPrimer && w.reversePrimer))
+            );
+            wellsHavePrimers = wellsWithPrimers.length === sampleCount;
+          }
+          
+          const isFullyValidated = sampleCount > 0 && 
+            validatedOrAcceptableCount === sampleCount && 
+            errorCount === 0 &&
+            hasIndexSets &&
+            (hasPrimerConfig || wellsHavePrimers);
+          
+          if (isFullyValidated) validatedPlateCount++;
+        }
+        
+        return { ...run, plateCount, validatedPlateCount };
+      }));
+      
+      res.json(runsWithCounts);
     } catch (error) {
       console.error("Error fetching lab runs:", error);
       res.status(500).json({ error: "Failed to fetch lab runs" });
