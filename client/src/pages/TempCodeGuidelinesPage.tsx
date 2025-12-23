@@ -57,7 +57,7 @@ export default function TempCodeGuidelinesPage() {
       pattern: "Genus sp. 'species-XX##'",
       example: "Hygrocybe sp. 'conica-NY01'",
       description: "For known cryptic species complexes or when there's uncertainty about which sequences represent the species sensu stricto.",
-      when: "Use when the group is known to contain multiple cryptic species under one name (e.g., Hygrocybe conica complex)."
+      when: "Use when the group is known to contain multiple cryptic species under one name (e.g., Hygrocybe conica complex). Do not use spaces within the quotes."
     }
   ];
 
