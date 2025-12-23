@@ -10333,7 +10333,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // Get all pending plates (runId is null)
   app.get("/api/admin/pending-plates", isAdmin, async (req: any, res) => {
     try {
-      const pendingPlates = await db.select().from(labPlates).where(isNull(labPlates.runId));
+      const showInactive = req.query.showInactive === 'true';
+      const searchTerm = req.query.search?.trim() || '';
+      
+      // Build conditions: runId is null, optionally filter by isActive
+      const conditions = showInactive
+        ? [isNull(labPlates.runId)]
+        : [isNull(labPlates.runId), eq(labPlates.isActive, true)];
+      
+      let pendingPlates = await db.select().from(labPlates).where(and(...conditions));
       
       // Get all unique creator IDs to fetch user names
       const creatorIds = [...new Set(pendingPlates.map(p => p.createdBy).filter(Boolean))];
@@ -10347,12 +10355,49 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
-      const platesWithWells = await Promise.all(pendingPlates.map(async (plate) => {
-        const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
+      // If search term provided, first filter by name
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const nameMatches = pendingPlates.filter(p => 
+          p.name?.toLowerCase().includes(searchLower)
+        );
+        
+        // If name matches found, use those. Otherwise search content (notes, creator)
+        if (nameMatches.length > 0) {
+          pendingPlates = nameMatches;
+        } else {
+          pendingPlates = pendingPlates.filter(p => {
+            const creatorName = p.createdBy ? (userNames.get(p.createdBy) || '') : '';
+            return (
+              p.notes?.toLowerCase().includes(searchLower) ||
+              creatorName.toLowerCase().includes(searchLower)
+            );
+          });
+        }
+      }
+      
+      // Get wells for all plates in a batch
+      const plateIds = pendingPlates.map(p => p.id);
+      let allWells: any[] = [];
+      if (plateIds.length > 0) {
+        allWells = await db.select().from(labWells).where(inArray(labWells.plateId, plateIds));
+      }
+      
+      // Group wells by plateId
+      const wellsByPlate = new Map<number, typeof allWells>();
+      for (const well of allWells) {
+        if (!wellsByPlate.has(well.plateId)) {
+          wellsByPlate.set(well.plateId, []);
+        }
+        wellsByPlate.get(well.plateId)!.push(well);
+      }
+      
+      const platesWithWells = pendingPlates.map((plate) => {
+        const wells = wellsByPlate.get(plate.id) || [];
         // Replace createdBy ID with the user's display name
         const createdByName = plate.createdBy ? (userNames.get(plate.createdBy) || plate.createdBy) : null;
         return { ...plate, createdBy: createdByName, wells };
-      }));
+      });
       
       res.json(platesWithWells);
     } catch (error) {
