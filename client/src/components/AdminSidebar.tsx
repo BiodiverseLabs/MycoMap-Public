@@ -16,7 +16,9 @@ import {
   FlaskConical,
   Archive,
   Terminal,
-  Grid3X3
+  Grid3X3,
+  Warehouse,
+  ClipboardList
 } from "lucide-react";
 import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./ui/button";
@@ -30,6 +32,11 @@ export function AdminSidebar() {
   const mainNavItems = [
     { href: "/admin", label: "Admin Dashboard", icon: BarChart3 },
     { href: "/dashboard", label: "Research Dashboard", icon: Home },
+  ];
+
+  const fungariumItems = [
+    { href: "/admin/fungarium", label: "Overview", icon: Warehouse },
+    { href: "/admin/specimens", label: "Specimens", icon: ClipboardList },
   ];
 
   const dataManagementItems = [
@@ -111,6 +118,13 @@ export function AdminSidebar() {
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         {mainNavItems.map(renderNavItem)}
+
+        <div className="pt-4">
+          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Fungarium Management
+          </p>
+        </div>
+        {fungariumItems.map(renderNavItem)}
 
         <div className="pt-4">
           <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">

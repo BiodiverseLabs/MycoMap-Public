@@ -12623,6 +12623,42 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get specimen statistics (must be before :id route)
+  app.get("/api/admin/specimens/stats", isAdmin, async (req: any, res) => {
+    try {
+      const statusCounts = await db.select({
+        status: specimens.currentStatus,
+        count: sql`count(*)`,
+      })
+        .from(specimens)
+        .groupBy(specimens.currentStatus);
+      
+      const intakeSourceCounts = await db.select({
+        source: specimens.intakeSourceType,
+        count: sql`count(*)`,
+      })
+        .from(specimens)
+        .groupBy(specimens.intakeSourceType);
+      
+      const [totalResult] = await db.select({ count: sql`count(*)` }).from(specimens);
+      
+      res.json({
+        total: Number(totalResult?.count || 0),
+        byStatus: statusCounts.reduce((acc, row) => {
+          acc[row.status] = Number(row.count);
+          return acc;
+        }, {} as Record<string, number>),
+        byIntakeSource: intakeSourceCounts.reduce((acc, row) => {
+          acc[row.source] = Number(row.count);
+          return acc;
+        }, {} as Record<string, number>),
+      });
+    } catch (error) {
+      console.error("Error fetching specimen stats:", error);
+      res.status(500).json({ error: "Failed to fetch specimen stats" });
+    }
+  });
+
   // Get single specimen with sources and events
   app.get("/api/admin/specimens/:id", isAdmin, async (req: any, res) => {
     try {
@@ -12856,42 +12892,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error adding specimen source:", error);
       res.status(500).json({ error: "Failed to add specimen source" });
-    }
-  });
-
-  // Get specimen statistics
-  app.get("/api/admin/specimens/stats", isAdmin, async (req: any, res) => {
-    try {
-      const statusCounts = await db.select({
-        status: specimens.currentStatus,
-        count: sql`count(*)`,
-      })
-        .from(specimens)
-        .groupBy(specimens.currentStatus);
-      
-      const intakeSourceCounts = await db.select({
-        source: specimens.intakeSourceType,
-        count: sql`count(*)`,
-      })
-        .from(specimens)
-        .groupBy(specimens.intakeSourceType);
-      
-      const [totalResult] = await db.select({ count: sql`count(*)` }).from(specimens);
-      
-      res.json({
-        total: Number(totalResult?.count || 0),
-        byStatus: statusCounts.reduce((acc, row) => {
-          acc[row.status] = Number(row.count);
-          return acc;
-        }, {} as Record<string, number>),
-        byIntakeSource: intakeSourceCounts.reduce((acc, row) => {
-          acc[row.source] = Number(row.count);
-          return acc;
-        }, {} as Record<string, number>),
-      });
-    } catch (error) {
-      console.error("Error fetching specimen stats:", error);
-      res.status(500).json({ error: "Failed to fetch specimen stats" });
     }
   });
 
