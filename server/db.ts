@@ -4446,14 +4446,15 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Join with unified cache to get observation metadata
+    // Note: 'id' in the response should be the observation ID for backwards compatibility
     const query = db.select({
       id: fitnessUserObservations.id,
       username: fitnessUserObservations.username,
-      observationId: sql<number>`${observationCache.sourceObservationId}::int`,
+      observationId: sql<number>`${fitnessUserObservations.sourceObservationId}::int`,
       scientificName: observationCache.scientificName,
       commonName: observationCache.commonName,
       observedOn: fitnessUserObservations.observedOn,
-      timeObserved: sql<string>`'00:00:00'`, // Not stored in unified cache
+      timeObserved: sql<string>`coalesce(${observationCache.timeObservedAt}::text, '00:00:00')`,
       latitude: observationCache.latitude,
       longitude: observationCache.longitude,
       photoUrl: sql<string>`(SELECT url FROM observation_media WHERE observation_cache_id = ${observationCache.id} LIMIT 1)`,

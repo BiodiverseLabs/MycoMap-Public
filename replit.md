@@ -85,10 +85,20 @@ The system uses a consolidated cache architecture for external platform data:
 - `inaturalist_data`, `mushroom_observer_data` → merged into `observation_cache`
 - `inat_cache_metadata`, `mo_cache_metadata` → merged into `observation_cache_jobs`
 - `inaturalist_api_cache` → merged into `observation_cache`
+- `fitness_observation_cache` → metadata merged into `observation_cache`, user tracking in `fitness_user_observations`
+
+**Fitness Tracker Integration:**
+- `fitness_user_observations` - Per-user linking table connecting users to unified cache
+  - Tracks which user has which observations (username + sourceObservationId)
+  - Maintains observedOn for date filtering, inatUpdatedAt for incremental sync
+  - Supports soft deletes via deletedAt column
+- Observation metadata (scientificName, photos, location) stored in unified `observation_cache`
+- Photos retrieved from `observation_media` via subquery
 
 **Migration:**
 - Use admin endpoint `POST /api/admin/observation-cache/migrate` to migrate legacy data
 - Use `GET /api/admin/observation-cache/stats` to check migration progress
+- Fitness migration: run `npx tsx server/migrateFitnessToUnifiedCache.ts`
 
 ### Development Tools
 - **TypeScript**: Type safety
