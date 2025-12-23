@@ -13561,7 +13561,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
   // Public: Submit specimen request
   const publicSpecimenRequestSchema = z.object({
-    requestType: z.enum(['loan', 'tissue', 'image', 'data']),
+    requestType: z.enum(['donation', 'donation_majority', 'loan', 'image', 'data']),
     specimenIds: z.string().min(1, "At least one specimen ID required").max(500),
     name: z.string().min(2, "Name required").max(200),
     institution: z.string().min(2, "Institution required").max(300),

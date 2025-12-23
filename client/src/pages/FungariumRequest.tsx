@@ -31,7 +31,7 @@ export default function FungariumRequest() {
 
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({
-    requestType: "loan",
+    requestType: "donation",
     specimenIds: prefilledSpecimen,
     name: "",
     institution: "",
@@ -142,7 +142,7 @@ export default function FungariumRequest() {
                 <h1 className="text-3xl font-bold text-[#A87146]" data-testid="text-page-title">
                   Request a Specimen
                 </h1>
-                <p className="text-slate-600">Submit a loan or tissue sample request</p>
+                <p className="text-slate-600">Submit a request for specimen donation or data</p>
               </div>
             </div>
 
@@ -152,9 +152,16 @@ export default function FungariumRequest() {
                   <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
                   <div>
                     <CardTitle className="text-base text-amber-800">Important Information</CardTitle>
-                    <CardDescription className="text-amber-700">
-                      Specimen loans are available to researchers at recognized institutions. 
-                      Destructive sampling requests require additional justification.
+                    <CardDescription className="text-amber-700 space-y-2">
+                      <p>
+                        We strongly prefer to provide <strong>donations of splits</strong> rather than loans. 
+                        In many cases, we are willing to send the majority of a specimen if tissue is limited.
+                      </p>
+                      <p>
+                        All shipments of specimens from our fungarium to outside researchers and institutions 
+                        are tracked in a <strong>publicly available ledger</strong>. We do not make private 
+                        loans or split donations.
+                      </p>
                     </CardDescription>
                   </div>
                 </div>
@@ -176,8 +183,9 @@ export default function FungariumRequest() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="loan">Specimen Loan (non-destructive)</SelectItem>
-                        <SelectItem value="tissue">Tissue Sample (destructive)</SelectItem>
+                        <SelectItem value="donation">Specimen Donation (split)</SelectItem>
+                        <SelectItem value="donation_majority">Specimen Donation (majority of tissue)</SelectItem>
+                        <SelectItem value="loan">Specimen Loan (non-destructive, returned)</SelectItem>
                         <SelectItem value="image">High-resolution Images Only</SelectItem>
                         <SelectItem value="data">Data/Sequence Information</SelectItem>
                       </SelectContent>
@@ -358,10 +366,9 @@ export default function FungariumRequest() {
                       data-testid="checkbox-terms"
                     />
                     <label htmlFor="terms" className="text-sm text-slate-600 cursor-pointer">
-                      I agree to the MYCO Fungarium loan terms, including proper specimen handling, 
-                      acknowledgment in publications, and timely return of loaned materials. I understand 
-                      that tissue samples involve destructive sampling and specimens may not be available 
-                      for all requests.
+                      I agree to the MYCO Fungarium terms, including proper specimen handling and 
+                      acknowledgment in publications. I understand that all specimen donations are 
+                      tracked in the public ledger and that specimens may not be available for all requests.
                     </label>
                   </div>
                 </CardContent>
