@@ -27,6 +27,7 @@ import {
 import { PublicLayout } from "@/components/PublicLayout";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SpecimenEntry {
   id: string;
@@ -54,6 +55,7 @@ const createEmptyEntry = (): SpecimenEntry => ({
 
 export default function FungariumRequest() {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [location] = useLocation();
   const searchParams = new URLSearchParams(location.split('?')[1] || '');
   const prefilledSpecimen = searchParams.get('specimen') || '';
@@ -77,6 +79,17 @@ export default function FungariumRequest() {
     expectedReturnDate: "",
     agreeToTerms: false,
   });
+
+  // Pre-fill form with user profile data when logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setForm(prev => ({
+        ...prev,
+        name: prev.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || '',
+        email: prev.email || user.email || '',
+      }));
+    }
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     if (prefilledSpecimen) {
