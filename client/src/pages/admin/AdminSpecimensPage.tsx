@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AdminSidebar } from "@/components/AdminSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -146,16 +145,14 @@ export default function AdminSpecimensPage() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <AdminSidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-6 max-w-7xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-800">Specimens</h1>
-            <p className="text-slate-600 mt-1">
-              Browse and manage fungarium specimens
-            </p>
-          </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-800">Specimens</h1>
+          <p className="text-slate-600 mt-1">
+            Browse and manage fungarium specimens
+          </p>
+        </div>
 
           <Card className="mb-6">
             <CardContent className="p-4">
@@ -297,8 +294,7 @@ export default function AdminSpecimensPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </main>
+      </div>
 
       <Dialog open={!!selectedSpecimen} onOpenChange={() => setSelectedSpecimen(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AdminSidebar } from "@/components/AdminSidebar";
 import { Link } from "wouter";
 import { 
   Package, 
@@ -70,16 +69,14 @@ export default function AdminFungariumOverview() {
   const readyForAccession = stats?.byStatus?.sequenced || 0;
 
   return (
-    <div className="flex h-screen bg-slate-50">
-      <AdminSidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-6 max-w-7xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-800">Fungarium Overview</h1>
-            <p className="text-slate-600 mt-1">
-              MYCO Fungarium specimen management and accession tracking
-            </p>
-          </div>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-800">Fungarium Overview</h1>
+          <p className="text-slate-600 mt-1">
+            MYCO Fungarium specimen management and accession tracking
+          </p>
+        </div>
 
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -192,8 +189,7 @@ export default function AdminFungariumOverview() {
               </Card>
             </>
           )}
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

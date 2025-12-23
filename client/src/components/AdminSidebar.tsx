@@ -121,17 +121,17 @@ export function AdminSidebar() {
 
         <div className="pt-4">
           <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Fungarium Management
-          </p>
-        </div>
-        {fungariumItems.map(renderNavItem)}
-
-        <div className="pt-4">
-          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
             Lab Management
           </p>
         </div>
         {labManagementItems.map(renderNavItem)}
+
+        <div className="pt-4">
+          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Fungarium Management
+          </p>
+        </div>
+        {fungariumItems.map(renderNavItem)}
 
         <div className="pt-4">
           <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
