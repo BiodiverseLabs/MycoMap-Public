@@ -50,6 +50,7 @@ export function AdminSidebar() {
 
   const websiteManagementItems = [
     { href: "/admin/cms", label: "Pages", icon: FileText },
+    { href: "/admin/menu", label: "Menu Manager", icon: Menu },
   ];
 
   const labManagementItems = [
@@ -142,17 +143,17 @@ export function AdminSidebar() {
 
         <div className="pt-4">
           <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Data Management
-          </p>
-        </div>
-        {dataManagementItems.map(renderNavItem)}
-
-        <div className="pt-4">
-          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
             Website Management
           </p>
         </div>
         {websiteManagementItems.map(renderNavItem)}
+
+        <div className="pt-4">
+          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Data Management
+          </p>
+        </div>
+        {dataManagementItems.map(renderNavItem)}
 
         <div className="pt-4">
           <button
