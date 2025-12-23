@@ -274,18 +274,16 @@ export default function FungariumRequest() {
       <div className="min-h-screen bg-gradient-to-b from-[#8CBD45]/5 to-white">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
-            <div className="flex items-center gap-4 mb-8">
+            <div className="mb-8">
               <Link href="/fungarium/about">
-                <Button variant="ghost" size="sm" data-testid="button-back">
+                <Button variant="ghost" size="sm" className="mb-2 -ml-2" data-testid="button-back">
                   <ChevronLeft className="w-4 h-4 mr-1" /> Fungarium
                 </Button>
               </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-[#A87146]" data-testid="text-page-title">
-                  Request a Specimen
-                </h1>
-                <p className="text-slate-600">Submit a request for specimen donation or data</p>
-              </div>
+              <h1 className="text-3xl font-bold text-[#A87146]" data-testid="text-page-title">
+                Request a Specimen
+              </h1>
+              <p className="text-slate-600">Submit a request for specimen donation or data</p>
             </div>
 
             <Card className="border-l-4 border-l-[#8CBD45] bg-gradient-to-r from-[#8CBD45]/5 to-white mb-6">
