@@ -10335,9 +10335,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     try {
       const pendingPlates = await db.select().from(labPlates).where(isNull(labPlates.runId));
       
+      // Get all unique creator IDs to fetch user names
+      const creatorIds = [...new Set(pendingPlates.map(p => p.createdBy).filter(Boolean))];
+      const userNames = new Map<string, string>();
+      
+      if (creatorIds.length > 0) {
+        const usersData = await db.select().from(users).where(inArray(users.id, creatorIds as string[]));
+        for (const user of usersData) {
+          const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || user.id;
+          userNames.set(user.id, displayName);
+        }
+      }
+      
       const platesWithWells = await Promise.all(pendingPlates.map(async (plate) => {
         const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
-        return { ...plate, wells };
+        // Replace createdBy ID with the user's display name
+        const createdByName = plate.createdBy ? (userNames.get(plate.createdBy) || plate.createdBy) : null;
+        return { ...plate, createdBy: createdByName, wells };
       }));
       
       res.json(platesWithWells);
