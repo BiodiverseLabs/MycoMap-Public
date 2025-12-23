@@ -11049,9 +11049,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
 
-      // Append note about the import
-      const pendingPlateName = pendingPlate.name || `Pending Plate ${pendingPlate.id}`;
-      const importNote = `Imported from ${pendingPlateName}`;
+      // Append note about the import (include both name and ID)
+      const pendingPlateName = pendingPlate.name || 'Pending Plate';
+      const importNote = `Imported from ${pendingPlateName} (ID: ${pendingPlate.id})`;
       const existingNotes = targetPlate.notes || "";
       const newNotes = existingNotes 
         ? `${existingNotes}\n\n${importNote}` 
@@ -11067,7 +11067,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       res.json({ 
         success: true, 
         importedCount,
-        message: `Imported ${importedCount} samples from ${pendingPlateName}`
+        message: `Imported ${importedCount} samples from ${pendingPlateName} (ID: ${pendingPlate.id})`
       });
     } catch (error) {
       console.error("Error importing pending plate:", error);
