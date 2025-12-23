@@ -1477,6 +1477,41 @@ export type FitnessObservationCache = typeof fitnessObservationCache.$inferSelec
 export type InsertFitnessCacheMetadata = z.infer<typeof insertFitnessCacheMetadataSchema>;
 export type FitnessCacheMetadata = typeof fitnessCacheMetadata.$inferSelect;
 
+// Fitness User Observations - links users to unified observation cache
+// This replaces the metadata storage in fitness_observation_cache
+export const fitnessUserObservations = pgTable("fitness_user_observations", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull(),
+  observationCacheId: integer("observation_cache_id").notNull().references(() => observationCache.id, { onDelete: "cascade" }),
+  sourceObservationId: text("source_observation_id").notNull(), // iNat observation ID for quick lookup
+  observedOn: text("observed_on"), // Date string for filtering
+  inatUpdatedAt: timestamp("inat_updated_at"), // For incremental sync
+  deletedAt: timestamp("deleted_at"), // Soft delete tracking
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  usernameIdx: index("fitness_user_obs_username_idx").on(table.username),
+  observedOnIdx: index("fitness_user_obs_observed_on_idx").on(table.observedOn),
+  cacheIdIdx: index("fitness_user_obs_cache_id_idx").on(table.observationCacheId),
+  uniqueUserObs: unique("fitness_user_obs_unique").on(table.username, table.sourceObservationId),
+}));
+
+export const fitnessUserObservationsRelations = relations(fitnessUserObservations, ({ one }) => ({
+  observationCache: one(observationCache, {
+    fields: [fitnessUserObservations.observationCacheId],
+    references: [observationCache.id],
+  }),
+}));
+
+export const insertFitnessUserObservationsSchema = createInsertSchema(fitnessUserObservations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFitnessUserObservations = z.infer<typeof insertFitnessUserObservationsSchema>;
+export type FitnessUserObservations = typeof fitnessUserObservations.$inferSelect;
+
 // Specimen Shipments - tracks user specimen submissions for DNA barcoding
 export const shipments = pgTable("shipments", {
   id: serial("id").primaryKey(),
