@@ -11685,7 +11685,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           indexLines.push(`${sampleId}\t${primerPoolName}\t${fwIndex}\t${fwPrimer}\t${rvIndex}\t${rvPrimer}`);
           
           // Track primers for FASTA generation
-          if (fwPrimerRaw && !fwIsPool) {
+          // Skip if primer is a pool reference, a wildcard (*), or empty
+          if (fwPrimerRaw && !fwIsPool && fwPrimerRaw !== '*') {
             if (!usedPrimers.has(fwPrimerRaw)) {
               // Find sequence from primer items
               let seq = '';
@@ -11702,7 +11703,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               usedPrimers.set(fwPrimerRaw, { sequence: seq, pool: primerPoolName, position: 'forward' });
             }
           }
-          if (rvPrimerRaw && !rvIsPool) {
+          // Skip if primer is a pool reference, a wildcard (*), or empty
+          if (rvPrimerRaw && !rvIsPool && rvPrimerRaw !== '*') {
             if (!usedPrimers.has(rvPrimerRaw)) {
               let seq = '';
               for (const [setId, items] of primerSetItemsMap.entries()) {
