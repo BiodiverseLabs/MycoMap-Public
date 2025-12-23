@@ -144,6 +144,11 @@ function HeroSection({ section, heroImageUrl }: { section: PageSection; heroImag
 function Section({ section, index }: { section: PageSection; index: number }) {
   if (section.sectionType === "text_with_image") {
     const isReversed = index % 2 === 1;
+    // Custom sizing for specific sections
+    const isMycoMapLogo = section.title === "MycoMap";
+    const isMycotaLogo = section.title === "Mycota Lab";
+    const imageMaxWidth = isMycoMapLogo ? "max-w-[200px]" : isMycotaLogo ? "max-w-[280px]" : "max-w-md lg:max-w-lg";
+    
     return (
       <div 
         className={`flex flex-col ${isReversed ? 'lg:flex-row-reverse' : 'lg:flex-row'} gap-8 lg:gap-12 items-center max-w-6xl mx-auto mb-16`}
@@ -161,7 +166,7 @@ function Section({ section, index }: { section: PageSection; index: number }) {
           )}
         </div>
         {section.imageUrl && (
-          <div className="flex-1 max-w-md lg:max-w-lg">
+          <div className={`flex-1 ${imageMaxWidth}`}>
             <img 
               src={section.imageUrl} 
               alt={section.title || "Section image"}
