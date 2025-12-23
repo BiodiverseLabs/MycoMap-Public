@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -13231,6 +13231,252 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error auto-linking specimens:", error);
       res.status(500).json({ error: "Failed to auto-link specimens" });
+    }
+  });
+
+  // =============================================
+  // SPECIMEN REQUESTS (Splits Sent) API ENDPOINTS
+  // =============================================
+
+  // Get all specimen requests
+  app.get("/api/admin/specimen-requests", isAdmin, async (req: any, res) => {
+    try {
+      const { search, recipientId, status, limit = '100', offset = '0' } = req.query;
+      
+      let conditions: any[] = [];
+      
+      if (recipientId) {
+        conditions.push(eq(specimenRequests.recipientId, parseInt(recipientId)));
+      }
+      if (status && status !== 'all') {
+        conditions.push(eq(specimenRequests.status, status));
+      }
+      
+      let requests = await db.select().from(specimenRequests)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(specimenRequests.shipmentDate), desc(specimenRequests.id))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+      
+      // Filter by search term if provided
+      if (search) {
+        const searchLower = (search as string).toLowerCase();
+        requests = requests.filter(r => 
+          r.observationId?.toLowerCase().includes(searchLower) ||
+          r.voucherNumbers?.toLowerCase().includes(searchLower) ||
+          r.mycoNumber?.toLowerCase().includes(searchLower) ||
+          r.recipientName?.toLowerCase().includes(searchLower) ||
+          r.notes?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      // Get total count
+      const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(specimenRequests)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      
+      res.json({
+        requests,
+        total: countResult?.count || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching specimen requests:", error);
+      res.status(500).json({ error: "Failed to fetch specimen requests" });
+    }
+  });
+
+  // Get specimen request stats
+  app.get("/api/admin/specimen-requests/stats", isAdmin, async (req: any, res) => {
+    try {
+      const [total] = await db.select({ count: sql<number>`count(*)::int` }).from(specimenRequests);
+      const [shipped] = await db.select({ count: sql<number>`count(*)::int` }).from(specimenRequests)
+        .where(eq(specimenRequests.status, 'shipped'));
+      const [pending] = await db.select({ count: sql<number>`count(*)::int` }).from(specimenRequests)
+        .where(eq(specimenRequests.status, 'pending'));
+      
+      // Get unique recipients count
+      const [recipients] = await db.select({ count: sql<number>`count(distinct recipient_id)::int` })
+        .from(specimenRequests)
+        .where(isNotNull(specimenRequests.recipientId));
+      
+      res.json({
+        total: total?.count || 0,
+        shipped: shipped?.count || 0,
+        pending: pending?.count || 0,
+        uniqueRecipients: recipients?.count || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching specimen request stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  // Create specimen request
+  app.post("/api/admin/specimen-requests", isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      const data = req.body;
+      
+      const [newRequest] = await db.insert(specimenRequests).values({
+        ...data,
+        createdBy: userId,
+      }).returning();
+      
+      res.json(newRequest);
+    } catch (error) {
+      console.error("Error creating specimen request:", error);
+      res.status(500).json({ error: "Failed to create specimen request" });
+    }
+  });
+
+  // Update specimen request
+  app.patch("/api/admin/specimen-requests/:id", isAdmin, async (req: any, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const data = req.body;
+      
+      const [updated] = await db.update(specimenRequests)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(specimenRequests.id, requestId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating specimen request:", error);
+      res.status(500).json({ error: "Failed to update specimen request" });
+    }
+  });
+
+  // Delete specimen request
+  app.delete("/api/admin/specimen-requests/:id", isAdmin, async (req: any, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      
+      await db.delete(specimenRequests).where(eq(specimenRequests.id, requestId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting specimen request:", error);
+      res.status(500).json({ error: "Failed to delete specimen request" });
+    }
+  });
+
+  // Import specimen requests from Excel data
+  app.post("/api/admin/specimen-requests/import", isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      const { records } = req.body;
+      
+      if (!records || !Array.isArray(records)) {
+        return res.status(400).json({ error: "records array is required" });
+      }
+      
+      let imported = 0;
+      for (const record of records) {
+        await db.insert(specimenRequests).values({
+          observationId: record.observationId || record['iNat/MO']?.toString(),
+          voucherNumbers: record.voucherNumbers || record['Voucher Number(s)'],
+          runNumber: record.runNumber || (record['Run Number'] ? parseInt(record['Run Number']) : null),
+          plateCell: record.plateCell || record['Plate + Cell']?.toString(),
+          mycoNumber: record.mycoNumber || record['MYCO #'],
+          shipmentDate: record.shipmentDate || record['Shipment Date'],
+          recipientName: record.recipientName || record['Recipient'],
+          notes: record.notes || record['Notes'],
+          otherNotes: record.otherNotes || record['Other Notes'],
+          status: 'shipped',
+          createdBy: userId,
+        });
+        imported++;
+      }
+      
+      res.json({ imported, message: `Imported ${imported} specimen requests` });
+    } catch (error) {
+      console.error("Error importing specimen requests:", error);
+      res.status(500).json({ error: "Failed to import specimen requests" });
+    }
+  });
+
+  // =============================================
+  // SPECIMEN RECIPIENTS API ENDPOINTS
+  // =============================================
+
+  // Get all recipients
+  app.get("/api/admin/specimen-recipients", isAdmin, async (req: any, res) => {
+    try {
+      const { activeOnly } = req.query;
+      
+      let conditions: any[] = [];
+      if (activeOnly === 'true') {
+        conditions.push(eq(specimenRecipients.isActive, true));
+      }
+      
+      const recipients = await db.select().from(specimenRecipients)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(specimenRecipients.name);
+      
+      res.json(recipients);
+    } catch (error) {
+      console.error("Error fetching recipients:", error);
+      res.status(500).json({ error: "Failed to fetch recipients" });
+    }
+  });
+
+  // Create recipient
+  app.post("/api/admin/specimen-recipients", isAdmin, async (req: any, res) => {
+    try {
+      const data = req.body;
+      
+      const [newRecipient] = await db.insert(specimenRecipients).values(data).returning();
+      
+      res.json(newRecipient);
+    } catch (error) {
+      console.error("Error creating recipient:", error);
+      res.status(500).json({ error: "Failed to create recipient" });
+    }
+  });
+
+  // Update recipient
+  app.patch("/api/admin/specimen-recipients/:id", isAdmin, async (req: any, res) => {
+    try {
+      const recipientId = parseInt(req.params.id);
+      const data = req.body;
+      
+      const [updated] = await db.update(specimenRecipients)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(specimenRecipients.id, recipientId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Recipient not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating recipient:", error);
+      res.status(500).json({ error: "Failed to update recipient" });
+    }
+  });
+
+  // Get recipient by ID with full address
+  app.get("/api/admin/specimen-recipients/:id", isAdmin, async (req: any, res) => {
+    try {
+      const recipientId = parseInt(req.params.id);
+      
+      const [recipient] = await db.select().from(specimenRecipients)
+        .where(eq(specimenRecipients.id, recipientId));
+      
+      if (!recipient) {
+        return res.status(404).json({ error: "Recipient not found" });
+      }
+      
+      res.json(recipient);
+    } catch (error) {
+      console.error("Error fetching recipient:", error);
+      res.status(500).json({ error: "Failed to fetch recipient" });
     }
   });
 

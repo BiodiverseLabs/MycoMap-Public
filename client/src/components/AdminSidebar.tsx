@@ -18,7 +18,8 @@ import {
   Terminal,
   Grid3X3,
   Warehouse,
-  ClipboardList
+  ClipboardList,
+  Send
 } from "lucide-react";
 import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./ui/button";
@@ -37,6 +38,7 @@ export function AdminSidebar() {
   const fungariumItems = [
     { href: "/admin/fungarium", label: "Overview", icon: Warehouse },
     { href: "/admin/specimens", label: "Specimens", icon: ClipboardList },
+    { href: "/admin/specimen-requests", label: "Specimen Requests", icon: Send },
   ];
 
   const dataManagementItems = [

@@ -1951,3 +1951,88 @@ export type InsertSpecimenSource = z.infer<typeof insertSpecimenSourceSchema>;
 export type SpecimenSource = typeof specimenSources.$inferSelect;
 export type InsertSpecimenEvent = z.infer<typeof insertSpecimenEventSchema>;
 export type SpecimenEvent = typeof specimenEvents.$inferSelect;
+
+// =============================================
+// Specimen Requests (Splits Sent)
+// =============================================
+
+// Recipients - institutions/researchers who receive specimens
+export const specimenRecipients = pgTable("specimen_recipients", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  institution: text("institution"),
+  email: text("email"),
+  phone: text("phone"),
+  addressLine1: text("address_line_1"),
+  addressLine2: text("address_line_2"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country").default("USA"),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Specimen Requests - tracking splits sent to recipients
+export const specimenRequests = pgTable("specimen_requests", {
+  id: serial("id").primaryKey(),
+  observationId: text("observation_id"), // iNat/MO ID
+  platform: text("platform"), // inat, mo
+  voucherNumbers: text("voucher_numbers"), // Can have multiple
+  runNumber: integer("run_number"),
+  plateCell: text("plate_cell"), // e.g., "1.57" = Plate 1, Cell 57
+  mycoNumber: text("myco_number"), // MYCO specimen ID
+  shipmentDate: date("shipment_date"),
+  recipientId: integer("recipient_id").references(() => specimenRecipients.id),
+  recipientName: text("recipient_name"), // Denormalized for quick display/legacy data
+  notes: text("notes"),
+  otherNotes: text("other_notes"),
+  trackingNumber: text("tracking_number"),
+  status: text("status").default("pending"), // pending, shipped, delivered, returned
+  specimenId: integer("specimen_id").references(() => specimens.id), // Link to core specimen
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  recipientIdx: index("specimen_requests_recipient_idx").on(table.recipientId),
+  shipmentDateIdx: index("specimen_requests_shipment_date_idx").on(table.shipmentDate),
+  mycoNumberIdx: index("specimen_requests_myco_idx").on(table.mycoNumber),
+  observationIdx: index("specimen_requests_observation_idx").on(table.observationId),
+}));
+
+// Relations
+export const specimenRequestsRelations = relations(specimenRequests, ({ one }) => ({
+  recipient: one(specimenRecipients, {
+    fields: [specimenRequests.recipientId],
+    references: [specimenRecipients.id],
+  }),
+  specimen: one(specimens, {
+    fields: [specimenRequests.specimenId],
+    references: [specimens.id],
+  }),
+}));
+
+export const specimenRecipientsRelations = relations(specimenRecipients, ({ many }) => ({
+  requests: many(specimenRequests),
+}));
+
+// Insert schemas
+export const insertSpecimenRecipientSchema = createInsertSchema(specimenRecipients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSpecimenRequestSchema = createInsertSchema(specimenRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types
+export type InsertSpecimenRecipient = z.infer<typeof insertSpecimenRecipientSchema>;
+export type SpecimenRecipient = typeof specimenRecipients.$inferSelect;
+export type InsertSpecimenRequest = z.infer<typeof insertSpecimenRequestSchema>;
+export type SpecimenRequest = typeof specimenRequests.$inferSelect;
