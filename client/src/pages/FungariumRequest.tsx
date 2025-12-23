@@ -322,6 +322,13 @@ export default function FungariumRequest() {
                           We do not make private loans or split donations.
                         </span>
                       </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#8CBD45] mt-0.5 shrink-0" />
+                        <span>
+                          We <strong className="text-[#A87146]">are willing</strong> to provide specimens to private researchers 
+                          without an institutional affiliation.
+                        </span>
+                      </li>
                     </ul>
                   </div>
                 </div>
