@@ -61,9 +61,9 @@ export default function AdminCMSPage() {
     queryKey: ["/api/cms/pages", { includeUnpublished: true }],
   });
 
-  const { data: sections = [], refetch: refetchSections } = useQuery<PageSection[]>({
-    queryKey: ["/api/cms/admin/pages", selectedPage?.id, "sections"],
-    enabled: !!selectedPage,
+  const { data: sections = [], refetch: refetchSections, isLoading: sectionsLoading } = useQuery<PageSection[]>({
+    queryKey: [`/api/cms/admin/pages/${selectedPage?.id}/sections`],
+    enabled: !!selectedPage?.id,
   });
 
   const updateSectionMutation = useMutation({
@@ -206,7 +206,12 @@ export default function AdminCMSPage() {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {sections.length === 0 ? (
+                  {sectionsLoading ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <div className="animate-spin h-8 w-8 border-2 border-myco-green border-t-transparent rounded-full mx-auto mb-3" />
+                      <p>Loading sections...</p>
+                    </div>
+                  ) : sections.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                       <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
                       <p>No sections yet. Add a section to get started.</p>

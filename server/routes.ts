@@ -2181,6 +2181,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get all navigation links
+  app.get("/api/cms/admin/navigation", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const links = await db.select().from(cmsNavigationLinks).orderBy(cmsNavigationLinks.sortOrder);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching navigation links:", error);
+      res.status(500).json({ error: "Failed to fetch navigation links" });
+    }
+  });
+
+  // Admin: Update navigation link
+  app.patch("/api/cms/admin/navigation/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const linkId = parseInt(req.params.id);
+      const updates = req.body;
+      
+      const [updated] = await db.update(cmsNavigationLinks)
+        .set(updates)
+        .where(eq(cmsNavigationLinks.id, linkId))
+        .returning();
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating navigation link:", error);
+      res.status(500).json({ error: "Failed to update navigation link" });
+    }
+  });
+
+  // Admin: Delete navigation link
+  app.delete("/api/cms/admin/navigation/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const linkId = parseInt(req.params.id);
+      
+      // Move children to top level (set parentId to null)
+      await db.update(cmsNavigationLinks)
+        .set({ parentId: null })
+        .where(eq(cmsNavigationLinks.parentId, linkId));
+      
+      await db.delete(cmsNavigationLinks).where(eq(cmsNavigationLinks.id, linkId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting navigation link:", error);
+      res.status(500).json({ error: "Failed to delete navigation link" });
+    }
+  });
+
+  // Admin: Reorder navigation link
+  app.post("/api/cms/admin/navigation/:id/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const linkId = parseInt(req.params.id);
+      const { direction } = req.body;
+
+      const [link] = await db.select().from(cmsNavigationLinks).where(eq(cmsNavigationLinks.id, linkId));
+      if (!link) {
+        return res.status(404).json({ error: "Navigation link not found" });
+      }
+
+      // Get siblings (same parentId)
+      const siblings = await db.select().from(cmsNavigationLinks)
+        .where(link.parentId === null 
+          ? isNull(cmsNavigationLinks.parentId)
+          : eq(cmsNavigationLinks.parentId, link.parentId))
+        .orderBy(cmsNavigationLinks.sortOrder);
+
+      const currentIndex = siblings.findIndex(s => s.id === linkId);
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      if (targetIndex < 0 || targetIndex >= siblings.length) {
+        return res.status(400).json({ error: "Cannot move item in that direction" });
+      }
+
+      const targetLink = siblings[targetIndex];
+      
+      await db.update(cmsNavigationLinks)
+        .set({ sortOrder: targetLink.sortOrder })
+        .where(eq(cmsNavigationLinks.id, linkId));
+      
+      await db.update(cmsNavigationLinks)
+        .set({ sortOrder: link.sortOrder })
+        .where(eq(cmsNavigationLinks.id, targetLink.id));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reordering navigation link:", error);
+      res.status(500).json({ error: "Failed to reorder navigation link" });
+    }
+  });
+
   // Admin: Get all pages including unpublished
   app.get("/api/cms/admin/pages", isAuthenticated, async (req: any, res) => {
     try {

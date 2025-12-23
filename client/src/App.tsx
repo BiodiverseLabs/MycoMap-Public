@@ -58,6 +58,7 @@ import AdminBioinformaticsPage from "@/pages/admin/AdminBioinformaticsPage";
 import AdminFungariumOverview from "@/pages/admin/AdminFungariumOverview";
 import AdminSpecimensPage from "@/pages/admin/AdminSpecimensPage";
 import AdminSpecimenRequestsPage from "@/pages/admin/AdminSpecimenRequestsPage";
+import AdminMenuManager from "@/pages/admin/AdminMenuManager";
 import FieldGuides from "@/pages/FieldGuides";
 import FieldGuideCreate from "@/pages/FieldGuideCreate";
 import FieldGuideDetail from "@/pages/FieldGuideDetail";
@@ -137,6 +138,7 @@ function AppRouter() {
           <Route path="/admin/fungarium" component={AdminFungariumOverview} />
           <Route path="/admin/specimens" component={AdminSpecimensPage} />
           <Route path="/admin/specimen-requests" component={AdminSpecimenRequestsPage} />
+          <Route path="/admin/menu" component={AdminMenuManager} />
           <Route component={NotFound} />
         </Switch>
       </AdminDashboardLayout>
