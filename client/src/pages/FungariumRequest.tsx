@@ -288,26 +288,33 @@ export default function FungariumRequest() {
               </div>
             </div>
 
-            <Card className="border-[#8CBD45]/20 mb-6">
-              <CardHeader className="bg-amber-50 border-b">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <CardTitle className="text-base text-amber-800">Important Information</CardTitle>
-                    <CardDescription className="text-amber-700 space-y-2">
-                      <p>
-                        We strongly prefer to provide <strong>donations of splits</strong> rather than loans. 
-                        In many cases, we are willing to send the majority of a specimen if tissue is limited.
-                      </p>
-                      <p>
-                        All shipments of specimens from our fungarium to outside researchers and institutions 
-                        are tracked in a <strong>publicly available ledger</strong>. We do not make private 
-                        loans or split donations.
-                      </p>
-                    </CardDescription>
+            <Card className="border-l-4 border-l-[#8CBD45] bg-gradient-to-r from-[#8CBD45]/5 to-white mb-6">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[#8CBD45]/15 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-5 h-5 text-[#8CBD45]" />
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-[#A87146]">Important Information</h3>
+                    <ul className="space-y-2 text-sm text-slate-700">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#8CBD45] mt-0.5 shrink-0" />
+                        <span>
+                          We strongly prefer to provide <strong className="text-[#A87146]">donations of splits</strong> rather than loans. 
+                          In many cases, we are willing to send the majority of a specimen if tissue is limited.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#8CBD45] mt-0.5 shrink-0" />
+                        <span>
+                          All shipments are tracked in a <strong className="text-[#A87146]">publicly available ledger</strong>. 
+                          We do not make private loans or split donations.
+                        </span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
-              </CardHeader>
+              </CardContent>
             </Card>
 
             <form onSubmit={handleSubmit}>
