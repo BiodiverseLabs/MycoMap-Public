@@ -11560,23 +11560,49 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId)).orderBy(labPlates.plateNumber);
+      const plateIds = plates.map(p => p.id);
       
-      // Get all wells for all plates and index sets
+      // Batch fetch all wells for all plates at once
+      const allWells = plateIds.length > 0 
+        ? await db.select().from(labWells).where(inArray(labWells.plateId, plateIds)).orderBy(labWells.sortOrder)
+        : [];
+      
+      // Group wells by plate ID
+      const wellsByPlateId = new Map<number, typeof allWells>();
+      for (const well of allWells) {
+        if (!wellsByPlateId.has(well.plateId)) {
+          wellsByPlateId.set(well.plateId, []);
+        }
+        wellsByPlateId.get(well.plateId)!.push(well);
+      }
+      
+      // Batch fetch all index entries for all unique index set IDs
+      const allIndexSetIds = new Set<number>();
+      for (const plate of plates) {
+        if (plate.forwardIndexSetId) allIndexSetIds.add(plate.forwardIndexSetId);
+        if (plate.reverseIndexSetId) allIndexSetIds.add(plate.reverseIndexSetId);
+      }
+      
+      const allIndexEntries = allIndexSetIds.size > 0
+        ? await db.select().from(indexEntries).where(inArray(indexEntries.indexSetId, Array.from(allIndexSetIds)))
+        : [];
+      
+      // Group index entries by index set ID
+      const indexEntriesBySetId = new Map<number, typeof allIndexEntries>();
+      for (const entry of allIndexEntries) {
+        if (!indexEntriesBySetId.has(entry.indexSetId)) {
+          indexEntriesBySetId.set(entry.indexSetId, []);
+        }
+        indexEntriesBySetId.get(entry.indexSetId)!.push(entry);
+      }
+      
+      // Build allWellsData using the batched data
       const allWellsData: { plate: typeof plates[0], wells: any[], forwardIndexEntries: any[], reverseIndexEntries: any[] }[] = [];
       
       for (const plate of plates) {
-        const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id)).orderBy(labWells.sortOrder);
-        
-        // Get index entries for this plate
-        let forwardIndexEntries: any[] = [];
-        let reverseIndexEntries: any[] = [];
-        
-        if (plate.forwardIndexSetId) {
-          forwardIndexEntries = await db.select().from(indexEntries).where(eq(indexEntries.indexSetId, plate.forwardIndexSetId));
-        }
-        if (plate.reverseIndexSetId) {
-          reverseIndexEntries = await db.select().from(indexEntries).where(eq(indexEntries.indexSetId, plate.reverseIndexSetId));
-        }
+        const wells = wellsByPlateId.get(plate.id) || [];
+        const forwardIndexEntries = plate.forwardIndexSetId ? (indexEntriesBySetId.get(plate.forwardIndexSetId) || []) : [];
+        const reverseIndexEntries = plate.reverseIndexSetId ? (indexEntriesBySetId.get(plate.reverseIndexSetId) || []) : [];
         
         allWellsData.push({ plate, wells, forwardIndexEntries, reverseIndexEntries });
       }
