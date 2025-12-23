@@ -2085,6 +2085,7 @@ export const specimens = pgTable("specimens", {
   id: serial("id").primaryKey(),
   uuid: text("uuid").notNull().unique(), // UUID for external references
   displayCode: text("display_code").unique(), // Human-readable code (e.g., "MYCO-2025-00142")
+  mycoNumber: integer("myco_number").unique(), // MYCO specimen ID number (1000001, 1000002, etc.)
   
   // Intake information
   intakeSourceType: specimenIntakeSourceEnum("intake_source_type").notNull(),
@@ -2096,6 +2097,12 @@ export const specimens = pgTable("specimens", {
   primaryObservationId: text("primary_observation_id"),
   observationCacheId: integer("observation_cache_id").references(() => observationCache.id), // FK to unified cache
   voucherNumber: text("voucher_number"),
+  
+  // Lab sequencing tracking
+  labCode: text("lab_code"), // Lab tracking code (e.g., N23-0765)
+  labRunId: integer("lab_run_id").references(() => labRuns.id), // FK to lab_runs table
+  plateNumber: integer("plate_number"), // Plate number within the run
+  wellPosition: text("well_position"), // Well position (A01-H12)
   
   // Collection metadata
   collectorName: text("collector_name"),
@@ -2128,6 +2135,9 @@ export const specimens = pgTable("specimens", {
 }, (table) => ({
   uuidIdx: index("specimens_uuid_idx").on(table.uuid),
   displayCodeIdx: index("specimens_display_code_idx").on(table.displayCode),
+  mycoNumberIdx: index("specimens_myco_number_idx").on(table.mycoNumber),
+  labCodeIdx: index("specimens_lab_code_idx").on(table.labCode),
+  labRunIdx: index("specimens_lab_run_idx").on(table.labRunId),
   statusIdx: index("specimens_status_idx").on(table.currentStatus),
   primaryObsIdx: index("specimens_primary_obs_idx").on(table.primaryObservationSource, table.primaryObservationId),
 }));
@@ -2169,6 +2179,10 @@ export const specimensRelations = relations(specimens, ({ one, many }) => ({
   observationCacheRecord: one(observationCache, {
     fields: [specimens.observationCacheId],
     references: [observationCache.id],
+  }),
+  labRun: one(labRuns, {
+    fields: [specimens.labRunId],
+    references: [labRuns.id],
   }),
   sources: many(specimenSources),
   events: many(specimenEvents),
