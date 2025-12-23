@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index, unique, pgEnum, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, date, numeric, index, unique, pgEnum, jsonb, doublePrecision } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1257,6 +1257,7 @@ export const shipmentBags = pgTable("shipment_bags", {
 export const shipmentSpecimens = pgTable("shipment_specimens", {
   id: serial("id").primaryKey(),
   bagId: integer("bag_id").notNull().references(() => shipmentBags.id, { onDelete: "cascade" }),
+  specimenId: integer("specimen_id"), // FK to specimens table - linked after specimen record created
   platform: text("platform").notNull().default("iNaturalist"), // iNaturalist | Mushroom Observer
   observationId: text("observation_id").notNull(), // The iNat/MO observation ID or URL
   
