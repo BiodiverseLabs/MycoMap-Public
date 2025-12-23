@@ -176,6 +176,20 @@ export function MainNavigation() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Join MycoMap CTA - only show when not authenticated */}
+            {!isAuthenticated && (
+              <Button 
+                asChild 
+                variant="outline"
+                className="hidden sm:flex border-myco-green text-myco-green hover:bg-myco-green hover:text-white transition-all duration-200"
+                data-testid="button-join-mycomap"
+              >
+                <Link href="/protocols" className="flex items-center gap-2">
+                  Join MycoMap
+                </Link>
+              </Button>
+            )}
+
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -293,6 +307,16 @@ function MobileNav({ links, getChildren, isActive, onClose }: MobileNavProps) {
   return (
     <nav className="lg:hidden py-4 border-t border-gray-100" data-testid="nav-mobile">
       <div className="flex flex-col gap-1">
+        {/* Join MycoMap CTA in mobile menu */}
+        <Link 
+          href="/protocols"
+          onClick={onClose}
+        >
+          <span className="block px-3 py-3 mb-2 rounded-md text-sm font-semibold bg-myco-green/10 text-myco-green border border-myco-green/30">
+            Join MycoMap
+          </span>
+        </Link>
+
         {links.map((link) => {
           const children = getChildren(link.id);
           const hasChildren = children.length > 0;
