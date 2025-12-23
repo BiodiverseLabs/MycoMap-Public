@@ -10661,18 +10661,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             validationResult.status = status;
             validationResult.message = message;
             
+            const updateData: any = {
+              isValidated: true,
+              validationStatus: status,
+              validationMessage: message,
+              voucherNumber: inatVoucher,
+              username: validationResult.username,
+              state: validationResult.state,
+              country: validationResult.country,
+              platform: effectivePlatform,
+              updatedAt: new Date(),
+            };
+            
+            // Auto-fill labCode from voucher number if labCode is empty (same logic as regular plate validation)
+            if (!well.labCode && inatVoucher) {
+              updateData.labCode = inatVoucher;
+              validationResult.labCodeUpdated = true;
+            }
+            
             await db.update(labWells)
-              .set({
-                isValidated: true,
-                validationStatus: status,
-                validationMessage: message,
-                voucherNumber: inatVoucher,
-                username: validationResult.username,
-                state: validationResult.state,
-                country: validationResult.country,
-                platform: effectivePlatform,
-                updatedAt: new Date(),
-              })
+              .set(updateData)
               .where(eq(labWells.id, well.id));
           } else {
             validationResult.status = 'error';
