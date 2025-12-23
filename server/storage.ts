@@ -5,7 +5,9 @@ import {
   type MushroomObserverData, type InsertMushroomObserverData, type Biorecord, type InsertBiorecord,
   type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction,
   type ForagingList, type InsertForagingList,
-  type FitnessObservationCache, type InsertFitnessObservationCache, type FitnessCacheMetadata, type InsertFitnessCacheMetadata
+  type FitnessObservationCache, type InsertFitnessObservationCache, type FitnessCacheMetadata, type InsertFitnessCacheMetadata,
+  type ObservationCache, type InsertObservationCache, type ObservationMedia, type InsertObservationMedia,
+  type ObservationTaxa, type InsertObservationTaxa, type ObservationCacheJobs, type InsertObservationCacheJobs
 } from "@shared/schema";
 
 export interface IStorage {
@@ -311,6 +313,40 @@ export interface IStorage {
   getFitnessCacheMetadata(username: string): Promise<FitnessCacheMetadata | null>;
   upsertFitnessCacheMetadata(metadata: InsertFitnessCacheMetadata): Promise<FitnessCacheMetadata>;
   updateFitnessSyncProgress(username: string, progress: number, status: string, message?: string): Promise<void>;
+  
+  // Unified Observation Cache - consolidated iNat/MO/MyCoPortal data
+  getObservationFromCache(source: string, sourceObservationId: string): Promise<ObservationCache | null>;
+  getObservationsFromCache(options: {
+    source?: string;
+    scientificName?: string;
+    family?: string;
+    genus?: string;
+    observerUsername?: string;
+    voucherNumber?: string;
+    boundingBox?: { north: number; south: number; east: number; west: number };
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ObservationCache[]>;
+  upsertObservationCache(data: InsertObservationCache): Promise<ObservationCache>;
+  upsertObservationCacheBatch(data: InsertObservationCache[]): Promise<number>;
+  deleteObservationFromCache(source: string, sourceObservationId: string): Promise<boolean>;
+  
+  // Observation Media
+  getObservationMedia(observationCacheId: number): Promise<ObservationMedia[]>;
+  upsertObservationMedia(media: InsertObservationMedia[]): Promise<void>;
+  
+  // Observation Taxa (normalized taxon lookup)
+  getTaxonFromCache(source: string, sourceTaxonId: string): Promise<ObservationTaxa | null>;
+  upsertObservationTaxa(data: InsertObservationTaxa): Promise<ObservationTaxa>;
+  searchTaxa(options: { scientificName?: string; family?: string; genus?: string; limit?: number }): Promise<ObservationTaxa[]>;
+  
+  // Observation Cache Jobs
+  createObservationCacheJob(data: InsertObservationCacheJobs): Promise<ObservationCacheJobs>;
+  getObservationCacheJobs(options?: { jobType?: string; source?: string; status?: string; fieldGuideId?: number }): Promise<ObservationCacheJobs[]>;
+  updateObservationCacheJob(id: number, updates: Partial<InsertObservationCacheJobs>): Promise<ObservationCacheJobs | null>;
+  getLatestCacheJobForFieldGuide(fieldGuideId: number, source: string): Promise<ObservationCacheJobs | null>;
 }
 
 export class MemoryStorage implements IStorage {
@@ -1462,6 +1498,75 @@ export class MemoryStorage implements IStorage {
   
   async updateFitnessSyncProgress(username: string, progress: number, status: string, message?: string): Promise<void> {
     throw new Error('Memory storage does not support fitness cache');
+  }
+  
+  // Unified Observation Cache stubs
+  async getObservationFromCache(source: string, sourceObservationId: string): Promise<ObservationCache | null> {
+    return null;
+  }
+  
+  async getObservationsFromCache(options: {
+    source?: string;
+    scientificName?: string;
+    family?: string;
+    genus?: string;
+    observerUsername?: string;
+    voucherNumber?: string;
+    boundingBox?: { north: number; south: number; east: number; west: number };
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ObservationCache[]> {
+    return [];
+  }
+  
+  async upsertObservationCache(data: InsertObservationCache): Promise<ObservationCache> {
+    throw new Error('Memory storage does not support observation cache');
+  }
+  
+  async upsertObservationCacheBatch(data: InsertObservationCache[]): Promise<number> {
+    throw new Error('Memory storage does not support observation cache');
+  }
+  
+  async deleteObservationFromCache(source: string, sourceObservationId: string): Promise<boolean> {
+    return false;
+  }
+  
+  async getObservationMedia(observationCacheId: number): Promise<ObservationMedia[]> {
+    return [];
+  }
+  
+  async upsertObservationMedia(media: InsertObservationMedia[]): Promise<void> {
+    throw new Error('Memory storage does not support observation cache');
+  }
+  
+  async getTaxonFromCache(source: string, sourceTaxonId: string): Promise<ObservationTaxa | null> {
+    return null;
+  }
+  
+  async upsertObservationTaxa(data: InsertObservationTaxa): Promise<ObservationTaxa> {
+    throw new Error('Memory storage does not support observation cache');
+  }
+  
+  async searchTaxa(options: { scientificName?: string; family?: string; genus?: string; limit?: number }): Promise<ObservationTaxa[]> {
+    return [];
+  }
+  
+  async createObservationCacheJob(data: InsertObservationCacheJobs): Promise<ObservationCacheJobs> {
+    throw new Error('Memory storage does not support observation cache');
+  }
+  
+  async getObservationCacheJobs(options?: { jobType?: string; source?: string; status?: string; fieldGuideId?: number }): Promise<ObservationCacheJobs[]> {
+    return [];
+  }
+  
+  async updateObservationCacheJob(id: number, updates: Partial<InsertObservationCacheJobs>): Promise<ObservationCacheJobs | null> {
+    return null;
+  }
+  
+  async getLatestCacheJobForFieldGuide(fieldGuideId: number, source: string): Promise<ObservationCacheJobs | null> {
+    return null;
   }
 }
 

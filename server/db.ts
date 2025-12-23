@@ -5,6 +5,7 @@ import * as schema from "@shared/schema";
 import { 
   users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData, biorecords, inaturalistClassificationCache,
   subscriptionPlans, userSubscriptions, paymentTransactions, fitnessObservationCache, fitnessCacheMetadata,
+  observationCache, observationMedia, observationTaxa, observationCacheJobs,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
   type Species, type InsertSpecies, type RedlistAssessment, type InsertRedlistAssessment,
@@ -13,7 +14,9 @@ import {
   type InaturalistClassificationCache, type InsertInaturalistClassificationCache,
   type SubscriptionPlan, type UserSubscription, type InsertUserSubscription, type PaymentTransaction, type InsertPaymentTransaction,
   type ForagingList, type InsertForagingList,
-  type FitnessObservationCache, type InsertFitnessObservationCache, type FitnessCacheMetadata, type InsertFitnessCacheMetadata
+  type FitnessObservationCache, type InsertFitnessObservationCache, type FitnessCacheMetadata, type InsertFitnessCacheMetadata,
+  type ObservationCache, type InsertObservationCache, type ObservationMedia, type InsertObservationMedia,
+  type ObservationTaxa, type InsertObservationTaxa, type ObservationCacheJobs, type InsertObservationCacheJobs
 } from "@shared/schema";
 import { eq, desc, asc, and, or, isNotNull, ne, sql, count, like, inArray, gte, lte } from 'drizzle-orm';
 import type { IStorage } from "./storage";
@@ -4547,5 +4550,259 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(fitnessCacheMetadata.username, username.toLowerCase()));
+  }
+
+  // =============================================
+  // UNIFIED OBSERVATION CACHE METHODS
+  // =============================================
+
+  async getObservationFromCache(source: string, sourceObservationId: string): Promise<ObservationCache | null> {
+    const [result] = await db.select()
+      .from(observationCache)
+      .where(and(
+        eq(observationCache.source, source),
+        eq(observationCache.sourceObservationId, sourceObservationId)
+      ))
+      .limit(1);
+    return result || null;
+  }
+
+  async getObservationsFromCache(options: {
+    source?: string;
+    scientificName?: string;
+    family?: string;
+    genus?: string;
+    observerUsername?: string;
+    voucherNumber?: string;
+    boundingBox?: { north: number; south: number; east: number; west: number };
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ObservationCache[]> {
+    const conditions: any[] = [];
+    
+    if (options.source) {
+      conditions.push(eq(observationCache.source, options.source));
+    }
+    if (options.scientificName) {
+      conditions.push(like(observationCache.scientificName, `%${options.scientificName}%`));
+    }
+    if (options.family) {
+      conditions.push(eq(observationCache.family, options.family));
+    }
+    if (options.genus) {
+      conditions.push(eq(observationCache.genus, options.genus));
+    }
+    if (options.observerUsername) {
+      conditions.push(eq(observationCache.observerUsername, options.observerUsername));
+    }
+    if (options.voucherNumber) {
+      conditions.push(eq(observationCache.voucherNumber, options.voucherNumber));
+    }
+    if (options.boundingBox) {
+      const { north, south, east, west } = options.boundingBox;
+      conditions.push(
+        and(
+          gte(observationCache.latitude, String(south)),
+          lte(observationCache.latitude, String(north)),
+          gte(observationCache.longitude, String(west)),
+          lte(observationCache.longitude, String(east))
+        )
+      );
+    }
+    if (options.startDate) {
+      conditions.push(gte(observationCache.observedOn, options.startDate));
+    }
+    if (options.endDate) {
+      conditions.push(lte(observationCache.observedOn, options.endDate));
+    }
+
+    let query = db.select()
+      .from(observationCache)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(observationCache.observedOn))
+      .limit(options.limit || 100)
+      .offset(options.offset || 0);
+
+    return query;
+  }
+
+  async upsertObservationCache(data: InsertObservationCache): Promise<ObservationCache> {
+    const existing = await this.getObservationFromCache(data.source, data.sourceObservationId);
+    
+    if (existing) {
+      const [updated] = await db.update(observationCache)
+        .set({
+          ...data,
+          updatedAt: new Date()
+        })
+        .where(eq(observationCache.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(observationCache)
+        .values(data)
+        .returning();
+      return created;
+    }
+  }
+
+  async upsertObservationCacheBatch(data: InsertObservationCache[]): Promise<number> {
+    if (data.length === 0) return 0;
+    
+    let upserted = 0;
+    for (const item of data) {
+      try {
+        await this.upsertObservationCache(item);
+        upserted++;
+      } catch (error) {
+        console.error(`[ObsCache] Failed to upsert ${item.source}:${item.sourceObservationId}:`, error);
+      }
+    }
+    return upserted;
+  }
+
+  async deleteObservationFromCache(source: string, sourceObservationId: string): Promise<boolean> {
+    const result = await db.delete(observationCache)
+      .where(and(
+        eq(observationCache.source, source),
+        eq(observationCache.sourceObservationId, sourceObservationId)
+      ));
+    return true;
+  }
+
+  async getObservationMedia(observationCacheId: number): Promise<ObservationMedia[]> {
+    return db.select()
+      .from(observationMedia)
+      .where(eq(observationMedia.observationCacheId, observationCacheId))
+      .orderBy(asc(observationMedia.sortOrder));
+  }
+
+  async upsertObservationMedia(media: InsertObservationMedia[]): Promise<void> {
+    if (media.length === 0) return;
+    
+    for (const item of media) {
+      const existing = await db.select()
+        .from(observationMedia)
+        .where(and(
+          eq(observationMedia.observationCacheId, item.observationCacheId),
+          eq(observationMedia.url, item.url)
+        ))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        await db.insert(observationMedia).values(item);
+      }
+    }
+  }
+
+  async getTaxonFromCache(source: string, sourceTaxonId: string): Promise<ObservationTaxa | null> {
+    const [result] = await db.select()
+      .from(observationTaxa)
+      .where(and(
+        eq(observationTaxa.source, source),
+        eq(observationTaxa.sourceTaxonId, sourceTaxonId)
+      ))
+      .limit(1);
+    return result || null;
+  }
+
+  async upsertObservationTaxa(data: InsertObservationTaxa): Promise<ObservationTaxa> {
+    const existing = await this.getTaxonFromCache(data.source, data.sourceTaxonId);
+    
+    if (existing) {
+      const [updated] = await db.update(observationTaxa)
+        .set({
+          ...data,
+          observationCount: sql`${observationTaxa.observationCount} + 1`,
+          lastUsedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(observationTaxa.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(observationTaxa)
+        .values({
+          ...data,
+          observationCount: 1
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async searchTaxa(options: { scientificName?: string; family?: string; genus?: string; limit?: number }): Promise<ObservationTaxa[]> {
+    const conditions: any[] = [];
+    
+    if (options.scientificName) {
+      conditions.push(like(observationTaxa.scientificName, `%${options.scientificName}%`));
+    }
+    if (options.family) {
+      conditions.push(eq(observationTaxa.family, options.family));
+    }
+    if (options.genus) {
+      conditions.push(eq(observationTaxa.genus, options.genus));
+    }
+
+    return db.select()
+      .from(observationTaxa)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(observationTaxa.observationCount))
+      .limit(options.limit || 50);
+  }
+
+  async createObservationCacheJob(data: InsertObservationCacheJobs): Promise<ObservationCacheJobs> {
+    const [created] = await db.insert(observationCacheJobs)
+      .values(data)
+      .returning();
+    return created;
+  }
+
+  async getObservationCacheJobs(options?: { jobType?: string; source?: string; status?: string; fieldGuideId?: number }): Promise<ObservationCacheJobs[]> {
+    const conditions: any[] = [];
+    
+    if (options?.jobType) {
+      conditions.push(eq(observationCacheJobs.jobType, options.jobType));
+    }
+    if (options?.source) {
+      conditions.push(eq(observationCacheJobs.source, options.source));
+    }
+    if (options?.status) {
+      conditions.push(eq(observationCacheJobs.status, options.status));
+    }
+    if (options?.fieldGuideId) {
+      conditions.push(eq(observationCacheJobs.fieldGuideId, options.fieldGuideId));
+    }
+
+    return db.select()
+      .from(observationCacheJobs)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(observationCacheJobs.createdAt))
+      .limit(100);
+  }
+
+  async updateObservationCacheJob(id: number, updates: Partial<InsertObservationCacheJobs>): Promise<ObservationCacheJobs | null> {
+    const [updated] = await db.update(observationCacheJobs)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(observationCacheJobs.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async getLatestCacheJobForFieldGuide(fieldGuideId: number, source: string): Promise<ObservationCacheJobs | null> {
+    const [result] = await db.select()
+      .from(observationCacheJobs)
+      .where(and(
+        eq(observationCacheJobs.fieldGuideId, fieldGuideId),
+        eq(observationCacheJobs.source, source)
+      ))
+      .orderBy(desc(observationCacheJobs.createdAt))
+      .limit(1);
+    return result || null;
   }
 }
