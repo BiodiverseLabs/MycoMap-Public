@@ -109,7 +109,7 @@ export default function TempCodeGuidelinesPage() {
     },
     {
       title: "Wait for Confirmation",
-      description: "For very novel sequences (5+% different from any match), consider waiting for a second matching sequence before creating a temp code.",
+      description: "For very novel sequences (5+% different from any match), or low RiC sequences, consider waiting for a second matching sequence before creating a temp code.",
       icon: Clock,
       type: "info"
     },
