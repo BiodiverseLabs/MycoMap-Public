@@ -443,7 +443,10 @@ export async function runFullMigration(): Promise<MigrationStats> {
   return stats;
 }
 
-if (require.main === module) {
+// Run migration when executed directly
+// Usage: npx tsx server/migrateObservationCache.ts
+const isDirectRun = import.meta.url === `file://${process.argv[1]}`;
+if (isDirectRun) {
   runFullMigration()
     .then((stats) => {
       console.log("Migration completed:", stats);
