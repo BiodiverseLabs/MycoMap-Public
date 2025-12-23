@@ -9642,36 +9642,39 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         allRuns = allRuns.filter(run => run.status === statusFilter);
       }
       
-      // Apply search filter
+      // Apply search filter - optimized: name-first search, fallback to content search only if no name matches
       if (searchQuery && searchQuery.trim()) {
         const search = searchQuery.trim().toLowerCase();
-        const matchingRunIds = new Set<number>();
         
-        // Check run names
-        for (const run of allRuns) {
-          if (run.name.toLowerCase().includes(search)) {
-            matchingRunIds.add(run.id);
+        // First, try name-only search (fast)
+        const nameMatches = allRuns.filter(run => run.name.toLowerCase().includes(search));
+        
+        if (nameMatches.length > 0) {
+          // Found matches by name, use those without expensive content search
+          allRuns = nameMatches;
+        } else {
+          // No name matches - fall back to content search (slower)
+          const matchingRunIds = new Set<number>();
+          
+          // Search in well contents (observation IDs and lab codes)
+          const matchingWells = await db.select({
+            runId: labPlates.runId
+          })
+            .from(labWells)
+            .innerJoin(labPlates, eq(labWells.plateId, labPlates.id))
+            .where(
+              or(
+                sql`LOWER(${labWells.observationId}) LIKE ${'%' + search + '%'}`,
+                sql`LOWER(${labWells.labCode}) LIKE ${'%' + search + '%'}`
+              )
+            );
+          
+          for (const well of matchingWells) {
+            if (well.runId) matchingRunIds.add(well.runId);
           }
+          
+          allRuns = allRuns.filter(run => matchingRunIds.has(run.id));
         }
-        
-        // Search in well contents (observation IDs and lab codes)
-        const matchingWells = await db.select({
-          runId: labPlates.runId
-        })
-          .from(labWells)
-          .innerJoin(labPlates, eq(labWells.plateId, labPlates.id))
-          .where(
-            or(
-              sql`LOWER(${labWells.observationId}) LIKE ${'%' + search + '%'}`,
-              sql`LOWER(${labWells.labCode}) LIKE ${'%' + search + '%'}`
-            )
-          );
-        
-        for (const well of matchingWells) {
-          if (well.runId) matchingRunIds.add(well.runId);
-        }
-        
-        allRuns = allRuns.filter(run => matchingRunIds.has(run.id));
       }
       
       // Add plate counts for each run
