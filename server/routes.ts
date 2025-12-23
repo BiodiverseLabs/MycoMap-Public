@@ -13482,6 +13482,80 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
   // ============ PUBLIC FUNGARIUM API ============
 
+  // Public: Validate specimen exists in system
+  app.get("/api/public/fungarium/validate", async (req: any, res) => {
+    try {
+      const { mycoNumber, observationId, platform, voucherNumber } = req.query;
+      
+      if (!mycoNumber && !observationId && !voucherNumber) {
+        return res.status(400).json({ error: "At least one identifier required" });
+      }
+
+      const conditions: any[] = [];
+
+      // Search by MYCO number (format: MYCO1000129 or MYCO-2025-00129)
+      if (mycoNumber) {
+        const cleanMyco = (mycoNumber as string).replace(/-/g, '').toUpperCase();
+        conditions.push(
+          or(
+            sql`REPLACE(${specimens.displayCode}, '-', '') ILIKE ${cleanMyco}`,
+            sql`${specimens.uuid} ILIKE ${`%${mycoNumber}%`}`
+          )
+        );
+      }
+
+      // Search by observation ID and platform
+      if (observationId && platform) {
+        const platformMap: Record<string, string> = {
+          'iNaturalist': 'inat',
+          'inat': 'inat',
+          'MO': 'mo',
+          'MyCoPortal': 'mycoportal'
+        };
+        const normalizedPlatform = platformMap[platform as string] || (platform as string).toLowerCase();
+        conditions.push(
+          and(
+            eq(specimens.primaryObservationSource, normalizedPlatform),
+            eq(specimens.primaryObservationId, observationId as string)
+          )
+        );
+      }
+
+      // Search by voucher number
+      if (voucherNumber) {
+        conditions.push(sql`${specimens.voucherNumber} ILIKE ${`%${voucherNumber}%`}`);
+      }
+
+      if (conditions.length === 0) {
+        return res.json({ found: false });
+      }
+
+      const [specimen] = await db.select({
+        id: specimens.id,
+        displayCode: specimens.displayCode,
+        scientificName: specimens.scientificName,
+        currentStatus: specimens.currentStatus,
+      })
+      .from(specimens)
+      .where(or(...conditions))
+      .limit(1);
+
+      if (specimen) {
+        res.json({
+          found: true,
+          displayCode: specimen.displayCode,
+          scientificName: specimen.scientificName,
+          status: specimen.currentStatus
+        });
+      } else {
+        res.json({ found: false });
+      }
+    } catch (error) {
+      console.error("Error validating specimen:", error);
+      res.status(500).json({ error: "Validation failed" });
+    }
+  });
+
   // Public: Search specimens
   app.get("/api/public/fungarium/specimens", async (req: any, res) => {
     try {

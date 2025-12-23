@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useLocation, useSearch } from "wouter";
@@ -17,11 +18,39 @@ import {
   MapPin,
   FileText,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  X,
+  Plus,
+  Search
 } from "lucide-react";
 import { PublicLayout } from "@/components/PublicLayout";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
+interface SpecimenEntry {
+  id: string;
+  platform: string;
+  observationId: string;
+  voucherNumber: string;
+  mycoNumber: string;
+  validated: boolean;
+  validating: boolean;
+  validationError: string | null;
+  matchedSpecimen: { displayCode: string; scientificName: string } | null;
+}
+
+const createEmptyEntry = (): SpecimenEntry => ({
+  id: crypto.randomUUID(),
+  platform: "",
+  observationId: "",
+  voucherNumber: "",
+  mycoNumber: "",
+  validated: false,
+  validating: false,
+  validationError: null,
+  matchedSpecimen: null,
+});
 
 export default function FungariumRequest() {
   const { toast } = useToast();
@@ -30,9 +59,9 @@ export default function FungariumRequest() {
   const prefilledSpecimen = searchParams.get('specimen') || '';
 
   const [submitted, setSubmitted] = useState(false);
+  const [specimenEntries, setSpecimenEntries] = useState<SpecimenEntry[]>([createEmptyEntry()]);
   const [form, setForm] = useState({
     requestType: "donation",
-    specimenIds: prefilledSpecimen,
     name: "",
     institution: "",
     email: "",
@@ -51,16 +80,128 @@ export default function FungariumRequest() {
 
   useEffect(() => {
     if (prefilledSpecimen) {
-      setForm(f => ({ ...f, specimenIds: prefilledSpecimen }));
+      // Parse prefilled specimen (format: MYCO-XXXX-XXXXX or MYCOXXXXXXX)
+      const entry = createEmptyEntry();
+      if (prefilledSpecimen.startsWith('MYCO')) {
+        entry.mycoNumber = prefilledSpecimen.replace(/-/g, '');
+      }
+      setSpecimenEntries([entry]);
     }
   }, [prefilledSpecimen]);
 
+  const parseObservationId = (value: string): string => {
+    if (!value) return value;
+    const inatMatch = value.match(/inaturalist\.org\/observations\/(\d+)/);
+    if (inatMatch) return inatMatch[1];
+    const moMatch = value.match(/mushroomobserver\.org\/(\d+)/);
+    if (moMatch) return moMatch[1];
+    const numericMatch = value.match(/\/(\d+)\/?$/);
+    if (numericMatch) return numericMatch[1];
+    return value;
+  };
+
+  const detectPlatform = (obsId: string): string => {
+    if (!obsId) return "";
+    const digits = obsId.replace(/\D/g, '');
+    if (digits.length === 6) return 'MO';
+    if (digits.length >= 8 && digits.length <= 9) return 'iNaturalist';
+    return "";
+  };
+
+  const updateEntry = (id: string, field: keyof SpecimenEntry, value: string) => {
+    setSpecimenEntries(prev => prev.map(entry => {
+      if (entry.id !== id) return entry;
+      
+      const updates: Partial<SpecimenEntry> = { [field]: value, validated: false, validationError: null, matchedSpecimen: null };
+      
+      if (field === 'observationId') {
+        const parsed = parseObservationId(value);
+        updates.observationId = parsed;
+        const detected = detectPlatform(parsed);
+        if (detected && !entry.platform) {
+          updates.platform = detected;
+        }
+      }
+      
+      return { ...entry, ...updates };
+    }));
+  };
+
+  const addEntry = () => {
+    setSpecimenEntries(prev => [...prev, createEmptyEntry()]);
+  };
+
+  const removeEntry = (id: string) => {
+    if (specimenEntries.length <= 1) return;
+    setSpecimenEntries(prev => prev.filter(e => e.id !== id));
+  };
+
+  const validateEntry = async (id: string) => {
+    const entry = specimenEntries.find(e => e.id === id);
+    if (!entry) return;
+    
+    // Must have at least one identifier
+    if (!entry.observationId && !entry.voucherNumber && !entry.mycoNumber) {
+      setSpecimenEntries(prev => prev.map(e => 
+        e.id === id ? { ...e, validationError: "Enter at least one identifier" } : e
+      ));
+      return;
+    }
+    
+    setSpecimenEntries(prev => prev.map(e => 
+      e.id === id ? { ...e, validating: true, validationError: null } : e
+    ));
+    
+    try {
+      const params = new URLSearchParams();
+      if (entry.mycoNumber) params.append('mycoNumber', entry.mycoNumber);
+      if (entry.observationId && entry.platform) {
+        params.append('observationId', entry.observationId);
+        params.append('platform', entry.platform);
+      }
+      if (entry.voucherNumber) params.append('voucherNumber', entry.voucherNumber);
+      
+      const response = await fetch(`/api/public/fungarium/validate?${params}`);
+      const result = await response.json();
+      
+      if (result.found) {
+        setSpecimenEntries(prev => prev.map(e => 
+          e.id === id ? { 
+            ...e, 
+            validating: false, 
+            validated: true, 
+            matchedSpecimen: { displayCode: result.displayCode, scientificName: result.scientificName }
+          } : e
+        ));
+      } else {
+        setSpecimenEntries(prev => prev.map(e => 
+          e.id === id ? { ...e, validating: false, validationError: "Specimen not found in our system" } : e
+        ));
+      }
+    } catch {
+      setSpecimenEntries(prev => prev.map(e => 
+        e.id === id ? { ...e, validating: false, validationError: "Validation failed" } : e
+      ));
+    }
+  };
+
+  const getSpecimenIdsForSubmission = (): string => {
+    return specimenEntries
+      .filter(e => e.validated || e.mycoNumber || e.observationId || e.voucherNumber)
+      .map(e => {
+        const parts = [];
+        if (e.matchedSpecimen?.displayCode) parts.push(e.matchedSpecimen.displayCode);
+        else if (e.mycoNumber) parts.push(e.mycoNumber);
+        if (e.platform && e.observationId) parts.push(`${e.platform}:${e.observationId}`);
+        if (e.voucherNumber) parts.push(`Voucher:${e.voucherNumber}`);
+        return parts.join(' / ');
+      })
+      .join('; ');
+  };
+
   const submitMutation = useMutation({
-    mutationFn: (data: typeof form) => apiRequest('/api/public/fungarium/request', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' },
-    }),
+    mutationFn: (data: typeof form & { specimenIds: string }) => 
+      apiRequest('POST', '/api/public/fungarium/request', data),
     onSuccess: () => {
       setSubmitted(true);
       toast({
@@ -87,15 +228,16 @@ export default function FungariumRequest() {
       });
       return;
     }
-    if (!form.name || !form.email || !form.institution || !form.specimenIds || !form.purpose) {
+    const specimenIds = getSpecimenIdsForSubmission();
+    if (!form.name || !form.email || !form.institution || !specimenIds || !form.purpose) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including at least one specimen",
         variant: "destructive",
       });
       return;
     }
-    submitMutation.mutate(form);
+    submitMutation.mutate({ ...form, specimenIds });
   };
 
   if (submitted) {
@@ -192,15 +334,116 @@ export default function FungariumRequest() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Specimen ID(s) *</Label>
-                    <Input
-                      value={form.specimenIds}
-                      onChange={(e) => setForm({ ...form, specimenIds: e.target.value })}
-                      placeholder="e.g., MYCO-2025-00123, MYCO-2025-00456"
-                      data-testid="input-specimen-ids"
-                    />
-                    <p className="text-xs text-slate-500">Separate multiple specimen IDs with commas</p>
+                  <div className="space-y-3">
+                    <Label>Specimen(s) *</Label>
+                    <p className="text-xs text-slate-500 mb-2">
+                      Enter identifiers for each specimen you're requesting. Use the Validate button to verify the specimen exists in our system.
+                    </p>
+                    
+                    {specimenEntries.map((entry, index) => (
+                      <Card key={entry.id} className={`p-3 ${entry.validated ? 'border-[#8CBD45] bg-[#8CBD45]/5' : entry.validationError ? 'border-red-300 bg-red-50' : ''}`} data-testid={`specimen-entry-${index}`}>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-slate-700">Specimen {index + 1}</span>
+                            <div className="flex items-center gap-2">
+                              {entry.validated && entry.matchedSpecimen && (
+                                <Badge className="bg-[#8CBD45]">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  {entry.matchedSpecimen.displayCode}
+                                </Badge>
+                              )}
+                              {specimenEntries.length > 1 && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => removeEntry(entry.id)} data-testid={`button-remove-${index}`}>
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Platform</Label>
+                              <Select value={entry.platform || "none"} onValueChange={(v) => updateEntry(entry.id, 'platform', v === "none" ? "" : v)}>
+                                <SelectTrigger className="h-9" data-testid={`select-platform-${index}`}>
+                                  <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">None</SelectItem>
+                                  <SelectItem value="iNaturalist">iNaturalist</SelectItem>
+                                  <SelectItem value="MO">Mushroom Observer</SelectItem>
+                                  <SelectItem value="MyCoPortal">MyCoPortal</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Observation ID</Label>
+                              <Input
+                                className="h-9"
+                                placeholder="e.g., 123456789"
+                                value={entry.observationId}
+                                onChange={(e) => updateEntry(entry.id, 'observationId', e.target.value)}
+                                data-testid={`input-observation-${index}`}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Voucher Number</Label>
+                              <Input
+                                className="h-9"
+                                placeholder="e.g., ABC-123"
+                                value={entry.voucherNumber}
+                                onChange={(e) => updateEntry(entry.id, 'voucherNumber', e.target.value)}
+                                data-testid={`input-voucher-${index}`}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">MYCO Number</Label>
+                              <Input
+                                className="h-9"
+                                placeholder="e.g., MYCO1000129"
+                                value={entry.mycoNumber}
+                                onChange={(e) => updateEntry(entry.id, 'mycoNumber', e.target.value)}
+                                data-testid={`input-myco-${index}`}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              {entry.validationError && (
+                                <p className="text-xs text-red-600 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" /> {entry.validationError}
+                                </p>
+                              )}
+                              {entry.validated && entry.matchedSpecimen && (
+                                <p className="text-xs text-[#8CBD45] italic">
+                                  {entry.matchedSpecimen.scientificName || "Species name pending"}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => validateEntry(entry.id)}
+                              disabled={entry.validating || entry.validated}
+                              data-testid={`button-validate-${index}`}
+                            >
+                              {entry.validating ? (
+                                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Validating...</>
+                              ) : entry.validated ? (
+                                <><CheckCircle2 className="w-4 h-4 mr-1" /> Validated</>
+                              ) : (
+                                <><Search className="w-4 h-4 mr-1" /> Validate</>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+
+                    <Button type="button" variant="outline" onClick={addEntry} className="w-full" data-testid="button-add-specimen">
+                      <Plus className="w-4 h-4 mr-2" /> Add Another Specimen
+                    </Button>
                   </div>
 
                   <div className="space-y-2">
