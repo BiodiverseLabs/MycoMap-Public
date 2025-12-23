@@ -34,7 +34,7 @@ interface CMSPageProps {
 export default function CMSPage({ slug }: CMSPageProps) {
 
   const { data: page, isLoading, error } = useQuery<Page>({
-    queryKey: ["/api/cms/pages", slug],
+    queryKey: [`/api/cms/pages/${slug}`],
     enabled: !!slug,
   });
 
