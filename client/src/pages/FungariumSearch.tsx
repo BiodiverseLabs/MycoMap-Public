@@ -30,10 +30,9 @@ interface Specimen {
   uuid: string;
   displayCode: string;
   scientificName: string | null;
-  commonName: string | null;
   locality: string | null;
   collectionDate: string | null;
-  collector: string | null;
+  collectorName: string | null;
   currentStatus: string;
   primaryObservationSource: string | null;
   primaryObservationId: string | null;
@@ -154,15 +153,12 @@ export default function FungariumSearch() {
                               </TableCell>
                               <TableCell>
                                 <span className="italic">{specimen.scientificName || "—"}</span>
-                                {specimen.commonName && (
-                                  <span className="block text-sm text-slate-500">{specimen.commonName}</span>
-                                )}
                               </TableCell>
                               <TableCell className="text-sm text-slate-600">
                                 {specimen.locality || "—"}
                               </TableCell>
                               <TableCell className="text-sm text-slate-600">
-                                {specimen.collector || "—"}
+                                {specimen.collectorName || "—"}
                               </TableCell>
                               <TableCell>
                                 <Badge className={getStatusColor(specimen.currentStatus)}>
@@ -248,12 +244,6 @@ export default function FungariumSearch() {
                     <p className="text-slate-500">Scientific Name</p>
                     <p className="font-medium italic">{selectedSpecimen.scientificName || "Not determined"}</p>
                   </div>
-                  {selectedSpecimen.commonName && (
-                    <div>
-                      <p className="text-slate-500">Common Name</p>
-                      <p className="font-medium">{selectedSpecimen.commonName}</p>
-                    </div>
-                  )}
                   <div>
                     <p className="text-slate-500">Location</p>
                     <p className="font-medium flex items-center gap-1">
@@ -270,7 +260,7 @@ export default function FungariumSearch() {
                   <div>
                     <p className="text-slate-500">Collector</p>
                     <p className="font-medium flex items-center gap-1">
-                      <User className="w-4 h-4" /> {selectedSpecimen.collector || "Unknown"}
+                      <User className="w-4 h-4" /> {selectedSpecimen.collectorName || "Unknown"}
                     </p>
                   </div>
                   {selectedSpecimen.voucherNumber && (

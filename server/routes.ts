@@ -13585,11 +13585,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         conditions.push(
           or(
             sql`${specimens.scientificName} ILIKE ${searchTerm}`,
-            sql`${specimens.commonName} ILIKE ${searchTerm}`,
             sql`${specimens.displayCode} ILIKE ${searchTerm}`,
             sql`${specimens.locality} ILIKE ${searchTerm}`,
             sql`${specimens.voucherNumber} ILIKE ${searchTerm}`,
-            sql`${specimens.collector} ILIKE ${searchTerm}`
+            sql`${specimens.collectorName} ILIKE ${searchTerm}`
           )
         );
       }
@@ -13602,10 +13601,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           uuid: specimens.uuid,
           displayCode: specimens.displayCode,
           scientificName: specimens.scientificName,
-          commonName: specimens.commonName,
           locality: specimens.locality,
           collectionDate: specimens.collectionDate,
-          collector: specimens.collector,
+          collectorName: specimens.collectorName,
           currentStatus: specimens.currentStatus,
           primaryObservationSource: specimens.primaryObservationSource,
           primaryObservationId: specimens.primaryObservationId,
