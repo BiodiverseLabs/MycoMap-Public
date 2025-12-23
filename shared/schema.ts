@@ -1386,7 +1386,8 @@ export const labWells = pgTable("lab_wells", {
   // Specimen link
   platform: text("platform"), // iNaturalist | Mushroom Observer
   observationId: text("observation_id"),
-  specimenId: integer("specimen_id").references(() => shipmentSpecimens.id),
+  specimenId: integer("specimen_id").references(() => shipmentSpecimens.id), // Legacy: shipment specimen reference
+  coreSpecimenId: integer("core_specimen_id").references(() => specimens.id), // Core specimen record
   
   // Lab data
   labCode: text("lab_code"), // Internal lab tracking code
@@ -1435,6 +1436,10 @@ export const labWellsRelations = relations(labWells, ({ one }) => ({
   specimen: one(shipmentSpecimens, {
     fields: [labWells.specimenId],
     references: [shipmentSpecimens.id],
+  }),
+  coreSpecimen: one(specimens, {
+    fields: [labWells.coreSpecimenId],
+    references: [specimens.id],
   }),
 }));
 

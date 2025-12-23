@@ -13042,5 +13042,92 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Link a lab well to a core specimen
+  app.patch("/api/admin/lab-wells/:wellId/link-specimen", isAdmin, async (req: any, res) => {
+    try {
+      const wellId = parseInt(req.params.wellId);
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      const { coreSpecimenId } = req.body;
+      
+      const [well] = await db.select().from(labWells).where(eq(labWells.id, wellId));
+      if (!well) {
+        return res.status(404).json({ error: "Well not found" });
+      }
+      
+      // Update the well with the core specimen link
+      const [updatedWell] = await db.update(labWells)
+        .set({ coreSpecimenId, updatedAt: new Date() })
+        .where(eq(labWells.id, wellId))
+        .returning();
+      
+      // If specimen exists, log event
+      if (coreSpecimenId) {
+        await db.insert(specimenEvents).values({
+          specimenId: coreSpecimenId,
+          eventType: 'sequencing_started',
+          newValue: `Linked to lab well ${well.wellPosition}`,
+          performedBy: userId,
+        });
+        
+        // Update specimen status to processing if still received
+        const [spec] = await db.select().from(specimens).where(eq(specimens.id, coreSpecimenId));
+        if (spec && spec.currentStatus === 'received') {
+          await db.update(specimens)
+            .set({ currentStatus: 'processing', statusChangedAt: new Date() })
+            .where(eq(specimens.id, coreSpecimenId));
+        }
+      }
+      
+      res.json(updatedWell);
+    } catch (error) {
+      console.error("Error linking specimen to well:", error);
+      res.status(500).json({ error: "Failed to link specimen" });
+    }
+  });
+
+  // Auto-link lab wells to specimens based on observation IDs
+  app.post("/api/admin/plates/:plateId/auto-link-specimens", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.plateId);
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      
+      // Get all wells for this plate with observation IDs
+      const wells = await db.select().from(labWells)
+        .where(and(
+          eq(labWells.plateId, plateId),
+          isNotNull(labWells.observationId),
+          isNull(labWells.coreSpecimenId)
+        ));
+      
+      let linked = 0;
+      
+      for (const well of wells) {
+        // Find specimen by observation ID
+        const [specimen] = await db.select().from(specimens)
+          .where(eq(specimens.primaryObservationId, well.observationId));
+        
+        if (specimen) {
+          await db.update(labWells)
+            .set({ coreSpecimenId: specimen.id, updatedAt: new Date() })
+            .where(eq(labWells.id, well.id));
+          
+          await db.insert(specimenEvents).values({
+            specimenId: specimen.id,
+            eventType: 'sequencing_started',
+            newValue: `Auto-linked to lab well ${well.wellPosition}`,
+            performedBy: userId,
+          });
+          
+          linked++;
+        }
+      }
+      
+      res.json({ linked, message: `Linked ${linked} wells to specimen records` });
+    } catch (error) {
+      console.error("Error auto-linking specimens:", error);
+      res.status(500).json({ error: "Failed to auto-link specimens" });
+    }
+  });
+
   return httpServer;
 }
