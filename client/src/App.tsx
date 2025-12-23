@@ -43,6 +43,7 @@ import BioRecordManagement from "@/pages/admin/BioRecordManagement";
 import AdminUpload from "@/pages/admin/AdminUpload";
 import AdminRedList from "@/pages/admin/AdminRedList";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import AdminCMSPage from "@/pages/admin/AdminCMSPage";
 import ForagingLists from "@/pages/admin/ForagingLists";
 import AdminShipmentsPage from "@/pages/admin/AdminShipmentsPage";
 import AdminShipmentDetailPage from "@/pages/admin/AdminShipmentDetailPage";
@@ -121,6 +122,7 @@ function AppRouter() {
           <Route path="/admin/upload" component={AdminUpload} />
           <Route path="/admin/redlist" component={AdminRedList} />
           <Route path="/admin/settings" component={AdminSettings} />
+          <Route path="/admin/cms" component={AdminCMSPage} />
           <Route path="/admin/foraging-lists" component={ForagingLists} />
           <Route path="/admin/shipments" component={AdminShipmentsPage} />
           <Route path="/admin/shipments/:id" component={AdminShipmentDetailPage} />

@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
-import { Menu, X, ChevronDown, User, LogIn, LogOut, LayoutDashboard, Settings, FlaskConical } from "lucide-react";
+import { Menu, X, ChevronDown, User, LogIn, LogOut, LayoutDashboard, Settings, FlaskConical, FileEdit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -228,12 +228,20 @@ export function MainNavigation() {
                     </Link>
                   </DropdownMenuItem>
                   {user.role === 'admin' && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin/shipments" className="flex items-center gap-2 cursor-pointer" data-testid="link-admin-dashboard">
-                        <Settings className="h-4 w-4" />
-                        Admin Dashboard
-                      </Link>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/shipments" className="flex items-center gap-2 cursor-pointer" data-testid="link-admin-dashboard">
+                          <Settings className="h-4 w-4" />
+                          Admin Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/cms" className="flex items-center gap-2 cursor-pointer" data-testid="link-website-cms">
+                          <FileEdit className="h-4 w-4" />
+                          Website CMS
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>

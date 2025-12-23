@@ -2089,6 +2089,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get page sections
+  app.get("/api/cms/admin/pages/:pageId/sections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const pageId = parseInt(req.params.pageId);
+      const sections = await db.select().from(cmsPageSections)
+        .where(eq(cmsPageSections.pageId, pageId))
+        .orderBy(cmsPageSections.sortOrder);
+      
+      res.json(sections);
+    } catch (error) {
+      console.error("Error fetching sections:", error);
+      res.status(500).json({ error: "Failed to fetch sections" });
+    }
+  });
+
+  // Admin: Reorder section
+  app.post("/api/cms/admin/sections/:id/reorder", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const sectionId = parseInt(req.params.id);
+      const { direction } = req.body;
+      
+      const [section] = await db.select().from(cmsPageSections).where(eq(cmsPageSections.id, sectionId));
+      if (!section) {
+        return res.status(404).json({ error: "Section not found" });
+      }
+
+      const allSections = await db.select().from(cmsPageSections)
+        .where(eq(cmsPageSections.pageId, section.pageId))
+        .orderBy(cmsPageSections.sortOrder);
+
+      const currentIndex = allSections.findIndex(s => s.id === sectionId);
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+      if (targetIndex < 0 || targetIndex >= allSections.length) {
+        return res.status(400).json({ error: "Cannot move section in that direction" });
+      }
+
+      const targetSection = allSections[targetIndex];
+      
+      await db.update(cmsPageSections)
+        .set({ sortOrder: targetSection.sortOrder })
+        .where(eq(cmsPageSections.id, sectionId));
+      
+      await db.update(cmsPageSections)
+        .set({ sortOrder: section.sortOrder })
+        .where(eq(cmsPageSections.id, targetSection.id));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reordering section:", error);
+      res.status(500).json({ error: "Failed to reorder section" });
+    }
+  });
+
   // Admin: Update navigation
   app.post("/api/cms/admin/navigation", isAuthenticated, async (req: any, res) => {
     try {
