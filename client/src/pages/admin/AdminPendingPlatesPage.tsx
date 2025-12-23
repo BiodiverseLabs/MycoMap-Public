@@ -29,6 +29,7 @@ interface PendingPlate {
   sampleCount: number;
   status: string;
   wells: Well[];
+  createdBy: string | null;
   createdAt: string;
 }
 
@@ -143,6 +144,7 @@ export default function AdminPendingPlatesPage() {
                     <TableHead>Samples</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Validation</TableHead>
+                    <TableHead>Created By</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
@@ -186,6 +188,9 @@ export default function AdminPendingPlatesPage() {
                               <span className="text-gray-400 text-xs">Not validated</span>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {plate.createdBy || '—'}
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {plate.createdAt ? new Date(plate.createdAt).toLocaleDateString() : '—'}

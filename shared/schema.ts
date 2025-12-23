@@ -1367,6 +1367,7 @@ export const labPlates = pgTable("lab_plates", {
   forwardIndexSetId: integer("forward_index_set_id"), // References index_sets.id
   reverseIndexSetId: integer("reverse_index_set_id"), // References index_sets.id
   status: text("status").notNull().default("empty"), // empty | partial | complete
+  createdBy: text("created_by").references(() => users.id), // Username of creator (for pending plates)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
