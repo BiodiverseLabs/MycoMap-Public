@@ -49,8 +49,8 @@ export function AdminSidebar() {
   ];
 
   const websiteManagementItems = [
-    { href: "/admin/cms", label: "Pages", icon: FileText },
     { href: "/admin/menu", label: "Menu Manager", icon: Menu },
+    { href: "/admin/cms", label: "Pages", icon: FileText },
   ];
 
   const labManagementItems = [
