@@ -4503,7 +4503,6 @@ export class DatabaseStorage implements IStorage {
           latitude: obs.latitude || null,
           longitude: obs.longitude || null,
           placeGuess: obs.placeGuess || null,
-          inatUpdatedAt: obs.inatUpdatedAt || null,
         }).returning({ id: observationCache.id });
         
         cacheId = insertResult[0].id;
@@ -4528,7 +4527,6 @@ export class DatabaseStorage implements IStorage {
             latitude: obs.latitude || cacheRecord.latitude,
             longitude: obs.longitude || cacheRecord.longitude,
             placeGuess: obs.placeGuess || cacheRecord.placeGuess,
-            inatUpdatedAt: obs.inatUpdatedAt || cacheRecord.inatUpdatedAt,
             updatedAt: new Date(),
           })
           .where(eq(observationCache.id, cacheId));
