@@ -84,7 +84,6 @@ export default function AdminPendingPlateEditorPage() {
   const plateId = parseInt(id);
   const { toast } = useToast();
   
-  const [wellData, setWellData] = useState<Record<number, Partial<Well>>>({});
   const [plateNotes, setPlateNotes] = useState("");
   const [editPlateOpen, setEditPlateOpen] = useState(false);
   const [editSampleCount, setEditSampleCount] = useState(96);
@@ -191,51 +190,53 @@ export default function AdminPendingPlateEditorPage() {
     return currentPlatform;
   };
 
-  const handleWellChange = (wellId: number, field: keyof Well, value: string) => {
+  const saveWellFromRefs = useCallback((wellId: number, field: 'labCode' | 'observationId') => {
+    const inputRef = inputRefs.current[`${wellId}-${field}`];
+    if (!inputRef) return;
+    
+    const value = inputRef.value;
+    const well = plate?.wells.find(w => w.id === wellId);
+    const originalValue = well ? (field === 'labCode' ? well.labCode : well.observationId) : null;
+    
+    if (value === (originalValue || '')) return;
+    
     let processedValue = value;
-    let additionalUpdates: Partial<Well> = {};
+    let data: Record<string, any> = {};
     
     if (field === 'observationId') {
       processedValue = parseObservationId(value);
-      const currentPlatform = wellData[wellId]?.platform ?? plate?.wells.find(w => w.id === wellId)?.platform ?? null;
+      inputRef.value = processedValue;
+      const currentPlatform = well?.platform ?? null;
       const detectedPlatform = detectPlatform(processedValue, currentPlatform);
       if (detectedPlatform && detectedPlatform !== currentPlatform) {
-        additionalUpdates.platform = detectedPlatform;
+        data.platform = detectedPlatform;
       }
+      data.observationId = processedValue;
+    } else {
+      data.labCode = processedValue;
     }
     
-    setWellData(prev => ({
-      ...prev,
-      [wellId]: { ...prev[wellId], [field]: processedValue, ...additionalUpdates }
-    }));
-  };
-
-  const saveWell = useCallback((wellId: number) => {
-    const data = wellData[wellId];
-    if (data && Object.keys(data).length > 0) {
+    if (Object.keys(data).length > 0) {
       updateWellMutation.mutate({ wellId, data });
-      setWellData(prev => {
-        const { [wellId]: _, ...rest } = prev;
-        return rest;
-      });
     }
-  }, [wellData, updateWellMutation]);
+  }, [plate, updateWellMutation, parseObservationId, detectPlatform]);
 
-  const handleKeyDown = (e: React.KeyboardEvent, wellId: number, currentIndex: number, field: string) => {
+  const handleKeyDown = (e: React.KeyboardEvent, wellId: number, currentIndex: number, field: 'labCode' | 'observationId') => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      saveWell(wellId);
-      const nextWell = plate?.wells[currentIndex + 1];
+      saveWellFromRefs(wellId, field);
+      const sortedWells = plate ? [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder) : [];
+      const nextWell = sortedWells[currentIndex + 1];
       if (nextWell) {
         const nextRef = inputRefs.current[`${nextWell.id}-${field}`];
         if (nextRef) {
-          nextRef.focus();
+          setTimeout(() => nextRef.focus(), 10);
         }
       }
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent, wellId: number, currentIndex: number, field: keyof Well) => {
+  const handlePaste = (e: React.ClipboardEvent, wellId: number, currentIndex: number, field: 'labCode' | 'observationId') => {
     const pastedText = e.clipboardData.getData('text');
     const lines = pastedText.split(/[\r\n]+/).map(line => line.trim()).filter(line => line.length > 0);
     
@@ -243,33 +244,38 @@ export default function AdminPendingPlateEditorPage() {
       e.preventDefault();
       const sortedWells = plate ? [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder) : [];
       
-      const updates: Record<number, Partial<Well>> = {};
+      let updatedCount = 0;
       lines.forEach((line, i) => {
         const targetWell = sortedWells[currentIndex + i];
         if (targetWell) {
           let processedValue = line;
-          let additionalUpdates: Partial<Well> = {};
+          let data: Record<string, any> = {};
+          
           if (field === 'observationId') {
             processedValue = parseObservationId(line);
-            const currentPlatform = wellData[targetWell.id]?.platform ?? targetWell.platform ?? null;
+            const currentPlatform = targetWell.platform ?? null;
             const detectedPlatform = detectPlatform(processedValue, currentPlatform);
             if (detectedPlatform && detectedPlatform !== currentPlatform) {
-              additionalUpdates.platform = detectedPlatform;
+              data.platform = detectedPlatform;
             }
+            data.observationId = processedValue;
+          } else {
+            data.labCode = processedValue;
           }
-          updates[targetWell.id] = { ...wellData[targetWell.id], [field]: processedValue, ...additionalUpdates };
+          
+          const inputRef = inputRefs.current[`${targetWell.id}-${field}`];
+          if (inputRef) {
+            inputRef.value = processedValue;
+          }
+          
+          updateWellMutation.mutate({ wellId: targetWell.id, data });
+          updatedCount++;
         }
-      });
-      
-      setWellData(prev => ({ ...prev, ...updates }));
-      
-      Object.entries(updates).forEach(([id, data]) => {
-        updateWellMutation.mutate({ wellId: parseInt(id), data });
       });
       
       toast({
         title: "Pasted",
-        description: `Applied ${Math.min(lines.length, sortedWells.length - currentIndex)} values to rows`,
+        description: `Applied ${updatedCount} values to rows`,
       });
     }
   };
@@ -510,13 +516,7 @@ export default function AdminPendingPlateEditorPage() {
                 </TableHeader>
                 <TableBody>
                   {sortedWells.map((well, index) => {
-                    const localData = wellData[well.id] || {};
-                    const obsId = localData.observationId ?? well.observationId ?? "";
-                    const labCode = localData.labCode ?? well.labCode ?? "";
-                    const platform = localData.platform ?? well.platform ?? "";
-                    const isValidated = localData.isValidated !== undefined ? localData.isValidated : well.isValidated;
-                    const validationStatus = localData.validationStatus !== undefined ? localData.validationStatus : well.validationStatus;
-                    const validationClass = validationStatus ? validationColors[validationStatus] : "";
+                    const validationClass = well.validationStatus ? validationColors[well.validationStatus] : "";
                     
                     return (
                       <TableRow 
@@ -535,9 +535,8 @@ export default function AdminPendingPlateEditorPage() {
                             ref={el => inputRefs.current[`${well.id}-labCode`] = el}
                             className="h-8"
                             placeholder="Enter lab code"
-                            value={labCode}
-                            onChange={(e) => handleWellChange(well.id, 'labCode', e.target.value)}
-                            onBlur={() => saveWell(well.id)}
+                            defaultValue={well.labCode || ""}
+                            onBlur={() => saveWellFromRefs(well.id, 'labCode')}
                             onKeyDown={(e) => handleKeyDown(e, well.id, index, 'labCode')}
                             onPaste={(e) => handlePaste(e, well.id, index, 'labCode')}
                             data-testid={`input-labcode-${well.wellPosition}`}
@@ -545,34 +544,22 @@ export default function AdminPendingPlateEditorPage() {
                         </TableCell>
                         <TableCell>
                           <Select 
-                            value={platform || "empty"}
+                            value={well.platform || "empty"}
                             onValueChange={(val) => {
                               const newPlatform = val === "empty" ? "" : val;
-                              handleWellChange(well.id, 'platform', newPlatform);
-                              setWellData(prev => ({
-                                ...prev,
-                                [well.id]: { 
-                                  ...prev[well.id], 
-                                  platform: newPlatform,
-                                  validationStatus: null,
-                                  isValidated: false
-                                }
-                              }));
-                              setTimeout(() => {
-                                updateWellMutation.mutate({ 
-                                  wellId: well.id, 
-                                  data: { 
-                                    platform: newPlatform, 
-                                    validationStatus: null, 
-                                    validationMessage: null,
-                                    isValidated: false 
-                                  } 
-                                });
-                              }, 0);
+                              updateWellMutation.mutate({ 
+                                wellId: well.id, 
+                                data: { 
+                                  platform: newPlatform, 
+                                  validationStatus: null, 
+                                  validationMessage: null,
+                                  isValidated: false 
+                                } 
+                              });
                             }}
                           >
                             <SelectTrigger 
-                              className={`h-8 ${!platform && isValidated ? 'border-red-500 border-2' : ''}`} 
+                              className={`h-8 ${!well.platform && well.isValidated ? 'border-red-500 border-2' : ''}`} 
                               data-testid={`select-platform-${well.wellPosition}`}
                             >
                               <SelectValue placeholder="Select..." />
@@ -591,20 +578,19 @@ export default function AdminPendingPlateEditorPage() {
                               ref={el => inputRefs.current[`${well.id}-observationId`] = el}
                               className="h-8"
                               placeholder="Enter obs ID"
-                              value={obsId}
-                              onChange={(e) => handleWellChange(well.id, 'observationId', e.target.value)}
-                              onBlur={() => saveWell(well.id)}
+                              defaultValue={well.observationId || ""}
+                              onBlur={() => saveWellFromRefs(well.id, 'observationId')}
                               onKeyDown={(e) => handleKeyDown(e, well.id, index, 'observationId')}
                               onPaste={(e) => handlePaste(e, well.id, index, 'observationId')}
                               data-testid={`input-obs-${well.wellPosition}`}
                             />
-                            {obsId && platform && getObservationUrl(platform, obsId) && (
+                            {well.observationId && well.platform && getObservationUrl(well.platform, well.observationId) && (
                               <a
-                                href={getObservationUrl(platform, obsId)!}
+                                href={getObservationUrl(well.platform, well.observationId)!}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-gray-400 hover:text-blue-600 flex-shrink-0"
-                                title={`View on ${platform}`}
+                                title={`View on ${well.platform}`}
                                 data-testid={`link-obs-${well.wellPosition}`}
                               >
                                 <ExternalLink className="h-4 w-4" />
@@ -613,17 +599,17 @@ export default function AdminPendingPlateEditorPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {isValidated && validationStatus && (
+                          {well.isValidated && well.validationStatus && (
                             <div className="flex items-center gap-1" title={well.validationMessage || undefined}>
-                              {validationStatus === 'valid' || validationStatus === 'no_voucher' ? (
+                              {well.validationStatus === 'valid' || well.validationStatus === 'no_voucher' ? (
                                 <CheckCircle className="h-4 w-4 text-green-600" />
-                              ) : validationStatus === 'pending' ? (
+                              ) : well.validationStatus === 'pending' ? (
                                 <Clock className="h-4 w-4 text-blue-500" />
                               ) : (
                                 <AlertCircle className="h-4 w-4 text-red-500" />
                               )}
                               <span className="text-xs capitalize">
-                                {validationStatus?.replace('_', ' ')}
+                                {well.validationStatus?.replace('_', ' ')}
                               </span>
                             </div>
                           )}
@@ -638,21 +624,12 @@ export default function AdminPendingPlateEditorPage() {
                           {well.country || '—'}
                         </TableCell>
                         <TableCell>
-                          {validationStatus && !['valid', 'no_voucher'].includes(validationStatus) && (
+                          {well.validationStatus && !['valid', 'no_voucher'].includes(well.validationStatus) && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                               onClick={() => {
-                                setWellData(prev => ({
-                                  ...prev,
-                                  [well.id]: { 
-                                    ...prev[well.id], 
-                                    validationStatus: null,
-                                    validationMessage: null,
-                                    isValidated: false
-                                  }
-                                }));
                                 updateWellMutation.mutate({ 
                                   wellId: well.id, 
                                   data: { 
