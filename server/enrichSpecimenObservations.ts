@@ -3,8 +3,6 @@ import { specimens, observationCache, observationMedia } from "@shared/schema";
 import { eq, isNull, and, inArray, sql } from "drizzle-orm";
 
 const INAT_API_BASE = "https://api.inaturalist.org/v1";
-const MO_API_BASE = "https://mushroomobserver.org/api2";
-const RATE_LIMIT_MS = 1100;
 const BULK_SIZE = 200;
 
 interface EnrichmentStats {
@@ -22,7 +20,6 @@ function sleep(ms: number): Promise<void> {
 
 async function fetchInatObservationsBulk(observationIds: string[]): Promise<Map<string, any>> {
   const results = new Map<string, any>();
-  
   if (observationIds.length === 0) return results;
   
   const idsParam = observationIds.join(",");
@@ -51,24 +48,6 @@ async function fetchInatObservationsBulk(observationIds: string[]): Promise<Map<
   return results;
 }
 
-async function fetchMoObservation(observationId: string): Promise<any> {
-  const url = `${MO_API_BASE}/observations/${observationId}?detail=high`;
-  const response = await fetch(url, {
-    headers: { "User-Agent": "MycoMap/1.0 (mycology research platform)" }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`MO API error: ${response.status} ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  if (!data.results || data.results.length === 0) {
-    throw new Error(`MO Observation ${observationId} not found`);
-  }
-  
-  return data.results[0];
-}
-
 function extractVoucherNumber(obs: any): string | null {
   if (!obs.ofvs) return null;
   const voucherField = obs.ofvs.find((f: any) => f.field_id === 14618);
@@ -91,7 +70,7 @@ function extractGenbankAccession(obs: any): string | null {
   return null;
 }
 
-async function upsertInatObservation(obs: any): Promise<number> {
+function transformObsToCache(obs: any) {
   const taxon = obs.taxon || {};
   const ancestors = taxon.ancestors || [];
   
@@ -103,7 +82,7 @@ async function upsertInatObservation(obs: any): Promise<number> {
   }
   if (taxon.rank === "genus") genus = taxon.name;
   
-  const cacheData = {
+  return {
     source: "inat" as const,
     sourceObservationId: obs.id.toString(),
     sourceUuid: obs.uuid || null,
@@ -122,11 +101,8 @@ async function upsertInatObservation(obs: any): Promise<number> {
     positionalAccuracy: obs.positional_accuracy || null,
     placeGuess: obs.place_guess || null,
     locality: obs.place_guess || null,
-    state: null,
-    country: null,
     observedOn: obs.observed_on || null,
     observedOnString: obs.observed_on_string || null,
-    timeObservedAt: obs.time_observed_at ? new Date(obs.time_observed_at) : null,
     qualityGrade: obs.quality_grade || null,
     identificationCount: obs.identifications_count || 0,
     captive: obs.captive || false,
@@ -136,140 +112,102 @@ async function upsertInatObservation(obs: any): Promise<number> {
     voucherNumber: extractVoucherNumber(obs),
     specimenAvailable: obs.ofvs?.some((f: any) => f.field_id === 817 && f.value === "Yes") || false,
     description: obs.description || null,
-    notes: null,
     apiResponseJson: JSON.stringify(obs),
     lastSyncedAt: new Date(),
     syncStatus: "success" as const,
-    updatedAt: new Date(),
   };
+}
 
-  const existing = await db.select({ id: observationCache.id })
+async function bulkUpsertObservations(observations: any[]): Promise<Map<string, number>> {
+  const idMap = new Map<string, number>();
+  if (observations.length === 0) return idMap;
+
+  const cacheData = observations.map(transformObsToCache);
+  
+  await db.insert(observationCache).values(cacheData).onConflictDoUpdate({
+    target: [observationCache.source, observationCache.sourceObservationId],
+    set: {
+      scientificName: sql`EXCLUDED.scientific_name`,
+      commonName: sql`EXCLUDED.common_name`,
+      family: sql`EXCLUDED.family`,
+      genus: sql`EXCLUDED.genus`,
+      species: sql`EXCLUDED.species`,
+      taxonRank: sql`EXCLUDED.taxon_rank`,
+      observerName: sql`EXCLUDED.observer_name`,
+      observerUsername: sql`EXCLUDED.observer_username`,
+      observerId: sql`EXCLUDED.observer_id`,
+      latitude: sql`EXCLUDED.latitude`,
+      longitude: sql`EXCLUDED.longitude`,
+      coordinatesObscured: sql`EXCLUDED.coordinates_obscured`,
+      positionalAccuracy: sql`EXCLUDED.positional_accuracy`,
+      placeGuess: sql`EXCLUDED.place_guess`,
+      locality: sql`EXCLUDED.locality`,
+      observedOn: sql`EXCLUDED.observed_on`,
+      observedOnString: sql`EXCLUDED.observed_on_string`,
+      qualityGrade: sql`EXCLUDED.quality_grade`,
+      identificationCount: sql`EXCLUDED.identification_count`,
+      captive: sql`EXCLUDED.captive`,
+      licenseCode: sql`EXCLUDED.license_code`,
+      dnaBarcode: sql`EXCLUDED.dna_barcode`,
+      genbankAccession: sql`EXCLUDED.genbank_accession`,
+      voucherNumber: sql`EXCLUDED.voucher_number`,
+      specimenAvailable: sql`EXCLUDED.specimen_available`,
+      description: sql`EXCLUDED.description`,
+      apiResponseJson: sql`EXCLUDED.api_response_json`,
+      lastSyncedAt: sql`NOW()`,
+      syncStatus: sql`EXCLUDED.sync_status`,
+      updatedAt: sql`NOW()`,
+    },
+  });
+
+  const obsIds = observations.map(o => o.id.toString());
+  const inserted = await db.select({ 
+    id: observationCache.id, 
+    sourceObservationId: observationCache.sourceObservationId 
+  })
     .from(observationCache)
     .where(and(
       eq(observationCache.source, "inat"),
-      eq(observationCache.sourceObservationId, obs.id.toString())
-    ))
-    .limit(1);
+      inArray(observationCache.sourceObservationId, obsIds)
+    ));
 
-  let cacheId: number;
-  
-  if (existing.length > 0) {
-    cacheId = existing[0].id;
-    await db.update(observationCache)
-      .set(cacheData)
-      .where(eq(observationCache.id, cacheId));
-  } else {
-    const [inserted] = await db.insert(observationCache)
-      .values(cacheData)
-      .returning({ id: observationCache.id });
-    cacheId = inserted.id;
+  for (const row of inserted) {
+    idMap.set(row.sourceObservationId, row.id);
   }
 
-  await db.delete(observationMedia)
-    .where(eq(observationMedia.observationCacheId, cacheId));
-  
-  if (obs.photos && obs.photos.length > 0) {
-    const mediaValues = obs.photos.map((photo: any, idx: number) => ({
-      observationCacheId: cacheId,
-      mediaType: "photo" as const,
-      url: photo.url?.replace("square", "medium") || photo.url,
-      thumbnailUrl: photo.url,
-      mediumUrl: photo.url?.replace("square", "medium"),
-      largeUrl: photo.url?.replace("square", "large"),
-      originalUrl: photo.url?.replace("square", "original"),
-      licenseCode: photo.license_code || null,
-      attribution: photo.attribution || null,
-      sortOrder: idx,
-    }));
+  const allMedia: any[] = [];
+  for (const obs of observations) {
+    const cacheId = idMap.get(obs.id.toString());
+    if (!cacheId || !obs.photos?.length) continue;
     
-    await db.insert(observationMedia).values(mediaValues);
+    for (let idx = 0; idx < obs.photos.length; idx++) {
+      const photo = obs.photos[idx];
+      allMedia.push({
+        observationCacheId: cacheId,
+        mediaType: "photo",
+        url: photo.url?.replace("square", "medium") || photo.url,
+        thumbnailUrl: photo.url,
+        mediumUrl: photo.url?.replace("square", "medium"),
+        largeUrl: photo.url?.replace("square", "large"),
+        originalUrl: photo.url?.replace("square", "original"),
+        licenseCode: photo.license_code || null,
+        attribution: photo.attribution || null,
+        sortOrder: idx,
+      });
+    }
   }
 
-  return cacheId;
-}
-
-async function upsertMoObservation(obs: any): Promise<number> {
-  const cacheData = {
-    source: "mo" as const,
-    sourceObservationId: obs.id.toString(),
-    sourceUuid: null,
-    scientificName: obs.consensus?.name || obs.name?.text_name || null,
-    commonName: null,
-    family: null,
-    genus: obs.consensus?.name?.split(" ")[0] || null,
-    species: obs.consensus?.name || null,
-    taxonRank: obs.consensus?.rank || null,
-    observerName: obs.owner?.name || obs.owner?.login,
-    observerUsername: obs.owner?.login,
-    observerId: obs.owner?.id?.toString(),
-    latitude: obs.location?.latitude?.toString() || null,
-    longitude: obs.location?.longitude?.toString() || null,
-    coordinatesObscured: obs.location?.gps_hidden || false,
-    positionalAccuracy: null,
-    placeGuess: obs.location?.where || null,
-    locality: obs.location?.where || null,
-    state: null,
-    country: null,
-    observedOn: obs.date || null,
-    observedOnString: obs.date || null,
-    timeObservedAt: null,
-    qualityGrade: obs.confidence?.toString() || null,
-    identificationCount: obs.namings?.length || 0,
-    captive: false,
-    licenseCode: obs.copyright_holder ? "c" : null,
-    dnaBarcode: null,
-    genbankAccession: null,
-    voucherNumber: obs.specimen?.herbarium_label || null,
-    specimenAvailable: obs.specimen?.available || false,
-    description: obs.notes || null,
-    notes: null,
-    apiResponseJson: JSON.stringify(obs),
-    lastSyncedAt: new Date(),
-    syncStatus: "success" as const,
-    updatedAt: new Date(),
-  };
-
-  const existing = await db.select({ id: observationCache.id })
-    .from(observationCache)
-    .where(and(
-      eq(observationCache.source, "mo"),
-      eq(observationCache.sourceObservationId, obs.id.toString())
-    ))
-    .limit(1);
-
-  let cacheId: number;
-  
-  if (existing.length > 0) {
-    cacheId = existing[0].id;
-    await db.update(observationCache)
-      .set(cacheData)
-      .where(eq(observationCache.id, cacheId));
-  } else {
-    const [inserted] = await db.insert(observationCache)
-      .values(cacheData)
-      .returning({ id: observationCache.id });
-    cacheId = inserted.id;
+  if (allMedia.length > 0) {
+    const cacheIds = Array.from(idMap.values());
+    await db.delete(observationMedia).where(inArray(observationMedia.observationCacheId, cacheIds));
+    
+    for (let i = 0; i < allMedia.length; i += 500) {
+      const batch = allMedia.slice(i, i + 500);
+      await db.insert(observationMedia).values(batch);
+    }
   }
 
-  await db.delete(observationMedia)
-    .where(eq(observationMedia.observationCacheId, cacheId));
-  
-  if (obs.primary_image) {
-    await db.insert(observationMedia).values({
-      observationCacheId: cacheId,
-      mediaType: "photo",
-      url: obs.primary_image.url || `https://mushroomobserver.org/images/640/${obs.primary_image.id}.jpg`,
-      thumbnailUrl: `https://mushroomobserver.org/images/320/${obs.primary_image.id}.jpg`,
-      mediumUrl: `https://mushroomobserver.org/images/640/${obs.primary_image.id}.jpg`,
-      largeUrl: `https://mushroomobserver.org/images/960/${obs.primary_image.id}.jpg`,
-      originalUrl: `https://mushroomobserver.org/images/orig/${obs.primary_image.id}.jpg`,
-      licenseCode: null,
-      attribution: obs.copyright_holder || null,
-      sortOrder: 0,
-    });
-  }
-
-  return cacheId;
+  return idMap;
 }
 
 export async function enrichSpecimenObservations(
@@ -318,7 +256,7 @@ export async function enrichSpecimenObservations(
       break;
     }
 
-    console.log(`[Enrich] Processing batch ${batch + 1}/${maxBatches} (${specimensToEnrich.length} specimens)`);
+    console.log(`[Enrich] Batch ${batch + 1}/${maxBatches} (${specimensToEnrich.length} specimens)`);
 
     const specimenMap = new Map<string, number[]>();
     for (const s of specimensToEnrich) {
@@ -341,71 +279,57 @@ export async function enrichSpecimenObservations(
         inArray(observationCache.sourceObservationId, uniqueObsIds)
       ));
 
-    const existingCacheMap = new Map<string, number>();
+    const cacheMap = new Map<string, number>();
     for (const c of existingCache) {
-      existingCacheMap.set(c.sourceObservationId, c.id);
+      cacheMap.set(c.sourceObservationId, c.id);
     }
 
-    const idsToFetch = uniqueObsIds.filter(id => !existingCacheMap.has(id));
-    
-    console.log(`[Enrich] ${existingCache.length} already cached, ${idsToFetch.length} to fetch`);
+    const idsToFetch = uniqueObsIds.filter(id => !cacheMap.has(id));
 
     if (idsToFetch.length > 0) {
       try {
         const fetchedObs = await fetchInatObservationsBulk(idsToFetch);
-        console.log(`[Enrich] Fetched ${fetchedObs.size} observations from API`);
         stats.fetched += fetchedObs.size;
 
-        for (const [obsId, obs] of fetchedObs) {
-          try {
-            const cacheId = await upsertInatObservation(obs);
-            existingCacheMap.set(obsId, cacheId);
-          } catch (error: any) {
-            stats.errors.push(`Upsert ${obsId}: ${error.message}`);
-          }
-        }
+        const obsArray = Array.from(fetchedObs.values());
+        const newIds = await bulkUpsertObservations(obsArray);
+        
+        newIds.forEach((cacheId, obsId) => {
+          cacheMap.set(obsId, cacheId);
+        });
 
-        for (const obsId of idsToFetch) {
-          if (!fetchedObs.has(obsId)) {
-            stats.notFound++;
-          }
-        }
-
-        await sleep(RATE_LIMIT_MS);
+        stats.notFound += idsToFetch.length - fetchedObs.size;
       } catch (error: any) {
         stats.errors.push(`Bulk fetch: ${error.message}`);
         if (error.message.includes("429")) {
-          console.log(`[Enrich] Rate limited, sleeping 60s...`);
-          await sleep(60000);
+          console.log(`[Enrich] Rate limited, sleeping 30s...`);
+          await sleep(30000);
         }
         continue;
       }
     }
 
-    for (const [obsId, specimenIds] of specimenMap) {
-      const cacheId = existingCacheMap.get(obsId);
+    const updates: { specimenIds: number[], cacheId: number }[] = [];
+    specimenMap.forEach((specimenIds, obsId) => {
+      const cacheId = cacheMap.get(obsId);
       if (cacheId) {
-        await db.update(specimens)
-          .set({ 
-            observationCacheId: cacheId,
-            updatedAt: new Date() 
-          })
-          .where(inArray(specimens.id, specimenIds));
-        stats.linked += specimenIds.length;
+        updates.push({ specimenIds, cacheId });
       }
+    });
+
+    for (const { specimenIds, cacheId } of updates) {
+      await db.update(specimens)
+        .set({ observationCacheId: cacheId, updatedAt: new Date() })
+        .where(inArray(specimens.id, specimenIds));
+      stats.linked += specimenIds.length;
     }
 
-    console.log(`[Enrich] Batch complete: ${stats.fetched} fetched, ${stats.linked} linked, ${stats.notFound} not found`);
+    console.log(`[Enrich] Fetched: ${stats.fetched}, Linked: ${stats.linked}`);
   }
 
-  console.log(`\n[Enrich] Complete!`);
-  console.log(`[Enrich] Fetched: ${stats.fetched}, Linked: ${stats.linked}, Not Found: ${stats.notFound}`);
-  console.log(`[Enrich] Errors: ${stats.errors.length}`);
-  
-  if (stats.errors.length > 0 && stats.errors.length <= 10) {
-    console.log(`[Enrich] Errors:`, stats.errors);
-  } else if (stats.errors.length > 10) {
-    console.log(`[Enrich] First 10 errors:`, stats.errors.slice(0, 10));
+  console.log(`\n[Enrich] Complete! Fetched: ${stats.fetched}, Linked: ${stats.linked}, Not Found: ${stats.notFound}`);
+  if (stats.errors.length > 0) {
+    console.log(`[Enrich] Errors:`, stats.errors.slice(0, 10));
   }
 
   return stats;
@@ -414,8 +338,7 @@ export async function enrichSpecimenObservations(
 const isDirectRun = import.meta.url === `file://${process.argv[1]}`;
 if (isDirectRun) {
   const maxBatches = parseInt(process.argv[2] || "100");
-  
-  console.log(`Running bulk enrichment with maxBatches=${maxBatches} (${BULK_SIZE} obs per batch)`);
+  console.log(`Running bulk enrichment (${BULK_SIZE} per batch, ${maxBatches} batches max)`);
   
   enrichSpecimenObservations(maxBatches)
     .then((stats) => {
