@@ -301,7 +301,10 @@ export const inaturalistClassificationCache = pgTable("inaturalist_classificatio
   lookupCountIdx: index("inat_classification_lookup_count_idx").on(table.lookupCount),
 }));
 
-// iNaturalist API cache table for refresh functionality
+/**
+ * @deprecated Use observation_cache table instead. This table will be removed in a future migration.
+ * Data has been consolidated into the unified observation cache system (observation_cache, observation_media, observation_taxa).
+ */
 export const inaturalistApiCache = pgTable("inaturalist_api_cache", {
   id: serial("id").primaryKey(),
   observationId: text("observation_id").notNull().unique(), // iNaturalist observation ID
@@ -320,7 +323,10 @@ export const inaturalistApiCache = pgTable("inaturalist_api_cache", {
   cacheExpiresIdx: index("inat_cache_expires_idx").on(table.cacheExpiresAt),
 }));
 
-// iNaturalist data table for validation and detailed records
+/**
+ * @deprecated Use observation_cache table instead. This table will be removed in a future migration.
+ * Data has been consolidated into the unified observation cache system (observation_cache, observation_media, observation_taxa).
+ */
 export const inaturalistData = pgTable("inaturalist_data", {
   id: serial("id").primaryKey(),
   observationId: text("observation_id").notNull().unique(), // Links to observations table
@@ -374,7 +380,10 @@ export const inaturalistData = pgTable("inaturalist_data", {
   qualityIdx: index("inat_quality_idx").on(table.quality),
 }));
 
-// Mushroom Observer data table for API validation
+/**
+ * @deprecated Use observation_cache table instead. This table will be removed in a future migration.
+ * Data has been consolidated into the unified observation cache system (observation_cache, observation_media, observation_taxa).
+ */
 export const mushroomObserverData = pgTable("mushroom_observer_data", {
   id: serial("id").primaryKey(),
   observationId: text("observation_id").notNull().unique(),
@@ -785,7 +794,11 @@ export type FieldGuide = typeof fieldGuides.$inferSelect;
 export type InsertFieldGuideSpecies = z.infer<typeof insertFieldGuideSpeciesSchema>;
 export type FieldGuideSpecies = typeof fieldGuideSpecies.$inferSelect;
 
-// iNaturalist Cache Tables
+/**
+ * @deprecated Use observation_cache table instead. This table will be removed in a future migration.
+ * Data has been consolidated into the unified observation cache system (observation_cache, observation_media, observation_taxa).
+ * Field guide features should use observation_cache_jobs for job tracking.
+ */
 export const inatObservationsCache = pgTable("inat_observations_cache", {
   id: serial("id").primaryKey(),
   inatId: integer("inat_id").notNull().unique(), // iNaturalist observation ID
@@ -812,6 +825,9 @@ export const inatObservationsCache = pgTable("inat_observations_cache", {
   userNameIdx: index("inat_cache_user_name_idx").on(table.userName),
 }));
 
+/**
+ * @deprecated Use observation_cache_jobs table instead. This table will be removed in a future migration.
+ */
 export const inatCacheMetadata = pgTable("inat_cache_metadata", {
   id: serial("id").primaryKey(),
   fieldGuideId: integer("field_guide_id").references(() => fieldGuides.id),
@@ -857,7 +873,10 @@ export type InatObservationsCache = typeof inatObservationsCache.$inferSelect;
 export type InsertInatCacheMetadata = z.infer<typeof insertInatCacheMetadataSchema>;
 export type InatCacheMetadata = typeof inatCacheMetadata.$inferSelect;
 
-// Mushroom Observer Cache Tables
+/**
+ * @deprecated Use observation_cache table instead. This table will be removed in a future migration.
+ * Data has been consolidated into the unified observation cache system.
+ */
 export const moObservationsCache = pgTable("mo_observations_cache", {
   id: serial("id").primaryKey(),
   moId: integer("moId").notNull().unique(), // Mushroom Observer observation ID
@@ -881,6 +900,9 @@ export const moObservationsCache = pgTable("mo_observations_cache", {
   userNameIdx: index("mo_cache_user_name_idx").on(table.userName),
 }));
 
+/**
+ * @deprecated Use observation_cache_jobs table instead. This table will be removed in a future migration.
+ */
 export const moCacheMetadata = pgTable("mo_cache_metadata", {
   id: serial("id").primaryKey(),
   fieldGuideId: integer("fieldGuideId").references(() => fieldGuides.id),

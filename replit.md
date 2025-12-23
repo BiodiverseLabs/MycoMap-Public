@@ -63,6 +63,33 @@ Preferred communication style: Simple, everyday language.
 - **MyCoPortal API**: DNA sequence and molecular data.
 - **NCBI BLAST**: Genetic sequence analysis.
 
+### Unified Observation Cache System
+The system uses a consolidated cache architecture for external platform data:
+
+**Core Tables (shared/schema.ts):**
+- `observation_cache` - Single source of truth for all platform observations (iNaturalist, Mushroom Observer, MyCoPortal)
+- `observation_media` - Photos and media linked to observations
+- `observation_taxa` - Normalized taxonomic data with standardized ancestry
+- `observation_cache_jobs` - Background job tracking for cache refresh operations
+
+**Key Fields:**
+- `source`: Platform identifier ('inat', 'mo', 'mycoportal')
+- `sourceObservationId`: Original platform observation ID
+- `voucherNumber`: Extracted from iNat field 14618 for LIMS integration
+- `dnaBarcodeIts`: DNA barcode data from field 2330
+- `genbankAccession`: GenBank accession numbers from fields 15353/15324/7555
+- `apiResponseJson`: Full API response preserved for audit and data recovery
+
+**Deprecated Tables (migrated to unified cache):**
+- `inat_observations_cache`, `mo_observations_cache` → merged into `observation_cache`
+- `inaturalist_data`, `mushroom_observer_data` → merged into `observation_cache`
+- `inat_cache_metadata`, `mo_cache_metadata` → merged into `observation_cache_jobs`
+- `inaturalist_api_cache` → merged into `observation_cache`
+
+**Migration:**
+- Use admin endpoint `POST /api/admin/observation-cache/migrate` to migrate legacy data
+- Use `GET /api/admin/observation-cache/stats` to check migration progress
+
 ### Development Tools
 - **TypeScript**: Type safety
 - **ESBuild**: Production build optimization
