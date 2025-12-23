@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa } from "@shared/schema";
@@ -703,6 +704,9 @@ async function syncUploadedInaturalistData(uploadId: number, progressTracker: Ma
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Serve attached_assets as static files
+  app.use('/attached_assets', express.static(path.join(process.cwd(), 'attached_assets')));
   
   // Setup Replit Auth (must be before other routes)
   await setupAuth(app);
