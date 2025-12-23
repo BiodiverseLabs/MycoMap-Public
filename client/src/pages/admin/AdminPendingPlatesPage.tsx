@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Grid3X3, Plus, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
+import { Grid3X3, Plus, CheckCircle, AlertCircle, Trash2, Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +29,7 @@ interface PendingPlate {
   notes: string | null;
   sampleCount: number;
   status: string;
+  isActive: boolean | null;
   wells: Well[];
   createdBy: string | null;
   createdAt: string;
@@ -39,11 +41,16 @@ export default function AdminPendingPlatesPage() {
   const [newPlateName, setNewPlateName] = useState("");
   const [newSampleCount, setNewSampleCount] = useState(96);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
 
   const { data: plates, isLoading } = useQuery<PendingPlate[]>({
-    queryKey: ['/api/admin/pending-plates'],
+    queryKey: ['/api/admin/pending-plates', showInactive, searchTerm],
     queryFn: async () => {
-      const res = await fetch('/api/admin/pending-plates');
+      const params = new URLSearchParams();
+      if (showInactive) params.append('showInactive', 'true');
+      if (searchTerm) params.append('search', searchTerm);
+      const res = await fetch(`/api/admin/pending-plates?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch pending plates');
       return res.json();
     },
@@ -54,7 +61,7 @@ export default function AdminPendingPlatesPage() {
       return apiRequest('POST', '/api/admin/pending-plates', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-plates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-plates', showInactive, searchTerm] });
       setCreateDialogOpen(false);
       setNewPlateName("");
       setNewSampleCount(96);
@@ -70,7 +77,7 @@ export default function AdminPendingPlatesPage() {
       return apiRequest('DELETE', `/api/admin/pending-plates/${plateId}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-plates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-plates', showInactive, searchTerm] });
       setDeleteConfirmId(null);
       toast({ title: "Deleted", description: "Plate deleted" });
     },
@@ -116,6 +123,31 @@ export default function AdminPendingPlatesPage() {
           </Button>
         </div>
 
+        {/* Search and filters */}
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search plates by name, notes, or creator..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-plates"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="showInactive"
+              checked={showInactive}
+              onCheckedChange={(checked) => setShowInactive(checked === true)}
+              data-testid="checkbox-show-inactive"
+            />
+            <Label htmlFor="showInactive" className="text-sm text-gray-600 cursor-pointer">
+              Show Inactive
+            </Label>
+          </div>
+        </div>
+
         {plates && plates.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -152,15 +184,21 @@ export default function AdminPendingPlatesPage() {
                 <TableBody>
                   {plates?.map((plate) => {
                     const stats = getPlateStats(plate);
+                    const isInactive = plate.isActive === false;
                     return (
-                      <TableRow key={plate.id} data-testid={`row-plate-${plate.id}`}>
+                      <TableRow key={plate.id} data-testid={`row-plate-${plate.id}`} className={isInactive ? 'opacity-60' : ''}>
                         <TableCell className="font-mono">{plate.id}</TableCell>
                         <TableCell>
-                          <Link href={`/admin/pending-plates/${plate.id}`}>
-                            <span className="text-blue-600 hover:underline cursor-pointer font-medium">
-                              {plate.name || `Plate ${plate.id}`}
-                            </span>
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/admin/pending-plates/${plate.id}`}>
+                              <span className="text-blue-600 hover:underline cursor-pointer font-medium">
+                                {plate.name || `Plate ${plate.id}`}
+                              </span>
+                            </Link>
+                            {isInactive && (
+                              <Badge variant="outline" className="text-xs text-gray-500">Imported</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {stats.filledWells}/{plate.sampleCount}

@@ -10337,9 +10337,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const searchTerm = req.query.search?.trim() || '';
       
       // Build conditions: runId is null, optionally filter by isActive
+      // Treat NULL as active (for legacy data before isActive was added)
       const conditions = showInactive
         ? [isNull(labPlates.runId)]
-        : [isNull(labPlates.runId), eq(labPlates.isActive, true)];
+        : [isNull(labPlates.runId), or(eq(labPlates.isActive, true), isNull(labPlates.isActive))];
       
       let pendingPlates = await db.select().from(labPlates).where(and(...conditions));
       
@@ -10421,6 +10422,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         name: name || null,
         sampleCount: validSampleCount,
         status: 'empty',
+        isActive: true,
         createdBy,
       }).returning();
       
