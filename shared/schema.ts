@@ -2065,7 +2065,8 @@ export const specimenStatusEnum = pgEnum("specimen_status", [
   "accessioned",
   "archived",
   "retired",
-  "lost"
+  "lost",
+  "needs_verification"
 ]);
 
 export const specimenEventTypeEnum = pgEnum("specimen_event_type", [
