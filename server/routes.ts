@@ -10341,19 +10341,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         status: 'empty',
       }).returning();
       
-      // Create wells for the plate
+      // Create wells for the plate - batch insert for efficiency
       const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       const cols = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
       const allWellPositions = rows.flatMap((row, ri) => cols.map((col, ci) => ({ pos: `${row}${col}`, order: ci * 8 + ri + 1 })));
       allWellPositions.sort((a, b) => a.order - b.order);
       const wellPositions = allWellPositions.slice(0, validSampleCount);
       
-      for (const { pos, order } of wellPositions) {
-        await db.insert(labWells).values({
-          plateId: newPlate.id,
-          wellPosition: pos,
-          sortOrder: order,
-        });
+      const wellsToInsert = wellPositions.map(({ pos, order }) => ({
+        plateId: newPlate.id,
+        wellPosition: pos,
+        sortOrder: order,
+      }));
+      
+      if (wellsToInsert.length > 0) {
+        await db.insert(labWells).values(wellsToInsert);
       }
       
       res.json(newPlate);
