@@ -35,6 +35,7 @@ interface RunStats {
   allUsers: { username: string; count: number }[];
   successRate: number | null;
   totalFails: number | null;
+  platesWithMissingPrimers?: { plateNumber: number; plateName: string | null; wellsWithData: number; wellsMissingPrimers: number }[];
 }
 
 interface Plate {
@@ -228,8 +229,14 @@ export default function AdminRunDetailPage() {
     mutationFn: async () => {
       const response = await apiRequest('POST', `/api/admin/runs/${runId}/generate-files`, {});
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || error.error || 'Failed to generate files');
+        const errorData = await response.json();
+        // Create a more readable error message
+        if (errorData.missingPrimers && Array.isArray(errorData.missingPrimers)) {
+          const primerList = errorData.missingPrimers.slice(0, 5).join(', ');
+          const moreCount = errorData.missingPrimers.length > 5 ? ` and ${errorData.missingPrimers.length - 5} more` : '';
+          throw new Error(`Missing primer sequences for: ${primerList}${moreCount}. Go to Primer Management to add sequences.`);
+        }
+        throw new Error(errorData.message || errorData.error || 'Failed to generate files');
       }
       return response.json();
     },
@@ -239,7 +246,7 @@ export default function AdminRunDetailPage() {
     },
     onError: (error: Error) => {
       toast({ 
-        title: "Error", 
+        title: "Cannot Generate Files", 
         description: error.message || "Failed to generate files", 
         variant: "destructive" 
       });
@@ -763,6 +770,37 @@ export default function AdminRunDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Warning: Plates with Missing Primers */}
+            {stats?.platesWithMissingPrimers && stats.platesWithMissingPrimers.length > 0 && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg" data-testid="warning-missing-primers">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-amber-800">
+                      {stats.platesWithMissingPrimers.length} plate{stats.platesWithMissingPrimers.length > 1 ? 's' : ''} missing primer assignments
+                    </h4>
+                    <p className="text-sm text-amber-700 mt-1">
+                      The following plates have wells with sample data but no primer pool or forward/reverse primer assigned:
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {stats.platesWithMissingPrimers.slice(0, 5).map((p) => (
+                        <li key={p.plateNumber} className="text-sm text-amber-700">
+                          <span className="font-medium">Plate {p.plateNumber}</span>
+                          {p.plateName && <span className="text-amber-600"> ({p.plateName})</span>}
+                          <span> - {p.wellsMissingPrimers} of {p.wellsWithData} wells need primers</span>
+                        </li>
+                      ))}
+                      {stats.platesWithMissingPrimers.length > 5 && (
+                        <li className="text-sm text-amber-600 italic">
+                          ...and {stats.platesWithMissingPrimers.length - 5} more plates
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

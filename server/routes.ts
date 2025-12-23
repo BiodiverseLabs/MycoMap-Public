@@ -11465,6 +11465,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .map(([username, count]) => ({ username, count }))
         .sort((a, b) => b.count - a.count);
       
+      // Check for plates with wells missing primers
+      const platesWithMissingPrimers: { plateNumber: number; plateName: string | null; wellsWithData: number; wellsMissingPrimers: number }[] = [];
+      for (const plate of plates) {
+        const plateWells = wells.filter(w => w.plateId === plate.id);
+        const wellsWithData = plateWells.filter(w => w.observationId || w.labCode);
+        const wellsMissingPrimers = wellsWithData.filter(w => !w.primerPool && (!w.forwardPrimer || !w.reversePrimer));
+        
+        if (wellsMissingPrimers.length > 0) {
+          platesWithMissingPrimers.push({
+            plateNumber: plate.plateNumber || 0,
+            plateName: plate.name,
+            wellsWithData: wellsWithData.length,
+            wellsMissingPrimers: wellsMissingPrimers.length,
+          });
+        }
+      }
+      
       res.json({
         totalSpecimens,
         topStates: sortedStates.slice(0, 5),
@@ -11473,6 +11490,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         allUsers: sortedUsers,
         successRate: null,  // Will be populated when results are linked
         totalFails: null,   // Will be populated when results are linked
+        platesWithMissingPrimers,
       });
     } catch (error) {
       console.error("Error fetching run stats:", error);
