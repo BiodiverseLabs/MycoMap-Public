@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema } from "@shared/schema";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
 // XLSX will be imported dynamically
@@ -12534,6 +12535,510 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error removing method selection:", error);
       res.status(500).json({ error: "Failed to remove method selection" });
+    }
+  });
+
+  // =============================================
+  // SPECIMENS API ENDPOINTS
+  // =============================================
+
+  // Helper function to generate display codes
+  function generateDisplayCode(): string {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    return `MYCO-${year}-${random}`;
+  }
+
+  // Get all specimens with filtering and search
+  app.get("/api/admin/specimens", isAdmin, async (req: any, res) => {
+    try {
+      const searchTerm = req.query.search?.trim() || '';
+      const status = req.query.status || '';
+      const intakeSource = req.query.intakeSource || '';
+      const limit = parseInt(req.query.limit) || 100;
+      const offset = parseInt(req.query.offset) || 0;
+      
+      let query = db.select().from(specimens);
+      
+      // Build conditions
+      const conditions: any[] = [];
+      
+      if (status) {
+        conditions.push(eq(specimens.currentStatus, status));
+      }
+      
+      if (intakeSource) {
+        conditions.push(eq(specimens.intakeSourceType, intakeSource));
+      }
+      
+      // Apply conditions if any
+      let allSpecimens;
+      if (conditions.length > 0) {
+        allSpecimens = await db.select().from(specimens)
+          .where(and(...conditions))
+          .orderBy(desc(specimens.createdAt))
+          .limit(limit)
+          .offset(offset);
+      } else {
+        allSpecimens = await db.select().from(specimens)
+          .orderBy(desc(specimens.createdAt))
+          .limit(limit)
+          .offset(offset);
+      }
+      
+      // Apply search filter in-memory (name-first pattern)
+      let filteredSpecimens = allSpecimens;
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const nameMatches = allSpecimens.filter(s => 
+          s.displayCode?.toLowerCase().includes(searchLower) ||
+          s.scientificName?.toLowerCase().includes(searchLower)
+        );
+        
+        if (nameMatches.length > 0) {
+          filteredSpecimens = nameMatches;
+        } else {
+          filteredSpecimens = allSpecimens.filter(s =>
+            s.voucherNumber?.toLowerCase().includes(searchLower) ||
+            s.collectorName?.toLowerCase().includes(searchLower) ||
+            s.locality?.toLowerCase().includes(searchLower) ||
+            s.primaryObservationId?.toLowerCase().includes(searchLower)
+          );
+        }
+      }
+      
+      // Get total count
+      const [countResult] = await db.select({ count: sql`count(*)` }).from(specimens);
+      const total = Number(countResult?.count || 0);
+      
+      res.json({
+        specimens: filteredSpecimens,
+        total,
+        limit,
+        offset,
+      });
+    } catch (error) {
+      console.error("Error fetching specimens:", error);
+      res.status(500).json({ error: "Failed to fetch specimens" });
+    }
+  });
+
+  // Get single specimen with sources and events
+  app.get("/api/admin/specimens/:id", isAdmin, async (req: any, res) => {
+    try {
+      const specimenId = parseInt(req.params.id);
+      
+      const [specimen] = await db.select().from(specimens).where(eq(specimens.id, specimenId));
+      
+      if (!specimen) {
+        return res.status(404).json({ error: "Specimen not found" });
+      }
+      
+      // Get sources
+      const sources = await db.select().from(specimenSources)
+        .where(eq(specimenSources.specimenId, specimenId));
+      
+      // Get events (most recent first)
+      const events = await db.select({
+        id: specimenEvents.id,
+        eventType: specimenEvents.eventType,
+        previousValue: specimenEvents.previousValue,
+        newValue: specimenEvents.newValue,
+        notes: specimenEvents.notes,
+        performedBy: specimenEvents.performedBy,
+        performedAt: specimenEvents.performedAt,
+        performedByName: users.firstName,
+      })
+        .from(specimenEvents)
+        .leftJoin(users, eq(specimenEvents.performedBy, users.id))
+        .where(eq(specimenEvents.specimenId, specimenId))
+        .orderBy(desc(specimenEvents.performedAt))
+        .limit(50);
+      
+      res.json({ ...specimen, sources, events });
+    } catch (error) {
+      console.error("Error fetching specimen:", error);
+      res.status(500).json({ error: "Failed to fetch specimen" });
+    }
+  });
+
+  // Create a new specimen manually
+  app.post("/api/admin/specimens", isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      const {
+        intakeSourceType = 'herbarium_direct',
+        primaryObservationSource,
+        primaryObservationId,
+        voucherNumber,
+        collectorName,
+        collectionDate,
+        locality,
+        latitude,
+        longitude,
+        habitat,
+        substrate,
+        scientificName,
+        genus,
+        family,
+        notes,
+      } = req.body;
+      
+      const uuid = randomUUID();
+      const displayCode = generateDisplayCode();
+      
+      const [newSpecimen] = await db.insert(specimens).values({
+        uuid,
+        displayCode,
+        intakeSourceType,
+        intakeDate: new Date(),
+        primaryObservationSource,
+        primaryObservationId,
+        voucherNumber,
+        collectorName,
+        collectionDate,
+        locality,
+        latitude,
+        longitude,
+        habitat,
+        substrate,
+        scientificName,
+        genus,
+        family,
+        currentStatus: 'received',
+        statusChangedAt: new Date(),
+        notes,
+      }).returning();
+      
+      // Log the creation event
+      await db.insert(specimenEvents).values({
+        specimenId: newSpecimen.id,
+        eventType: 'created',
+        newValue: `Created via ${intakeSourceType}`,
+        performedBy: userId,
+      });
+      
+      // If primary observation source provided, add to sources
+      if (primaryObservationSource && primaryObservationId) {
+        await db.insert(specimenSources).values({
+          specimenId: newSpecimen.id,
+          platform: primaryObservationSource,
+          externalId: primaryObservationId,
+          isPrimary: true,
+        });
+      }
+      
+      res.json(newSpecimen);
+    } catch (error) {
+      console.error("Error creating specimen:", error);
+      res.status(500).json({ error: "Failed to create specimen" });
+    }
+  });
+
+  // Update specimen
+  app.patch("/api/admin/specimens/:id", isAdmin, async (req: any, res) => {
+    try {
+      const specimenId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      
+      const [existingSpecimen] = await db.select().from(specimens).where(eq(specimens.id, specimenId));
+      
+      if (!existingSpecimen) {
+        return res.status(404).json({ error: "Specimen not found" });
+      }
+      
+      const {
+        currentStatus,
+        herbariumAccessionNumber,
+        storageLocation,
+        scientificName,
+        genus,
+        family,
+        collectorName,
+        collectionDate,
+        locality,
+        latitude,
+        longitude,
+        habitat,
+        substrate,
+        notes,
+        isPublic,
+      } = req.body;
+      
+      const updates: any = { updatedAt: new Date() };
+      const events: any[] = [];
+      
+      // Track status changes
+      if (currentStatus && currentStatus !== existingSpecimen.currentStatus) {
+        updates.currentStatus = currentStatus;
+        updates.statusChangedAt = new Date();
+        events.push({
+          specimenId,
+          eventType: 'status_change',
+          previousValue: existingSpecimen.currentStatus,
+          newValue: currentStatus,
+          performedBy: userId,
+        });
+      }
+      
+      // Track other field updates
+      if (herbariumAccessionNumber !== undefined) updates.herbariumAccessionNumber = herbariumAccessionNumber;
+      if (storageLocation !== undefined) {
+        if (storageLocation !== existingSpecimen.storageLocation) {
+          events.push({
+            specimenId,
+            eventType: 'location_move',
+            previousValue: existingSpecimen.storageLocation,
+            newValue: storageLocation,
+            performedBy: userId,
+          });
+        }
+        updates.storageLocation = storageLocation;
+      }
+      if (scientificName !== undefined) updates.scientificName = scientificName;
+      if (genus !== undefined) updates.genus = genus;
+      if (family !== undefined) updates.family = family;
+      if (collectorName !== undefined) updates.collectorName = collectorName;
+      if (collectionDate !== undefined) updates.collectionDate = collectionDate;
+      if (locality !== undefined) updates.locality = locality;
+      if (latitude !== undefined) updates.latitude = latitude;
+      if (longitude !== undefined) updates.longitude = longitude;
+      if (habitat !== undefined) updates.habitat = habitat;
+      if (substrate !== undefined) updates.substrate = substrate;
+      if (notes !== undefined) updates.notes = notes;
+      if (isPublic !== undefined) updates.isPublic = isPublic;
+      
+      const [updatedSpecimen] = await db.update(specimens)
+        .set(updates)
+        .where(eq(specimens.id, specimenId))
+        .returning();
+      
+      // Log events
+      if (events.length > 0) {
+        await db.insert(specimenEvents).values(events);
+      }
+      
+      res.json(updatedSpecimen);
+    } catch (error) {
+      console.error("Error updating specimen:", error);
+      res.status(500).json({ error: "Failed to update specimen" });
+    }
+  });
+
+  // Add source to specimen
+  app.post("/api/admin/specimens/:id/sources", isAdmin, async (req: any, res) => {
+    try {
+      const specimenId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      const { platform, externalId, isPrimary, url } = req.body;
+      
+      if (!platform || !externalId) {
+        return res.status(400).json({ error: "platform and externalId are required" });
+      }
+      
+      const [newSource] = await db.insert(specimenSources).values({
+        specimenId,
+        platform,
+        externalId,
+        isPrimary: isPrimary || false,
+        url,
+      }).returning();
+      
+      // Log the event
+      await db.insert(specimenEvents).values({
+        specimenId,
+        eventType: 'source_added',
+        newValue: `${platform}: ${externalId}`,
+        performedBy: userId,
+      });
+      
+      res.json(newSource);
+    } catch (error) {
+      console.error("Error adding specimen source:", error);
+      res.status(500).json({ error: "Failed to add specimen source" });
+    }
+  });
+
+  // Get specimen statistics
+  app.get("/api/admin/specimens/stats", isAdmin, async (req: any, res) => {
+    try {
+      const statusCounts = await db.select({
+        status: specimens.currentStatus,
+        count: sql`count(*)`,
+      })
+        .from(specimens)
+        .groupBy(specimens.currentStatus);
+      
+      const intakeSourceCounts = await db.select({
+        source: specimens.intakeSourceType,
+        count: sql`count(*)`,
+      })
+        .from(specimens)
+        .groupBy(specimens.intakeSourceType);
+      
+      const [totalResult] = await db.select({ count: sql`count(*)` }).from(specimens);
+      
+      res.json({
+        total: Number(totalResult?.count || 0),
+        byStatus: statusCounts.reduce((acc, row) => {
+          acc[row.status] = Number(row.count);
+          return acc;
+        }, {} as Record<string, number>),
+        byIntakeSource: intakeSourceCounts.reduce((acc, row) => {
+          acc[row.source] = Number(row.count);
+          return acc;
+        }, {} as Record<string, number>),
+      });
+    } catch (error) {
+      console.error("Error fetching specimen stats:", error);
+      res.status(500).json({ error: "Failed to fetch specimen stats" });
+    }
+  });
+
+  // Create specimen from shipment specimen (for auto-creation on validation)
+  app.post("/api/admin/shipment-specimens/:id/create-specimen", isAdmin, async (req: any, res) => {
+    try {
+      const shipmentSpecimenId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      
+      // Get the shipment specimen
+      const [shipmentSpec] = await db.select().from(shipmentSpecimens)
+        .where(eq(shipmentSpecimens.id, shipmentSpecimenId));
+      
+      if (!shipmentSpec) {
+        return res.status(404).json({ error: "Shipment specimen not found" });
+      }
+      
+      // Check if already linked
+      if (shipmentSpec.specimenId) {
+        return res.status(400).json({ error: "Specimen already created for this shipment specimen" });
+      }
+      
+      // Determine platform
+      const platform = shipmentSpec.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
+      
+      // Create the specimen
+      const uuid = randomUUID();
+      const displayCode = generateDisplayCode();
+      
+      const [newSpecimen] = await db.insert(specimens).values({
+        uuid,
+        displayCode,
+        intakeSourceType: 'shipment',
+        intakeSourceId: shipmentSpecimenId,
+        intakeDate: new Date(),
+        primaryObservationSource: platform,
+        primaryObservationId: shipmentSpec.observationId,
+        voucherNumber: shipmentSpec.voucherNumber,
+        scientificName: shipmentSpec.scientificName,
+        locality: shipmentSpec.location,
+        currentStatus: 'received',
+        statusChangedAt: new Date(),
+      }).returning();
+      
+      // Link the shipment specimen to the new specimen
+      await db.update(shipmentSpecimens)
+        .set({ specimenId: newSpecimen.id, updatedAt: new Date() })
+        .where(eq(shipmentSpecimens.id, shipmentSpecimenId));
+      
+      // Add source record
+      await db.insert(specimenSources).values({
+        specimenId: newSpecimen.id,
+        platform,
+        externalId: shipmentSpec.observationId,
+        isPrimary: true,
+      });
+      
+      // Log creation event
+      await db.insert(specimenEvents).values({
+        specimenId: newSpecimen.id,
+        eventType: 'created',
+        newValue: `Created from shipment specimen #${shipmentSpecimenId}`,
+        performedBy: userId,
+      });
+      
+      res.json(newSpecimen);
+    } catch (error) {
+      console.error("Error creating specimen from shipment:", error);
+      res.status(500).json({ error: "Failed to create specimen" });
+    }
+  });
+
+  // Batch create specimens from validated shipment specimens
+  app.post("/api/admin/shipments/:id/create-specimens", isAdmin, async (req: any, res) => {
+    try {
+      const shipmentId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub || req.user?.id || null;
+      
+      // Get all bags for this shipment
+      const bags = await db.select().from(shipmentBags)
+        .where(eq(shipmentBags.shipmentId, shipmentId));
+      
+      const bagIds = bags.map(b => b.id);
+      
+      if (bagIds.length === 0) {
+        return res.json({ created: 0, message: "No bags found" });
+      }
+      
+      // Get all validated specimens that don't have a specimen record yet
+      const validatedSpecs = await db.select().from(shipmentSpecimens)
+        .where(and(
+          inArray(shipmentSpecimens.bagId, bagIds),
+          eq(shipmentSpecimens.isValidated, true),
+          isNull(shipmentSpecimens.specimenId)
+        ));
+      
+      let created = 0;
+      
+      for (const shipmentSpec of validatedSpecs) {
+        const platform = shipmentSpec.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
+        const uuid = randomUUID();
+        const displayCode = generateDisplayCode();
+        
+        const [newSpecimen] = await db.insert(specimens).values({
+          uuid,
+          displayCode,
+          intakeSourceType: 'shipment',
+          intakeSourceId: shipmentSpec.id,
+          intakeDate: new Date(),
+          primaryObservationSource: platform,
+          primaryObservationId: shipmentSpec.observationId,
+          voucherNumber: shipmentSpec.voucherNumber,
+          scientificName: shipmentSpec.scientificName,
+          locality: shipmentSpec.location,
+          currentStatus: 'received',
+          statusChangedAt: new Date(),
+        }).returning();
+        
+        // Link and add source
+        await db.update(shipmentSpecimens)
+          .set({ specimenId: newSpecimen.id, updatedAt: new Date() })
+          .where(eq(shipmentSpecimens.id, shipmentSpec.id));
+        
+        await db.insert(specimenSources).values({
+          specimenId: newSpecimen.id,
+          platform,
+          externalId: shipmentSpec.observationId,
+          isPrimary: true,
+        });
+        
+        await db.insert(specimenEvents).values({
+          specimenId: newSpecimen.id,
+          eventType: 'created',
+          newValue: `Created from shipment specimen #${shipmentSpec.id}`,
+          performedBy: userId,
+        });
+        
+        created++;
+      }
+      
+      res.json({ 
+        created, 
+        message: `Created ${created} specimen records from validated shipment specimens` 
+      });
+    } catch (error) {
+      console.error("Error batch creating specimens:", error);
+      res.status(500).json({ error: "Failed to create specimens" });
     }
   });
 
