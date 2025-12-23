@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -13708,6 +13708,57 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error submitting specimen request:", error);
       res.status(500).json({ error: "Failed to submit request" });
+    }
+  });
+
+  // =============================================
+  // UNIFIED OBSERVATION CACHE - Admin Migration
+  // =============================================
+  
+  app.post("/api/admin/observation-cache/migrate", isAdmin, async (req: any, res) => {
+    try {
+      const { runFullMigration } = await import("./migrateObservationCache");
+      
+      res.json({ message: "Migration started. Check server logs for progress." });
+      
+      runFullMigration()
+        .then((stats) => {
+          console.log("[Migration] Completed:", stats);
+        })
+        .catch((error) => {
+          console.error("[Migration] Failed:", error);
+        });
+    } catch (error) {
+      console.error("Error starting migration:", error);
+      res.status(500).json({ error: "Failed to start migration" });
+    }
+  });
+  
+  app.get("/api/admin/observation-cache/stats", isAdmin, async (req: any, res) => {
+    try {
+      const [cacheStats] = await db.select({
+        totalObservations: sql<number>`count(*)::int`,
+        inatCount: sql<number>`count(*) filter (where source = 'inat')::int`,
+        moCount: sql<number>`count(*) filter (where source = 'mo')::int`,
+        mycoportalCount: sql<number>`count(*) filter (where source = 'mycoportal')::int`,
+      }).from(observationCache);
+      
+      const [mediaStats] = await db.select({
+        totalMedia: sql<number>`count(*)::int`,
+      }).from(observationMedia);
+      
+      const [taxaStats] = await db.select({
+        totalTaxa: sql<number>`count(*)::int`,
+      }).from(observationTaxa);
+      
+      res.json({
+        observationCache: cacheStats,
+        media: mediaStats,
+        taxa: taxaStats,
+      });
+    } catch (error) {
+      console.error("Error getting cache stats:", error);
+      res.status(500).json({ error: "Failed to get cache stats" });
     }
   });
 
