@@ -64,10 +64,14 @@ import ApiDocumentation from "@/pages/ApiDocumentation";
 import NotFound from "@/pages/not-found";
 import ProfilePage from "@/pages/ProfilePage";
 import ShipmentPage from "@/pages/ShipmentPage";
+import FungariumAbout from "@/pages/FungariumAbout";
+import FungariumSearch from "@/pages/FungariumSearch";
+import FungariumRequest from "@/pages/FungariumRequest";
 
 const publicPaths = [
   '/', '/network', '/mycoblitz', '/habitat', '/protocols', '/join',
-  '/about', '/partners', '/contact', '/edna', '/barcoding', '/profile', '/shipment'
+  '/about', '/partners', '/contact', '/edna', '/barcoding', '/profile', '/shipment',
+  '/fungarium', '/fungarium/about', '/fungarium/search', '/fungarium/request'
 ];
 
 const networkSubpages = ['/network/ac', '/network/bc', '/network/ca', '/network/mi'];
@@ -97,6 +101,10 @@ function AppRouter() {
         <Route path="/barcoding"><CMSPage slug="barcoding" /></Route>
         <Route path="/profile" component={ProfilePage} />
         <Route path="/shipment/:id?" component={ShipmentPage} />
+        <Route path="/fungarium/about" component={FungariumAbout} />
+        <Route path="/fungarium/search" component={FungariumSearch} />
+        <Route path="/fungarium/request" component={FungariumRequest} />
+        <Route path="/fungarium" component={FungariumAbout} />
       </Switch>
     );
   }

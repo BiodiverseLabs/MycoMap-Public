@@ -13480,5 +13480,162 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // ============ PUBLIC FUNGARIUM API ============
+
+  // Public: Search specimens
+  app.get("/api/public/fungarium/specimens", async (req: any, res) => {
+    try {
+      const { search, status, page = "1", pageSize = "20" } = req.query;
+      const pageNum = parseInt(page as string) || 1;
+      const limit = Math.min(parseInt(pageSize as string) || 20, 100);
+      const offset = (pageNum - 1) * limit;
+
+      const conditions: any[] = [];
+      
+      // Only show accessioned or archived specimens publicly
+      if (status && status !== 'all') {
+        conditions.push(eq(specimens.currentStatus, status as string));
+      } else {
+        conditions.push(
+          or(
+            eq(specimens.currentStatus, 'accessioned'),
+            eq(specimens.currentStatus, 'archived'),
+            eq(specimens.currentStatus, 'sequenced')
+          )
+        );
+      }
+
+      // Search term
+      if (search) {
+        const searchTerm = `%${search}%`;
+        conditions.push(
+          or(
+            sql`${specimens.scientificName} ILIKE ${searchTerm}`,
+            sql`${specimens.commonName} ILIKE ${searchTerm}`,
+            sql`${specimens.displayCode} ILIKE ${searchTerm}`,
+            sql`${specimens.locality} ILIKE ${searchTerm}`,
+            sql`${specimens.voucherNumber} ILIKE ${searchTerm}`,
+            sql`${specimens.collector} ILIKE ${searchTerm}`
+          )
+        );
+      }
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const [specimenList, countResult] = await Promise.all([
+        db.select({
+          id: specimens.id,
+          uuid: specimens.uuid,
+          displayCode: specimens.displayCode,
+          scientificName: specimens.scientificName,
+          commonName: specimens.commonName,
+          locality: specimens.locality,
+          collectionDate: specimens.collectionDate,
+          collector: specimens.collector,
+          currentStatus: specimens.currentStatus,
+          primaryObservationSource: specimens.primaryObservationSource,
+          primaryObservationId: specimens.primaryObservationId,
+          voucherNumber: specimens.voucherNumber,
+        })
+        .from(specimens)
+        .where(whereClause)
+        .orderBy(desc(specimens.id))
+        .limit(limit)
+        .offset(offset),
+        db.select({ count: sql<number>`count(*)` })
+          .from(specimens)
+          .where(whereClause)
+      ]);
+
+      res.json({
+        specimens: specimenList,
+        total: Number(countResult[0]?.count || 0),
+        page: pageNum,
+        pageSize: limit
+      });
+    } catch (error) {
+      console.error("Error searching specimens:", error);
+      res.status(500).json({ error: "Failed to search specimens" });
+    }
+  });
+
+  // Public: Submit specimen request
+  const publicSpecimenRequestSchema = z.object({
+    requestType: z.enum(['loan', 'tissue', 'image', 'data']),
+    specimenIds: z.string().min(1, "At least one specimen ID required").max(500),
+    name: z.string().min(2, "Name required").max(200),
+    institution: z.string().min(2, "Institution required").max(300),
+    email: z.string().email("Valid email required").max(200),
+    phone: z.string().max(50).optional().default(''),
+    addressLine1: z.string().max(200).optional().default(''),
+    addressLine2: z.string().max(200).optional().default(''),
+    city: z.string().max(100).optional().default(''),
+    state: z.string().max(100).optional().default(''),
+    postalCode: z.string().max(20).optional().default(''),
+    country: z.string().max(100).optional().default('USA'),
+    purpose: z.enum(['taxonomic', 'molecular', 'ecological', 'educational', 'verification', 'other']),
+    projectDescription: z.string().max(2000).optional().default(''),
+    expectedReturnDate: z.string().optional().default(''),
+    agreeToTerms: z.literal(true, { errorMap: () => ({ message: "You must agree to the loan terms" }) }),
+  });
+
+  app.post("/api/public/fungarium/request", async (req: any, res) => {
+    try {
+      const parseResult = publicSpecimenRequestSchema.safeParse(req.body);
+      
+      if (!parseResult.success) {
+        const errorMessage = parseResult.error.errors.map(e => e.message).join(', ');
+        return res.status(400).json({ error: errorMessage });
+      }
+      
+      const validated = parseResult.data;
+
+      // First, check if there's a "Public Request" recipient or create one
+      let [publicRecipient] = await db.select().from(specimenRecipients)
+        .where(eq(specimenRecipients.name, "Public Requests"));
+      
+      if (!publicRecipient) {
+        [publicRecipient] = await db.insert(specimenRecipients).values({
+          name: "Public Requests",
+          email: "pending@mycomap.org",
+          notes: "Auto-created recipient for public specimen requests"
+        }).returning();
+      }
+
+      // Create the request with the validated details in notes
+      const requestNotes = JSON.stringify({
+        requestType: validated.requestType,
+        name: validated.name,
+        institution: validated.institution,
+        email: validated.email,
+        phone: validated.phone,
+        address: { 
+          addressLine1: validated.addressLine1, 
+          addressLine2: validated.addressLine2, 
+          city: validated.city, 
+          state: validated.state, 
+          postalCode: validated.postalCode, 
+          country: validated.country 
+        },
+        purpose: validated.purpose,
+        projectDescription: validated.projectDescription,
+        expectedReturnDate: validated.expectedReturnDate,
+        submittedAt: new Date().toISOString()
+      });
+
+      const [newRequest] = await db.insert(specimenRequests).values({
+        recipientId: publicRecipient.id,
+        notes: requestNotes,
+        otherNotes: `Specimen IDs: ${validated.specimenIds}`,
+        shipmentDate: null,
+      }).returning();
+
+      res.json({ success: true, requestId: newRequest.id });
+    } catch (error) {
+      console.error("Error submitting specimen request:", error);
+      res.status(500).json({ error: "Failed to submit request" });
+    }
+  });
+
   return httpServer;
 }
