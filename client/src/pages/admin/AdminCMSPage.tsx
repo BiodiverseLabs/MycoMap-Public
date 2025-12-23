@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AdminDashboardLayout } from "@/components/AdminDashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,7 +129,7 @@ export default function AdminCMSPage() {
   };
 
   return (
-    <AdminDashboardLayout>
+    <>
       <div className="p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-myco-brown" data-testid="text-cms-title">Website CMS</h1>
@@ -314,7 +313,7 @@ export default function AdminCMSPage() {
         isPending={addSectionMutation.isPending}
         nextSortOrder={sections.length}
       />
-    </AdminDashboardLayout>
+    </>
   );
 }
 
