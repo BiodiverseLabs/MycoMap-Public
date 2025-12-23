@@ -1752,3 +1752,180 @@ export const labRunMethodSelectionsRelations = relations(labRunMethodSelections,
 }));
 
 export type LabRunMethodSelection = typeof labRunMethodSelections.$inferSelect;
+
+// =============================================
+// SPECIMENS CORE - Physical Sample Tracking
+// =============================================
+
+// Enums for specimens
+export const specimenIntakeSourceEnum = pgEnum("specimen_intake_source", [
+  "shipment",
+  "herbarium_direct", 
+  "field_collection",
+  "donation",
+  "transfer",
+  "legacy_import"
+]);
+
+export const specimenObservationSourceEnum = pgEnum("specimen_observation_source", [
+  "inat",
+  "mo", 
+  "mycoportal",
+  "genbank",
+  "bold",
+  "manual"
+]);
+
+export const specimenStatusEnum = pgEnum("specimen_status", [
+  "received",
+  "processing",
+  "sequenced",
+  "accessioned",
+  "archived",
+  "retired",
+  "lost"
+]);
+
+export const specimenEventTypeEnum = pgEnum("specimen_event_type", [
+  "created",
+  "status_change",
+  "location_move",
+  "sequencing_started",
+  "sequencing_complete",
+  "accession",
+  "metadata_update",
+  "source_added",
+  "note_added"
+]);
+
+// Core specimens table - single source of truth for physical samples
+export const specimens = pgTable("specimens", {
+  id: serial("id").primaryKey(),
+  uuid: text("uuid").notNull().unique(), // UUID for external references
+  displayCode: text("display_code").unique(), // Human-readable code (e.g., "MYCO-2025-00142")
+  
+  // Intake information
+  intakeSourceType: specimenIntakeSourceEnum("intake_source_type").notNull(),
+  intakeSourceId: integer("intake_source_id"), // FK to source record (e.g., shipment_specimens.id)
+  intakeDate: timestamp("intake_date").defaultNow(),
+  
+  // Primary observation reference
+  primaryObservationSource: specimenObservationSourceEnum("primary_observation_source"),
+  primaryObservationId: text("primary_observation_id"),
+  voucherNumber: text("voucher_number"),
+  
+  // Collection metadata
+  collectorName: text("collector_name"),
+  collectionDate: date("collection_date"),
+  locality: text("locality"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  habitat: text("habitat"),
+  substrate: text("substrate"),
+  
+  // Taxonomic information (cached from observation)
+  scientificName: text("scientific_name"),
+  genus: text("genus"),
+  family: text("family"),
+  
+  // Lifecycle status
+  currentStatus: specimenStatusEnum("current_status").notNull().default("received"),
+  statusChangedAt: timestamp("status_changed_at").defaultNow(),
+  
+  // Herbarium information
+  herbariumAccessionNumber: text("herbarium_accession_number"),
+  storageLocation: text("storage_location"),
+  
+  // Visibility and notes
+  isPublic: boolean("is_public").default(false),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uuidIdx: index("specimens_uuid_idx").on(table.uuid),
+  displayCodeIdx: index("specimens_display_code_idx").on(table.displayCode),
+  statusIdx: index("specimens_status_idx").on(table.currentStatus),
+  primaryObsIdx: index("specimens_primary_obs_idx").on(table.primaryObservationSource, table.primaryObservationId),
+}));
+
+// Specimen sources - links to all external observation/sequence records
+export const specimenSources = pgTable("specimen_sources", {
+  id: serial("id").primaryKey(),
+  specimenId: integer("specimen_id").notNull().references(() => specimens.id, { onDelete: "cascade" }),
+  platform: specimenObservationSourceEnum("platform").notNull(),
+  externalId: text("external_id").notNull(),
+  isPrimary: boolean("is_primary").default(false),
+  url: text("url"), // Direct link to the external record
+  cachedData: jsonb("cached_data"), // Snapshot of external data
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  specimenIdx: index("specimen_sources_specimen_idx").on(table.specimenId),
+  platformIdIdx: index("specimen_sources_platform_id_idx").on(table.platform, table.externalId),
+}));
+
+// Specimen events - audit trail of everything that happens
+export const specimenEvents = pgTable("specimen_events", {
+  id: serial("id").primaryKey(),
+  specimenId: integer("specimen_id").notNull().references(() => specimens.id, { onDelete: "cascade" }),
+  eventType: specimenEventTypeEnum("event_type").notNull(),
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  notes: text("notes"),
+  performedBy: text("performed_by").references(() => users.id),
+  performedAt: timestamp("performed_at").defaultNow(),
+}, (table) => ({
+  specimenIdx: index("specimen_events_specimen_idx").on(table.specimenId),
+  eventTypeIdx: index("specimen_events_type_idx").on(table.eventType),
+  performedAtIdx: index("specimen_events_performed_at_idx").on(table.performedAt),
+}));
+
+// Relations for specimens
+export const specimensRelations = relations(specimens, ({ many }) => ({
+  sources: many(specimenSources),
+  events: many(specimenEvents),
+}));
+
+export const specimenSourcesRelations = relations(specimenSources, ({ one }) => ({
+  specimen: one(specimens, {
+    fields: [specimenSources.specimenId],
+    references: [specimens.id],
+  }),
+}));
+
+export const specimenEventsRelations = relations(specimenEvents, ({ one }) => ({
+  specimen: one(specimens, {
+    fields: [specimenEvents.specimenId],
+    references: [specimens.id],
+  }),
+  performedByUser: one(users, {
+    fields: [specimenEvents.performedBy],
+    references: [users.id],
+  }),
+}));
+
+// Insert schemas
+export const insertSpecimenSchema = createInsertSchema(specimens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSpecimenSourceSchema = createInsertSchema(specimenSources).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSpecimenEventSchema = createInsertSchema(specimenEvents).omit({
+  id: true,
+  performedAt: true,
+});
+
+// Types
+export type InsertSpecimen = z.infer<typeof insertSpecimenSchema>;
+export type Specimen = typeof specimens.$inferSelect;
+export type InsertSpecimenSource = z.infer<typeof insertSpecimenSourceSchema>;
+export type SpecimenSource = typeof specimenSources.$inferSelect;
+export type InsertSpecimenEvent = z.infer<typeof insertSpecimenEventSchema>;
+export type SpecimenEvent = typeof specimenEvents.$inferSelect;
