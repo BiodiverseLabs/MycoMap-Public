@@ -96,8 +96,8 @@ export default function TempCodeGuidelinesPage() {
 
   const bestPractices = [
     {
-      title: "Stability First",
-      description: "Don't change existing temp codes just to update formatting. Stability is more important than consistency.",
+      title: "Cross-Observation Consistency",
+      description: "Never change a temp code on a single observation without updating all observations using that code across all platforms.",
       icon: CheckCircle,
       type: "success"
     },
