@@ -183,7 +183,7 @@ export function MainNavigation() {
               className="hidden sm:flex border-myco-green text-myco-green hover:bg-myco-green hover:text-white transition-all duration-200"
               data-testid="button-join-mycomap"
             >
-              <Link href="/protocols" className="flex items-center gap-2">
+              <Link href="/join" className="flex items-center gap-2">
                 Join MycoMap
               </Link>
             </Button>
@@ -307,7 +307,7 @@ function MobileNav({ links, getChildren, isActive, onClose }: MobileNavProps) {
       <div className="flex flex-col gap-1">
         {/* Join MycoMap CTA in mobile menu */}
         <Link 
-          href="/protocols"
+          href="/join"
           onClick={onClose}
         >
           <span className="block px-3 py-3 mb-2 rounded-md text-sm font-semibold bg-myco-green/10 text-myco-green border border-myco-green/30">
