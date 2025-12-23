@@ -9751,25 +9751,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (isFullyValidated) validatedPlateCount++;
         }
         
-        let successRate: number | undefined = undefined;
-        let rerunCount = 0;
+        // Success rate is undefined for now - will be calculated from sequence data later
+        const successRate: number | undefined = undefined;
         
+        let rerunCount = 0;
         // Count wells marked for rerun
         for (const well of allWellsForRun) {
           if ((well as any).needsRerun) {
             rerunCount++;
-          }
-        }
-        
-        // If run is complete or has sequence data, calculate success rate
-        if (run.status === 'complete' || run.status === 'completed' || run.status === 'sequence_analysis') {
-          const totalSamples = allWellsForRun.filter(w => w.observationId || w.labCode).length;
-          if (totalSamples > 0) {
-            const successfulSamples = allWellsForRun.filter(w => 
-              (w.isValidated && w.validationStatus === 'valid') ||
-              (w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode))
-            ).length;
-            successRate = (successfulSamples / totalSamples) * 100;
           }
         }
         
