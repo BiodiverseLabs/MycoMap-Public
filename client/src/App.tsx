@@ -12,6 +12,7 @@ import MycoBlitzPage from "@/pages/MycoBlitzPage";
 import NetworkPage from "@/pages/NetworkPage";
 import HabitatPage from "@/pages/HabitatPage";
 import ProtocolsPage from "@/pages/ProtocolsPage";
+import TempCodeGuidelinesPage from "@/pages/TempCodeGuidelinesPage";
 import MembershipPage from "@/pages/MembershipPage";
 import Dashboard from "@/pages/Dashboard";
 import ActivityFeed from "@/pages/ActivityFeed";
@@ -69,7 +70,7 @@ import FungariumSearch from "@/pages/FungariumSearch";
 import FungariumRequest from "@/pages/FungariumRequest";
 
 const publicPaths = [
-  '/', '/network', '/mycoblitz', '/habitat', '/protocols', '/join',
+  '/', '/network', '/mycoblitz', '/habitat', '/protocols', '/temp-code-guidelines', '/join',
   '/about', '/partners', '/contact', '/edna', '/barcoding', '/profile', '/shipment',
   '/fungarium', '/fungarium/about', '/fungarium/search', '/fungarium/request'
 ];
@@ -93,6 +94,7 @@ function AppRouter() {
         <Route path="/mycoblitz" component={MycoBlitzPage} />
         <Route path="/habitat" component={HabitatPage} />
         <Route path="/protocols" component={ProtocolsPage} />
+        <Route path="/temp-code-guidelines" component={TempCodeGuidelinesPage} />
         <Route path="/join" component={MembershipPage} />
         <Route path="/about"><CMSPage slug="about" /></Route>
         <Route path="/partners"><CMSPage slug="partners" /></Route>
