@@ -121,7 +121,7 @@ export default function TempCodeGuidelinesPage() {
     },
     {
       title: "Geographic Precedence",
-      description: "The geographic indicator must reference the location of the earliest documented collection/sequence, even if later sequences come from different areas.",
+      description: "The geographic indicator should reference the location of the earliest documented collection/sequence when it is initially created.",
       icon: MapPin,
       type: "info"
     },
