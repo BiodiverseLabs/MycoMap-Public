@@ -488,7 +488,7 @@ export default function TempCodeGuidelinesPage() {
                 <code className="bg-gray-100 px-3 py-1 rounded text-sm">Bolbitius 'titubans PNW02'</code>
               </div>
               <p className="text-gray-700">
-                <strong>Do not change these.</strong> Stability is more important than format consistency. 
+                <strong>Do not change these.</strong> Cross-observation consistency is more important than format consistency. 
                 These codes are already in use across multiple databases, and changing them would create confusion. 
                 Only update formatting (e.g., double quotes to single quotes) if you have time to update 
                 <em> all</em> public platforms (iNaturalist, MycoMap, Mushroom Observer) simultaneously.
