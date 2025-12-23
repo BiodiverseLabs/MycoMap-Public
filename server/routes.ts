@@ -11064,6 +11064,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         })
         .where(eq(labPlates.id, plateId));
 
+      // Mark the pending plate as inactive (it's been imported)
+      await db.update(labPlates)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(labPlates.id, pendingPlateId));
+
       res.json({ 
         success: true, 
         importedCount,
