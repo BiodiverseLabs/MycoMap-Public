@@ -1221,8 +1221,13 @@ export type FitnessCacheMetadata = typeof fitnessCacheMetadata.$inferSelect;
 export const shipments = pgTable("shipments", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(), // References auth users table
+  shipmentType: text("shipment_type").notNull().default("user_shipment"), // user_shipment | lab_transfer
   status: text("status").notNull().default("draft"), // draft, pending_validation, validated, submitted, received, processing, completed
   trackingNumber: text("tracking_number"),
+  
+  // Lab transfer specific fields
+  sourceLab: text("source_lab"), // Name of satellite lab sending specimens
+  destinationLab: text("destination_lab"), // Name of destination lab (usually main lab)
   
   // Questionnaire answers from page 1
   isNorthAmerica: boolean("is_north_america"),
@@ -1335,6 +1340,17 @@ export type ShipmentSpecimen = typeof shipmentSpecimens.$inferSelect;
 export type ShipmentWithBags = Shipment & {
   bags: (ShipmentBag & { specimens: ShipmentSpecimen[] })[];
 };
+
+// Shipment Plates - links lab transfer shipments to pending plates
+export const shipmentPlates = pgTable("shipment_plates", {
+  id: serial("id").primaryKey(),
+  shipmentId: integer("shipment_id").notNull().references(() => shipments.id, { onDelete: "cascade" }),
+  plateId: integer("plate_id").notNull().references(() => labPlates.id),
+  specimensCreated: boolean("specimens_created").default(false), // Whether specimen records were created
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  shipmentPlateIdx: index("shipment_plates_shipment_plate_idx").on(table.shipmentId, table.plateId),
+}));
 
 // =============================================
 // Lab Runs / Plates (Admin LIMS)

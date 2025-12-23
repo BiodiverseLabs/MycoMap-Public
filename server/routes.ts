@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -9419,6 +9419,111 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error fetching pending shipments:", error);
       res.status(500).json({ error: "Failed to fetch pending shipments" });
+    }
+  });
+
+  // Create a lab transfer shipment from pending plates
+  app.post("/api/admin/shipments/lab-transfer", isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || 'admin';
+      const { plateIds, sourceLab, destinationLab, createSpecimens, trackingNumber } = req.body;
+      
+      if (!plateIds || !Array.isArray(plateIds) || plateIds.length === 0) {
+        return res.status(400).json({ error: "At least one plate must be selected" });
+      }
+      
+      // Create the shipment
+      const [newShipment] = await db.insert(shipments).values({
+        userId,
+        shipmentType: 'lab_transfer',
+        status: 'submitted',
+        sourceLab: sourceLab || 'Satellite Lab',
+        destinationLab: destinationLab || 'Main Lab',
+        trackingNumber,
+        submittedAt: new Date(),
+      }).returning();
+      
+      // Link plates to shipment
+      for (const plateId of plateIds) {
+        await db.insert(shipmentPlates).values({
+          shipmentId: newShipment.id,
+          plateId,
+          specimensCreated: createSpecimens || false,
+        });
+      }
+      
+      // If createSpecimens is true, create specimen records from plate wells
+      let specimensCreated = 0;
+      if (createSpecimens) {
+        for (const plateId of plateIds) {
+          // Get all wells for this plate with observation data
+          const wells = await db.select().from(labWells)
+            .where(and(
+              eq(labWells.plateId, plateId),
+              isNotNull(labWells.observationId)
+            ));
+          
+          for (const well of wells) {
+            // Check if specimen already exists for this observation
+            const [existing] = await db.select().from(specimens)
+              .where(eq(specimens.primaryObservationId, well.observationId));
+            
+            if (!existing) {
+              const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
+              const uuid = randomUUID();
+              const displayCode = generateDisplayCode();
+              
+              const [newSpecimen] = await db.insert(specimens).values({
+                uuid,
+                displayCode,
+                intakeSourceType: 'transfer',
+                intakeDate: new Date(),
+                primaryObservationSource: platform,
+                primaryObservationId: well.observationId,
+                voucherNumber: well.voucherNumber,
+                scientificName: null, // Can be populated from well validation later
+                locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
+                currentStatus: 'received',
+                statusChangedAt: new Date(),
+              }).returning();
+              
+              // Add source record
+              await db.insert(specimenSources).values({
+                specimenId: newSpecimen.id,
+                platform,
+                externalId: well.observationId!,
+                isPrimary: true,
+              });
+              
+              // Log creation event
+              await db.insert(specimenEvents).values({
+                specimenId: newSpecimen.id,
+                eventType: 'created',
+                newValue: `Created from lab transfer plate (well ${well.wellPosition})`,
+                performedBy: userId,
+              });
+              
+              // Link to well
+              await db.update(labWells)
+                .set({ coreSpecimenId: newSpecimen.id, updatedAt: new Date() })
+                .where(eq(labWells.id, well.id));
+              
+              specimensCreated++;
+            }
+          }
+        }
+      }
+      
+      res.json({ 
+        shipment: newShipment, 
+        platesLinked: plateIds.length,
+        specimensCreated,
+        message: `Lab transfer shipment created with ${plateIds.length} plates` + 
+          (createSpecimens ? ` and ${specimensCreated} specimen records` : '')
+      });
+    } catch (error) {
+      console.error("Error creating lab transfer:", error);
+      res.status(500).json({ error: "Failed to create lab transfer" });
     }
   });
 

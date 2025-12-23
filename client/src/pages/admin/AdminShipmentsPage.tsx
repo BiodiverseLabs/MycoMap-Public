@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package, ChevronLeft, RefreshCw, Eye, User, MapPin, Search } from "lucide-react";
+import { Package, ChevronLeft, RefreshCw, Eye, User, MapPin, Search, Plus, Truck, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,14 +27,98 @@ interface PendingShipment {
   specimenCount: number;
 }
 
+interface PendingPlate {
+  id: number;
+  name: string;
+  status: string;
+  createdAt: string;
+  wells: any[];
+}
+
 export default function AdminShipmentsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [selectedPlates, setSelectedPlates] = useState<number[]>([]);
+  const [sourceLab, setSourceLab] = useState("Satellite Lab");
+  const [destinationLab, setDestinationLab] = useState("Main Lab");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [createSpecimens, setCreateSpecimens] = useState(true);
   
   const { data: shipments, isLoading, refetch } = useQuery<PendingShipment[]>({
     queryKey: ['/api/admin/shipments/pending'],
   });
+
+  const { data: pendingPlates } = useQuery<PendingPlate[]>({
+    queryKey: ['/api/admin/pending-plates'],
+    enabled: showTransferDialog,
+  });
+
+  const labTransferMutation = useMutation({
+    mutationFn: async (data: { plateIds: number[]; sourceLab: string; destinationLab: string; trackingNumber: string; createSpecimens: boolean }) => {
+      return apiRequest('/api/admin/shipments/lab-transfer', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Lab Transfer Created",
+        description: data.message || "Shipment created successfully",
+      });
+      setShowTransferDialog(false);
+      setSelectedPlates([]);
+      setTrackingNumber("");
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/shipments/pending'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-plates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/specimens'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create lab transfer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateTransfer = () => {
+    if (selectedPlates.length === 0) {
+      toast({
+        title: "No Plates Selected",
+        description: "Please select at least one plate to transfer",
+        variant: "destructive",
+      });
+      return;
+    }
+    labTransferMutation.mutate({
+      plateIds: selectedPlates,
+      sourceLab,
+      destinationLab,
+      trackingNumber,
+      createSpecimens,
+    });
+  };
+
+  const togglePlateSelection = (plateId: number) => {
+    setSelectedPlates(prev => 
+      prev.includes(plateId) 
+        ? prev.filter(id => id !== plateId)
+        : [...prev, plateId]
+    );
+  };
+
+  const selectAllPlates = () => {
+    if (pendingPlates) {
+      setSelectedPlates(pendingPlates.map(p => p.id));
+    }
+  };
+
+  const deselectAllPlates = () => {
+    setSelectedPlates([]);
+  };
 
   const filteredShipments = useMemo(() => {
     if (!shipments) return [];
@@ -75,9 +162,14 @@ export default function AdminShipmentsPage() {
               <p className="text-gray-600">Shipments waiting to be processed</p>
             </div>
           </div>
-          <Button onClick={() => refetch()} variant="outline" data-testid="button-refresh">
-            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowTransferDialog(true)} data-testid="button-create-transfer">
+              <Truck className="h-4 w-4 mr-2" /> Create Lab Transfer
+            </Button>
+            <Button onClick={() => refetch()} variant="outline" data-testid="button-refresh">
+              <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+            </Button>
+          </div>
         </div>
 
         <div className="relative max-w-md">
@@ -159,6 +251,136 @@ export default function AdminShipmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" /> Create Lab Transfer
+            </DialogTitle>
+            <DialogDescription>
+              Create a shipment record for transferring pending plates between labs
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sourceLab">Source Lab</Label>
+                <Input
+                  id="sourceLab"
+                  value={sourceLab}
+                  onChange={(e) => setSourceLab(e.target.value)}
+                  placeholder="Satellite Lab"
+                  data-testid="input-source-lab"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="destinationLab">Destination Lab</Label>
+                <Input
+                  id="destinationLab"
+                  value={destinationLab}
+                  onChange={(e) => setDestinationLab(e.target.value)}
+                  placeholder="Main Lab"
+                  data-testid="input-destination-lab"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="trackingNumber">Tracking Number (optional)</Label>
+              <Input
+                id="trackingNumber"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+                placeholder="Enter shipping tracking number"
+                data-testid="input-tracking-number"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="createSpecimens"
+                checked={createSpecimens}
+                onCheckedChange={(checked) => setCreateSpecimens(checked as boolean)}
+                data-testid="checkbox-create-specimens"
+              />
+              <Label htmlFor="createSpecimens" className="text-sm font-normal">
+                Create specimen records from plate wells (recommended)
+              </Label>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Select Plates to Transfer</Label>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={selectAllPlates} data-testid="button-select-all">
+                    Select All
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={deselectAllPlates} data-testid="button-deselect-all">
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="border rounded-lg max-h-60 overflow-auto">
+                {pendingPlates && pendingPlates.length > 0 ? (
+                  <div className="divide-y">
+                    {pendingPlates.map((plate) => (
+                      <div
+                        key={plate.id}
+                        className={`p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 ${
+                          selectedPlates.includes(plate.id) ? 'bg-green-50' : ''
+                        }`}
+                        onClick={() => togglePlateSelection(plate.id)}
+                        data-testid={`plate-item-${plate.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedPlates.includes(plate.id)}
+                            onCheckedChange={() => togglePlateSelection(plate.id)}
+                          />
+                          <div>
+                            <div className="font-medium">{plate.name}</div>
+                            <div className="text-sm text-gray-500">
+                              {plate.wells?.length || 0} wells
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="outline">{plate.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-gray-500">
+                    <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>No pending plates available</p>
+                  </div>
+                )}
+              </div>
+              
+              {selectedPlates.length > 0 && (
+                <p className="text-sm text-green-600">
+                  {selectedPlates.length} plate(s) selected
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTransferDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateTransfer}
+              disabled={selectedPlates.length === 0 || labTransferMutation.isPending}
+              data-testid="button-confirm-transfer"
+            >
+              {labTransferMutation.isPending ? "Creating..." : `Create Transfer (${selectedPlates.length} plates)`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
