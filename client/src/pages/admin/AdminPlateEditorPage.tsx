@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink, Download, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -74,6 +74,16 @@ interface PrimerPool {
   reversePrimerSet?: PrimerSet;
 }
 
+interface PendingPlate {
+  id: number;
+  name: string | null;
+  notes: string | null;
+  sampleCount: number;
+  status: string;
+  wells: Well[];
+  createdAt: string;
+}
+
 const validationColors: Record<string, string> = {
   valid: "bg-green-50",
   mismatch: "bg-red-50",
@@ -117,6 +127,9 @@ export default function AdminPlateEditorPage() {
   const [reverseIndexSetId, setReverseIndexSetId] = useState<number | null>(null);
   const [editPlateOpen, setEditPlateOpen] = useState(false);
   const [editSampleCount, setEditSampleCount] = useState(96);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importSearch, setImportSearch] = useState("");
+  const [selectedPendingPlate, setSelectedPendingPlate] = useState<PendingPlate | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
@@ -221,6 +234,42 @@ export default function AdminPlateEditorPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to save index sets", variant: "destructive" });
+    },
+  });
+
+  // Fetch pending plates for import
+  const { data: pendingPlates } = useQuery<PendingPlate[]>({
+    queryKey: ['/api/admin/pending-plates'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/pending-plates');
+      if (!res.ok) throw new Error('Failed to fetch pending plates');
+      return res.json();
+    },
+    enabled: importDialogOpen,
+  });
+
+  // Filter pending plates by search term
+  const filteredPendingPlates = pendingPlates?.filter(p => {
+    if (!importSearch) return true;
+    const searchLower = importSearch.toLowerCase();
+    return (p.name?.toLowerCase().includes(searchLower)) ||
+           (p.notes?.toLowerCase().includes(searchLower)) ||
+           p.id.toString().includes(searchLower);
+  }) || [];
+
+  const importPendingPlateMutation = useMutation({
+    mutationFn: async (pendingPlateId: number) => {
+      return apiRequest('POST', `/api/admin/plates/${plateId}/import-pending`, { pendingPlateId });
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/plates', plateId] });
+      setImportDialogOpen(false);
+      setSelectedPendingPlate(null);
+      setImportSearch("");
+      toast({ title: "Imported", description: "Pending plate data imported successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to import pending plate", variant: "destructive" });
     },
   });
 
@@ -423,6 +472,13 @@ export default function AdminPlateEditorPage() {
               <Settings className="h-4 w-4 mr-1" /> Edit Plate
             </Button>
             <Button 
+              variant="outline"
+              onClick={() => setImportDialogOpen(true)}
+              data-testid="button-import-pending"
+            >
+              <Download className="h-4 w-4 mr-1" /> Import from Pending
+            </Button>
+            <Button 
               onClick={() => validateMutation.mutate()}
               disabled={validateMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700"
@@ -465,6 +521,106 @@ export default function AdminPlateEditorPage() {
                   data-testid="button-confirm-edit-plate"
                 >
                   {updateSampleCountMutation.isPending ? "Updating..." : "Update Plate"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Import from Pending Plates Dialog */}
+          <Dialog open={importDialogOpen} onOpenChange={(open) => {
+            setImportDialogOpen(open);
+            if (!open) {
+              setSelectedPendingPlate(null);
+              setImportSearch("");
+            }
+          }}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Import from Pending Plates</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search pending plates by name or ID..."
+                    value={importSearch}
+                    onChange={(e) => setImportSearch(e.target.value)}
+                    className="pl-10"
+                    data-testid="input-import-search"
+                  />
+                </div>
+                
+                <div className="max-h-[300px] overflow-auto border rounded-md">
+                  {filteredPendingPlates.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      {pendingPlates?.length === 0 ? "No pending plates available" : "No matching plates found"}
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Samples</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredPendingPlates.map((pendingPlate) => {
+                          const filledWells = pendingPlate.wells.filter(w => w.observationId || w.labCode).length;
+                          const isSelected = selectedPendingPlate?.id === pendingPlate.id;
+                          return (
+                            <TableRow 
+                              key={pendingPlate.id}
+                              className={`cursor-pointer ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                              onClick={() => setSelectedPendingPlate(pendingPlate)}
+                              data-testid={`row-pending-plate-${pendingPlate.id}`}
+                            >
+                              <TableCell className="font-medium">
+                                {pendingPlate.name || `Plate ${pendingPlate.id}`}
+                              </TableCell>
+                              <TableCell>
+                                {filledWells} / {pendingPlate.wells.length}
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-500">
+                                {pendingPlate.createdAt ? new Date(pendingPlate.createdAt).toLocaleDateString() : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {isSelected && (
+                                  <Badge className="bg-blue-500">Selected</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+
+                {selectedPendingPlate && (
+                  <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+                    <p className="text-sm">
+                      <strong>Selected:</strong> {selectedPendingPlate.name || `Plate ${selectedPendingPlate.id}`}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      This will import {selectedPendingPlate.wells.filter(w => w.observationId || w.labCode).length} samples 
+                      into the current plate, replacing any existing data in matching well positions.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => selectedPendingPlate && importPendingPlateMutation.mutate(selectedPendingPlate.id)}
+                  disabled={!selectedPendingPlate || importPendingPlateMutation.isPending}
+                  className="bg-[#8CBD45] hover:bg-[#7aab3d]"
+                  data-testid="button-confirm-import"
+                >
+                  {importPendingPlateMutation.isPending ? "Importing..." : "Import Data"}
                 </Button>
               </DialogFooter>
             </DialogContent>

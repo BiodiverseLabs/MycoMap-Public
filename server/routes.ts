@@ -10926,6 +10926,85 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Import data from a pending plate into current plate
+  app.post("/api/admin/plates/:id/import-pending", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      const { pendingPlateId } = req.body;
+
+      if (!pendingPlateId) {
+        return res.status(400).json({ error: "Pending plate ID is required" });
+      }
+
+      // Get the target plate
+      const [targetPlate] = await db.select().from(labPlates).where(eq(labPlates.id, plateId));
+      if (!targetPlate) {
+        return res.status(404).json({ error: "Target plate not found" });
+      }
+
+      // Get the pending plate with wells
+      const [pendingPlate] = await db.select().from(labPlates).where(eq(labPlates.id, pendingPlateId));
+      if (!pendingPlate) {
+        return res.status(404).json({ error: "Pending plate not found" });
+      }
+
+      // Get wells from both plates
+      const targetWells = await db.select().from(labWells).where(eq(labWells.plateId, plateId));
+      const pendingWells = await db.select().from(labWells).where(eq(labWells.plateId, pendingPlateId));
+
+      // Create a map of well position to pending well data
+      const pendingWellMap = new Map(pendingWells.map(w => [w.wellPosition, w]));
+
+      // Update target wells with data from matching pending wells
+      let importedCount = 0;
+      for (const targetWell of targetWells) {
+        const pendingWell = pendingWellMap.get(targetWell.wellPosition);
+        if (pendingWell && (pendingWell.observationId || pendingWell.labCode)) {
+          await db.update(labWells)
+            .set({
+              platform: pendingWell.platform,
+              observationId: pendingWell.observationId,
+              labCode: pendingWell.labCode,
+              isValidated: pendingWell.isValidated,
+              validationStatus: pendingWell.validationStatus,
+              validationMessage: pendingWell.validationMessage,
+              voucherNumber: pendingWell.voucherNumber,
+              username: pendingWell.username,
+              state: pendingWell.state,
+              country: pendingWell.country,
+              updatedAt: new Date(),
+            })
+            .where(eq(labWells.id, targetWell.id));
+          importedCount++;
+        }
+      }
+
+      // Append note about the import
+      const pendingPlateName = pendingPlate.name || `Pending Plate ${pendingPlate.id}`;
+      const importNote = `Imported from ${pendingPlateName}`;
+      const existingNotes = targetPlate.notes || "";
+      const newNotes = existingNotes 
+        ? `${existingNotes}\n\n${importNote}` 
+        : importNote;
+
+      await db.update(labPlates)
+        .set({ 
+          notes: newNotes,
+          updatedAt: new Date() 
+        })
+        .where(eq(labPlates.id, plateId));
+
+      res.json({ 
+        success: true, 
+        importedCount,
+        message: `Imported ${importedCount} samples from ${pendingPlateName}`
+      });
+    } catch (error) {
+      console.error("Error importing pending plate:", error);
+      res.status(500).json({ error: "Failed to import pending plate" });
+    }
+  });
+
   // Update single well
   app.patch("/api/admin/wells/:id", isAdmin, async (req: any, res) => {
     try {
