@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,6 +124,10 @@ export default function AdminCMSPage() {
       gallery: "Image Gallery",
       cta: "Call to Action",
       text: "Plain Text",
+      stats: "Stats Section",
+      testimonials: "Testimonials",
+      featured_projects: "Featured Projects",
+      how_it_works: "How It Works",
     };
     return labels[type] || type;
   };
@@ -340,8 +344,9 @@ function SectionEditorDialog({
   const [buttonText, setButtonText] = useState("");
   const [buttonLink, setButtonLink] = useState("");
   const [isVisible, setIsVisible] = useState(true);
+  const [dataJson, setDataJson] = useState("");
 
-  useState(() => {
+  useEffect(() => {
     if (section) {
       setTitle(section.title || "");
       setSubtitle(section.subtitle || "");
@@ -350,10 +355,22 @@ function SectionEditorDialog({
       setButtonText(section.buttonText || "");
       setButtonLink(section.buttonLink || "");
       setIsVisible(section.isVisible);
+      setDataJson(section.data || "");
+    } else {
+      setTitle("");
+      setSubtitle("");
+      setContent("");
+      setImageUrl("");
+      setButtonText("");
+      setButtonLink("");
+      setIsVisible(true);
+      setDataJson("");
     }
-  });
+  }, [section]);
 
   if (!section) return null;
+
+  const isJsonSection = ["stats", "testimonials", "featured_projects", "how_it_works", "gallery"].includes(section.sectionType);
 
   return (
     <Dialog open={!!section} onOpenChange={() => onClose()}>
@@ -420,6 +437,25 @@ function SectionEditorDialog({
               />
             </div>
           </div>
+          {isJsonSection && (
+            <div>
+              <Label>Data (JSON)</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                {section.sectionType === "stats" && 'Format: {"stats": [{"value": "100+", "label": "Species", "icon": "Leaf"}]}'}
+                {section.sectionType === "testimonials" && 'Format: {"testimonials": [{"quote": "...", "name": "...", "affiliation": "..."}]}'}
+                {section.sectionType === "featured_projects" && 'Format: {"projects": [{"title": "...", "description": "...", "link": "/...", "icon": "Dna"}]}'}
+                {section.sectionType === "how_it_works" && 'Format: {"steps": [{"number": "01", "title": "...", "description": "...", "icon": "MapPin"}]}'}
+                {section.sectionType === "gallery" && 'Format: [{"url": "/attached_assets/...", "caption": "..."}]'}
+              </p>
+              <Textarea 
+                value={dataJson} 
+                onChange={(e) => setDataJson(e.target.value)}
+                placeholder='{"key": "value"}'
+                rows={8}
+                className="font-mono text-sm"
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
@@ -429,10 +465,11 @@ function SectionEditorDialog({
             onClick={() => onSave({ 
               title: title || null, 
               subtitle: subtitle || null, 
-              content: content || null, 
+              content: isJsonSection ? dataJson || null : content || null, 
               imageUrl: imageUrl || null,
               buttonText: buttonText || null,
               buttonLink: buttonLink || null,
+              data: isJsonSection ? dataJson || null : null,
               isVisible 
             })}
             disabled={isPending}
@@ -484,6 +521,10 @@ function AddSectionDialog({
                 <SelectItem value="gallery">Image Gallery</SelectItem>
                 <SelectItem value="cta">Call to Action</SelectItem>
                 <SelectItem value="text">Plain Text</SelectItem>
+                <SelectItem value="stats">Stats Section</SelectItem>
+                <SelectItem value="testimonials">Testimonials</SelectItem>
+                <SelectItem value="featured_projects">Featured Projects</SelectItem>
+                <SelectItem value="how_it_works">How It Works</SelectItem>
               </SelectContent>
             </Select>
           </div>
