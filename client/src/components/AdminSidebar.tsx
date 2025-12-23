@@ -19,7 +19,8 @@ import {
   Grid3X3,
   Warehouse,
   ClipboardList,
-  Send
+  Send,
+  FileText
 } from "lucide-react";
 import mycoMapLogo from "@assets/mycomap-logo.png";
 import { Button } from "./ui/button";
@@ -45,6 +46,10 @@ export function AdminSidebar() {
     { href: "/admin/upload", label: "Data Upload", icon: Upload },
     { href: "/admin/redlist", label: "Red List Management", icon: AlertTriangle },
     { href: "/admin/foraging-lists", label: "Foraging Lists", icon: Leaf },
+  ];
+
+  const websiteManagementItems = [
+    { href: "/admin/cms", label: "Pages", icon: FileText },
   ];
 
   const labManagementItems = [
@@ -141,6 +146,13 @@ export function AdminSidebar() {
           </p>
         </div>
         {dataManagementItems.map(renderNavItem)}
+
+        <div className="pt-4">
+          <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Website Management
+          </p>
+        </div>
+        {websiteManagementItems.map(renderNavItem)}
 
         <div className="pt-4">
           <button
