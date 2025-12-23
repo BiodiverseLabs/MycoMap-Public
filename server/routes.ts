@@ -9677,19 +9677,55 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
-      // Add plate counts for each run
-      const runsWithCounts = await Promise.all(allRuns.map(async (run) => {
-        const plates = await db.select().from(labPlates).where(eq(labPlates.runId, run.id));
+      // Batch fetch all plates and wells for all runs at once (performance optimization)
+      const runIds = allRuns.map(r => r.id);
+      
+      // Single query for all plates
+      const allPlates = runIds.length > 0 
+        ? await db.select().from(labPlates).where(inArray(labPlates.runId, runIds))
+        : [];
+      
+      // Group plates by runId
+      const platesByRunId = new Map<number, typeof allPlates>();
+      for (const plate of allPlates) {
+        if (plate.runId) {
+          if (!platesByRunId.has(plate.runId)) {
+            platesByRunId.set(plate.runId, []);
+          }
+          platesByRunId.get(plate.runId)!.push(plate);
+        }
+      }
+      
+      // Single query for all wells
+      const plateIds = allPlates.map(p => p.id);
+      const allWellsForRuns = plateIds.length > 0
+        ? await db.select().from(labWells).where(inArray(labWells.plateId, plateIds))
+        : [];
+      
+      // Group wells by plateId
+      const wellsByPlateId = new Map<number, typeof allWellsForRuns>();
+      for (const well of allWellsForRuns) {
+        if (!wellsByPlateId.has(well.plateId)) {
+          wellsByPlateId.set(well.plateId, []);
+        }
+        wellsByPlateId.get(well.plateId)!.push(well);
+      }
+      
+      // Now calculate counts using in-memory data (no more DB queries)
+      const runsWithCounts = allRuns.map((run) => {
+        const plates = platesByRunId.get(run.id) || [];
         const plateCount = plates.length;
         
-        // Count validated plates (same logic as run detail page)
+        // Count validated plates
         let validatedPlateCount = 0;
+        const allWellsForRun: typeof allWellsForRuns = [];
+        
         for (const plate of plates) {
-          const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
+          const wells = wellsByPlateId.get(plate.id) || [];
+          allWellsForRun.push(...wells);
+          
           const sampleCount = wells.filter(w => w.observationId || w.labCode).length;
           const acceptableStatuses = ['valid', 'no_voucher', 'cleared'];
-          // Only count wells that have actually been validated with acceptable status
-          // "Cleared" status now requires explicit 'cleared' validationStatus, not just missing validation
           const validatedOrAcceptableCount = wells.filter(w => 
             w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)
           ).length;
@@ -9715,19 +9751,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           if (isFullyValidated) validatedPlateCount++;
         }
         
-        // Calculate success rate and rerun count
-        // Gather all wells for this run
-        const allWells: typeof labWells.$inferSelect[] = [];
-        for (const plate of plates) {
-          const plateWells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
-          allWells.push(...plateWells);
-        }
-        
         let successRate: number | undefined = undefined;
         let rerunCount = 0;
         
         // Count wells marked for rerun
-        for (const well of allWells) {
+        for (const well of allWellsForRun) {
           if ((well as any).needsRerun) {
             rerunCount++;
           }
@@ -9735,9 +9763,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         // If run is complete or has sequence data, calculate success rate
         if (run.status === 'complete' || run.status === 'completed' || run.status === 'sequence_analysis') {
-          const totalSamples = allWells.filter(w => w.observationId || w.labCode).length;
+          const totalSamples = allWellsForRun.filter(w => w.observationId || w.labCode).length;
           if (totalSamples > 0) {
-            const successfulSamples = allWells.filter(w => 
+            const successfulSamples = allWellsForRun.filter(w => 
               (w.isValidated && w.validationStatus === 'valid') ||
               (w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode))
             ).length;
@@ -9746,7 +9774,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         return { ...run, plateCount, validatedPlateCount, successRate, rerunCount };
-      }));
+      });
       
       res.json(runsWithCounts);
     } catch (error) {
