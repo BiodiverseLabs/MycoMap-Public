@@ -4,7 +4,7 @@ import ws from "ws";
 import * as schema from "@shared/schema";
 import { 
   users, observations, uploads, contributors, species, redlistAssessments, inaturalistData, inaturalistPlaces, mushroomObserverData, mycoportalData, biorecords, inaturalistClassificationCache,
-  subscriptionPlans, userSubscriptions, paymentTransactions, fitnessObservationCache, fitnessCacheMetadata,
+  subscriptionPlans, userSubscriptions, paymentTransactions, fitnessObservationCache, fitnessCacheMetadata, fitnessUserObservations,
   observationCache, observationMedia, observationTaxa, observationCacheJobs,
   type User, type InsertUser, type Observation, type InsertObservation,
   type Upload, type InsertUpload, type Contributor, type InsertContributor,
@@ -4433,55 +4433,124 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Fitness Observation Cache
+  // Fitness Observation Cache - uses unified cache with fitness_user_observations linking table
   async getFitnessObservations(username: string, startDate?: string, endDate?: string, limit?: number): Promise<FitnessObservationCache[]> {
-    const conditions = [
-      eq(fitnessObservationCache.username, username.toLowerCase()),
-      sql`${fitnessObservationCache.deletedAt} IS NULL`
+    const conditions: any[] = [
+      eq(fitnessUserObservations.username, username.toLowerCase()),
+      sql`${fitnessUserObservations.deletedAt} IS NULL`
     ];
     
     if (startDate && endDate) {
-      conditions.push(gte(fitnessObservationCache.observedOn, startDate));
-      conditions.push(lte(fitnessObservationCache.observedOn, endDate));
+      conditions.push(gte(fitnessUserObservations.observedOn, startDate));
+      conditions.push(lte(fitnessUserObservations.observedOn, endDate));
     }
     
-    // Build query with optional limit using raw SQL for reliable limiting
-    if (limit) {
-      return await db.select().from(fitnessObservationCache)
-        .where(and(...conditions))
-        .orderBy(desc(fitnessObservationCache.observedOn))
-        .limit(limit);
-    }
-    
-    return await db.select().from(fitnessObservationCache)
+    // Join with unified cache to get observation metadata
+    const query = db.select({
+      id: fitnessUserObservations.id,
+      username: fitnessUserObservations.username,
+      observationId: sql<number>`${observationCache.sourceObservationId}::int`,
+      scientificName: observationCache.scientificName,
+      commonName: observationCache.commonName,
+      observedOn: fitnessUserObservations.observedOn,
+      timeObserved: sql<string>`'00:00:00'`, // Not stored in unified cache
+      latitude: observationCache.latitude,
+      longitude: observationCache.longitude,
+      photoUrl: sql<string>`(SELECT url FROM observation_media WHERE observation_cache_id = ${observationCache.id} LIMIT 1)`,
+      placeGuess: observationCache.placeGuess,
+      inatUpdatedAt: fitnessUserObservations.inatUpdatedAt,
+      createdAt: fitnessUserObservations.createdAt,
+      updatedAt: fitnessUserObservations.updatedAt,
+      deletedAt: fitnessUserObservations.deletedAt,
+    })
+      .from(fitnessUserObservations)
+      .innerJoin(observationCache, eq(fitnessUserObservations.observationCacheId, observationCache.id))
       .where(and(...conditions))
-      .orderBy(desc(fitnessObservationCache.observedOn));
+      .orderBy(desc(fitnessUserObservations.observedOn));
+    
+    if (limit) {
+      return await query.limit(limit) as unknown as FitnessObservationCache[];
+    }
+    
+    return await query as unknown as FitnessObservationCache[];
   }
 
   async upsertFitnessObservations(observations: InsertFitnessObservationCache[]): Promise<void> {
     if (observations.length === 0) return;
     
     for (const obs of observations) {
-      await db.insert(fitnessObservationCache)
+      const obsIdStr = String(obs.observationId);
+      
+      // First, ensure the observation exists in the unified cache
+      let [cacheRecord] = await db.select()
+        .from(observationCache)
+        .where(and(
+          eq(observationCache.source, "inat"),
+          eq(observationCache.sourceObservationId, obsIdStr)
+        ))
+        .limit(1);
+      
+      let cacheId: number;
+      
+      if (!cacheRecord) {
+        // Create new record in observation_cache
+        const insertResult = await db.insert(observationCache).values({
+          source: "inat",
+          sourceObservationId: obsIdStr,
+          scientificName: obs.scientificName || null,
+          commonName: obs.commonName || null,
+          observedOn: obs.observedOn || null,
+          latitude: obs.latitude || null,
+          longitude: obs.longitude || null,
+          placeGuess: obs.placeGuess || null,
+          inatUpdatedAt: obs.inatUpdatedAt || null,
+        }).returning({ id: observationCache.id });
+        
+        cacheId = insertResult[0].id;
+        
+        // Also add photo if present
+        if (obs.photoUrl) {
+          await db.insert(observationMedia).values({
+            observationCacheId: cacheId,
+            mediaType: "photo",
+            url: obs.photoUrl,
+            position: 0,
+          }).onConflictDoNothing();
+        }
+      } else {
+        cacheId = cacheRecord.id;
+        // Update existing cache record with any new data
+        await db.update(observationCache)
+          .set({
+            scientificName: obs.scientificName || cacheRecord.scientificName,
+            commonName: obs.commonName || cacheRecord.commonName,
+            observedOn: obs.observedOn || cacheRecord.observedOn,
+            latitude: obs.latitude || cacheRecord.latitude,
+            longitude: obs.longitude || cacheRecord.longitude,
+            placeGuess: obs.placeGuess || cacheRecord.placeGuess,
+            inatUpdatedAt: obs.inatUpdatedAt || cacheRecord.inatUpdatedAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(observationCache.id, cacheId));
+      }
+      
+      // Create/update the user link in fitness_user_observations
+      await db.insert(fitnessUserObservations)
         .values({
-          ...obs,
           username: obs.username.toLowerCase(),
-          updatedAt: new Date()
+          observationCacheId: cacheId,
+          sourceObservationId: obsIdStr,
+          observedOn: obs.observedOn || null,
+          inatUpdatedAt: obs.inatUpdatedAt || null,
+          deletedAt: null,
         })
         .onConflictDoUpdate({
-          target: [fitnessObservationCache.username, fitnessObservationCache.observationId],
+          target: [fitnessUserObservations.username, fitnessUserObservations.sourceObservationId],
           set: {
-            scientificName: obs.scientificName,
-            commonName: obs.commonName,
-            observedOn: obs.observedOn,
-            timeObserved: obs.timeObserved,
-            latitude: obs.latitude,
-            longitude: obs.longitude,
-            photoUrl: obs.photoUrl,
-            placeGuess: obs.placeGuess,
-            inatUpdatedAt: obs.inatUpdatedAt,
+            observedOn: obs.observedOn || null,
+            inatUpdatedAt: obs.inatUpdatedAt || null,
+            deletedAt: null,
             updatedAt: new Date(),
-            deletedAt: null
           }
         });
     }
@@ -4489,26 +4558,30 @@ export class DatabaseStorage implements IStorage {
 
   async getFitnessObservationCount(username: string): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)::int` })
-      .from(fitnessObservationCache)
-      .where(eq(fitnessObservationCache.username, username.toLowerCase()));
+      .from(fitnessUserObservations)
+      .where(and(
+        eq(fitnessUserObservations.username, username.toLowerCase()),
+        sql`${fitnessUserObservations.deletedAt} IS NULL`
+      ));
     return result[0]?.count || 0;
   }
 
   async getFitnessObservationDates(username: string): Promise<string[]> {
-    const result = await db.selectDistinct({ observedOn: fitnessObservationCache.observedOn })
-      .from(fitnessObservationCache)
+    const result = await db.selectDistinct({ observedOn: fitnessUserObservations.observedOn })
+      .from(fitnessUserObservations)
       .where(and(
-        eq(fitnessObservationCache.username, username.toLowerCase()),
-        isNotNull(fitnessObservationCache.observedOn)
+        eq(fitnessUserObservations.username, username.toLowerCase()),
+        isNotNull(fitnessUserObservations.observedOn),
+        sql`${fitnessUserObservations.deletedAt} IS NULL`
       ))
-      .orderBy(asc(fitnessObservationCache.observedOn));
+      .orderBy(asc(fitnessUserObservations.observedOn));
     return result.map(r => r.observedOn).filter((d): d is string => d !== null);
   }
 
   async getMaxFitnessObservationId(username: string): Promise<number | null> {
-    const result = await db.select({ maxId: sql<number>`max(observation_id)::int` })
-      .from(fitnessObservationCache)
-      .where(eq(fitnessObservationCache.username, username.toLowerCase()));
+    const result = await db.select({ maxId: sql<number>`max(${fitnessUserObservations.sourceObservationId}::int)` })
+      .from(fitnessUserObservations)
+      .where(eq(fitnessUserObservations.username, username.toLowerCase()));
     return result[0]?.maxId || null;
   }
 
