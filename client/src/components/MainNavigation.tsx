@@ -176,19 +176,17 @@ export function MainNavigation() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Join MycoMap CTA - only show when not authenticated */}
-            {!isAuthenticated && (
-              <Button 
-                asChild 
-                variant="outline"
-                className="hidden sm:flex border-myco-green text-myco-green hover:bg-myco-green hover:text-white transition-all duration-200"
-                data-testid="button-join-mycomap"
-              >
-                <Link href="/protocols" className="flex items-center gap-2">
-                  Join MycoMap
-                </Link>
-              </Button>
-            )}
+            {/* Join MycoMap CTA - always visible */}
+            <Button 
+              asChild 
+              variant="outline"
+              className="hidden sm:flex border-myco-green text-myco-green hover:bg-myco-green hover:text-white transition-all duration-200"
+              data-testid="button-join-mycomap"
+            >
+              <Link href="/protocols" className="flex items-center gap-2">
+                Join MycoMap
+              </Link>
+            </Button>
 
             {isAuthenticated ? (
               <DropdownMenu>
