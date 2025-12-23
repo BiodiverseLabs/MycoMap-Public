@@ -927,6 +927,244 @@ export type InsertMoCacheMetadata = z.infer<typeof insertMoCacheMetadataSchema>;
 export type MoCacheMetadata = typeof moCacheMetadata.$inferSelect;
 
 // =============================================
+// UNIFIED OBSERVATION CACHE - Consolidated iNat/MO/MyCoPortal data
+// This replaces the fragmented cache tables above
+// =============================================
+
+// Main observation cache - single source of truth for all platform observations
+export const observationCache = pgTable("observation_cache", {
+  id: serial("id").primaryKey(),
+  // Source identification - unique together
+  source: text("source").notNull(), // 'inat', 'mo', 'mycoportal'
+  sourceObservationId: text("source_observation_id").notNull(), // Platform-specific ID
+  sourceUuid: text("source_uuid"), // Platform UUID if available
+  
+  // Core observation data (normalized across platforms)
+  scientificName: text("scientific_name"),
+  commonName: text("common_name"),
+  family: text("family"),
+  genus: text("genus"),
+  species: text("species"),
+  taxonRank: text("taxon_rank"),
+  
+  // Observer info
+  observerName: text("observer_name"),
+  observerUsername: text("observer_username"),
+  observerId: text("observer_id"),
+  
+  // Location data
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  coordinatesObscured: boolean("coordinates_obscured").default(false),
+  positionalAccuracy: integer("positional_accuracy"),
+  placeGuess: text("place_guess"),
+  locality: text("locality"),
+  state: text("state"),
+  country: text("country"),
+  
+  // Date/time
+  observedOn: date("observed_on"),
+  observedOnString: text("observed_on_string"),
+  timeObservedAt: timestamp("time_observed_at"),
+  
+  // Quality/status
+  qualityGrade: text("quality_grade"), // research, needs_id, casual (iNat); vote/confidence (MO)
+  identificationCount: integer("identification_count").default(0),
+  captive: boolean("captive").default(false),
+  licenseCode: text("license_code"),
+  
+  // DNA/sequence data (if available from platform)
+  dnaBarcode: text("dna_barcode"),
+  genbankAccession: text("genbank_accession"),
+  provisionalSpeciesName: text("provisional_species_name"),
+  
+  // Voucher/specimen info (extracted from observation fields)
+  voucherNumber: text("voucher_number"),
+  specimenAvailable: boolean("specimen_available").default(false),
+  herbariumCode: text("herbarium_code"),
+  
+  // Notes/description
+  description: text("description"),
+  notes: text("notes"),
+  
+  // Raw API response (for complete data access)
+  apiResponseJson: text("api_response_json"),
+  
+  // Sync/cache tracking
+  lastSyncedAt: timestamp("last_synced_at").defaultNow(),
+  syncStatus: text("sync_status").default('success'), // success, error, pending
+  syncError: text("sync_error"),
+  cacheExpiresAt: timestamp("cache_expires_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Unique constraint on source + source_observation_id
+  sourceObsIdx: index("obs_cache_source_obs_idx").on(table.source, table.sourceObservationId),
+  sourceObsUnique: index("obs_cache_source_obs_unique").on(table.source, table.sourceObservationId),
+  // Common query indexes
+  scientificNameIdx: index("obs_cache_scientific_name_idx").on(table.scientificName),
+  familyIdx: index("obs_cache_family_idx").on(table.family),
+  latLngIdx: index("obs_cache_lat_lng_idx").on(table.latitude, table.longitude),
+  observedOnIdx: index("obs_cache_observed_on_idx").on(table.observedOn),
+  observerIdx: index("obs_cache_observer_idx").on(table.observerUsername),
+  voucherIdx: index("obs_cache_voucher_idx").on(table.voucherNumber),
+  syncStatusIdx: index("obs_cache_sync_status_idx").on(table.syncStatus),
+}));
+
+// Observation media - photos and sounds linked to cached observations
+export const observationMedia = pgTable("observation_media", {
+  id: serial("id").primaryKey(),
+  observationCacheId: integer("observation_cache_id").notNull().references(() => observationCache.id, { onDelete: "cascade" }),
+  mediaType: text("media_type").notNull(), // 'photo', 'sound'
+  url: text("url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  mediumUrl: text("medium_url"),
+  largeUrl: text("large_url"),
+  originalUrl: text("original_url"),
+  licenseCode: text("license_code"),
+  attribution: text("attribution"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  observationIdx: index("obs_media_observation_idx").on(table.observationCacheId),
+}));
+
+// Observation taxa - normalized taxon data for quick lookups
+export const observationTaxa = pgTable("observation_taxa", {
+  id: serial("id").primaryKey(),
+  // Taxon identification
+  source: text("source").notNull(), // 'inat', 'mo', 'mycoportal'
+  sourceTaxonId: text("source_taxon_id").notNull(),
+  
+  // Taxonomy hierarchy
+  kingdom: text("kingdom"),
+  phylum: text("phylum"),
+  class: text("class"),
+  order: text("order"),
+  family: text("family"),
+  genus: text("genus"),
+  species: text("species"),
+  subspecies: text("subspecies"),
+  
+  // Names
+  scientificName: text("scientific_name").notNull(),
+  commonName: text("common_name"),
+  rank: text("rank"),
+  
+  // Photos
+  taxonPhotoUrl: text("taxon_photo_url"),
+  
+  // Tracking
+  observationCount: integer("observation_count").default(0),
+  lastUsedAt: timestamp("last_used_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  sourceTaxonIdx: index("obs_taxa_source_taxon_idx").on(table.source, table.sourceTaxonId),
+  scientificNameIdx: index("obs_taxa_scientific_name_idx").on(table.scientificName),
+  familyIdx: index("obs_taxa_family_idx").on(table.family),
+  genusIdx: index("obs_taxa_genus_idx").on(table.genus),
+}));
+
+// Observation cache jobs - unified tracking of sync/fetch jobs (replaces *_metadata tables)
+export const observationCacheJobs = pgTable("observation_cache_jobs", {
+  id: serial("id").primaryKey(),
+  // Job identification
+  jobType: text("job_type").notNull(), // 'field_guide_sync', 'observation_refresh', 'bulk_import', 'area_scan'
+  source: text("source").notNull(), // 'inat', 'mo', 'mycoportal', 'all'
+  
+  // Scope (for area-based jobs)
+  fieldGuideId: integer("field_guide_id").references(() => fieldGuides.id),
+  centerLat: decimal("center_lat", { precision: 10, scale: 7 }),
+  centerLng: decimal("center_lng", { precision: 10, scale: 7 }),
+  radiusMiles: decimal("radius_miles", { precision: 8, scale: 2 }),
+  boundingBoxNorth: decimal("bounding_box_north", { precision: 10, scale: 7 }),
+  boundingBoxSouth: decimal("bounding_box_south", { precision: 10, scale: 7 }),
+  boundingBoxEast: decimal("bounding_box_east", { precision: 10, scale: 7 }),
+  boundingBoxWest: decimal("bounding_box_west", { precision: 10, scale: 7 }),
+  
+  // Job status
+  status: text("status").default('pending'), // pending, running, completed, failed
+  observationsProcessed: integer("observations_processed").default(0),
+  observationsCreated: integer("observations_created").default(0),
+  observationsUpdated: integer("observations_updated").default(0),
+  errorMessage: text("error_message"),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  lastFetchedAt: timestamp("last_fetched_at"),
+  nextScheduledAt: timestamp("next_scheduled_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  jobTypeIdx: index("obs_cache_jobs_type_idx").on(table.jobType),
+  sourceIdx: index("obs_cache_jobs_source_idx").on(table.source),
+  fieldGuideIdx: index("obs_cache_jobs_field_guide_idx").on(table.fieldGuideId),
+  statusIdx: index("obs_cache_jobs_status_idx").on(table.status),
+}));
+
+// Relations for unified observation cache
+export const observationCacheRelations = relations(observationCache, ({ many }) => ({
+  media: many(observationMedia),
+}));
+
+export const observationMediaRelations = relations(observationMedia, ({ one }) => ({
+  observation: one(observationCache, {
+    fields: [observationMedia.observationCacheId],
+    references: [observationCache.id],
+  }),
+}));
+
+export const observationCacheJobsRelations = relations(observationCacheJobs, ({ one }) => ({
+  fieldGuide: one(fieldGuides, {
+    fields: [observationCacheJobs.fieldGuideId],
+    references: [fieldGuides.id],
+  }),
+}));
+
+// Insert schemas for unified observation cache
+export const insertObservationCacheSchema = createInsertSchema(observationCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertObservationMediaSchema = createInsertSchema(observationMedia).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertObservationTaxaSchema = createInsertSchema(observationTaxa).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertObservationCacheJobsSchema = createInsertSchema(observationCacheJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for unified observation cache
+export type InsertObservationCache = z.infer<typeof insertObservationCacheSchema>;
+export type ObservationCache = typeof observationCache.$inferSelect;
+
+export type InsertObservationMedia = z.infer<typeof insertObservationMediaSchema>;
+export type ObservationMedia = typeof observationMedia.$inferSelect;
+
+export type InsertObservationTaxa = z.infer<typeof insertObservationTaxaSchema>;
+export type ObservationTaxa = typeof observationTaxa.$inferSelect;
+
+export type InsertObservationCacheJobs = z.infer<typeof insertObservationCacheJobsSchema>;
+export type ObservationCacheJobs = typeof observationCacheJobs.$inferSelect;
+
+// =============================================
 // CMS TABLES - WordPress-style content management
 // =============================================
 
@@ -1834,6 +2072,7 @@ export const specimens = pgTable("specimens", {
   // Primary observation reference
   primaryObservationSource: specimenObservationSourceEnum("primary_observation_source"),
   primaryObservationId: text("primary_observation_id"),
+  observationCacheId: integer("observation_cache_id").references(() => observationCache.id), // FK to unified cache
   voucherNumber: text("voucher_number"),
   
   // Collection metadata
@@ -1904,7 +2143,11 @@ export const specimenEvents = pgTable("specimen_events", {
 }));
 
 // Relations for specimens
-export const specimensRelations = relations(specimens, ({ many }) => ({
+export const specimensRelations = relations(specimens, ({ one, many }) => ({
+  observationCacheRecord: one(observationCache, {
+    fields: [specimens.observationCacheId],
+    references: [observationCache.id],
+  }),
   sources: many(specimenSources),
   events: many(specimenEvents),
 }));
