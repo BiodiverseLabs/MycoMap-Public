@@ -598,17 +598,46 @@ export default function AdminPlateEditorPage() {
                   )}
                 </div>
 
-                {selectedPendingPlate && (
-                  <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
-                    <p className="text-sm">
-                      <strong>Selected:</strong> {selectedPendingPlate.name || `Plate ${selectedPendingPlate.id}`}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      This will import {selectedPendingPlate.wells.filter(w => w.observationId || w.labCode).length} samples 
-                      into the current plate, replacing any existing data in matching well positions.
-                    </p>
-                  </div>
-                )}
+                {selectedPendingPlate && (() => {
+                  const pendingFilledPositions = new Set(
+                    selectedPendingPlate.wells
+                      .filter(w => w.observationId || w.labCode)
+                      .map(w => w.wellPosition)
+                  );
+                  const currentFilledWells = plate?.wells.filter(w => 
+                    (w.observationId || w.labCode) && pendingFilledPositions.has(w.wellPosition)
+                  ) || [];
+                  const willOverwrite = currentFilledWells.length;
+
+                  return (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+                        <p className="text-sm">
+                          <strong>Selected:</strong> {selectedPendingPlate.name || `Plate ${selectedPendingPlate.id}`}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          This will import {pendingFilledPositions.size} samples into the current plate.
+                        </p>
+                      </div>
+                      {willOverwrite > 0 && (
+                        <div className="p-3 bg-amber-50 rounded-md border border-amber-300">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-amber-800">
+                                Warning: {willOverwrite} well{willOverwrite > 1 ? 's' : ''} will be overwritten
+                              </p>
+                              <p className="text-sm text-amber-700 mt-1">
+                                The following positions already have data: {currentFilledWells.slice(0, 10).map(w => w.wellPosition).join(', ')}
+                                {currentFilledWells.length > 10 ? `, and ${currentFilledWells.length - 10} more` : ''}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
