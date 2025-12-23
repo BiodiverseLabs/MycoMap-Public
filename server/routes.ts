@@ -10333,8 +10333,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const { name, sampleCount = 96 } = req.body;
       const validSampleCount = Math.max(1, Math.min(96, parseInt(sampleCount) || 96));
       
-      // Get the username from the authenticated user
-      const createdBy = req.user?.id || null;
+      // Get the username from the authenticated user (Replit auth uses claims.sub)
+      const createdBy = req.user?.claims?.sub || req.user?.id || null;
       
       const [newPlate] = await db.insert(labPlates).values({
         runId: null,
