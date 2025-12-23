@@ -10964,6 +10964,38 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Clear all well data for a plate (reset to empty)
+  app.post("/api/admin/plates/:id/clear-data", isAdmin, async (req: any, res) => {
+    try {
+      const plateId = parseInt(req.params.id);
+      
+      // Reset all wells to empty state
+      await db.update(labWells)
+        .set({
+          platform: null,
+          observationId: null,
+          labCode: null,
+          primerPool: null,
+          forwardPrimer: null,
+          reversePrimer: null,
+          isValidated: false,
+          validationStatus: null,
+          validationMessage: null,
+          voucherNumber: null,
+          username: null,
+          state: null,
+          country: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(labWells.plateId, plateId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing well data:", error);
+      res.status(500).json({ error: "Failed to clear well data" });
+    }
+  });
+
   // Import data from a pending plate into current plate
   app.post("/api/admin/plates/:id/import-pending", isAdmin, async (req: any, res) => {
     try {

@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink, Download, Search } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink, Download, Search, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -301,6 +302,20 @@ export default function AdminPlateEditorPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Validation failed", variant: "destructive" });
+    },
+  });
+
+  const clearDataMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/admin/plates/${plateId}/clear-data`, {});
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/plates', plateId] });
+      setWellData({});
+      toast({ title: "Cleared", description: "All well data has been cleared" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to clear data", variant: "destructive" });
     },
   });
 
@@ -1054,6 +1069,40 @@ export default function AdminPlateEditorPage() {
                   })}
                 </TableBody>
               </Table>
+            </div>
+            
+            {/* Clear Data Button */}
+            <div className="mt-6 pt-4 border-t flex justify-end">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-500 hover:text-red-600 hover:bg-red-50"
+                    data-testid="button-clear-all-data"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear All Data
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear all plate data?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove all observation IDs, lab codes, primer assignments, and validation data from every well on this plate. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => clearDataMutation.mutate()}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {clearDataMutation.isPending ? "Clearing..." : "Yes, clear all data"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
         </Card>
