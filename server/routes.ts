@@ -13773,6 +13773,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Use herbariumAccessionNumber if set, otherwise fall back to displayCode
       const mycoAccession = specimen.herbariumAccessionNumber || specimen.displayCode;
+      console.log(`[iNat Push] Checking push for ${specimen.primaryObservationId}: mycoAccession=${mycoAccession}, hasToken=${!!process.env.INATURALIST_API_TOKEN}`);
       if (mycoAccession && process.env.INATURALIST_API_TOKEN) {
         const conflicts: string[] = [];
         const pushUpdates: { field_id: number; value: string }[] = [];
@@ -13847,7 +13848,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   if (update.field_id === 9540) inatPushResult.herbariumCatalogPushed = true;
                   console.log(`[iNat Push] Updated field ${update.field_id} for observation ${specimen.primaryObservationId}`);
                 } else {
-                  console.error(`[iNat Push] Failed to update field ${update.field_id}: ${putResponse.status}`);
+                  const errorBody = await putResponse.text();
+                  console.error(`[iNat Push] Failed to update field ${update.field_id}: ${putResponse.status} - ${errorBody}`);
                 }
               } else {
                 // Create new observation field value
@@ -13872,7 +13874,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   if (update.field_id === 9540) inatPushResult.herbariumCatalogPushed = true;
                   console.log(`[iNat Push] Created field ${update.field_id} for observation ${specimen.primaryObservationId}`);
                 } else {
-                  console.error(`[iNat Push] Failed to create field ${update.field_id}: ${postResponse.status}`);
+                  const errorBody = await postResponse.text();
+                  console.error(`[iNat Push] Failed to create field ${update.field_id}: ${postResponse.status} - ${errorBody}`);
                 }
               }
             } catch (pushError) {
@@ -14062,8 +14065,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       console.log(`[BulkRefresh] Starting refresh of ${metadata.totalSpecimens} specimens...`);
       
-      // Get all iNat-linked specimens ordered by ID (include status for sequenced check)
-      const allSpecimens = await db.select({ id: specimens.id, primaryObservationId: specimens.primaryObservationId, currentStatus: specimens.currentStatus })
+      // Get all iNat-linked specimens ordered by ID (include all fields needed for push)
+      const allSpecimens = await db.select({ 
+        id: specimens.id, 
+        primaryObservationId: specimens.primaryObservationId, 
+        currentStatus: specimens.currentStatus,
+        displayCode: specimens.displayCode,
+        herbariumAccessionNumber: specimens.herbariumAccessionNumber,
+      })
         .from(specimens)
         .where(and(
           eq(specimens.primaryObservationSource, 'inat'),
@@ -14197,13 +14206,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Prepare cache upsert data
+            // Prepare cache upsert data (matching single refresh fields)
             cacheUpserts.push({
               source: 'inat' as const,
               sourceObservationId: spec.primaryObservationId!,
               sourceUuid: obs.uuid || null,
               scientificName: obs.taxon?.name || obs.species_guess || null,
               commonName: obs.taxon?.preferred_common_name || null,
+              family: obs.taxon?.ancestry?.split('/')?.slice(-2, -1)?.[0] || null,
+              genus: obs.taxon?.name?.split(' ')?.[0] || null,
+              species: obs.taxon?.name?.split(' ')?.[1] || null,
+              taxonRank: obs.taxon?.rank || null,
               observerName: obs.user?.name || null,
               observerUsername: obs.user?.login || null,
               observerId: obs.user?.id?.toString() || null,
@@ -14232,6 +14245,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               readsInConsensus,
               speciesNameOverride,
               collectorsName,
+              apiResponseJson: JSON.stringify({ results: [obs] }),
               lastSyncedAt: new Date(),
               syncStatus: 'success',
               updatedAt: new Date(),
@@ -14346,6 +14360,117 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           // Bulk update specimens
           for (const { id, data } of specimenUpdates) {
             await db.update(specimens).set(data).where(eq(specimens.id, id));
+          }
+          
+          // TWO-WAY SYNC: Push MYCO data to iNaturalist if conditions are met
+          const inatToken = process.env.INATURALIST_API_TOKEN;
+          if (inatToken) {
+            let pushCount = 0;
+            
+            for (const spec of batch) {
+              const obs = resultsMap.get(spec.primaryObservationId!);
+              if (!obs) continue;
+              
+              const mycoAccession = spec.herbariumAccessionNumber || spec.displayCode;
+              if (!mycoAccession) continue;
+              
+              const existingOfvs = obs.ofvs || [];
+              const getOfvId = (fieldId: number) => existingOfvs.find((f: any) => f.field_id === fieldId)?.id || null;
+              const getFieldValue = (fieldId: number) => existingOfvs.find((f: any) => f.field_id === fieldId)?.value || null;
+              
+              const herbariumName = getFieldValue(9539);
+              const herbariumCatalogNumber = getFieldValue(9540);
+              
+              const pushUpdates: { field_id: number; value: string }[] = [];
+              const conflicts: string[] = [];
+              
+              // Check Herbarium Catalog Number (field 9540)
+              if (!herbariumCatalogNumber || herbariumCatalogNumber.trim() === '') {
+                pushUpdates.push({ field_id: 9540, value: mycoAccession });
+              } else if (herbariumCatalogNumber.toLowerCase().includes('myco')) {
+                const mycoMatch = herbariumCatalogNumber.match(/MYCO[-\s]*(\d+)/i);
+                if (mycoMatch && !herbariumCatalogNumber.includes(mycoAccession)) {
+                  const fullMatch = mycoMatch[0];
+                  const matchIndex = herbariumCatalogNumber.indexOf(fullMatch);
+                  const afterMyco = herbariumCatalogNumber.substring(matchIndex + fullMatch.length);
+                  pushUpdates.push({ field_id: 9540, value: mycoAccession + afterMyco });
+                }
+              } else {
+                conflicts.push('herbarium_catalog_conflict');
+              }
+              
+              // Check Herbarium Name (field 9539)
+              if (!herbariumName || herbariumName.trim() === '') {
+                pushUpdates.push({ field_id: 9539, value: 'MYCO' });
+              } else if (herbariumName.toUpperCase() !== 'MYCO') {
+                conflicts.push('herbarium_name_conflict');
+              }
+              
+              // Push updates to iNaturalist
+              for (const update of pushUpdates) {
+                try {
+                  const existingOfvId = getOfvId(update.field_id);
+                  
+                  if (existingOfvId) {
+                    const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${existingOfvId}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${inatToken}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        observation_field_value: { value: update.value }
+                      }),
+                    });
+                    
+                    if (putResponse.ok) {
+                      pushCount++;
+                      console.log(`[BulkRefresh Push] Updated field ${update.field_id} for observation ${spec.primaryObservationId}`);
+                    } else {
+                      const errorBody = await putResponse.text();
+                      console.error(`[BulkRefresh Push] Failed to update field ${update.field_id}: ${putResponse.status} - ${errorBody}`);
+                    }
+                  } else {
+                    const postResponse = await fetch('https://api.inaturalist.org/v1/observation_field_values', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${inatToken}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        observation_field_value: {
+                          observation_id: parseInt(spec.primaryObservationId!),
+                          observation_field_id: update.field_id,
+                          value: update.value
+                        }
+                      }),
+                    });
+                    
+                    if (postResponse.ok) {
+                      pushCount++;
+                      console.log(`[BulkRefresh Push] Created field ${update.field_id} for observation ${spec.primaryObservationId}`);
+                    } else {
+                      const errorBody = await postResponse.text();
+                      console.error(`[BulkRefresh Push] Failed to create field ${update.field_id}: ${postResponse.status} - ${errorBody}`);
+                    }
+                  }
+                } catch (pushError) {
+                  console.error(`[BulkRefresh Push] Error pushing field ${update.field_id}:`, pushError);
+                }
+              }
+              
+              // Update conflict status
+              if (conflicts.length > 0) {
+                const conflictValue = conflicts.length === 2 ? 'both_conflict' : conflicts[0];
+                await db.update(specimens)
+                  .set({ inatFieldConflict: conflictValue })
+                  .where(eq(specimens.id, spec.id));
+              }
+            }
+            
+            if (pushCount > 0) {
+              console.log(`[BulkRefresh Push] Pushed ${pushCount} field updates to iNaturalist`);
+            }
           }
           
         } catch (fetchErr) {
