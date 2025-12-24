@@ -14010,6 +14010,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       let cacheId: number;
       if (existingCache.length > 0) {
         cacheId = existingCache[0].id;
+        console.log(`[iNat Refresh] Updating cache ID ${cacheId} for observation ${specimen.primaryObservationId}, observer: ${cacheData.observerName || 'null'}`);
         await db.update(observationCache)
           .set(cacheData)
           .where(eq(observationCache.id, cacheId));
