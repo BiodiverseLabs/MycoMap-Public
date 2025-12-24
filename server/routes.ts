@@ -14278,7 +14278,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const [existing] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
       
       if (existing && existing.syncStatus === 'syncing') {
-        return res.json({ status: 'already_syncing', message: 'Bulk refresh is already in progress' });
+        // Check if it's actually stale (updated more than 5 minutes ago = likely orphaned)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const isStale = existing.updatedAt && new Date(existing.updatedAt) < fiveMinutesAgo;
+        
+        if (!isStale && bulkRefreshActive) {
+          return res.json({ status: 'already_syncing', message: 'Bulk refresh is already in progress' });
+        }
+        // If stale or not active, reset and continue to start fresh
+        console.log(`[BulkRefresh] Detected stale/orphaned sync status, resetting...`);
       }
       
       // Get filter params from request body
@@ -14309,8 +14317,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Store filter params as JSON
       const filterParamsJson = JSON.stringify(filterParams);
       
-      // Create or update metadata record - always start fresh when filters change
-      const isNewFilter = !existing || existing.filterParams !== filterParamsJson || existing.syncStatus === 'completed';
+      // Check if previous sync is stale (orphaned after server restart)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const isStaleSync = existing?.syncStatus === 'syncing' && 
+        existing.updatedAt && new Date(existing.updatedAt) < fiveMinutesAgo;
+      
+      // Create or update metadata record - always start fresh when filters change or sync is stale/completed
+      const isNewFilter = !existing || existing.filterParams !== filterParamsJson || 
+        existing.syncStatus === 'completed' || isStaleSync;
       const startId = !isNewFilter && existing?.lastProcessedId ? existing.lastProcessedId : 0;
       
       if (existing) {
