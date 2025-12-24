@@ -13433,18 +13433,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           } else if (flag === 'no_flag') {
             flagConditions.push(sql`(${specimens.inatFieldConflict} IS NULL OR ${specimens.inatFieldConflict} = '')`);
           } else if (flag === 'push_incomplete') {
-            // Dynamic flag: iNat records with MYCO number but cache missing catalog/name
+            // Dynamic flag: iNat records with push incomplete status
+            // Condition 1: Has MYCO number but cache missing catalog/name
+            // Condition 2: Cache has MYCO in catalog but missing herbarium_name
             flagConditions.push(sql`(
               ${specimens.primaryObservationSource} = 'inat'
-              AND ${specimens.mycoNumber} IS NOT NULL
               AND (
-                NOT EXISTS (
+                (
+                  ${specimens.mycoNumber} IS NOT NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM observation_cache oc 
+                    WHERE oc.source = 'inat' 
+                      AND oc.source_observation_id = ${specimens.primaryObservationId}
+                      AND oc.herbarium_catalog_number LIKE '%' || ${specimens.mycoNumber}::text || '%'
+                      AND oc.herbarium_name IS NOT NULL 
+                      AND oc.herbarium_name != ''
+                  )
+                )
+                OR EXISTS (
                   SELECT 1 FROM observation_cache oc 
                   WHERE oc.source = 'inat' 
                     AND oc.source_observation_id = ${specimens.primaryObservationId}
-                    AND oc.herbarium_catalog_number LIKE '%' || ${specimens.mycoNumber}::text || '%'
-                    AND oc.herbarium_name IS NOT NULL 
-                    AND oc.herbarium_name != ''
+                    AND oc.herbarium_catalog_number LIKE '%MYCO%'
+                    AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
                 )
               )
             )`);
@@ -14292,18 +14303,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         } else if (flag === 'no_flag') {
           flagConditions.push(sql`(${specimens.inatFieldConflict} IS NULL OR ${specimens.inatFieldConflict} = '')`);
         } else if (flag === 'push_incomplete') {
-          // Dynamic flag: iNat records with MYCO number but cache missing catalog/name
+          // Dynamic flag: iNat records with push incomplete status
+          // Condition 1: Has MYCO number but cache missing catalog/name
+          // Condition 2: Cache has MYCO in catalog but missing herbarium_name
           flagConditions.push(sql`(
             ${specimens.primaryObservationSource} = 'inat'
-            AND ${specimens.mycoNumber} IS NOT NULL
             AND (
-              NOT EXISTS (
+              (
+                ${specimens.mycoNumber} IS NOT NULL
+                AND NOT EXISTS (
+                  SELECT 1 FROM observation_cache oc 
+                  WHERE oc.source = 'inat' 
+                    AND oc.source_observation_id = ${specimens.primaryObservationId}
+                    AND oc.herbarium_catalog_number LIKE '%' || ${specimens.mycoNumber}::text || '%'
+                    AND oc.herbarium_name IS NOT NULL 
+                    AND oc.herbarium_name != ''
+                )
+              )
+              OR EXISTS (
                 SELECT 1 FROM observation_cache oc 
                 WHERE oc.source = 'inat' 
                   AND oc.source_observation_id = ${specimens.primaryObservationId}
-                  AND oc.herbarium_catalog_number LIKE '%' || ${specimens.mycoNumber}::text || '%'
-                  AND oc.herbarium_name IS NOT NULL 
-                  AND oc.herbarium_name != ''
+                  AND oc.herbarium_catalog_number LIKE '%MYCO%'
+                  AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
               )
             )
           )`);
@@ -15962,18 +15984,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           } else if (flag === 'conflicts') {
             flagConditions.push(sql`${specimens.inatFieldConflict} IN ('herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict', 'push_incomplete')`);
           } else if (flag === 'push_incomplete') {
-            // Dynamic flag: iNat records with MYCO number but cache missing catalog/name
+            // Dynamic flag: iNat records with push incomplete status
+            // Condition 1: Has MYCO number but cache missing catalog/name
+            // Condition 2: Cache has MYCO in catalog but missing herbarium_name
             flagConditions.push(sql`(
               ${specimens.primaryObservationSource} = 'inat'
-              AND ${specimens.mycoNumber} IS NOT NULL
               AND (
-                NOT EXISTS (
+                (
+                  ${specimens.mycoNumber} IS NOT NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM observation_cache oc 
+                    WHERE oc.source = 'inat' 
+                      AND oc.source_observation_id = ${specimens.primaryObservationId}
+                      AND oc.herbarium_catalog_number LIKE '%' || ${specimens.mycoNumber}::text || '%'
+                      AND oc.herbarium_name IS NOT NULL 
+                      AND oc.herbarium_name != ''
+                  )
+                )
+                OR EXISTS (
                   SELECT 1 FROM observation_cache oc 
                   WHERE oc.source = 'inat' 
                     AND oc.source_observation_id = ${specimens.primaryObservationId}
-                    AND oc.herbarium_catalog_number LIKE '%' || ${specimens.mycoNumber}::text || '%'
-                    AND oc.herbarium_name IS NOT NULL 
-                    AND oc.herbarium_name != ''
+                    AND oc.herbarium_catalog_number LIKE '%MYCO%'
+                    AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
                 )
               )
             )`);
