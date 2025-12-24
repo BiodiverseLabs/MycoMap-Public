@@ -158,6 +158,11 @@ export default function AdminSpecimensPage() {
 
   const { data: specimenDetail, isLoading: detailLoading } = useQuery<SpecimenDetail>({
     queryKey: ["/api/admin/specimens", selectedSpecimen],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/specimens/${selectedSpecimen}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch specimen details");
+      return res.json();
+    },
     enabled: !!selectedSpecimen,
   });
 
