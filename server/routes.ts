@@ -13872,12 +13872,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Differentiate between "not found" (404) and temporary errors (5xx, etc.)
         if (response.status === 404) {
           // 404 = Observation was deleted from iNaturalist
+          // Set key fields to "Removed" and clear any validation flag
           await db.update(specimens)
-            .set({ inatFieldConflict: 'observation_deleted' })
+            .set({ 
+              scientificName: 'Removed',
+              locality: 'Removed', 
+              collectorName: 'Removed',
+              inatFieldConflict: null 
+            })
             .where(eq(specimens.id, specimenId));
-          return res.status(404).json({ 
-            error: "Observation was deleted from iNaturalist",
-            flagged: 'observation_deleted'
+          return res.json({ 
+            success: true,
+            message: "Observation was deleted from iNaturalist - specimen marked as Removed"
           });
         } else if (response.status === 403) {
           // 403 = Access denied (different owner's private observation)
@@ -13895,13 +13901,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const data = await response.json();
       
       if (!data.results || data.results.length === 0) {
-        // Flag the specimen as having a deleted observation
+        // Observation no longer exists - set key fields to "Removed"
         await db.update(specimens)
-          .set({ inatFieldConflict: 'observation_deleted' })
+          .set({ 
+            scientificName: 'Removed',
+            locality: 'Removed', 
+            collectorName: 'Removed',
+            inatFieldConflict: null 
+          })
           .where(eq(specimens.id, specimenId));
-        return res.status(404).json({ 
-          error: "Observation no longer exists on iNaturalist",
-          flagged: 'observation_deleted'
+        return res.json({ 
+          success: true,
+          message: "Observation no longer exists on iNaturalist - specimen marked as Removed"
         });
       }
       
@@ -14190,6 +14201,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         } else {
           // Check for missing metadata (location, collector, scientific name, or collection date)
           // Skip this check for private observations - they legitimately have no location
+          // Skip this check for "Removed" specimens - deleted observations don't need metadata
           const isPrivateLocation = obs.geoprivacy === 'private';
           const finalScientificName = specimenUpdate.scientificName || specimen.scientificName;
           const finalCollectorName = specimenUpdate.collectorName || specimen.collectorName;
@@ -14198,7 +14210,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const finalCountry = specimenUpdate.country || specimen.country;
           const hasLocation = isPrivateLocation || finalState || finalCountry;
           
-          const missingMetadata = !finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation;
+          // Specimens marked as "Removed" should never get metadata flags
+          const isRemovedSpecimen = finalScientificName === 'Removed' || finalCollectorName === 'Removed';
+          const missingMetadata = !isRemovedSpecimen && (!finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation);
           
           if (missingMetadata) {
             await db.update(specimens)
@@ -14252,7 +14266,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const finalCountry = specimenUpdate.country || specimen.country;
           const hasLocation = finalState || finalCountry;
           
-          const missingMetadata = !finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation;
+          // Specimens marked as "Removed" should have their metadata flag cleared
+          const isRemovedSpecimen = finalScientificName === 'Removed' || finalCollectorName === 'Removed';
+          const missingMetadata = !isRemovedSpecimen && (!finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation);
           
           if (!missingMetadata) {
             // Metadata is now complete - clear the flag
@@ -14739,11 +14755,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const photoInserts: any[] = [];
           
           // Pre-process all observations in the batch (now fast - places are cached)
+          // Track specimens with deleted observations for bulk update
+          const deletedSpecimenIds: number[] = [];
+          
           for (const spec of batch) {
             const obs = resultsMap.get(spec.primaryObservationId!);
             
             if (!obs) {
-              errors++;
+              // Observation was deleted from iNaturalist - mark for "Removed" update
+              deletedSpecimenIds.push(spec.id);
+              success++; // Count as success since we're handling it
               processed++;
               continue;
             }
@@ -14936,6 +14957,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             await db.update(specimens).set(data).where(eq(specimens.id, id));
           }
           
+          // Handle deleted observations - mark specimens as "Removed"
+          if (deletedSpecimenIds.length > 0) {
+            console.log(`[BulkRefresh] Marking ${deletedSpecimenIds.length} specimens as Removed (observations deleted from iNat)...`);
+            for (const specId of deletedSpecimenIds) {
+              await db.update(specimens)
+                .set({ 
+                  scientificName: 'Removed',
+                  locality: 'Removed', 
+                  collectorName: 'Removed',
+                  inatFieldConflict: null 
+                })
+                .where(eq(specimens.id, specId));
+            }
+          }
+          
           // Handle metadata flags - check for missing metadata and update flags
           // Track specimens that need metadata flag changes
           const metadataFlagUpdates: { id: number; flag: string | null }[] = [];
@@ -14961,7 +14997,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const isPrivateLocation = obs.geoprivacy === 'private';
             const hasLocation = isPrivateLocation || finalState || finalCountry;
             
-            const missingMetadata = !finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation;
+            // Specimens marked as "Removed" should never get metadata flags
+            const isRemovedSpecimen = finalScientificName === 'Removed' || finalCollectorName === 'Removed';
+            const missingMetadata = !isRemovedSpecimen && (!finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation);
             
             if (missingMetadata && spec.inatFieldConflict !== 'metadata') {
               // Set metadata flag
