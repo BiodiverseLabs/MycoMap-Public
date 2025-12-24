@@ -11847,7 +11847,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   await db.update(specimens)
                     .set({
                       scientificName: scientificName || undefined,
-                      collectorName: collectorsName || obs.user?.name || undefined,
+                      collectorName: collectorsName || obs.user?.name || obs.user?.login || undefined,
                       collectionDate: obs.observed_on || undefined,
                       locality: obs.place_guess || undefined,
                       state: specimenState || undefined,
@@ -14055,7 +14055,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const specimenUpdate: any = {
         scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || specimen.scientificName,
-        collectorName: collectorsName || obs.user?.name || specimen.collectorName,
+        collectorName: collectorsName || obs.user?.name || obs.user?.login || specimen.collectorName,
         collectionDate: obs.observed_on || specimen.collectionDate,
         locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || specimen.locality),
         state: specimenState || specimen.state,
@@ -14882,7 +14882,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const inatBaseName = obs.taxon?.name || obs.species_guess || null;
             const specimenUpdate: any = {
               scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride),
-              collectorName: collectorsName || obs.user?.name,
+              collectorName: collectorsName || obs.user?.name || obs.user?.login,
               collectionDate: obs.observed_on,
               locality: obs.geoprivacy === 'private' ? 'Private' : obs.place_guess,
               state: specimenState,
