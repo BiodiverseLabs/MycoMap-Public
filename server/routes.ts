@@ -13488,7 +13488,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             sql`${specimens.locality} ILIKE ${searchPattern}`,
             sql`${specimens.primaryObservationId} ILIKE ${searchPattern}`,
             sql`${specimens.labCode} ILIKE ${searchPattern}`,
-            sql`EXISTS (SELECT 1 FROM observation_cache oc WHERE oc.source = ${specimens.primaryObservationSource}::text AND oc.source_observation_id = ${specimens.primaryObservationId} AND oc.observer_username ILIKE ${searchPattern})`
+            sql`EXISTS (SELECT 1 FROM observation_cache oc WHERE oc.source = ${specimens.primaryObservationSource}::text AND oc.source_observation_id = ${specimens.primaryObservationId} AND oc.observer_username ILIKE ${searchPattern})`,
+            sql`EXISTS (SELECT 1 FROM observation_cache oc WHERE oc.source = ${specimens.primaryObservationSource}::text AND oc.source_observation_id = ${specimens.primaryObservationId} AND oc.herbarium_catalog_number ILIKE ${searchPattern})`
           )
         );
       }
@@ -14356,7 +14357,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           sql`${specimens.locality} ILIKE ${searchPattern}`,
           sql`${specimens.primaryObservationId} ILIKE ${searchPattern}`,
           sql`${specimens.labCode} ILIKE ${searchPattern}`,
-          sql`EXISTS (SELECT 1 FROM observation_cache oc WHERE oc.source = ${specimens.primaryObservationSource}::text AND oc.source_observation_id = ${specimens.primaryObservationId} AND oc.observer_username ILIKE ${searchPattern})`
+          sql`EXISTS (SELECT 1 FROM observation_cache oc WHERE oc.source = ${specimens.primaryObservationSource}::text AND oc.source_observation_id = ${specimens.primaryObservationId} AND oc.observer_username ILIKE ${searchPattern})`,
+          sql`EXISTS (SELECT 1 FROM observation_cache oc WHERE oc.source = ${specimens.primaryObservationSource}::text AND oc.source_observation_id = ${specimens.primaryObservationId} AND oc.herbarium_catalog_number ILIKE ${searchPattern})`
         )
       );
     }
@@ -15968,7 +15970,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             sql`${specimens.primaryObservationId} ILIKE ${searchTerm}`,
             sql`${specimens.state} ILIKE ${searchTerm}`,
             sql`${specimens.country} ILIKE ${searchTerm}`,
-            sql`${observationCache.observerUsername} ILIKE ${searchTerm}`
+            sql`${observationCache.observerUsername} ILIKE ${searchTerm}`,
+            sql`${observationCache.herbariumCatalogNumber} ILIKE ${searchTerm}`
           )
         );
       }
