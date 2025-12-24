@@ -12243,6 +12243,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const userId = req.user?.claims?.sub || req.user?.id || 'admin';
       const jobId = `run-${runId}-${Date.now()}`;
       
+      // Get the run info
+      const [run] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!run) {
+        return res.status(404).json({ error: "Run not found" });
+      }
+      const runName = run.name || `Run${String(runId).padStart(3, '0')}`;
+      
       // Get all plates for this run
       const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
       const plateIds = plates.map(p => p.id);
@@ -12262,6 +12269,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       if (wells.length === 0) {
         return res.json({ jobId: null, created: 0, linked: 0, message: "All wells already have specimen records", status: 'completed' });
       }
+      
+      // Create plate lookup map
+      const plateMap = new Map(plates.map(p => [p.id, p]));
 
       // Initialize job tracking
       specimenGenerationJobs.set(jobId, {
@@ -12367,10 +12377,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 existingByLabCode.set(well.labCode, newSpecimen.id);
               }
               
+              // Calculate well position number (A01=1, A12=12, B01=13, H12=96)
+              const wellPosStr = well.wellPosition || '';
+              const rowLetter = wellPosStr.charAt(0).toUpperCase();
+              const colNum = parseInt(wellPosStr.substring(1)) || 0;
+              const rowNum = rowLetter.charCodeAt(0) - 'A'.charCodeAt(0); // A=0, B=1, etc
+              const positionNumber = rowNum * 12 + colNum; // 1-96
+              
+              const plate = plateMap.get(well.plateId);
+              const plateNumber = plate?.plateNumber || 1;
+              
               await db.insert(specimenEvents).values({
                 specimenId: newSpecimen.id,
                 eventType: 'created',
-                newValue: `Created from run (well ${well.wellPosition})`,
+                newValue: `Created from ${runName} (Position ${positionNumber})`,
+                notes: JSON.stringify({ runId, runName, wellId: well.id, wellPosition: well.wellPosition, plateId: well.plateId, plateNumber, positionNumber }),
                 performedBy: userId,
               });
               

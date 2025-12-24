@@ -119,7 +119,7 @@ interface SpecimenDetail extends Specimen {
     eventType: string;
     previousValue: string | null;
     newValue: string | null;
-    notes: string | null;
+    notes: string | null; // JSON with runId, runName, wellId, plateId, etc.
     performedAt: string;
     performedByName: string | null;
   }>;
@@ -881,19 +881,40 @@ export default function AdminSpecimensPage() {
                 <div className="border-t pt-4">
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Event History</p>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {specimenDetail.events.map((event) => (
-                      <div key={event.id} className="flex items-start gap-3 p-2 bg-slate-50 rounded text-sm">
-                        <div className="text-slate-400 text-xs whitespace-nowrap">
-                          {format(new Date(event.performedAt), "MMM d, HH:mm")}
+                    {specimenDetail.events.map((event) => {
+                      // Parse notes for run link info
+                      let runInfo: { runId?: number; runName?: string; positionNumber?: number } | null = null;
+                      if (event.notes) {
+                        try {
+                          runInfo = JSON.parse(event.notes);
+                        } catch {}
+                      }
+                      
+                      return (
+                        <div key={event.id} className="flex items-start gap-3 p-2 bg-slate-50 rounded text-sm">
+                          <div className="text-slate-400 text-xs whitespace-nowrap">
+                            {format(new Date(event.performedAt), "MMM d, HH:mm")}
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-medium capitalize">{event.eventType.replace(/_/g, " ")}</span>
+                            {runInfo?.runId ? (
+                              <span className="text-slate-600">
+                                {" → Created from "}
+                                <a 
+                                  href={`/admin/lims/runs/${runInfo.runId}`}
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  {runInfo.runName || `Run${String(runInfo.runId).padStart(3, '0')}`}
+                                </a>
+                                {runInfo.positionNumber && ` (Position ${runInfo.positionNumber})`}
+                              </span>
+                            ) : event.newValue ? (
+                              <span className="text-slate-600"> → {event.newValue}</span>
+                            ) : null}
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <span className="font-medium capitalize">{event.eventType.replace(/_/g, " ")}</span>
-                          {event.newValue && (
-                            <span className="text-slate-600"> → {event.newValue}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
