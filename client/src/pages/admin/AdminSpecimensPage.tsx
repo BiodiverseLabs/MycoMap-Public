@@ -464,9 +464,11 @@ export default function AdminSpecimensPage() {
                     {(() => {
                       const collectorsName = specimenDetail.observationData?.collectorsName;
                       const hasValidCollectorsName = collectorsName && collectorsName.toLowerCase() !== 'none';
+                      const collectorName = specimenDetail.collectorName;
+                      const hasValidCollectorName = collectorName && collectorName.toLowerCase() !== 'none';
                       return hasValidCollectorsName 
                         ? collectorsName 
-                        : (specimenDetail.collectorName || specimenDetail.observationData?.observerName || "-");
+                        : (hasValidCollectorName ? collectorName : specimenDetail.observationData?.observerName || "-");
                     })()}
                   </p>
                   {specimenDetail.observationData?.observerUsername && (
