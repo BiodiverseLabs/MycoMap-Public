@@ -11705,6 +11705,106 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               for (const obs of (data.results || [])) {
                 obsDataMap[String(obs.id)] = obs;
+                
+                // Store observation in unified cache and update linked specimens
+                try {
+                  const obsId = String(obs.id);
+                  const ofvs = obs.ofvs || [];
+                  
+                  // Extract all observation fields using helper function
+                  const voucherNumber = getObservationFieldValue(ofvs, 8257);
+                  const voucherNumberMultiple = getObservationFieldValue(ofvs, 2863);
+                  const provisionalSpeciesName = getObservationFieldValue(ofvs, 10675);
+                  const speciesNameOverride = getObservationFieldValue(ofvs, 20259);
+                  const collectorsName = getObservationFieldValue(ofvs, 9051);
+                  const herbariumName = getObservationFieldValue(ofvs, 9539);
+                  const herbariumCatalogNumber = getObservationFieldValue(ofvs, 9540);
+                  const genbankAccession = getObservationFieldValue(ofvs, 7555);
+                  const genbankNumberUrl = getObservationFieldValue(ofvs, 4191);
+                  const mycomapBlastResults = getObservationFieldValue(ofvs, 9864);
+                  const traceFiles = getObservationFieldValue(ofvs, 10109);
+                  const dnaBarcodIts = getObservationFieldValue(ofvs, 2330);
+                  const readsInConsensus = getObservationFieldValue(ofvs, 16718);
+                  
+                  const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+                  const scientificName = getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride);
+                  
+                  // Upsert into observation_cache
+                  const existingCache = await db.select({ id: observationCache.id })
+                    .from(observationCache)
+                    .where(and(
+                      eq(observationCache.source, 'inat'),
+                      eq(observationCache.sourceObservationId, obsId)
+                    ))
+                    .limit(1);
+                  
+                  const cacheData = {
+                    source: 'inat' as const,
+                    sourceObservationId: obsId,
+                    sourceUuid: obs.uuid || null,
+                    scientificName: inatBaseName,
+                    commonName: obs.taxon?.preferred_common_name || null,
+                    family: obs.taxon?.ancestry?.split('/')?.slice(-2, -1)?.[0] || null,
+                    genus: inatBaseName?.split(' ')?.[0] || null,
+                    observerName: obs.user?.name || null,
+                    observerUsername: obs.user?.login || null,
+                    observerId: obs.user?.id?.toString() || null,
+                    latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+                    longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+                    coordinatesObscured: obs.obscured || false,
+                    placeGuess: obs.place_guess || null,
+                    locality: obs.place_guess || null,
+                    observedOn: obs.observed_on || null,
+                    qualityGrade: obs.quality_grade || null,
+                    voucherNumber,
+                    voucherNumberMultiple,
+                    provisionalSpeciesName,
+                    speciesNameOverride,
+                    collectorsName,
+                    herbariumName,
+                    herbariumCatalogNumber,
+                    genbankAccession,
+                    genbankNumberUrl,
+                    mycomapBlastResults,
+                    traceFiles,
+                    dnaBarcodIts,
+                    readsInConsensus,
+                    apiResponseJson: JSON.stringify({ results: [obs] }),
+                    lastSyncedAt: new Date(),
+                    syncStatus: 'success',
+                    updatedAt: new Date(),
+                  };
+                  
+                  if (existingCache.length > 0) {
+                    await db.update(observationCache)
+                      .set(cacheData)
+                      .where(eq(observationCache.id, existingCache[0].id));
+                  } else {
+                    await db.insert(observationCache).values({
+                      ...cacheData,
+                      createdAt: new Date(),
+                    });
+                  }
+                  
+                  // Update any linked specimens with this observation
+                  await db.update(specimens)
+                    .set({
+                      scientificName: scientificName || undefined,
+                      collectorName: collectorsName || obs.user?.name || undefined,
+                      collectionDate: obs.observed_on || undefined,
+                      locality: obs.place_guess || undefined,
+                      latitude: obs.geojson?.coordinates?.[1]?.toString() || undefined,
+                      longitude: obs.geojson?.coordinates?.[0]?.toString() || undefined,
+                      genus: inatBaseName?.split(' ')?.[0] || undefined,
+                    })
+                    .where(and(
+                      eq(specimens.primaryObservationSource, 'inat'),
+                      eq(specimens.primaryObservationId, obsId)
+                    ));
+                    
+                } catch (cacheError) {
+                  console.error(`[Validate] Cache/specimen update error for obs ${obs.id}:`, cacheError);
+                }
               }
             } else {
               console.error(`[Validate] Batch API error: ${response.status}`);
