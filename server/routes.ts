@@ -14317,23 +14317,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
           
           // TWO-WAY SYNC: Push MYCO data to iNaturalist if conditions are met
-          // OPTIMIZATION: Use PUT /observations/:id to batch multiple fields per observation
+          // Uses individual observation_field_values API (v1 PUT doesn't support batched fields)
           const inatToken = process.env.INATURALIST_API_TOKEN;
           if (inatToken) {
-            const PUSH_CONCURRENCY = 5; // Run 5 observation updates in parallel
+            const PUSH_CONCURRENCY = 5; // Run 5 field updates in parallel
             let pushCount = 0;
             
-            // Collect push tasks per observation (batch fields together)
-            interface ObservationPush {
+            // Collect individual field push tasks
+            interface FieldPush {
               specId: number;
               obsId: string;
-              fields: Array<{
-                fieldId: number;
-                value: string;
-                existingOfvId: number | null;
-              }>;
+              fieldId: number;
+              value: string;
+              existingOfvId: number | null;
             }
-            const observationPushes: ObservationPush[] = [];
+            const fieldPushes: FieldPush[] = [];
             const conflictMap = new Map<number, string[]>();
             
             for (const spec of batch) {
@@ -14350,18 +14348,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               const herbariumName = getFieldValue(9539);
               const herbariumCatalogNumber = getFieldValue(9540);
               const conflicts: string[] = [];
-              const fieldsToUpdate: Array<{ fieldId: number; value: string; existingOfvId: number | null }> = [];
               
               // Check Herbarium Catalog Number (field 9540)
               if (!herbariumCatalogNumber || herbariumCatalogNumber.trim() === '') {
-                fieldsToUpdate.push({ fieldId: 9540, value: mycoAccession, existingOfvId: getOfvId(9540) });
+                fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9540, value: mycoAccession, existingOfvId: getOfvId(9540) });
               } else if (herbariumCatalogNumber.toLowerCase().includes('myco')) {
                 const mycoMatch = herbariumCatalogNumber.match(/MYCO[-\s]*(\d+)/i);
                 if (mycoMatch && !herbariumCatalogNumber.includes(mycoAccession)) {
                   const fullMatch = mycoMatch[0];
                   const matchIndex = herbariumCatalogNumber.indexOf(fullMatch);
                   const afterMyco = herbariumCatalogNumber.substring(matchIndex + fullMatch.length);
-                  fieldsToUpdate.push({ fieldId: 9540, value: mycoAccession + afterMyco, existingOfvId: getOfvId(9540) });
+                  fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9540, value: mycoAccession + afterMyco, existingOfvId: getOfvId(9540) });
                 }
               } else {
                 conflicts.push('herbarium_catalog_conflict');
@@ -14369,17 +14366,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               // Check Herbarium Name (field 9539)
               if (!herbariumName || herbariumName.trim() === '') {
-                fieldsToUpdate.push({ fieldId: 9539, value: 'MYCO', existingOfvId: getOfvId(9539) });
+                fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9539, value: 'MYCO', existingOfvId: getOfvId(9539) });
               } else if (herbariumName.toUpperCase() !== 'MYCO') {
                 conflicts.push('herbarium_name_conflict');
-              }
-              
-              if (fieldsToUpdate.length > 0) {
-                observationPushes.push({
-                  specId: spec.id,
-                  obsId: spec.primaryObservationId!,
-                  fields: fieldsToUpdate,
-                });
               }
               
               if (conflicts.length > 0) {
@@ -14387,44 +14376,48 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Execute observation updates in parallel batches (1 API call per observation, multiple fields)
-            if (observationPushes.length > 0) {
-              const totalFields = observationPushes.reduce((sum, p) => sum + p.fields.length, 0);
-              console.log(`[BulkRefresh Push] Batching ${totalFields} fields into ${observationPushes.length} observation updates (${PUSH_CONCURRENCY} parallel)...`);
+            // Execute field updates in parallel batches
+            if (fieldPushes.length > 0) {
+              console.log(`[BulkRefresh Push] Pushing ${fieldPushes.length} field updates (${PUSH_CONCURRENCY} parallel)...`);
               
-              for (let pi = 0; pi < observationPushes.length; pi += PUSH_CONCURRENCY) {
-                const parallelBatch = observationPushes.slice(pi, pi + PUSH_CONCURRENCY);
+              for (let pi = 0; pi < fieldPushes.length; pi += PUSH_CONCURRENCY) {
+                const parallelBatch = fieldPushes.slice(pi, pi + PUSH_CONCURRENCY);
                 
-                const results = await Promise.allSettled(parallelBatch.map(async (obsPush) => {
+                const results = await Promise.allSettled(parallelBatch.map(async (fp) => {
                   try {
-                    // Build observation_field_values_attributes for PUT /observations/:id
-                    const attrs: any = {};
-                    obsPush.fields.forEach((field, idx) => {
-                      if (field.existingOfvId) {
-                        // Update existing field
-                        attrs[idx] = { id: field.existingOfvId, value: field.value };
-                      } else {
-                        // Add new field
-                        attrs[idx] = { observation_field_id: field.fieldId, value: field.value };
-                      }
-                    });
-                    
-                    const putResponse = await fetch(`https://api.inaturalist.org/v1/observations/${obsPush.obsId}`, {
-                      method: 'PUT',
-                      headers: {
-                        'Authorization': `Bearer ${inatToken}`,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        observation: {
-                          observation_field_values_attributes: attrs
-                        }
-                      }),
-                    });
-                    
-                    return { ok: putResponse.ok, obsPush, status: putResponse.status, fieldCount: obsPush.fields.length };
+                    if (fp.existingOfvId) {
+                      // Update existing field value
+                      const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${fp.existingOfvId}`, {
+                        method: 'PUT',
+                        headers: {
+                          'Authorization': `Bearer ${inatToken}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          observation_field_value: { value: fp.value }
+                        }),
+                      });
+                      return { ok: putResponse.ok, fp, status: putResponse.status };
+                    } else {
+                      // Create new field value
+                      const postResponse = await fetch('https://api.inaturalist.org/v1/observation_field_values', {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${inatToken}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          observation_field_value: {
+                            observation_id: parseInt(fp.obsId),
+                            observation_field_id: fp.fieldId,
+                            value: fp.value
+                          }
+                        }),
+                      });
+                      return { ok: postResponse.ok, fp, status: postResponse.status };
+                    }
                   } catch (err) {
-                    return { ok: false, obsPush, status: 0, fieldCount: 0 };
+                    return { ok: false, fp, status: 0 };
                   }
                 }));
                 
@@ -14433,23 +14426,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 for (const result of results) {
                   if (result.status === 'fulfilled') {
                     if (result.value.ok) {
-                      pushCount += result.value.fieldCount;
+                      pushCount++;
                       batchSuccess++;
                     } else {
                       batchFail++;
-                      console.error(`[BulkRefresh Push] Failed obs ${result.value.obsPush.obsId}: HTTP ${result.value.status}`);
+                      if (result.value.status !== 422) { // 422 = field already exists, not a real error
+                        console.error(`[BulkRefresh Push] Failed obs ${result.value.fp.obsId} field ${result.value.fp.fieldId}: HTTP ${result.value.status}`);
+                      }
                     }
                   } else {
                     batchFail++;
-                    console.error(`[BulkRefresh Push] Promise rejected:`, result.reason);
                   }
                 }
                 if (batchSuccess > 0 || batchFail > 0) {
-                  console.log(`[BulkRefresh Push] Batch result: ${batchSuccess} success, ${batchFail} failed`);
+                  console.log(`[BulkRefresh Push] Batch: ${batchSuccess} success, ${batchFail} failed`);
                 }
                 
                 // Small delay between parallel batches to avoid rate limiting
-                if (pi + PUSH_CONCURRENCY < observationPushes.length) {
+                if (pi + PUSH_CONCURRENCY < fieldPushes.length) {
                   await new Promise(resolve => setTimeout(resolve, 200));
                 }
               }
