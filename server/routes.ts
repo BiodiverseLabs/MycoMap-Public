@@ -15145,6 +15145,31 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               console.log(`[BulkRefresh Push] Successfully pushed ${pushCount} field updates to iNaturalist`);
             }
             
+            // Clear conflict flags for specimens that successfully pushed all attempted fields
+            // (and weren't flagged as failures or conflicts)
+            const successfullyClearedIds: number[] = [];
+            for (const [specId, pushedFields] of successfulPushes) {
+              // Check if this specimen had any failures
+              if (specimenPushFailures.includes(specId)) continue;
+              
+              // Check how many fields we attempted to push for this specimen
+              const attemptedFields = fieldPushes.filter(f => f.specId === specId);
+              
+              // If we successfully pushed all attempted fields, clear the conflict flag
+              if (pushedFields.size >= attemptedFields.length) {
+                successfullyClearedIds.push(specId);
+              }
+            }
+            
+            if (successfullyClearedIds.length > 0) {
+              console.log(`[BulkRefresh Push] Clearing conflict flags for ${successfullyClearedIds.length} specimens with successful pushes`);
+              for (const specId of successfullyClearedIds) {
+                await db.update(specimens)
+                  .set({ inatFieldConflict: null })
+                  .where(eq(specimens.id, specId));
+              }
+            }
+            
             // Update observation cache with successfully pushed field values
             if (successfulPushes.size > 0) {
               console.log(`[BulkRefresh Push] Updating cache for ${successfulPushes.size} specimens with pushed values...`);
