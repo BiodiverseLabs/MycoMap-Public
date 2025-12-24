@@ -13216,16 +13216,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       // Apply conditions if any
+      // Order: MYCO # ascending first (those with MYCO- prefix), then by collection date descending
+      const orderByClause = sql`
+        CASE WHEN ${specimens.displayCode} LIKE 'MYCO-%' THEN 0 ELSE 1 END ASC,
+        ${specimens.displayCode} ASC,
+        ${specimens.collectionDate} DESC NULLS LAST
+      `;
+      
       let allSpecimens;
       if (conditions.length > 0) {
         allSpecimens = await db.select().from(specimens)
           .where(and(...conditions))
-          .orderBy(desc(specimens.createdAt))
+          .orderBy(orderByClause)
           .limit(limit)
           .offset(offset);
       } else {
         allSpecimens = await db.select().from(specimens)
-          .orderBy(desc(specimens.createdAt))
+          .orderBy(orderByClause)
           .limit(limit)
           .offset(offset);
       }
