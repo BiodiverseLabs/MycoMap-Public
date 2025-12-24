@@ -14208,7 +14208,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const finalCollectionDate = specimenUpdate.collectionDate || specimen.collectionDate;
           const finalState = specimenUpdate.state || specimen.state;
           const finalCountry = specimenUpdate.country || specimen.country;
-          const hasLocation = isPrivateLocation || finalState || finalCountry;
+          const finalLocality = specimenUpdate.locality || specimen.locality;
+          const hasLocation = isPrivateLocation || finalLocality || finalState || finalCountry;
           
           // Specimens marked as "Removed" should never get metadata flags
           const isRemovedSpecimen = finalScientificName === 'Removed' || finalCollectorName === 'Removed';
@@ -14264,7 +14265,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const finalCollectionDate = specimenUpdate.collectionDate || specimen.collectionDate;
           const finalState = specimenUpdate.state || specimen.state;
           const finalCountry = specimenUpdate.country || specimen.country;
-          const hasLocation = finalState || finalCountry;
+          const finalLocality = specimenUpdate.locality || specimen.locality;
+          const hasLocation = finalLocality || finalState || finalCountry;
           
           // Specimens marked as "Removed" should have their metadata flag cleared
           const isRemovedSpecimen = finalScientificName === 'Removed' || finalCollectorName === 'Removed';
@@ -14992,10 +14994,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const finalCollectionDate = specimenUpdate.collectionDate || spec.collectionDate;
             const finalState = specimenUpdate.state || spec.state;
             const finalCountry = specimenUpdate.country || spec.country;
+            const finalLocality = specimenUpdate.locality || spec.locality;
             
             // Private observations don't need location
             const isPrivateLocation = obs.geoprivacy === 'private';
-            const hasLocation = isPrivateLocation || finalState || finalCountry;
+            const hasLocation = isPrivateLocation || finalLocality || finalState || finalCountry;
             
             // Specimens marked as "Removed" should never get metadata flags
             const isRemovedSpecimen = finalScientificName === 'Removed' || finalCollectorName === 'Removed';
