@@ -15246,12 +15246,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
         } catch (fetchErr) {
           console.error(`[BulkRefresh] Fetch error:`, fetchErr);
+          // Mark batch as errors and advance past it to avoid infinite retry loop
           errors += batch.length;
           processed += batch.length;
+          
+          // Clamp to prevent exceeding total
+          processed = Math.min(processed, metadata.totalSpecimens!);
+          errors = Math.min(errors, metadata.totalSpecimens!);
         }
         
+        // Clamp values to prevent exceeding total (defensive)
+        processed = Math.min(processed, metadata.totalSpecimens!);
+        success = Math.min(success, metadata.totalSpecimens!);
+        errors = Math.min(errors, metadata.totalSpecimens! - success);
+        
         // Update progress
-        const progress = Math.round((processed / metadata.totalSpecimens!) * 100);
+        const progress = Math.min(100, Math.round((processed / metadata.totalSpecimens!) * 100));
         const lastSpecimen = batch[batch.length - 1];
         
         console.log(`[BulkRefresh] Progress: ${processed}/${metadata.totalSpecimens} (${progress}%)`);
