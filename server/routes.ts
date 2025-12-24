@@ -14213,6 +14213,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         dateTo: req.body.dateTo || '',
         hasSequence: req.body.hasSequence === true,
         pushEnabled: req.body.pushEnabled === true, // Default to false - pull only
+        ignoreRefreshDate: req.body.ignoreRefreshDate === true, // Refresh all filtered specimens
       };
       
       // Build filter conditions
@@ -14320,6 +14321,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         dateTo: '',
         hasSequence: false,
         pushEnabled: false, // Default to false - pull only
+        ignoreRefreshDate: false, // Default to respecting refresh dates
       };
       if (metadata.filterParams) {
         try {
@@ -14329,7 +14331,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
-      console.log(`[BulkRefresh] Push to iNaturalist: ${filterParams.pushEnabled ? 'ENABLED' : 'DISABLED'}`);
+      console.log(`[BulkRefresh] Options - Push: ${filterParams.pushEnabled ? 'YES' : 'NO'}, Ignore Refresh Date: ${filterParams.ignoreRefreshDate ? 'YES' : 'NO'}`);
       
       
       // Build filter conditions

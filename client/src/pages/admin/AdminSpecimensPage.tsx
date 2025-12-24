@@ -31,6 +31,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { 
   Search, 
   Filter,
@@ -162,6 +167,7 @@ export default function AdminSpecimensPage() {
   const [isPolling, setIsPolling] = useState(false);
   const [selectedFlag, setSelectedFlag] = useState("");
   const [pushToInat, setPushToInat] = useState(false); // Default to pull-only
+  const [ignoreRefreshDate, setIgnoreRefreshDate] = useState(false); // Include all filtered specimens
   const limit = 50;
   const { toast } = useToast();
   
@@ -278,7 +284,8 @@ export default function AdminSpecimensPage() {
         dateFrom,
         dateTo,
         hasSequence,
-        pushEnabled: pushToInat, // Include push preference
+        pushEnabled: pushToInat,
+        ignoreRefreshDate, // Refresh all filtered specimens regardless of last refresh
       };
       
       const res = await fetch('/api/admin/specimens/refresh/start', {
@@ -413,30 +420,66 @@ export default function AdminSpecimensPage() {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="push-to-inat"
-                    checked={pushToInat}
-                    onChange={(e) => setPushToInat(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300"
-                    data-testid="checkbox-push-to-inat"
-                  />
-                  <label htmlFor="push-to-inat" className="text-sm text-slate-600">
-                    Push MYCO data to iNaturalist
-                  </label>
-                </div>
-                <Button 
-                  onClick={startBulkRefresh} 
-                  variant="outline" 
-                  className="gap-2"
-                  data-testid="button-bulk-refresh"
-                >
-                  <Database className="w-4 h-4" />
-                  {pushToInat ? "Sync with iNat (Pull + Push)" : "Refresh from iNat (Pull Only)"}
-                </Button>
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="gap-2"
+                    data-testid="button-bulk-refresh-menu"
+                  >
+                    <Database className="w-4 h-4" />
+                    Refresh from iNat
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72" align="end">
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-sm">Refresh Options</h4>
+                    
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="ignore-refresh-date"
+                        checked={ignoreRefreshDate}
+                        onCheckedChange={(checked) => setIgnoreRefreshDate(checked === true)}
+                        data-testid="checkbox-ignore-refresh-date"
+                      />
+                      <div className="grid gap-1">
+                        <Label htmlFor="ignore-refresh-date" className="text-sm font-medium cursor-pointer">
+                          Ignore Previous Refresh Date
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Refresh all filtered specimens, not just stale ones
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="push-to-inat"
+                        checked={pushToInat}
+                        onCheckedChange={(checked) => setPushToInat(checked === true)}
+                        data-testid="checkbox-push-to-inat"
+                      />
+                      <div className="grid gap-1">
+                        <Label htmlFor="push-to-inat" className="text-sm font-medium cursor-pointer">
+                          Push MYCO Numbers to iNat
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Only pushes specimens with valid MYCO numbers
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      onClick={startBulkRefresh} 
+                      className="w-full gap-2"
+                      data-testid="button-start-refresh"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Start Refresh
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
             
             {refreshStatus?.lastRefreshAt && refreshStatus.syncStatus !== 'syncing' && (
