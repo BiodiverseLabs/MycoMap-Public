@@ -13513,9 +13513,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           flags.push('duplicate_inat');
         }
         
-        // Compute push_incomplete dynamically
+        // Compute push_incomplete dynamically - ONLY for iNat records
         let hasPushIncomplete = false;
-        if (cache) {
+        const isInatRecord = spec.primaryObservationSource === 'inat';
+        
+        if (isInatRecord && cache) {
           const herbariumCatalog = cache.herbariumCatalogNumber || '';
           const herbariumName = cache.herbariumName || '';
           const mycoNum = spec.mycoNumber;
@@ -13528,7 +13530,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           else if (herbariumCatalog.includes('MYCO') && !herbariumName) {
             hasPushIncomplete = true;
           }
-        } else if (spec.mycoNumber && spec.primaryObservationId) {
+        } else if (isInatRecord && spec.mycoNumber && spec.primaryObservationId) {
           // Has MYCO number but no cache data - definitely push incomplete
           hasPushIncomplete = true;
         }
@@ -13752,9 +13754,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         validationFlags.push('duplicate_inat');
       }
       
-      // Compute push_incomplete dynamically
+      // Compute push_incomplete dynamically - ONLY for iNat records
       let hasPushIncomplete = false;
-      if (observationData) {
+      const isInatRecord = specimen.primaryObservationSource === 'inat';
+      
+      if (isInatRecord && observationData) {
         const herbariumCatalog = observationData.herbariumCatalogNumber || '';
         const herbariumName = observationData.herbariumName || '';
         const mycoNum = specimen.mycoNumber;
@@ -13767,7 +13771,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         else if (herbariumCatalog.includes('MYCO') && !herbariumName) {
           hasPushIncomplete = true;
         }
-      } else if (specimen.mycoNumber && specimen.primaryObservationId) {
+      } else if (isInatRecord && specimen.mycoNumber && specimen.primaryObservationId) {
         // Has MYCO number but no cache data - definitely push incomplete
         hasPushIncomplete = true;
       }
