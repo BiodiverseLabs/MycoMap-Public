@@ -161,6 +161,7 @@ export default function AdminSpecimensPage() {
   const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [selectedFlag, setSelectedFlag] = useState("");
+  const [pushToInat, setPushToInat] = useState(false); // Default to pull-only
   const limit = 50;
   const { toast } = useToast();
   
@@ -277,6 +278,7 @@ export default function AdminSpecimensPage() {
         dateFrom,
         dateTo,
         hasSequence,
+        pushEnabled: pushToInat, // Include push preference
       };
       
       const res = await fetch('/api/admin/specimens/refresh/start', {
@@ -411,15 +413,30 @@ export default function AdminSpecimensPage() {
                 </Button>
               </div>
             ) : (
-              <Button 
-                onClick={startBulkRefresh} 
-                variant="outline" 
-                className="gap-2"
-                data-testid="button-bulk-refresh"
-              >
-                <Database className="w-4 h-4" />
-                Refresh All from iNat
-              </Button>
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="push-to-inat"
+                    checked={pushToInat}
+                    onChange={(e) => setPushToInat(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300"
+                    data-testid="checkbox-push-to-inat"
+                  />
+                  <label htmlFor="push-to-inat" className="text-sm text-slate-600">
+                    Push MYCO data to iNaturalist
+                  </label>
+                </div>
+                <Button 
+                  onClick={startBulkRefresh} 
+                  variant="outline" 
+                  className="gap-2"
+                  data-testid="button-bulk-refresh"
+                >
+                  <Database className="w-4 h-4" />
+                  {pushToInat ? "Sync with iNat (Pull + Push)" : "Refresh from iNat (Pull Only)"}
+                </Button>
+              </div>
             )}
             
             {refreshStatus?.lastRefreshAt && refreshStatus.syncStatus !== 'syncing' && (

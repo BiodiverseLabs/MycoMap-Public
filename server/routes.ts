@@ -13907,6 +13907,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .where(eq(specimens.id, specimenId));
       
       // TWO-WAY SYNC: Push MYCO data to iNaturalist if conditions are met
+      // CRITICAL: Only push if specimen has a valid MYCO number - never use displayCode/voucherNumber
       let inatPushResult: { 
         pushed: boolean; 
         herbariumNamePushed?: boolean;
@@ -13914,9 +13915,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         conflict?: string;
       } = { pushed: false };
       
-      // Use herbariumAccessionNumber if set, otherwise fall back to displayCode
-      const mycoAccession = specimen.herbariumAccessionNumber || specimen.displayCode;
-      console.log(`[iNat Push] Checking push for ${specimen.primaryObservationId}: mycoAccession=${mycoAccession}, hasToken=${!!process.env.INATURALIST_API_TOKEN}`);
+      // Only use actual MYCO number - never fallback to displayCode or voucherNumber
+      const hasValidMycoNumber = specimen.mycoNumber != null;
+      const mycoAccession = hasValidMycoNumber ? `MYCO-${specimen.mycoNumber}` : null;
+      console.log(`[iNat Push] Checking push for ${specimen.primaryObservationId}: mycoNumber=${specimen.mycoNumber}, mycoAccession=${mycoAccession}, hasToken=${!!process.env.INATURALIST_API_TOKEN}`);
       if (mycoAccession && process.env.INATURALIST_API_TOKEN) {
         const conflicts: string[] = [];
         const pushUpdates: { field_id: number; value: string }[] = [];
@@ -14210,6 +14212,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         dateFrom: req.body.dateFrom || '',
         dateTo: req.body.dateTo || '',
         hasSequence: req.body.hasSequence === true,
+        pushEnabled: req.body.pushEnabled === true, // Default to false - pull only
       };
       
       // Build filter conditions
@@ -14316,6 +14319,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         dateFrom: '',
         dateTo: '',
         hasSequence: false,
+        pushEnabled: false, // Default to false - pull only
       };
       if (metadata.filterParams) {
         try {
@@ -14324,6 +14328,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           console.log(`[BulkRefresh] No valid filter params, using defaults`);
         }
       }
+      
+      console.log(`[BulkRefresh] Push to iNaturalist: ${filterParams.pushEnabled ? 'ENABLED' : 'DISABLED'}`);
+      
       
       // Build filter conditions
       const conditions = buildSpecimenFilterConditions(filterParams);
@@ -14630,9 +14637,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
           
           // TWO-WAY SYNC: Push MYCO data to iNaturalist if conditions are met
+          // Only runs if pushEnabled is true AND specimen has a valid MYCO number
           // Uses individual observation_field_values API (v1 PUT doesn't support batched fields)
           const inatToken = process.env.INATURALIST_API_TOKEN;
-          if (inatToken) {
+          if (inatToken && filterParams.pushEnabled) {
             const PUSH_CONCURRENCY = 5; // Run 5 field updates in parallel
             let pushCount = 0;
             
@@ -14651,8 +14659,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               const obs = resultsMap.get(spec.primaryObservationId!);
               if (!obs) continue;
               
-              const mycoAccession = spec.herbariumAccessionNumber || spec.displayCode;
-              if (!mycoAccession) continue;
+              // CRITICAL: Only push if specimen has a valid MYCO number
+              // Never use displayCode or voucherNumber as fallback
+              if (!spec.mycoNumber) {
+                continue; // Skip specimens without MYCO numbers - nothing to push
+              }
+              
+              // Format MYCO accession properly
+              const mycoAccession = `MYCO-${spec.mycoNumber}`;
               
               const existingOfvs = obs.ofvs || [];
               const getOfvId = (fieldId: number) => existingOfvs.find((f: any) => f.field_id === fieldId)?.id || null;
