@@ -15705,7 +15705,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         query = db.select(selectFields)
         .from(specimens)
         .innerJoin(observationCache, and(
-          eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
+          sql`${observationCache.source} = ${specimens.primaryObservationSource}::text`,
           eq(observationCache.sourceObservationId, specimens.primaryObservationId)
         ))
         .where(conditions.length > 0 ? and(...conditions, isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`) : and(isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`))
@@ -15716,7 +15716,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         query = db.select(selectFields)
         .from(specimens)
         .leftJoin(observationCache, and(
-          eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
+          sql`${observationCache.source} = ${specimens.primaryObservationSource}::text`,
           eq(observationCache.sourceObservationId, specimens.primaryObservationId)
         ))
         .where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -15733,7 +15733,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         countQuery = db.select({ count: sql<number>`count(*)` })
           .from(specimens)
           .innerJoin(observationCache, and(
-            eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
+            sql`${observationCache.source} = ${specimens.primaryObservationSource}::text`,
             eq(observationCache.sourceObservationId, specimens.primaryObservationId)
           ))
           .where(conditions.length > 0 ? and(...conditions, isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`) : and(isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`));
