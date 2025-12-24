@@ -66,6 +66,38 @@ interface Specimen {
   createdAt: string;
 }
 
+interface ObservationData {
+  sourceUuid: string | null;
+  commonName: string | null;
+  observerName: string | null;
+  observerUsername: string | null;
+  qualityGrade: string | null;
+  voucherNumber: string | null;
+  voucherNumberMultiple: string | null;
+  provisionalSpeciesName: string | null;
+  speciesNameOverride: string | null;
+  collectorsName: string | null;
+  herbariumName: string | null;
+  herbariumCatalogNumber: string | null;
+  genbankAccession: string | null;
+  genbankNumberUrl: string | null;
+  mycomapBlastResults: string | null;
+  traceFiles: string | null;
+  dnaBarcodIts: string | null;
+  readsInConsensus: string | null;
+  coordinatesObscured: boolean;
+  lastSyncedAt: string | null;
+}
+
+interface Photo {
+  id: number;
+  thumbnailUrl: string | null;
+  mediumUrl: string | null;
+  largeUrl: string | null;
+  originalUrl: string | null;
+  attribution: string | null;
+}
+
 interface SpecimenDetail extends Specimen {
   sources: Array<{
     id: number;
@@ -83,6 +115,8 @@ interface SpecimenDetail extends Specimen {
     performedAt: string;
     performedByName: string | null;
   }>;
+  observationData: ObservationData | null;
+  photos: Photo[];
 }
 
 interface SpecimensResponse {
@@ -368,18 +402,52 @@ export default function AdminSpecimensPage() {
             <div className="p-8 text-center text-slate-500">Loading...</div>
           ) : specimenDetail ? (
             <div className="space-y-6">
+              {/* Photo and basic info header */}
+              <div className="flex gap-4">
+                {specimenDetail.photos && specimenDetail.photos.length > 0 ? (
+                  <div className="shrink-0">
+                    <img
+                      src={specimenDetail.photos[0].mediumUrl || specimenDetail.photos[0].thumbnailUrl || ''}
+                      alt={specimenDetail.scientificName || 'Specimen photo'}
+                      className="w-32 h-32 object-cover rounded-lg border"
+                      data-testid="img-specimen-photo"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 bg-slate-100 rounded-lg border flex items-center justify-center text-slate-400 shrink-0">
+                    <span className="text-xs text-center">No photo</span>
+                  </div>
+                )}
+                <div className="flex-1 space-y-2">
+                  <div>
+                    <p className="font-medium italic text-lg">{specimenDetail.scientificName || "Unknown"}</p>
+                    {specimenDetail.observationData?.commonName && (
+                      <p className="text-slate-600">{specimenDetail.observationData.commonName}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {specimenDetail.family && <Badge variant="outline">{specimenDetail.family}</Badge>}
+                    {specimenDetail.genus && <Badge variant="outline">{specimenDetail.genus}</Badge>}
+                    {specimenDetail.observationData?.qualityGrade && (
+                      <Badge variant={specimenDetail.observationData.qualityGrade === 'research' ? 'default' : 'secondary'}>
+                        {specimenDetail.observationData.qualityGrade}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Collection metadata */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Scientific Name</p>
-                  <p className="font-medium italic">{specimenDetail.scientificName || "Unknown"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Family</p>
-                  <p className="font-medium">{specimenDetail.family || "-"}</p>
-                </div>
-                <div>
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Collector</p>
-                  <p className="font-medium">{specimenDetail.collectorName || "-"}</p>
+                  <p className="font-medium">
+                    {specimenDetail.observationData?.collectorsName || specimenDetail.collectorName || 
+                     specimenDetail.observationData?.observerName || "-"}
+                  </p>
+                  {specimenDetail.observationData?.observerUsername && (
+                    <p className="text-xs text-slate-500">@{specimenDetail.observationData.observerUsername}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Collection Date</p>
@@ -392,11 +460,30 @@ export default function AdminSpecimensPage() {
                 <div className="col-span-2">
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Locality</p>
                   <p className="font-medium">{specimenDetail.locality || "-"}</p>
+                  {specimenDetail.state || specimenDetail.country ? (
+                    <p className="text-sm text-slate-500">{[specimenDetail.state, specimenDetail.country].filter(Boolean).join(", ")}</p>
+                  ) : null}
                 </div>
+              </div>
+
+              {/* Herbarium & Lab info */}
+              <div className="grid grid-cols-2 gap-4">
                 {specimenDetail.herbariumAccessionNumber && (
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">MYCO Accession #</p>
                     <p className="font-mono font-bold text-[#8CBD45]">{specimenDetail.herbariumAccessionNumber}</p>
+                  </div>
+                )}
+                {specimenDetail.labCode && (
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Lab Code</p>
+                    <p className="font-mono">{specimenDetail.labCode}</p>
+                  </div>
+                )}
+                {specimenDetail.voucherNumber && (
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Voucher Number</p>
+                    <p className="font-mono">{specimenDetail.voucherNumber}</p>
                   </div>
                 )}
                 {specimenDetail.storageLocation && (
@@ -413,8 +500,75 @@ export default function AdminSpecimensPage() {
                 )}
               </div>
 
+              {/* iNaturalist Observation Fields */}
+              {specimenDetail.observationData && (
+                <div className="border-t pt-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">iNaturalist Observation Fields</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {specimenDetail.observationData.provisionalSpeciesName && (
+                      <div>
+                        <p className="text-xs text-slate-400">Provisional Species Name</p>
+                        <p className="font-medium italic">{specimenDetail.observationData.provisionalSpeciesName}</p>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.speciesNameOverride && (
+                      <div>
+                        <p className="text-xs text-slate-400">Species Name Override</p>
+                        <p className="font-medium italic">{specimenDetail.observationData.speciesNameOverride}</p>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.herbariumName && (
+                      <div>
+                        <p className="text-xs text-slate-400">Herbarium Name</p>
+                        <p className="font-medium">{specimenDetail.observationData.herbariumName}</p>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.herbariumCatalogNumber && (
+                      <div>
+                        <p className="text-xs text-slate-400">Herbarium Catalog #</p>
+                        <p className="font-mono">{specimenDetail.observationData.herbariumCatalogNumber}</p>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.dnaBarcodIts && (
+                      <div className="col-span-2">
+                        <p className="text-xs text-slate-400">DNA Barcode ITS</p>
+                        <p className="font-mono text-xs break-all bg-slate-50 p-1 rounded">{specimenDetail.observationData.dnaBarcodIts}</p>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.genbankAccession && (
+                      <div>
+                        <p className="text-xs text-slate-400">GenBank Accession</p>
+                        <p className="font-mono">{specimenDetail.observationData.genbankAccession}</p>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.mycomapBlastResults && (
+                      <div className="col-span-2">
+                        <p className="text-xs text-slate-400">MycoMap BLAST Results</p>
+                        <a href={specimenDetail.observationData.mycomapBlastResults} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                          View BLAST Results
+                        </a>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.traceFiles && (
+                      <div className="col-span-2">
+                        <p className="text-xs text-slate-400">Trace Files</p>
+                        <a href={specimenDetail.observationData.traceFiles} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                          View Trace Files
+                        </a>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.readsInConsensus && (
+                      <div>
+                        <p className="text-xs text-slate-400">Reads in Consensus</p>
+                        <p className="font-mono">{specimenDetail.observationData.readsInConsensus}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {specimenDetail.sources && specimenDetail.sources.length > 0 && (
-                <div>
+                <div className="border-t pt-4">
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">External References</p>
                   <div className="space-y-2">
                     {specimenDetail.sources.map((source) => (
@@ -443,7 +597,7 @@ export default function AdminSpecimensPage() {
               )}
 
               {specimenDetail.events && specimenDetail.events.length > 0 && (
-                <div>
+                <div className="border-t pt-4">
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Event History</p>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {specimenDetail.events.map((event) => (

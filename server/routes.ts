@@ -11775,15 +11775,41 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     updatedAt: new Date(),
                   };
                   
+                  let cacheId: number;
                   if (existingCache.length > 0) {
+                    cacheId = existingCache[0].id;
                     await db.update(observationCache)
                       .set(cacheData)
-                      .where(eq(observationCache.id, existingCache[0].id));
+                      .where(eq(observationCache.id, cacheId));
                   } else {
-                    await db.insert(observationCache).values({
+                    const [inserted] = await db.insert(observationCache).values({
                       ...cacheData,
                       createdAt: new Date(),
-                    });
+                    }).returning({ id: observationCache.id });
+                    cacheId = inserted.id;
+                  }
+                  
+                  // Store photos in observation_media
+                  if (obs.photos && obs.photos.length > 0) {
+                    // Delete existing photos for this cache entry
+                    await db.delete(observationMedia).where(eq(observationMedia.observationCacheId, cacheId));
+                    
+                    // Insert new photos
+                    for (let photoIdx = 0; photoIdx < obs.photos.length; photoIdx++) {
+                      const photo = obs.photos[photoIdx];
+                      await db.insert(observationMedia).values({
+                        observationCacheId: cacheId,
+                        mediaType: 'photo',
+                        url: photo.url || '',
+                        thumbnailUrl: photo.url?.replace('/square.', '/thumb.') || photo.url || null,
+                        mediumUrl: photo.url?.replace('/square.', '/medium.') || null,
+                        largeUrl: photo.url?.replace('/square.', '/large.') || null,
+                        originalUrl: photo.url?.replace('/square.', '/original.') || null,
+                        licenseCode: photo.license_code || null,
+                        attribution: photo.attribution || null,
+                        sortOrder: photoIdx,
+                      });
+                    }
                   }
                   
                   // Extract state and country from observation
@@ -13474,7 +13500,61 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .orderBy(desc(specimenEvents.performedAt))
         .limit(50);
       
-      res.json({ ...specimen, sources, events });
+      // Get observation cache data if linked
+      let observationData = null;
+      let photos: any[] = [];
+      
+      if (specimen.primaryObservationSource && specimen.primaryObservationId) {
+        const sourceMap: Record<string, string> = { inat: 'inat', mo: 'mo', mycoportal: 'mycoportal' };
+        const cacheSource = sourceMap[specimen.primaryObservationSource] || specimen.primaryObservationSource;
+        
+        const [cache] = await db.select().from(observationCache)
+          .where(and(
+            eq(observationCache.source, cacheSource as any),
+            eq(observationCache.sourceObservationId, specimen.primaryObservationId)
+          ))
+          .limit(1);
+        
+        if (cache) {
+          observationData = {
+            sourceUuid: cache.sourceUuid,
+            commonName: cache.commonName,
+            observerName: cache.observerName,
+            observerUsername: cache.observerUsername,
+            qualityGrade: cache.qualityGrade,
+            voucherNumber: cache.voucherNumber,
+            voucherNumberMultiple: cache.voucherNumberMultiple,
+            provisionalSpeciesName: cache.provisionalSpeciesName,
+            speciesNameOverride: cache.speciesNameOverride,
+            collectorsName: cache.collectorsName,
+            herbariumName: cache.herbariumName,
+            herbariumCatalogNumber: cache.herbariumCatalogNumber,
+            genbankAccession: cache.genbankAccession,
+            genbankNumberUrl: cache.genbankNumberUrl,
+            mycomapBlastResults: cache.mycomapBlastResults,
+            traceFiles: cache.traceFiles,
+            dnaBarcodIts: cache.dnaBarcodIts,
+            readsInConsensus: cache.readsInConsensus,
+            coordinatesObscured: cache.coordinatesObscured,
+            lastSyncedAt: cache.lastSyncedAt,
+          };
+          
+          // Get photos from observation_media
+          photos = await db.select({
+            id: observationMedia.id,
+            thumbnailUrl: observationMedia.thumbnailUrl,
+            mediumUrl: observationMedia.mediumUrl,
+            largeUrl: observationMedia.largeUrl,
+            originalUrl: observationMedia.originalUrl,
+            attribution: observationMedia.attribution,
+          })
+            .from(observationMedia)
+            .where(eq(observationMedia.observationCacheId, cache.id))
+            .orderBy(observationMedia.sortOrder);
+        }
+      }
+      
+      res.json({ ...specimen, sources, events, observationData, photos });
     } catch (error) {
       console.error("Error fetching specimen:", error);
       res.status(500).json({ error: "Failed to fetch specimen" });
@@ -13584,15 +13664,41 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         ))
         .limit(1);
       
+      let cacheId: number;
       if (existingCache.length > 0) {
+        cacheId = existingCache[0].id;
         await db.update(observationCache)
           .set(cacheData)
-          .where(eq(observationCache.id, existingCache[0].id));
+          .where(eq(observationCache.id, cacheId));
       } else {
-        await db.insert(observationCache).values({
+        const [inserted] = await db.insert(observationCache).values({
           ...cacheData,
           createdAt: new Date(),
-        });
+        }).returning({ id: observationCache.id });
+        cacheId = inserted.id;
+      }
+      
+      // Store photos in observation_media
+      if (obs.photos && obs.photos.length > 0) {
+        // Delete existing photos for this cache entry
+        await db.delete(observationMedia).where(eq(observationMedia.observationCacheId, cacheId));
+        
+        // Insert new photos
+        for (let photoIdx = 0; photoIdx < obs.photos.length; photoIdx++) {
+          const photo = obs.photos[photoIdx];
+          await db.insert(observationMedia).values({
+            observationCacheId: cacheId,
+            mediaType: 'photo',
+            url: photo.url || '',
+            thumbnailUrl: photo.url?.replace('/square.', '/thumb.') || photo.url || null,
+            mediumUrl: photo.url?.replace('/square.', '/medium.') || null,
+            largeUrl: photo.url?.replace('/square.', '/large.') || null,
+            originalUrl: photo.url?.replace('/square.', '/original.') || null,
+            licenseCode: photo.license_code || null,
+            attribution: photo.attribution || null,
+            sortOrder: photoIdx,
+          });
+        }
       }
       
       // Update specimen with data from observation
