@@ -13215,7 +13215,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         conditions.push(eq(specimens.currentStatus, status));
       }
       
-      // Apply conditions if any
+      // Add search filter at database level
+      if (searchTerm) {
+        const searchPattern = `%${searchTerm}%`;
+        conditions.push(
+          or(
+            sql`${specimens.displayCode} ILIKE ${searchPattern}`,
+            sql`${specimens.scientificName} ILIKE ${searchPattern}`,
+            sql`${specimens.voucherNumber} ILIKE ${searchPattern}`,
+            sql`${specimens.collectorName} ILIKE ${searchPattern}`,
+            sql`${specimens.locality} ILIKE ${searchPattern}`,
+            sql`${specimens.primaryObservationId} ILIKE ${searchPattern}`,
+            sql`${specimens.labCode} ILIKE ${searchPattern}`
+          )
+        );
+      }
+      
       // Order: MYCO # ascending first (those with MYCO- prefix), then by collection date descending
       const orderByClause = sql`
         CASE WHEN ${specimens.displayCode} LIKE 'MYCO-%' THEN 0 ELSE 1 END ASC,
@@ -13237,27 +13252,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           .offset(offset);
       }
       
-      // Apply search filter in-memory (name-first pattern)
-      let filteredSpecimens = allSpecimens;
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        const nameMatches = allSpecimens.filter(s => 
-          s.displayCode?.toLowerCase().includes(searchLower) ||
-          s.scientificName?.toLowerCase().includes(searchLower)
-        );
-        
-        if (nameMatches.length > 0) {
-          filteredSpecimens = nameMatches;
-        } else {
-          filteredSpecimens = allSpecimens.filter(s =>
-            s.voucherNumber?.toLowerCase().includes(searchLower) ||
-            s.collectorName?.toLowerCase().includes(searchLower) ||
-            s.locality?.toLowerCase().includes(searchLower) ||
-            s.primaryObservationId?.toLowerCase().includes(searchLower)
-          );
-        }
-      }
-      
       // Get total count with same filters
       let countQuery;
       if (conditions.length > 0) {
@@ -13268,7 +13262,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const total = Number(countQuery?.count || 0);
       
       res.json({
-        specimens: filteredSpecimens,
+        specimens: allSpecimens,
         total,
         limit,
         offset,
