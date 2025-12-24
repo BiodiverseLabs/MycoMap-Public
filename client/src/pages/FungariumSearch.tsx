@@ -119,6 +119,7 @@ export default function FungariumSearch() {
     { value: "check_specimen", label: "Check Specimen" },
     { value: "metadata", label: "Missing Metadata" },
     { value: "push_incomplete", label: "Push Incomplete" },
+    { value: "unexpected_catalog", label: "Unexpected Catalog" },
     { value: "duplicate_inat", label: "Duplicate iNat" },
     { value: "herbarium_catalog_conflict", label: "Catalog Conflict" },
     { value: "herbarium_name_conflict", label: "Name Conflict" },
