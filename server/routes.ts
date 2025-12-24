@@ -2,7 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa, shippingDestinations, insertShippingDestinationSchema } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa, shippingDestinations, insertShippingDestinationSchema, specimenRefreshMetadata } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -13926,6 +13926,393 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       res.status(500).json({ error: "Failed to refresh specimen" });
     }
   });
+
+  // =============================================
+  // BULK SPECIMEN REFRESH ENDPOINTS
+  // =============================================
+
+  // Track active bulk refresh state
+  let bulkRefreshActive = false;
+  let bulkRefreshCancelled = false;
+
+  // Get bulk refresh status
+  app.get("/api/admin/specimens/refresh/status", isAdmin, async (req: any, res) => {
+    try {
+      const [metadata] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
+      
+      if (!metadata) {
+        return res.json({
+          syncStatus: 'idle',
+          syncProgress: 0,
+          totalSpecimens: 0,
+          processedCount: 0,
+          successCount: 0,
+          errorCount: 0,
+          syncMessage: null,
+          lastRefreshAt: null,
+        });
+      }
+      
+      res.json(metadata);
+    } catch (error) {
+      console.error("Error fetching bulk refresh status:", error);
+      res.status(500).json({ error: "Failed to fetch refresh status" });
+    }
+  });
+
+  // Start bulk refresh
+  app.post("/api/admin/specimens/refresh/start", isAdmin, async (req: any, res) => {
+    try {
+      // Check if already running
+      const [existing] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
+      
+      if (existing && existing.syncStatus === 'syncing') {
+        return res.json({ status: 'already_syncing', message: 'Bulk refresh is already in progress' });
+      }
+      
+      // Count iNat-linked specimens
+      const [countResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .where(eq(specimens.primaryObservationSource, 'inat'));
+      const totalSpecimens = Number(countResult?.count || 0);
+      
+      if (totalSpecimens === 0) {
+        return res.json({ status: 'error', message: 'No iNaturalist-linked specimens found' });
+      }
+      
+      // Create or update metadata record
+      const startId = existing?.lastProcessedId && existing.syncStatus !== 'completed' ? existing.lastProcessedId : 0;
+      
+      if (existing) {
+        await db.update(specimenRefreshMetadata)
+          .set({
+            totalSpecimens,
+            processedCount: startId > 0 ? existing.processedCount : 0,
+            successCount: startId > 0 ? existing.successCount : 0,
+            errorCount: startId > 0 ? existing.errorCount : 0,
+            lastProcessedId: startId,
+            syncStatus: 'syncing',
+            syncProgress: startId > 0 ? existing.syncProgress : 0,
+            syncMessage: startId > 0 ? 'Resuming refresh...' : 'Starting refresh...',
+            updatedAt: new Date(),
+          })
+          .where(eq(specimenRefreshMetadata.id, existing.id));
+      } else {
+        await db.insert(specimenRefreshMetadata).values({
+          totalSpecimens,
+          processedCount: 0,
+          successCount: 0,
+          errorCount: 0,
+          lastProcessedId: 0,
+          syncStatus: 'syncing',
+          syncProgress: 0,
+          syncMessage: 'Starting refresh...',
+        });
+      }
+      
+      // Start background processing
+      bulkRefreshActive = true;
+      bulkRefreshCancelled = false;
+      processBulkRefresh();
+      
+      res.json({ status: 'started', message: `Starting refresh of ${totalSpecimens} specimens` });
+    } catch (error) {
+      console.error("Error starting bulk refresh:", error);
+      res.status(500).json({ error: "Failed to start bulk refresh" });
+    }
+  });
+
+  // Cancel bulk refresh
+  app.post("/api/admin/specimens/refresh/cancel", isAdmin, async (req: any, res) => {
+    try {
+      bulkRefreshCancelled = true;
+      
+      const [metadata] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
+      
+      if (metadata) {
+        await db.update(specimenRefreshMetadata)
+          .set({
+            syncStatus: 'cancelled',
+            syncMessage: 'Cancelled by user',
+            updatedAt: new Date(),
+          })
+          .where(eq(specimenRefreshMetadata.id, metadata.id));
+      }
+      
+      res.json({ status: 'cancelled', message: 'Bulk refresh cancelled' });
+    } catch (error) {
+      console.error("Error cancelling bulk refresh:", error);
+      res.status(500).json({ error: "Failed to cancel bulk refresh" });
+    }
+  });
+
+  // Background bulk refresh processor
+  async function processBulkRefresh() {
+    const BATCH_SIZE = 10;
+    const DELAY_MS = 1000; // 1 second between batches to avoid rate limiting
+    
+    try {
+      const [metadata] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
+      if (!metadata) return;
+      
+      // Get all iNat-linked specimens ordered by ID
+      const allSpecimens = await db.select({ id: specimens.id, primaryObservationId: specimens.primaryObservationId })
+        .from(specimens)
+        .where(and(
+          eq(specimens.primaryObservationSource, 'inat'),
+          isNotNull(specimens.primaryObservationId)
+        ))
+        .orderBy(specimens.id);
+      
+      let processed = metadata.processedCount || 0;
+      let success = metadata.successCount || 0;
+      let errors = metadata.errorCount || 0;
+      let lastId = metadata.lastProcessedId || 0;
+      
+      // Find starting index
+      let startIndex = 0;
+      if (lastId > 0) {
+        startIndex = allSpecimens.findIndex(s => s.id > lastId);
+        if (startIndex === -1) startIndex = allSpecimens.length;
+      }
+      
+      for (let i = startIndex; i < allSpecimens.length; i += BATCH_SIZE) {
+        if (bulkRefreshCancelled) {
+          await db.update(specimenRefreshMetadata)
+            .set({
+              syncStatus: 'cancelled',
+              syncMessage: `Cancelled at ${processed}/${metadata.totalSpecimens} specimens`,
+              updatedAt: new Date(),
+            })
+            .where(eq(specimenRefreshMetadata.id, metadata.id));
+          bulkRefreshActive = false;
+          return;
+        }
+        
+        const batch = allSpecimens.slice(i, i + BATCH_SIZE);
+        
+        for (const spec of batch) {
+          try {
+            // Fetch from iNaturalist API
+            const inatUrl = `https://api.inaturalist.org/v1/observations/${spec.primaryObservationId}`;
+            const response = await fetch(inatUrl);
+            
+            if (response.status === 429) {
+              // Rate limited - pause and update status
+              await db.update(specimenRefreshMetadata)
+                .set({
+                  syncStatus: 'rate_limited',
+                  syncMessage: `Rate limited at ${processed}/${metadata.totalSpecimens}. Wait 2 min and resume.`,
+                  lastProcessedId: spec.id,
+                  processedCount: processed,
+                  successCount: success,
+                  errorCount: errors,
+                  syncProgress: Math.round((processed / metadata.totalSpecimens!) * 100),
+                  updatedAt: new Date(),
+                })
+                .where(eq(specimenRefreshMetadata.id, metadata.id));
+              bulkRefreshActive = false;
+              return;
+            }
+            
+            if (!response.ok) {
+              errors++;
+              processed++;
+              continue;
+            }
+            
+            const data = await response.json();
+            
+            if (!data.results || data.results.length === 0) {
+              errors++;
+              processed++;
+              continue;
+            }
+            
+            const obs = data.results[0];
+            
+            // Extract observation fields
+            const observationFields = obs.ofvs || [];
+            const getField = (fieldId: number) => observationFields.find((f: any) => f.field_id === fieldId)?.value || null;
+            
+            const voucherNumber = getField(8257);
+            const voucherNumberMultiple = getField(2863);
+            const herbariumName = getField(9539);
+            const herbariumCatalogNumber = getField(9540);
+            const genbankAccession = getField(7555);
+            const genbankNumberUrl = getField(4191);
+            const provisionalSpeciesName = getField(10675);
+            const mycomapBlastResults = getField(9864);
+            const traceFiles = getField(10109);
+            const dnaBarcodIts = getField(2330);
+            const readsInConsensus = getField(16718);
+            const speciesNameOverride = getField(20259);
+            const collectorsName = getField(9051);
+            
+            // Update observation cache
+            const cacheData = {
+              source: 'inat' as const,
+              sourceObservationId: spec.primaryObservationId!,
+              sourceUuid: obs.uuid || null,
+              scientificName: obs.taxon?.name || obs.species_guess || null,
+              commonName: obs.taxon?.preferred_common_name || null,
+              observerName: obs.user?.name || null,
+              observerUsername: obs.user?.login || null,
+              observerId: obs.user?.id?.toString() || null,
+              latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+              longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+              coordinatesObscured: obs.obscured || false,
+              positionalAccuracy: obs.positional_accuracy || null,
+              placeGuess: obs.place_guess || null,
+              locality: obs.place_guess || null,
+              observedOn: obs.observed_on || null,
+              observedOnString: obs.observed_on_string || null,
+              qualityGrade: obs.quality_grade || null,
+              identificationCount: obs.identifications_count || 0,
+              captive: obs.captive || false,
+              licenseCode: obs.license_code || null,
+              voucherNumber,
+              voucherNumberMultiple,
+              herbariumName,
+              herbariumCatalogNumber,
+              genbankAccession,
+              genbankNumberUrl,
+              provisionalSpeciesName,
+              mycomapBlastResults,
+              traceFiles,
+              dnaBarcodIts,
+              readsInConsensus,
+              speciesNameOverride,
+              collectorsName,
+              apiResponseJson: JSON.stringify(data),
+              lastSyncedAt: new Date(),
+              syncStatus: 'success',
+              updatedAt: new Date(),
+            };
+            
+            // Upsert into observation_cache
+            const existingCache = await db.select().from(observationCache)
+              .where(and(
+                eq(observationCache.source, 'inat'),
+                eq(observationCache.sourceObservationId, spec.primaryObservationId!)
+              ))
+              .limit(1);
+            
+            let cacheId: number;
+            if (existingCache.length > 0) {
+              cacheId = existingCache[0].id;
+              await db.update(observationCache)
+                .set(cacheData)
+                .where(eq(observationCache.id, cacheId));
+            } else {
+              const [inserted] = await db.insert(observationCache).values({
+                ...cacheData,
+                createdAt: new Date(),
+              }).returning({ id: observationCache.id });
+              cacheId = inserted.id;
+            }
+            
+            // Update photos
+            if (obs.photos && obs.photos.length > 0) {
+              await db.delete(observationMedia).where(eq(observationMedia.observationCacheId, cacheId));
+              
+              for (let photoIdx = 0; photoIdx < obs.photos.length; photoIdx++) {
+                const photo = obs.photos[photoIdx];
+                await db.insert(observationMedia).values({
+                  observationCacheId: cacheId,
+                  mediaType: 'photo',
+                  url: photo.url || '',
+                  thumbnailUrl: photo.url?.replace('/square.', '/thumb.') || photo.url || null,
+                  mediumUrl: photo.url?.replace('/square.', '/medium.') || null,
+                  largeUrl: photo.url?.replace('/square.', '/large.') || null,
+                  originalUrl: photo.url?.replace('/square.', '/original.') || null,
+                  licenseCode: photo.license_code || null,
+                  attribution: photo.attribution || null,
+                  sortOrder: photoIdx,
+                });
+              }
+            }
+            
+            // Update specimen basic data
+            const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+            const specimenUpdate: any = {
+              scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride),
+              collectorName: collectorsName || obs.user?.name,
+              collectionDate: obs.observed_on,
+              locality: obs.place_guess,
+              latitude: obs.geojson?.coordinates?.[1]?.toString(),
+              longitude: obs.geojson?.coordinates?.[0]?.toString(),
+              voucherNumber: voucherNumber || voucherNumberMultiple,
+            };
+            
+            if (obs.taxon?.name) {
+              specimenUpdate.genus = obs.taxon.name.split(' ')[0];
+            }
+            
+            await db.update(specimens)
+              .set(specimenUpdate)
+              .where(eq(specimens.id, spec.id));
+            
+            success++;
+            processed++;
+            
+          } catch (err) {
+            console.error(`Error processing specimen ${spec.id}:`, err);
+            errors++;
+            processed++;
+          }
+        }
+        
+        // Update progress
+        const progress = Math.round((processed / metadata.totalSpecimens!) * 100);
+        const lastSpecimen = batch[batch.length - 1];
+        
+        await db.update(specimenRefreshMetadata)
+          .set({
+            processedCount: processed,
+            successCount: success,
+            errorCount: errors,
+            lastProcessedId: lastSpecimen.id,
+            syncProgress: progress,
+            syncMessage: `Processing ${processed}/${metadata.totalSpecimens} (${success} success, ${errors} errors)`,
+            updatedAt: new Date(),
+          })
+          .where(eq(specimenRefreshMetadata.id, metadata.id));
+        
+        // Delay between batches
+        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      }
+      
+      // Complete
+      await db.update(specimenRefreshMetadata)
+        .set({
+          syncStatus: 'completed',
+          syncProgress: 100,
+          syncMessage: `Completed: ${success} success, ${errors} errors`,
+          lastRefreshAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(specimenRefreshMetadata.id, metadata.id));
+      
+      bulkRefreshActive = false;
+      
+    } catch (error) {
+      console.error("Bulk refresh error:", error);
+      
+      const [metadata] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
+      if (metadata) {
+        await db.update(specimenRefreshMetadata)
+          .set({
+            syncStatus: 'error',
+            syncMessage: `Error: ${(error as Error).message}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(specimenRefreshMetadata.id, metadata.id));
+      }
+      
+      bulkRefreshActive = false;
+    }
+  }
 
   // Create a new specimen manually
   app.post("/api/admin/specimens", isAdmin, async (req: any, res) => {
