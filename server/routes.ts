@@ -15681,25 +15681,28 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         conditions.push(sql`${specimens.collectionDate} <= ${dateTo}`);
       }
 
-      // Has sequence filter - join with observation cache to check for DNA barcode
+      // Build query - always left join to observation cache to get observerUsername
+      const selectFields = {
+        id: specimens.id,
+        uuid: specimens.uuid,
+        displayCode: specimens.displayCode,
+        scientificName: specimens.scientificName,
+        locality: specimens.locality,
+        state: specimens.state,
+        country: specimens.country,
+        collectionDate: specimens.collectionDate,
+        collectorName: specimens.collectorName,
+        currentStatus: specimens.currentStatus,
+        primaryObservationSource: specimens.primaryObservationSource,
+        primaryObservationId: specimens.primaryObservationId,
+        voucherNumber: specimens.voucherNumber,
+        inatFieldConflict: specimens.inatFieldConflict,
+        observerUsername: observationCache.observerUsername,
+      };
+
       let query;
       if (hasSequence === 'true') {
-        query = db.select({
-          id: specimens.id,
-          uuid: specimens.uuid,
-          displayCode: specimens.displayCode,
-          scientificName: specimens.scientificName,
-          locality: specimens.locality,
-          state: specimens.state,
-          country: specimens.country,
-          collectionDate: specimens.collectionDate,
-          collectorName: specimens.collectorName,
-          currentStatus: specimens.currentStatus,
-          primaryObservationSource: specimens.primaryObservationSource,
-          primaryObservationId: specimens.primaryObservationId,
-          voucherNumber: specimens.voucherNumber,
-          inatFieldConflict: specimens.inatFieldConflict,
-        })
+        query = db.select(selectFields)
         .from(specimens)
         .innerJoin(observationCache, and(
           eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
@@ -15710,23 +15713,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .limit(limit)
         .offset(offset);
       } else {
-        query = db.select({
-          id: specimens.id,
-          uuid: specimens.uuid,
-          displayCode: specimens.displayCode,
-          scientificName: specimens.scientificName,
-          locality: specimens.locality,
-          state: specimens.state,
-          country: specimens.country,
-          collectionDate: specimens.collectionDate,
-          collectorName: specimens.collectorName,
-          currentStatus: specimens.currentStatus,
-          primaryObservationSource: specimens.primaryObservationSource,
-          primaryObservationId: specimens.primaryObservationId,
-          voucherNumber: specimens.voucherNumber,
-          inatFieldConflict: specimens.inatFieldConflict,
-        })
+        query = db.select(selectFields)
         .from(specimens)
+        .leftJoin(observationCache, and(
+          eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
+          eq(observationCache.sourceObservationId, specimens.primaryObservationId)
+        ))
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(specimens.id))
         .limit(limit)

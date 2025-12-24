@@ -59,12 +59,23 @@ interface Specimen {
   country: string | null;
   collectionDate: string | null;
   collectorName: string | null;
+  observerUsername: string | null;
   currentStatus: string;
   primaryObservationSource: string | null;
   primaryObservationId: string | null;
   voucherNumber: string | null;
   inatFieldConflict: string | null;
 }
+
+const getDisplayCollector = (specimen: Specimen): string => {
+  if (specimen.collectorName && specimen.collectorName.toLowerCase() !== 'none') {
+    return specimen.collectorName;
+  }
+  if (specimen.observerUsername) {
+    return `@${specimen.observerUsername}`;
+  }
+  return "Unknown";
+};
 
 interface SpecimensResponse {
   specimens: Specimen[];
@@ -436,7 +447,7 @@ export default function FungariumSearch() {
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Collector</p>
                     <p className="font-medium flex items-center gap-1">
-                      <User className="w-4 h-4" /> {selectedSpecimen.collectorName || "Unknown"}
+                      <User className="w-4 h-4" /> {getDisplayCollector(selectedSpecimen)}
                     </p>
                   </div>
                   {selectedSpecimen.voucherNumber && (
