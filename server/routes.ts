@@ -14428,6 +14428,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
+            // Track successful and failed pushes per specimen
+            const successfulPushes = new Map<number, Set<number>>();
+            const failedPushes = new Map<number, Set<number>>();
+            
             // Log field push distribution
             const field9539Count = fieldPushes.filter(f => f.fieldId === 9539).length;
             const field9540Count = fieldPushes.filter(f => f.fieldId === 9540).length;
@@ -14513,8 +14517,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     if (result.value.ok) {
                       pushCount++;
                       batchSuccess++;
+                      // Track successful push per specimen
+                      const specId = result.value.fp.specId;
+                      const fieldId = result.value.fp.fieldId;
+                      if (!successfulPushes.has(specId)) {
+                        successfulPushes.set(specId, new Set());
+                      }
+                      successfulPushes.get(specId)!.add(fieldId);
                     } else {
                       batchFail++;
+                      // Track failed push per specimen
+                      const specId = result.value.fp.specId;
+                      const fieldId = result.value.fp.fieldId;
+                      if (!failedPushes.has(specId)) {
+                        failedPushes.set(specId, new Set());
+                      }
+                      failedPushes.get(specId)!.add(fieldId);
                       if (result.value.status !== 422) { // 422 = field already exists, not a real error
                         console.error(`[BulkRefresh Push] Failed obs ${result.value.fp.obsId} field ${result.value.fp.fieldId}: HTTP ${result.value.status}`);
                       }
@@ -14531,6 +14549,41 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 if (pi + PUSH_CONCURRENCY < fieldPushes.length) {
                   await new Promise(resolve => setTimeout(resolve, 200));
                 }
+              }
+            }
+            
+            // Flag specimens that had push failures (didn't get both fields updated)
+            const specimenPushFailures: number[] = [];
+            for (const [specId, failedFields] of failedPushes) {
+              // Check if any field failed that wasn't also successful
+              const successfulFields = successfulPushes.get(specId) || new Set();
+              for (const fieldId of failedFields) {
+                if (!successfulFields.has(fieldId)) {
+                  specimenPushFailures.push(specId);
+                  break;
+                }
+              }
+            }
+            
+            // Also flag specimens that were supposed to push both fields but only got one
+            for (const spec of batch) {
+              const attemptedFields = fieldPushes.filter(f => f.specId === spec.id);
+              if (attemptedFields.length === 2) {
+                // Should have pushed both fields
+                const successfulFields = successfulPushes.get(spec.id) || new Set();
+                if (successfulFields.size < 2 && !specimenPushFailures.includes(spec.id)) {
+                  specimenPushFailures.push(spec.id);
+                }
+              }
+            }
+            
+            // Update validation flag for push failures
+            if (specimenPushFailures.length > 0) {
+              console.log(`[BulkRefresh Push] Flagging ${specimenPushFailures.length} specimens with incomplete field updates`);
+              for (const specId of specimenPushFailures) {
+                await db.update(specimens)
+                  .set({ inatFieldConflict: 'push_incomplete' })
+                  .where(eq(specimens.id, specId));
               }
             }
             
