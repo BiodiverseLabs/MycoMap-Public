@@ -58,7 +58,7 @@ export default function AdminFungariumOverview() {
     },
   };
 
-  const readyForAccession = stats?.byStatus?.pending_accession || 0;
+  const readyForAccession = stats?.readyForAccession || 0;
   const accessioned = stats?.accessioned || 0;
 
   return (

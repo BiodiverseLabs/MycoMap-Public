@@ -13488,9 +13488,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .from(specimens)
         .where(sql`${specimens.displayCode} LIKE 'MYCO-%'`);
       
+      // Count specimens ready for accession: have DNA barcode ITS but no MYCO number
+      const [readyForAccessionResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .innerJoin(observationCache, and(
+          eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
+          eq(observationCache.sourceObservationId, specimens.primaryObservationId)
+        ))
+        .where(and(
+          isNotNull(observationCache.dnaBarcodeIts),
+          sql`${observationCache.dnaBarcodeIts} != ''`,
+          or(
+            isNull(specimens.displayCode),
+            sql`${specimens.displayCode} NOT LIKE 'MYCO-%'`
+          )
+        ));
+      
       res.json({
         total: Number(totalResult?.count || 0),
         accessioned: Number(accessionedResult?.count || 0),
+        readyForAccession: Number(readyForAccessionResult?.count || 0),
         byStatus: statusCounts.reduce((acc, row) => {
           acc[row.status] = Number(row.count);
           return acc;
