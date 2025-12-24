@@ -806,18 +806,24 @@ export default function AdminSpecimensPage() {
                           )}
                         </TableCell>
                         <TableCell className="italic">
-                          {specimen.scientificName || <span className="text-slate-400">Unknown</span>}
+                          {specimen.scientificName === 'Removed' ? (
+                            <span className="text-red-600 italic">Removed</span>
+                          ) : specimen.scientificName || <span className="text-slate-400">Unknown</span>}
                         </TableCell>
                         <TableCell>{getStatusBadge(specimen.currentStatus)}</TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          {specimen.locality === 'Private' ? (
+                          {specimen.locality === 'Removed' ? (
+                            <span className="text-red-600 italic">Removed</span>
+                          ) : specimen.locality === 'Private' ? (
                             <span className="text-amber-600 italic">Private</span>
                           ) : specimen.state || specimen.country ? (
                             [specimen.state, specimen.country].filter(Boolean).join(", ")
                           ) : "-"}
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          {specimen.collectionDate ? format(parseISO(specimen.collectionDate), "MMM d, yyyy") : "-"}
+                          {specimen.locality === 'Removed' ? (
+                            <span className="text-red-600 italic">Removed</span>
+                          ) : specimen.collectionDate ? format(parseISO(specimen.collectionDate), "MMM d, yyyy") : "-"}
                         </TableCell>
                         <TableCell>
                           {specimen.validationFlags && specimen.validationFlags.length > 0 ? (
