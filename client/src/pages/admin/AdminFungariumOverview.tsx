@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 
 interface SpecimenStats {
   total: number;
+  accessioned: number;
   byStatus: Record<string, number>;
   byIntakeSource: Record<string, number>;
 }
@@ -59,7 +60,7 @@ export default function AdminFungariumOverview() {
   };
 
   const readyForAccession = stats?.byStatus?.pending_accession || 0;
-  const accessioned = stats?.byStatus?.accessioned || 0;
+  const accessioned = stats?.accessioned || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

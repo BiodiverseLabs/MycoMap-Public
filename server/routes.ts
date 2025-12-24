@@ -13286,8 +13286,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const [totalResult] = await db.select({ count: sql`count(*)` }).from(specimens);
       
+      // Count specimens with MYCO accession numbers (display_code starts with 'MYCO-')
+      const [accessionedResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .where(sql`${specimens.displayCode} LIKE 'MYCO-%'`);
+      
       res.json({
         total: Number(totalResult?.count || 0),
+        accessioned: Number(accessionedResult?.count || 0),
         byStatus: statusCounts.reduce((acc, row) => {
           acc[row.status] = Number(row.count);
           return acc;
