@@ -730,9 +730,11 @@ export default function AdminSpecimensPage() {
                         </TableCell>
                         <TableCell>{getStatusBadge(specimen.currentStatus)}</TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          {specimen.state || specimen.country 
-                            ? [specimen.state, specimen.country].filter(Boolean).join(", ")
-                            : "-"}
+                          {specimen.locality === 'Private' ? (
+                            <span className="text-amber-600 italic">Private</span>
+                          ) : specimen.state || specimen.country ? (
+                            [specimen.state, specimen.country].filter(Boolean).join(", ")
+                          ) : "-"}
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
                           {specimen.collectionDate ? format(parseISO(specimen.collectionDate), "MMM d, yyyy") : "-"}
