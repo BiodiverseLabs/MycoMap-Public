@@ -14188,22 +14188,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const speciesNameOverride = getField(20259);
             const collectorsName = getField(9051);
             
-            // Extract location from place_guess (fast, no API call)
+            // Extract location using proper location service (same as single refresh)
             let specimenState: string | null = null;
             let specimenCountry: string | null = null;
-            const placeGuess = obs.place_guess || '';
-            const placeParts = placeGuess.split(',').map((p: string) => p.trim());
-            if (placeParts.length >= 2) {
-              // Assume format: "City, State, Country" or "Location, State, US"
-              const lastPart = placeParts[placeParts.length - 1];
-              const secondLast = placeParts[placeParts.length - 2];
-              if (lastPart.length === 2 || lastPart === 'US' || lastPart === 'USA') {
-                specimenCountry = lastPart === 'USA' ? 'US' : lastPart;
-                specimenState = secondLast.length === 2 ? secondLast : null;
-              } else if (lastPart.length > 2) {
-                specimenCountry = lastPart;
-                specimenState = secondLast.length === 2 ? secondLast : null;
-              }
+            try {
+              const location = await extractLocationFromObservation(obs);
+              specimenState = location.stateCode || location.stateName || null;
+              specimenCountry = location.countryCode || location.countryName || null;
+            } catch (locErr) {
+              // Location extraction failed, continue without it
             }
             
             // Prepare cache upsert data (matching single refresh fields)
