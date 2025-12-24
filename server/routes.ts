@@ -13463,6 +13463,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             )`);
           } else if (flag === 'herbarium_catalog_conflict') {
             // Dynamic flag: catalog conflict includes stored conflicts + specimens without MYCO but with catalog data
+            // Exclude University of West Alabama Herbarium - their catalog numbers are valid
             flagConditions.push(sql`(
               ${specimens.inatFieldConflict} = 'herbarium_catalog_conflict'
               OR ${specimens.inatFieldConflict} = 'both_conflict'
@@ -13475,6 +13476,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     AND oc.source_observation_id = ${specimens.primaryObservationId}
                     AND oc.herbarium_catalog_number IS NOT NULL 
                     AND oc.herbarium_catalog_number != ''
+                    AND (oc.herbarium_name IS NULL OR oc.herbarium_name NOT LIKE '%University of West Alabama Herbarium%')
                 )
               )
             )`);
@@ -16311,6 +16313,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             )`);
           } else if (flag === 'herbarium_catalog_conflict') {
             // Dynamic flag: catalog conflict includes stored conflicts + specimens without MYCO but with catalog data
+            // Exclude University of West Alabama Herbarium - their catalog numbers are valid
             flagConditions.push(sql`(
               ${specimens.inatFieldConflict} = 'herbarium_catalog_conflict'
               OR ${specimens.inatFieldConflict} = 'both_conflict'
@@ -16323,6 +16326,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     AND oc.source_observation_id = ${specimens.primaryObservationId}
                     AND oc.herbarium_catalog_number IS NOT NULL 
                     AND oc.herbarium_catalog_number != ''
+                    AND (oc.herbarium_name IS NULL OR oc.herbarium_name NOT LIKE '%University of West Alabama Herbarium%')
                 )
               )
             )`);
