@@ -1489,6 +1489,31 @@ export type FitnessObservationCache = typeof fitnessObservationCache.$inferSelec
 export type InsertFitnessCacheMetadata = z.infer<typeof insertFitnessCacheMetadataSchema>;
 export type FitnessCacheMetadata = typeof fitnessCacheMetadata.$inferSelect;
 
+// Specimen Refresh Metadata - tracks bulk specimen refresh progress
+export const specimenRefreshMetadata = pgTable("specimen_refresh_metadata", {
+  id: serial("id").primaryKey(),
+  totalSpecimens: integer("total_specimens").default(0),
+  processedCount: integer("processed_count").default(0),
+  successCount: integer("success_count").default(0),
+  errorCount: integer("error_count").default(0),
+  lastProcessedId: integer("last_processed_id"), // Track position for resume
+  lastRefreshAt: timestamp("last_refresh_at"),
+  syncStatus: text("sync_status").default("idle"), // idle, syncing, completed, error, rate_limited, cancelled
+  syncProgress: integer("sync_progress").default(0), // 0-100 percentage
+  syncMessage: text("sync_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSpecimenRefreshMetadataSchema = createInsertSchema(specimenRefreshMetadata).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSpecimenRefreshMetadata = z.infer<typeof insertSpecimenRefreshMetadataSchema>;
+export type SpecimenRefreshMetadata = typeof specimenRefreshMetadata.$inferSelect;
+
 // Fitness User Observations - links users to unified observation cache
 // This replaces the metadata storage in fitness_observation_cache
 export const fitnessUserObservations = pgTable("fitness_user_observations", {
