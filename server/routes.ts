@@ -14925,6 +14925,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               // CRITICAL: Only push if specimen has a valid MYCO number
               // Never use displayCode or voucherNumber as fallback
               if (!spec.mycoNumber) {
+                console.log(`[BulkRefresh Push] Skipping ${spec.primaryObservationId}: no mycoNumber`);
                 continue; // Skip specimens without MYCO numbers - nothing to push
               }
               
@@ -14937,6 +14938,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               const herbariumName = getFieldValue(9539);
               const herbariumCatalogNumber = getFieldValue(9540);
+              
+              // Debug: Log what we're comparing
+              console.log(`[BulkRefresh Push] Checking ${spec.primaryObservationId}: mycoAccession=${mycoAccession}, herbariumName="${herbariumName}", herbariumCatalogNumber="${herbariumCatalogNumber}"`);
               
               // Check Herbarium Catalog Number (field 9540)
               if (!herbariumCatalogNumber || herbariumCatalogNumber.trim() === '') {
