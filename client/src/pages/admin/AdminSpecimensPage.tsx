@@ -76,6 +76,7 @@ interface Specimen {
   herbariumAccessionNumber: string | null;
   storageLocation: string | null;
   inatFieldConflict: string | null;
+  validationFlags?: string[];
   createdAt: string;
 }
 
@@ -687,7 +688,20 @@ export default function AdminSpecimensPage() {
                           {specimen.collectionDate ? format(new Date(specimen.collectionDate), "MMM d, yyyy") : "-"}
                         </TableCell>
                         <TableCell>
-                          {specimen.inatFieldConflict ? (
+                          {specimen.validationFlags && specimen.validationFlags.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                              {specimen.validationFlags.map((flag, idx) => (
+                                <Badge 
+                                  key={idx} 
+                                  variant="destructive" 
+                                  className="text-xs" 
+                                  data-testid={`badge-conflict-${specimen.id}-${idx}`}
+                                >
+                                  {getFlagDisplayLabel(flag)}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : specimen.inatFieldConflict ? (
                             <Badge variant="destructive" className="text-xs" data-testid={`badge-conflict-${specimen.id}`}>
                               {getFlagDisplayLabel(specimen.inatFieldConflict)}
                             </Badge>
@@ -983,8 +997,26 @@ export default function AdminSpecimensPage() {
 
               {/* Validation Flag Section */}
               <div className="border-t pt-4">
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Validation Flag</p>
-                {specimenDetail.inatFieldConflict && (
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Validation Flags</p>
+                {specimenDetail.validationFlags && specimenDetail.validationFlags.length > 0 ? (
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    {specimenDetail.validationFlags.map((flag, idx) => (
+                      <Badge key={idx} variant="destructive" className="gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {getFlagDisplayLabel(flag)}
+                      </Badge>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => updateFlagMutation.mutate({ specimenId: specimenDetail.id, flag: null })}
+                      disabled={updateFlagMutation.isPending}
+                      data-testid="button-clear-flag"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                ) : specimenDetail.inatFieldConflict ? (
                   <div className="mb-3 flex items-center gap-2">
                     <Badge variant="destructive" className="gap-1">
                       <AlertCircle className="w-3 h-3" />
@@ -1000,7 +1032,7 @@ export default function AdminSpecimensPage() {
                       Clear Flag
                     </Button>
                   </div>
-                )}
+                ) : null}
                 <div className="flex items-center gap-2">
                   <Select value={selectedFlag} onValueChange={setSelectedFlag}>
                     <SelectTrigger className="w-48" data-testid="select-add-flag">

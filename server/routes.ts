@@ -13502,11 +13502,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         : [];
       const cacheMap = new Map(cacheData.map(c => [c.sourceObservationId, c]));
       
-      // Compute dynamic flags for each specimen
+      // Compute dynamic flags for each specimen - can have multiple flags
       const specimensWithFlags = allSpecimens.map(spec => {
-        let computedFlag = spec.inatFieldConflict;
+        const flags: string[] = [];
+        const storedFlag = spec.inatFieldConflict;
         const cache = spec.primaryObservationId ? cacheMap.get(spec.primaryObservationId) : null;
         
+        // Add stored flag first (duplicate_inat should be on top)
+        if (storedFlag === 'duplicate_inat') {
+          flags.push('duplicate_inat');
+        }
+        
+        // Compute push_incomplete dynamically
+        let hasPushIncomplete = false;
         if (cache) {
           const herbariumCatalog = cache.herbariumCatalogNumber || '';
           const herbariumName = cache.herbariumName || '';
@@ -13514,18 +13522,31 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           // Check if has MYCO number but catalog doesn't contain it
           if (mycoNum && (!herbariumCatalog || !herbariumCatalog.includes(String(mycoNum)))) {
-            computedFlag = 'push_incomplete';
+            hasPushIncomplete = true;
           }
           // Check if has MYCO in catalog but missing herbarium name
           else if (herbariumCatalog.includes('MYCO') && !herbariumName) {
-            computedFlag = 'push_incomplete';
+            hasPushIncomplete = true;
           }
         } else if (spec.mycoNumber && spec.primaryObservationId) {
           // Has MYCO number but no cache data - definitely push incomplete
-          computedFlag = 'push_incomplete';
+          hasPushIncomplete = true;
         }
         
-        return { ...spec, inatFieldConflict: computedFlag };
+        if (hasPushIncomplete) {
+          flags.push('push_incomplete');
+        }
+        
+        // Add other stored flags if not already handled
+        if (storedFlag && storedFlag !== 'duplicate_inat' && storedFlag !== 'push_incomplete') {
+          if (!flags.includes(storedFlag)) {
+            flags.push(storedFlag);
+          }
+        }
+        
+        // Return combined flags as comma-separated or the primary flag for backward compatibility
+        const combinedFlag = flags.length > 0 ? flags.join(',') : null;
+        return { ...spec, inatFieldConflict: combinedFlag, validationFlags: flags };
       });
       
       // Get total count with same filters
@@ -13722,8 +13743,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
-      // Compute dynamic validation flag
-      let computedFlag = specimen.inatFieldConflict;
+      // Compute dynamic validation flags - can have multiple
+      const validationFlags: string[] = [];
+      const storedFlag = specimen.inatFieldConflict;
+      
+      // Add stored flag first (duplicate_inat should be on top)
+      if (storedFlag === 'duplicate_inat') {
+        validationFlags.push('duplicate_inat');
+      }
+      
+      // Compute push_incomplete dynamically
+      let hasPushIncomplete = false;
       if (observationData) {
         const herbariumCatalog = observationData.herbariumCatalogNumber || '';
         const herbariumName = observationData.herbariumName || '';
@@ -13731,15 +13761,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         // Check if has MYCO number but catalog doesn't contain it
         if (mycoNum && (!herbariumCatalog || !herbariumCatalog.includes(String(mycoNum)))) {
-          computedFlag = 'push_incomplete';
+          hasPushIncomplete = true;
         }
         // Check if has MYCO in catalog but missing herbarium name
         else if (herbariumCatalog.includes('MYCO') && !herbariumName) {
-          computedFlag = 'push_incomplete';
+          hasPushIncomplete = true;
+        }
+      } else if (specimen.mycoNumber && specimen.primaryObservationId) {
+        // Has MYCO number but no cache data - definitely push incomplete
+        hasPushIncomplete = true;
+      }
+      
+      if (hasPushIncomplete) {
+        validationFlags.push('push_incomplete');
+      }
+      
+      // Add other stored flags if not already handled
+      if (storedFlag && storedFlag !== 'duplicate_inat' && storedFlag !== 'push_incomplete') {
+        if (!validationFlags.includes(storedFlag)) {
+          validationFlags.push(storedFlag);
         }
       }
       
-      res.json({ ...specimen, inatFieldConflict: computedFlag, sources, events, observationData, photos });
+      const combinedFlag = validationFlags.length > 0 ? validationFlags.join(',') : null;
+      res.json({ ...specimen, inatFieldConflict: combinedFlag, validationFlags, sources, events, observationData, photos });
     } catch (error) {
       console.error("Error fetching specimen:", error);
       res.status(500).json({ error: "Failed to fetch specimen" });
