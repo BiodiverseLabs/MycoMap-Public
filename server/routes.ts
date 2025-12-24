@@ -14055,26 +14055,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         if (!currentCatalogNumber || currentCatalogNumber.trim() === '') {
           // Blank - push MYCO accession
           pushUpdates.push({ field_id: 9540, value: mycoAccession });
+        } else if (currentCatalogNumber.includes(mycoAccession)) {
+          // Already contains proper mycoAccession, no update needed
         } else if (currentCatalogNumber.toLowerCase().includes('myco')) {
-          // Contains MYCO - check if it needs formatting update
-          // Match MYCO followed by optional dash/space and digits
+          // Contains MYCO but wrong format - update to proper format
           const mycoMatch = currentCatalogNumber.match(/MYCO[-\s]*(\d+)/i);
           if (mycoMatch) {
-            // Check if already in proper format with this specimen's accession
-            if (!currentCatalogNumber.includes(mycoAccession)) {
-              // Find where the MYCO number ends and additional data begins
-              const fullMatch = mycoMatch[0]; // e.g., "MYCO1000004" or "MYCO-1000004"
-              const matchIndex = currentCatalogNumber.indexOf(fullMatch);
-              const afterMyco = currentCatalogNumber.substring(matchIndex + fullMatch.length);
-              // Construct new value: proper MYCO format + any additional data
-              const newValue = mycoAccession + afterMyco;
-              pushUpdates.push({ field_id: 9540, value: newValue });
-            }
-            // If already contains proper mycoAccession, no update needed
+            const fullMatch = mycoMatch[0];
+            const matchIndex = currentCatalogNumber.indexOf(fullMatch);
+            const afterMyco = currentCatalogNumber.substring(matchIndex + fullMatch.length);
+            const newValue = mycoAccession + afterMyco;
+            pushUpdates.push({ field_id: 9540, value: newValue });
           }
         } else {
-          // Has data but NO MYCO at all - that's a conflict
-          conflicts.push('herbarium_catalog_conflict');
+          // Has data but NO MYCO - append our MYCO accession (e.g., "TENN-F-078927; MYCO-1004770")
+          const appendedValue = `${currentCatalogNumber.trim()}; ${mycoAccession}`;
+          pushUpdates.push({ field_id: 9540, value: appendedValue });
         }
         
         // Check Herbarium Name (field 9539)
@@ -14082,9 +14078,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         if (!currentHerbariumName || currentHerbariumName.trim() === '') {
           // Blank - push MYCO
           pushUpdates.push({ field_id: 9539, value: 'MYCO' });
-        } else if (currentHerbariumName.toUpperCase() !== 'MYCO') {
-          // Has different data - conflict
-          conflicts.push('herbarium_name_conflict');
+        } else if (currentHerbariumName.toUpperCase().includes('MYCO')) {
+          // Already contains MYCO, no update needed
+        } else {
+          // Has different data - append MYCO (e.g., "University of West Alabama Herbarium; MYCO")
+          const appendedName = `${currentHerbariumName.trim()}; MYCO`;
+          pushUpdates.push({ field_id: 9539, value: appendedName });
         }
         
         // Push updates to iNaturalist if we have any
@@ -14908,32 +14907,38 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               const herbariumName = getFieldValue(9539);
               const herbariumCatalogNumber = getFieldValue(9540);
-              const conflicts: string[] = [];
               
               // Check Herbarium Catalog Number (field 9540)
               if (!herbariumCatalogNumber || herbariumCatalogNumber.trim() === '') {
+                // Blank - push MYCO accession
                 fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9540, value: mycoAccession, existingOfvId: getOfvId(9540) });
+              } else if (herbariumCatalogNumber.includes(mycoAccession)) {
+                // Already contains proper mycoAccession, no update needed
               } else if (herbariumCatalogNumber.toLowerCase().includes('myco')) {
+                // Contains MYCO but wrong format - update to proper format
                 const mycoMatch = herbariumCatalogNumber.match(/MYCO[-\s]*(\d+)/i);
-                if (mycoMatch && !herbariumCatalogNumber.includes(mycoAccession)) {
+                if (mycoMatch) {
                   const fullMatch = mycoMatch[0];
                   const matchIndex = herbariumCatalogNumber.indexOf(fullMatch);
                   const afterMyco = herbariumCatalogNumber.substring(matchIndex + fullMatch.length);
                   fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9540, value: mycoAccession + afterMyco, existingOfvId: getOfvId(9540) });
                 }
               } else {
-                conflicts.push('herbarium_catalog_conflict');
+                // Has data but NO MYCO - append our MYCO accession (e.g., "TENN-F-078927; MYCO-1004770")
+                const appendedValue = `${herbariumCatalogNumber.trim()}; ${mycoAccession}`;
+                fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9540, value: appendedValue, existingOfvId: getOfvId(9540) });
               }
               
               // Check Herbarium Name (field 9539)
               if (!herbariumName || herbariumName.trim() === '') {
+                // Blank - push MYCO
                 fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9539, value: 'MYCO', existingOfvId: getOfvId(9539) });
-              } else if (herbariumName.toUpperCase() !== 'MYCO') {
-                conflicts.push('herbarium_name_conflict');
-              }
-              
-              if (conflicts.length > 0) {
-                conflictMap.set(spec.id, conflicts);
+              } else if (herbariumName.toUpperCase().includes('MYCO')) {
+                // Already contains MYCO, no update needed
+              } else {
+                // Has different data - append MYCO (e.g., "University of West Alabama Herbarium; MYCO")
+                const appendedName = `${herbariumName.trim()}; MYCO`;
+                fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9539, value: appendedName, existingOfvId: getOfvId(9539) });
               }
             }
             
