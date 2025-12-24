@@ -183,8 +183,6 @@ export default function AdminSpecimensPage() {
     { value: "push_incomplete", label: "Push Incomplete", displayLabel: "Push Incomplete" },
     { value: "duplicate_inat", label: "Duplicate iNat", displayLabel: "Duplicate" },
     { value: "herbarium_catalog_conflict", label: "Catalog Conflict", displayLabel: "Conflict" },
-    { value: "herbarium_name_conflict", label: "Name Conflict", displayLabel: "Conflict" },
-    { value: "both_conflict", label: "Both Conflict", displayLabel: "Conflict" },
   ];
   
   const filterFlagOptions = [
@@ -195,8 +193,6 @@ export default function AdminSpecimensPage() {
     { value: "push_incomplete", label: "Push Incomplete" },
     { value: "duplicate_inat", label: "Duplicate iNat" },
     { value: "herbarium_catalog_conflict", label: "Catalog Conflict" },
-    { value: "herbarium_name_conflict", label: "Name Conflict" },
-    { value: "both_conflict", label: "Both Conflict" },
   ];
   
   const toggleFlagFilter = (value: string) => {
