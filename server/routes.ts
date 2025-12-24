@@ -9800,7 +9800,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             } else {
               // Create new specimen record
               const uuid = randomUUID();
-              const displayCode = well.labCode || generateDisplayCode();
+              const displayCode = well.labCode || await generateUniqueDisplayCode();
               
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
@@ -12168,7 +12168,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             for (const well of wellsToCreate) {
               const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
               const uuid = randomUUID();
-              const displayCode = well.labCode || generateDisplayCode();
+              const displayCode = well.labCode || await generateUniqueDisplayCode();
               
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
@@ -13177,10 +13177,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // =============================================
 
   // Helper function to generate display codes
-  function generateDisplayCode(): string {
+  async function generateUniqueDisplayCode(): Promise<string> {
     const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    return `MYCO-${year}-${random}`;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const random = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+      const code = `MYCO-${year}-${random}`;
+      const [existing] = await db.select({ id: specimens.id })
+        .from(specimens)
+        .where(eq(specimens.displayCode, code))
+        .limit(1);
+      if (!existing) return code;
+    }
+    // Fallback with timestamp for uniqueness
+    const ts = Date.now().toString(36);
+    return `MYCO-${year}-${ts}`;
   }
 
   // Get all specimens with filtering and search
@@ -13355,7 +13365,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       } = req.body;
       
       const uuid = randomUUID();
-      const displayCode = generateDisplayCode();
+      const displayCode = await generateUniqueDisplayCode();
       
       const [newSpecimen] = await db.insert(specimens).values({
         uuid,
@@ -13553,7 +13563,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Create the specimen
       const uuid = randomUUID();
-      const displayCode = generateDisplayCode();
+      const displayCode = await generateUniqueDisplayCode();
       
       const [newSpecimen] = await db.insert(specimens).values({
         uuid,
@@ -13627,7 +13637,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       for (const shipmentSpec of validatedSpecs) {
         const platform = shipmentSpec.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
         const uuid = randomUUID();
-        const displayCode = generateDisplayCode();
+        const displayCode = await generateUniqueDisplayCode();
         
         const [newSpecimen] = await db.insert(specimens).values({
           uuid,
