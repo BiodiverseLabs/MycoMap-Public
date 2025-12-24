@@ -48,6 +48,31 @@ function labCodesMatch(code1: string | null, code2: string | null): boolean {
   return normalizeLabCode(code1.toLowerCase()) === normalizeLabCode(code2.toLowerCase());
 }
 
+// Get the correct scientific name with proper override priority:
+// 1. Species Name Override (highest priority) - field 20259
+// 2. Provisional Species Name (second priority) - field 10675
+// 3. iNaturalist scientific name (base)
+function getInatScientificName(
+  inatName: string | null,
+  provisionalSpeciesName: string | null,
+  speciesNameOverride: string | null
+): string | null {
+  if (speciesNameOverride && speciesNameOverride.trim()) {
+    return speciesNameOverride.trim();
+  }
+  if (provisionalSpeciesName && provisionalSpeciesName.trim()) {
+    return provisionalSpeciesName.trim();
+  }
+  return inatName || null;
+}
+
+// Extract observation field value by field ID from ofvs array
+function getObservationFieldValue(ofvs: any[], fieldId: number): string | null {
+  if (!ofvs || !Array.isArray(ofvs)) return null;
+  const field = ofvs.find((f: any) => f.field_id === fieldId);
+  return field?.value || null;
+}
+
 const uploadMemory = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for CSV files
@@ -13460,8 +13485,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       // Update specimen with data from observation
+      const inatBaseName = obs.taxon?.name || obs.species_guess || null;
       const specimenUpdate: any = {
-        scientificName: speciesNameOverride || provisionalSpeciesName || obs.taxon?.name || obs.species_guess || specimen.scientificName,
+        scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || specimen.scientificName,
         collectorName: collectorsName || obs.user?.name || specimen.collectorName,
         collectionDate: obs.observed_on || specimen.collectionDate,
         locality: obs.place_guess || specimen.locality,
