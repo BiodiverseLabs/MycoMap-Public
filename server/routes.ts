@@ -13414,6 +13414,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const dateFrom = req.query.dateFrom || '';
       const dateTo = req.query.dateTo || '';
       const hasSequence = req.query.hasSequence === 'true';
+      const sortField = req.query.sortField || 'displayCode';
+      const sortOrder = req.query.sortOrder === 'desc' ? 'desc' : 'asc';
       const limit = parseInt(req.query.limit) || 50;
       const offset = parseInt(req.query.offset) || 0;
       
@@ -13524,12 +13526,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         );
       }
       
-      // Order: MYCO # ascending first (those with MYCO- prefix), then by collection date descending
-      const orderByClause = sql`
-        CASE WHEN ${specimens.displayCode} LIKE 'MYCO-%' THEN 0 ELSE 1 END ASC,
-        ${specimens.displayCode} ASC,
-        ${specimens.collectionDate} DESC NULLS LAST
-      `;
+      // Build dynamic order by clause based on sortField and sortOrder
+      const validSortFields: Record<string, any> = {
+        displayCode: specimens.displayCode,
+        scientificName: specimens.scientificName,
+        currentStatus: specimens.currentStatus,
+        collectionDate: specimens.collectionDate,
+        locality: specimens.locality,
+        primaryObservationId: specimens.primaryObservationId,
+      };
+      
+      const sortColumn = validSortFields[sortField] || specimens.displayCode;
+      const orderByClause = sortOrder === 'desc' 
+        ? sql`${sortColumn} DESC NULLS LAST`
+        : sql`${sortColumn} ASC NULLS LAST`;
       
       let allSpecimens;
       if (conditions.length > 0) {

@@ -51,7 +51,10 @@ import {
   Database,
   Square,
   Loader2,
-  X
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -169,6 +172,8 @@ export default function AdminSpecimensPage() {
   const [selectedFlag, setSelectedFlag] = useState("");
   const [pushToInat, setPushToInat] = useState(false); // Default to pull-only
   const [ignoreRefreshDate, setIgnoreRefreshDate] = useState(false); // Include all filtered specimens
+  const [sortField, setSortField] = useState("displayCode");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const limit = 50;
   const { toast } = useToast();
   
@@ -223,13 +228,34 @@ export default function AdminSpecimensPage() {
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (hasSequence) params.set("hasSequence", "true");
+    params.set("sortField", sortField);
+    params.set("sortOrder", sortOrder);
     params.set("limit", limit.toString());
     params.set("offset", (page * limit).toString());
     return `/api/admin/specimens?${params.toString()}`;
   };
+  
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+    setPage(0);
+  };
+  
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />;
+    }
+    return sortOrder === "asc" 
+      ? <ArrowUp className="ml-1 h-3 w-3" />
+      : <ArrowDown className="ml-1 h-3 w-3" />;
+  };
 
   const { data, isLoading } = useQuery<SpecimensResponse>({
-    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, validationFlagFilters.join(","), page, dateFrom, dateTo, hasSequence],
+    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, validationFlagFilters.join(","), page, dateFrom, dateTo, hasSequence, sortField, sortOrder],
     queryFn: async () => {
       const res = await fetch(buildSpecimensUrl(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch specimens");
@@ -675,13 +701,67 @@ export default function AdminSpecimensPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>MYCO #</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("displayCode")}
+                        data-testid="sort-displayCode"
+                      >
+                        <div className="flex items-center">
+                          MYCO #
+                          <SortIcon field="displayCode" />
+                        </div>
+                      </TableHead>
                       <TableHead>Platform</TableHead>
-                      <TableHead>Observation #</TableHead>
-                      <TableHead>Scientific Name</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Collection Date</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("primaryObservationId")}
+                        data-testid="sort-observationId"
+                      >
+                        <div className="flex items-center">
+                          Observation #
+                          <SortIcon field="primaryObservationId" />
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("scientificName")}
+                        data-testid="sort-scientificName"
+                      >
+                        <div className="flex items-center">
+                          Scientific Name
+                          <SortIcon field="scientificName" />
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("currentStatus")}
+                        data-testid="sort-status"
+                      >
+                        <div className="flex items-center">
+                          Status
+                          <SortIcon field="currentStatus" />
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("locality")}
+                        data-testid="sort-locality"
+                      >
+                        <div className="flex items-center">
+                          Location
+                          <SortIcon field="locality" />
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort("collectionDate")}
+                        data-testid="sort-collectionDate"
+                      >
+                        <div className="flex items-center">
+                          Collection Date
+                          <SortIcon field="collectionDate" />
+                        </div>
+                      </TableHead>
                       <TableHead>Validation</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
