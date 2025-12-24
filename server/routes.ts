@@ -13507,16 +13507,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Count specimens with check_specimen flag
       const [checkSpecimenFlagResult] = await db.select({ count: sql`count(*)` })
         .from(specimens)
-        .where(eq(specimens.inatFieldConflict, 'check_specimen'));
+        .where(sql`${specimens.inatFieldConflict} = 'check_specimen'`);
       
       // Count specimens with other flags (not check_specimen)
       const [otherFlagResult] = await db.select({ count: sql`count(*)` })
         .from(specimens)
-        .where(and(
-          isNotNull(specimens.inatFieldConflict),
-          sql`${specimens.inatFieldConflict} != ''`,
-          sql`${specimens.inatFieldConflict} != 'check_specimen'`
-        ));
+        .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} != 'check_specimen'`);
       
       res.json({
         total: Number(totalResult?.count || 0),
