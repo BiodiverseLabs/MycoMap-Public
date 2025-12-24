@@ -227,6 +227,7 @@ export default function AdminSpecimensPage() {
                       <TableHead>Scientific Name</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Location</TableHead>
+                      <TableHead>Collection Date</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -273,6 +274,9 @@ export default function AdminSpecimensPage() {
                         <TableCell>{getStatusBadge(specimen.currentStatus)}</TableCell>
                         <TableCell className="text-sm text-slate-600 max-w-[200px] truncate">
                           {specimen.locality || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600">
+                          {specimen.collectionDate ? format(new Date(specimen.collectionDate), "MMM d, yyyy") : "-"}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -341,6 +345,12 @@ export default function AdminSpecimensPage() {
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Storage Location</p>
                     <p className="font-medium">{specimenDetail.storageLocation}</p>
+                  </div>
+                )}
+                {specimenDetail.intakeDate && (
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Intake Date</p>
+                    <p className="font-medium">{format(new Date(specimenDetail.intakeDate), "MMM d, yyyy")}</p>
                   </div>
                 )}
               </div>
