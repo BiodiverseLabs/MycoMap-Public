@@ -53,7 +53,7 @@ import {
   Loader2,
   X
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 interface Specimen {
   id: number;
@@ -735,7 +735,7 @@ export default function AdminSpecimensPage() {
                             : "-"}
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          {specimen.collectionDate ? format(new Date(specimen.collectionDate), "MMM d, yyyy") : "-"}
+                          {specimen.collectionDate ? format(parseISO(specimen.collectionDate), "MMM d, yyyy") : "-"}
                         </TableCell>
                         <TableCell>
                           {specimen.validationFlags && specimen.validationFlags.length > 0 ? (
@@ -860,7 +860,7 @@ export default function AdminSpecimensPage() {
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Collection Date</p>
                   <p className="font-medium">
                     {specimenDetail.collectionDate 
-                      ? format(new Date(specimenDetail.collectionDate), "MMM d, yyyy")
+                      ? format(parseISO(specimenDetail.collectionDate), "MMM d, yyyy")
                       : "-"}
                   </p>
                 </div>

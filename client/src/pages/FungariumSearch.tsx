@@ -52,7 +52,7 @@ import {
   ChevronLeft
 } from "lucide-react";
 import { PublicLayout } from "@/components/PublicLayout";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 interface Specimen {
   id: number;
@@ -425,7 +425,7 @@ export default function FungariumSearch() {
                               : "-"}
                           </TableCell>
                           <TableCell className="text-sm text-slate-600">
-                            {specimen.collectionDate ? format(new Date(specimen.collectionDate), "MMM d, yyyy") : "-"}
+                            {specimen.collectionDate ? format(parseISO(specimen.collectionDate), "MMM d, yyyy") : "-"}
                           </TableCell>
                           <TableCell>
                             {specimen.inatFieldConflict ? (
@@ -497,7 +497,7 @@ export default function FungariumSearch() {
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Collection Date</p>
                     <p className="font-medium flex items-center gap-1">
                       <Calendar className="w-4 h-4" /> 
-                      {selectedSpecimen.collectionDate ? format(new Date(selectedSpecimen.collectionDate), 'MMM d, yyyy') : "Unknown"}
+                      {selectedSpecimen.collectionDate ? format(parseISO(selectedSpecimen.collectionDate), 'MMM d, yyyy') : "Unknown"}
                     </p>
                   </div>
                   <div>

@@ -14298,11 +14298,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     dateFrom?: string;
     dateTo?: string;
     hasSequence?: boolean;
+    ignoreRefreshDate?: boolean;
   }) {
     const conditions: any[] = [
       eq(specimens.primaryObservationSource, 'inat'),
       isNotNull(specimens.primaryObservationId)
     ];
+    
+    // Recency filter: when ignoreRefreshDate is false (default), only include specimens
+    // that haven't been refreshed in the last 24 hours
+    if (params.ignoreRefreshDate !== true) {
+      conditions.push(sql`(
+        NOT EXISTS (
+          SELECT 1 FROM observation_cache oc 
+          WHERE oc.source = 'inat' 
+            AND oc.source_observation_id = ${specimens.primaryObservationId}
+            AND oc.updated_at > NOW() - INTERVAL '24 hours'
+        )
+      )`);
+    }
     
     if (params.status && params.status !== 'all') {
       conditions.push(eq(specimens.currentStatus, params.status));
