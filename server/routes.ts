@@ -15004,6 +15004,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     try {
                       if (fp.existingOfvId) {
                         // Update existing field value
+                        console.log(`[BulkRefresh Push] PUT field ${fp.fieldId} for obs ${fp.obsId}, ofvId=${fp.existingOfvId}, value="${fp.value}"`);
                         const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${fp.existingOfvId}`, {
                           method: 'PUT',
                           headers: {
@@ -15015,6 +15016,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                           }),
                         });
                         lastStatus = putResponse.status;
+                        const responseText = await putResponse.text();
+                        console.log(`[BulkRefresh Push] PUT response ${putResponse.status}: ${responseText.substring(0, 200)}`);
                         if (putResponse.ok) {
                           return { ok: true, fp, status: putResponse.status, retries: attempt };
                         }
