@@ -168,14 +168,9 @@ export default function AdminSpecimensPage() {
   });
 
   const statusConfig: Record<string, { label: string; icon: any; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    received: { label: "Received", icon: Package, variant: "secondary" },
-    processing: { label: "Processing", icon: FlaskConical, variant: "outline" },
+    unaccessioned: { label: "Unaccessioned", icon: Package, variant: "secondary" },
+    accessioned: { label: "Accessioned", icon: CheckCircle2, variant: "outline" },
     sequenced: { label: "Sequenced", icon: Dna, variant: "default" },
-    pending_accession: { label: "Pending Accession", icon: Package, variant: "outline" },
-    accessioned: { label: "Accessioned", icon: CheckCircle2, variant: "default" },
-    archived: { label: "Archived", icon: Archive, variant: "secondary" },
-    retired: { label: "Retired", icon: AlertCircle, variant: "destructive" },
-    lost: { label: "Lost", icon: AlertCircle, variant: "destructive" },
   };
 
   const platformUrls: Record<string, (id: string) => string> = {
@@ -249,11 +244,9 @@ export default function AdminSpecimensPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="received">Received</SelectItem>
-                      <SelectItem value="processing">Processing</SelectItem>
-                      <SelectItem value="sequenced">Sequenced</SelectItem>
+                      <SelectItem value="unaccessioned">Unaccessioned</SelectItem>
                       <SelectItem value="accessioned">Accessioned</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
+                      <SelectItem value="sequenced">Sequenced</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

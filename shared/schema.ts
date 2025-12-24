@@ -2151,11 +2151,12 @@ export const specimenObservationSourceEnum = pgEnum("specimen_observation_source
 ]);
 
 export const specimenStatusEnum = pgEnum("specimen_status", [
+  "unaccessioned",
+  "accessioned",
+  "sequenced",
   "pending_accession",
   "received",
   "processing",
-  "sequenced",
-  "accessioned",
   "archived",
   "retired",
   "lost",
