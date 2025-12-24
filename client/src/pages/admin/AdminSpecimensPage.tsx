@@ -446,12 +446,6 @@ export default function AdminSpecimensPage() {
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     {specimenDetail.family && <Badge variant="outline">{specimenDetail.family}</Badge>}
-                    {specimenDetail.genus && <Badge variant="outline">{specimenDetail.genus}</Badge>}
-                    {specimenDetail.observationData?.qualityGrade && (
-                      <Badge variant={specimenDetail.observationData.qualityGrade === 'research' ? 'default' : 'secondary'}>
-                        {specimenDetail.observationData.qualityGrade}
-                      </Badge>
-                    )}
                   </div>
                 </div>
               </div>
