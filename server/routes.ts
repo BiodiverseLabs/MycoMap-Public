@@ -15629,27 +15629,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  // Public: Search specimens
+  // Public: Search specimens (with same filters as admin but no mutation capabilities)
   app.get("/api/public/fungarium/specimens", async (req: any, res) => {
     try {
-      const { search, status, page = "1", pageSize = "20" } = req.query;
-      const pageNum = parseInt(page as string) || 1;
-      const limit = Math.min(parseInt(pageSize as string) || 20, 100);
-      const offset = (pageNum - 1) * limit;
+      const { search, status, validationFlag, dateFrom, dateTo, hasSequence, limit: limitParam = "50", offset: offsetParam = "0" } = req.query;
+      const limit = Math.min(parseInt(limitParam as string) || 50, 100);
+      const offset = parseInt(offsetParam as string) || 0;
 
       const conditions: any[] = [];
       
-      // Only show accessioned or archived specimens publicly
+      // Status filter
       if (status && status !== 'all') {
         conditions.push(eq(specimens.currentStatus, status as string));
-      } else {
-        conditions.push(
-          or(
-            eq(specimens.currentStatus, 'accessioned'),
-            eq(specimens.currentStatus, 'archived'),
-            eq(specimens.currentStatus, 'sequenced')
-          )
-        );
       }
 
       // Search term
@@ -15661,42 +15652,112 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             sql`${specimens.displayCode} ILIKE ${searchTerm}`,
             sql`${specimens.locality} ILIKE ${searchTerm}`,
             sql`${specimens.voucherNumber} ILIKE ${searchTerm}`,
-            sql`${specimens.collectorName} ILIKE ${searchTerm}`
+            sql`${specimens.collectorName} ILIKE ${searchTerm}`,
+            sql`${specimens.primaryObservationId} ILIKE ${searchTerm}`,
+            sql`${specimens.state} ILIKE ${searchTerm}`,
+            sql`${specimens.country} ILIKE ${searchTerm}`
           )
         );
       }
 
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      // Validation flag filter
+      if (validationFlag) {
+        if (validationFlag === 'has_flag') {
+          conditions.push(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != ''`);
+        } else if (validationFlag === 'no_flag') {
+          conditions.push(sql`(${specimens.inatFieldConflict} IS NULL OR ${specimens.inatFieldConflict} = '')`);
+        } else if (validationFlag === 'conflicts') {
+          conditions.push(sql`${specimens.inatFieldConflict} IN ('herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict', 'push_incomplete')`);
+        } else {
+          conditions.push(eq(specimens.inatFieldConflict, validationFlag as string));
+        }
+      }
 
-      const [specimenList, countResult] = await Promise.all([
-        db.select({
+      // Date range filter
+      if (dateFrom) {
+        conditions.push(sql`${specimens.collectionDate} >= ${dateFrom}`);
+      }
+      if (dateTo) {
+        conditions.push(sql`${specimens.collectionDate} <= ${dateTo}`);
+      }
+
+      // Has sequence filter - join with observation cache to check for DNA barcode
+      let query;
+      if (hasSequence === 'true') {
+        query = db.select({
           id: specimens.id,
           uuid: specimens.uuid,
           displayCode: specimens.displayCode,
           scientificName: specimens.scientificName,
           locality: specimens.locality,
+          state: specimens.state,
+          country: specimens.country,
           collectionDate: specimens.collectionDate,
           collectorName: specimens.collectorName,
           currentStatus: specimens.currentStatus,
           primaryObservationSource: specimens.primaryObservationSource,
           primaryObservationId: specimens.primaryObservationId,
           voucherNumber: specimens.voucherNumber,
+          inatFieldConflict: specimens.inatFieldConflict,
         })
         .from(specimens)
-        .where(whereClause)
+        .innerJoin(observationCache, and(
+          eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
+          eq(observationCache.sourceObservationId, specimens.primaryObservationId)
+        ))
+        .where(conditions.length > 0 ? and(...conditions, isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`) : and(isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`))
         .orderBy(desc(specimens.id))
         .limit(limit)
-        .offset(offset),
-        db.select({ count: sql<number>`count(*)` })
+        .offset(offset);
+      } else {
+        query = db.select({
+          id: specimens.id,
+          uuid: specimens.uuid,
+          displayCode: specimens.displayCode,
+          scientificName: specimens.scientificName,
+          locality: specimens.locality,
+          state: specimens.state,
+          country: specimens.country,
+          collectionDate: specimens.collectionDate,
+          collectorName: specimens.collectorName,
+          currentStatus: specimens.currentStatus,
+          primaryObservationSource: specimens.primaryObservationSource,
+          primaryObservationId: specimens.primaryObservationId,
+          voucherNumber: specimens.voucherNumber,
+          inatFieldConflict: specimens.inatFieldConflict,
+        })
+        .from(specimens)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(specimens.id))
+        .limit(limit)
+        .offset(offset);
+      }
+
+      const specimenList = await query;
+
+      // Count query
+      let countQuery;
+      if (hasSequence === 'true') {
+        countQuery = db.select({ count: sql<number>`count(*)` })
           .from(specimens)
-          .where(whereClause)
-      ]);
+          .innerJoin(observationCache, and(
+            eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
+            eq(observationCache.sourceObservationId, specimens.primaryObservationId)
+          ))
+          .where(conditions.length > 0 ? and(...conditions, isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`) : and(isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`));
+      } else {
+        countQuery = db.select({ count: sql<number>`count(*)` })
+          .from(specimens)
+          .where(conditions.length > 0 ? and(...conditions) : undefined);
+      }
+
+      const countResult = await countQuery;
 
       res.json({
         specimens: specimenList,
         total: Number(countResult[0]?.count || 0),
-        page: pageNum,
-        pageSize: limit
+        limit,
+        offset
       });
     } catch (error) {
       console.error("Error searching specimens:", error);
