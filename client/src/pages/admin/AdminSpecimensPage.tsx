@@ -309,7 +309,7 @@ export default function AdminSpecimensPage() {
       const filterPayload = {
         search: searchTerm,
         status: statusFilter,
-        validationFlag: validationFlagFilter,
+        validationFlags: validationFlagFilters.join(","),
         dateFrom,
         dateTo,
         hasSequence,
@@ -592,7 +592,8 @@ export default function AdminSpecimensPage() {
                           >
                             <Checkbox
                               checked={validationFlagFilters.includes(option.value)}
-                              onCheckedChange={() => toggleFlagFilter(option.value)}
+                              onCheckedChange={(e) => e} // Prevent double-toggle, div handles click
+                              onClick={(e) => e.stopPropagation()}
                             />
                             <span className="text-sm">{option.label}</span>
                           </div>
