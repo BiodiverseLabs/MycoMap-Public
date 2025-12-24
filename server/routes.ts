@@ -14441,41 +14441,69 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 const parallelBatch = fieldPushes.slice(pi, pi + PUSH_CONCURRENCY);
                 
                 const results = await Promise.allSettled(parallelBatch.map(async (fp) => {
-                  try {
-                    if (fp.existingOfvId) {
-                      // Update existing field value
-                      const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${fp.existingOfvId}`, {
-                        method: 'PUT',
-                        headers: {
-                          'Authorization': `Bearer ${inatToken}`,
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          observation_field_value: { value: fp.value }
-                        }),
-                      });
-                      return { ok: putResponse.ok, fp, status: putResponse.status };
-                    } else {
-                      // Create new field value
-                      const postResponse = await fetch('https://api.inaturalist.org/v1/observation_field_values', {
-                        method: 'POST',
-                        headers: {
-                          'Authorization': `Bearer ${inatToken}`,
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          observation_field_value: {
-                            observation_id: parseInt(fp.obsId),
-                            observation_field_id: fp.fieldId,
-                            value: fp.value
-                          }
-                        }),
-                      });
-                      return { ok: postResponse.ok, fp, status: postResponse.status };
+                  const MAX_RETRIES = 2;
+                  let lastStatus = 0;
+                  
+                  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                    try {
+                      if (fp.existingOfvId) {
+                        // Update existing field value
+                        const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${fp.existingOfvId}`, {
+                          method: 'PUT',
+                          headers: {
+                            'Authorization': `Bearer ${inatToken}`,
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            observation_field_value: { value: fp.value }
+                          }),
+                        });
+                        lastStatus = putResponse.status;
+                        if (putResponse.ok) {
+                          return { ok: true, fp, status: putResponse.status, retries: attempt };
+                        }
+                        // Retry on 5xx errors
+                        if (putResponse.status >= 500 && attempt < MAX_RETRIES) {
+                          await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                          continue;
+                        }
+                        return { ok: false, fp, status: putResponse.status, retries: attempt };
+                      } else {
+                        // Create new field value
+                        const postResponse = await fetch('https://api.inaturalist.org/v1/observation_field_values', {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${inatToken}`,
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            observation_field_value: {
+                              observation_id: parseInt(fp.obsId),
+                              observation_field_id: fp.fieldId,
+                              value: fp.value
+                            }
+                          }),
+                        });
+                        lastStatus = postResponse.status;
+                        if (postResponse.ok) {
+                          return { ok: true, fp, status: postResponse.status, retries: attempt };
+                        }
+                        // Retry on 5xx errors
+                        if (postResponse.status >= 500 && attempt < MAX_RETRIES) {
+                          await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                          continue;
+                        }
+                        return { ok: false, fp, status: postResponse.status, retries: attempt };
+                      }
+                    } catch (err) {
+                      if (attempt < MAX_RETRIES) {
+                        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                        continue;
+                      }
+                      return { ok: false, fp, status: 0, retries: attempt };
                     }
-                  } catch (err) {
-                    return { ok: false, fp, status: 0 };
                   }
+                  return { ok: false, fp, status: lastStatus, retries: MAX_RETRIES };
                 }));
                 
                 let batchSuccess = 0;
