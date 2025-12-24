@@ -158,7 +158,7 @@ export default function AdminSpecimensPage() {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState(initialStatus);
-  const [validationFlagFilter, setValidationFlagFilter] = useState("");
+  const [validationFlagFilters, setValidationFlagFilters] = useState<string[]>([]);
   const [selectedSpecimen, setSelectedSpecimen] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
@@ -182,6 +182,33 @@ export default function AdminSpecimensPage() {
     { value: "both_conflict", label: "Both Conflict", displayLabel: "Conflict" },
   ];
   
+  const filterFlagOptions = [
+    { value: "has_flag", label: "Has Any Flag" },
+    { value: "no_flag", label: "No Flag" },
+    { value: "check_specimen", label: "Check Specimen" },
+    { value: "metadata", label: "Missing Metadata" },
+    { value: "push_incomplete", label: "Push Incomplete" },
+    { value: "duplicate_inat", label: "Duplicate iNat" },
+    { value: "herbarium_catalog_conflict", label: "Catalog Conflict" },
+    { value: "herbarium_name_conflict", label: "Name Conflict" },
+    { value: "both_conflict", label: "Both Conflict" },
+  ];
+  
+  const toggleFlagFilter = (value: string) => {
+    setValidationFlagFilters(prev => {
+      if (prev.includes(value)) {
+        return prev.filter(f => f !== value);
+      }
+      return [...prev, value];
+    });
+    setPage(0);
+  };
+  
+  const clearAllFlagFilters = () => {
+    setValidationFlagFilters([]);
+    setPage(0);
+  };
+  
   const getFlagDisplayLabel = (flagValue: string) => {
     const option = flagOptions.find(f => f.value === flagValue);
     return option?.displayLabel || flagValue;
@@ -192,7 +219,7 @@ export default function AdminSpecimensPage() {
     const params = new URLSearchParams();
     if (searchTerm) params.set("search", searchTerm);
     if (statusFilter) params.set("status", statusFilter);
-    if (validationFlagFilter) params.set("validationFlag", validationFlagFilter);
+    if (validationFlagFilters.length > 0) params.set("validationFlags", validationFlagFilters.join(","));
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (hasSequence) params.set("hasSequence", "true");
@@ -202,7 +229,7 @@ export default function AdminSpecimensPage() {
   };
 
   const { data, isLoading } = useQuery<SpecimensResponse>({
-    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, validationFlagFilter, page, dateFrom, dateTo, hasSequence],
+    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, validationFlagFilters.join(","), page, dateFrom, dateTo, hasSequence],
     queryFn: async () => {
       const res = await fetch(buildSpecimensUrl(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch specimens");
@@ -531,24 +558,48 @@ export default function AdminSpecimensPage() {
                     </SelectContent>
                   </Select>
                   
-                  <Select value={validationFlagFilter} onValueChange={(v) => { setValidationFlagFilter(v); setPage(0); }}>
-                    <SelectTrigger className="w-48" data-testid="select-validation-flag">
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      <SelectValue placeholder="Validation Flag" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Records</SelectItem>
-                      <SelectItem value="has_flag">Has Any Flag</SelectItem>
-                      <SelectItem value="no_flag">No Flag</SelectItem>
-                      <SelectItem value="check_specimen">Check Specimen</SelectItem>
-                      <SelectItem value="metadata">Missing Metadata</SelectItem>
-                      <SelectItem value="push_incomplete">Push Incomplete</SelectItem>
-                      <SelectItem value="duplicate_inat">Duplicate iNat</SelectItem>
-                      <SelectItem value="herbarium_catalog_conflict">Catalog Conflict</SelectItem>
-                      <SelectItem value="herbarium_name_conflict">Name Conflict</SelectItem>
-                      <SelectItem value="both_conflict">Both Conflict</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-52 justify-start" data-testid="button-validation-flags">
+                        <AlertCircle className="w-4 h-4 mr-2" />
+                        {validationFlagFilters.length === 0 ? (
+                          <span className="text-muted-foreground">Validation Flags</span>
+                        ) : (
+                          <span>{validationFlagFilters.length} flag{validationFlagFilters.length > 1 ? 's' : ''} selected</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-2" align="start">
+                      <div className="flex flex-col gap-1">
+                        {validationFlagFilters.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="justify-start text-muted-foreground"
+                            onClick={clearAllFlagFilters}
+                            data-testid="button-clear-all-flags"
+                          >
+                            <X className="w-3 h-3 mr-2" />
+                            Clear all
+                          </Button>
+                        )}
+                        {filterFlagOptions.map((option) => (
+                          <div
+                            key={option.value}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer"
+                            onClick={() => toggleFlagFilter(option.value)}
+                            data-testid={`checkbox-flag-${option.value}`}
+                          >
+                            <Checkbox
+                              checked={validationFlagFilters.includes(option.value)}
+                              onCheckedChange={() => toggleFlagFilter(option.value)}
+                            />
+                            <span className="text-sm">{option.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   
                   <div className="flex items-center gap-2">
                     <Input

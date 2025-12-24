@@ -13408,7 +13408,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     try {
       const searchTerm = req.query.search?.trim() || '';
       const status = req.query.status && req.query.status !== 'all' ? req.query.status : '';
-      const validationFlag = req.query.validationFlag && req.query.validationFlag !== 'all' ? req.query.validationFlag : '';
+      // Support both single validationFlag (legacy) and comma-separated validationFlags
+      const validationFlagsParam = req.query.validationFlags || req.query.validationFlag || '';
+      const validationFlags = validationFlagsParam ? validationFlagsParam.split(',').filter((f: string) => f && f !== 'all') : [];
       const dateFrom = req.query.dateFrom || '';
       const dateTo = req.query.dateTo || '';
       const hasSequence = req.query.hasSequence === 'true';
@@ -13422,14 +13424,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         conditions.push(eq(specimens.currentStatus, status));
       }
       
-      // Validation flag filter
-      if (validationFlag) {
-        if (validationFlag === 'has_flag') {
-          conditions.push(sql`${specimens.inatFieldConflict} IS NOT NULL`);
-        } else if (validationFlag === 'no_flag') {
-          conditions.push(sql`${specimens.inatFieldConflict} IS NULL`);
-        } else {
-          conditions.push(eq(specimens.inatFieldConflict, validationFlag));
+      // Validation flag filter - supports multiple flags (OR logic)
+      if (validationFlags.length > 0) {
+        const flagConditions: any[] = [];
+        for (const flag of validationFlags) {
+          if (flag === 'has_flag') {
+            flagConditions.push(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != ''`);
+          } else if (flag === 'no_flag') {
+            flagConditions.push(sql`(${specimens.inatFieldConflict} IS NULL OR ${specimens.inatFieldConflict} = '')`);
+          } else {
+            flagConditions.push(eq(specimens.inatFieldConflict, flag));
+          }
+        }
+        if (flagConditions.length > 0) {
+          conditions.push(or(...flagConditions));
         }
       }
       
@@ -15813,9 +15821,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // Public: Search specimens (with same filters as admin but no mutation capabilities)
   app.get("/api/public/fungarium/specimens", async (req: any, res) => {
     try {
-      const { search, status, validationFlag, dateFrom, dateTo, hasSequence, limit: limitParam = "50", offset: offsetParam = "0" } = req.query;
+      const { search, status, validationFlag, validationFlags: validationFlagsParam, dateFrom, dateTo, hasSequence, limit: limitParam = "50", offset: offsetParam = "0" } = req.query;
       const limit = Math.min(parseInt(limitParam as string) || 50, 100);
       const offset = parseInt(offsetParam as string) || 0;
+      
+      // Support both single validationFlag (legacy) and comma-separated validationFlags
+      const flagsRaw = validationFlagsParam || validationFlag || '';
+      const validationFlags = flagsRaw ? (flagsRaw as string).split(',').filter((f: string) => f && f !== 'all') : [];
 
       const conditions: any[] = [];
       
@@ -15841,16 +15853,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         );
       }
 
-      // Validation flag filter
-      if (validationFlag) {
-        if (validationFlag === 'has_flag') {
-          conditions.push(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != ''`);
-        } else if (validationFlag === 'no_flag') {
-          conditions.push(sql`(${specimens.inatFieldConflict} IS NULL OR ${specimens.inatFieldConflict} = '')`);
-        } else if (validationFlag === 'conflicts') {
-          conditions.push(sql`${specimens.inatFieldConflict} IN ('herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict', 'push_incomplete')`);
-        } else {
-          conditions.push(eq(specimens.inatFieldConflict, validationFlag as string));
+      // Validation flag filter - supports multiple flags (OR logic)
+      if (validationFlags.length > 0) {
+        const flagConditions: any[] = [];
+        for (const flag of validationFlags) {
+          if (flag === 'has_flag') {
+            flagConditions.push(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != ''`);
+          } else if (flag === 'no_flag') {
+            flagConditions.push(sql`(${specimens.inatFieldConflict} IS NULL OR ${specimens.inatFieldConflict} = '')`);
+          } else if (flag === 'conflicts') {
+            flagConditions.push(sql`${specimens.inatFieldConflict} IN ('herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict', 'push_incomplete')`);
+          } else {
+            flagConditions.push(eq(specimens.inatFieldConflict, flag as string));
+          }
+        }
+        if (flagConditions.length > 0) {
+          conditions.push(or(...flagConditions));
         }
       }
 
