@@ -58,6 +58,7 @@ export function AdminSidebar() {
     { href: "/admin/pending-plates", label: "Pending Plates", icon: Grid3X3 },
     { href: "/admin/runs", label: "Sequencing Runs", icon: FlaskConical },
     { href: "/admin/bioinformatics", label: "Bioinformatics", icon: Terminal },
+    { href: "/admin/shipping-options", label: "Shipping Options", icon: Send },
   ];
 
   const archiveItems = [

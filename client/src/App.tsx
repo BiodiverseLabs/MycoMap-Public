@@ -55,6 +55,7 @@ import AdminPendingPlateEditorPage from "@/pages/admin/AdminPendingPlateEditorPa
 import AdminIndexManagementPage from "@/pages/admin/AdminIndexManagementPage";
 import AdminPrimerManagementPage from "@/pages/admin/AdminPrimerManagementPage";
 import AdminBioinformaticsPage from "@/pages/admin/AdminBioinformaticsPage";
+import AdminShippingOptionsPage from "@/pages/admin/AdminShippingOptionsPage";
 import AdminFungariumOverview from "@/pages/admin/AdminFungariumOverview";
 import AdminSpecimensPage from "@/pages/admin/AdminSpecimensPage";
 import AdminSpecimenRequestsPage from "@/pages/admin/AdminSpecimenRequestsPage";
@@ -135,6 +136,7 @@ function AppRouter() {
           <Route path="/admin/index-management" component={AdminIndexManagementPage} />
           <Route path="/admin/primer-management" component={AdminPrimerManagementPage} />
           <Route path="/admin/bioinformatics" component={AdminBioinformaticsPage} />
+          <Route path="/admin/shipping-options" component={AdminShippingOptionsPage} />
           <Route path="/admin/fungarium" component={AdminFungariumOverview} />
           <Route path="/admin/specimens" component={AdminSpecimensPage} />
           <Route path="/admin/specimen-requests" component={AdminSpecimenRequestsPage} />

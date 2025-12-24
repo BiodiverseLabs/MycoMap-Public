@@ -2,7 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa, shippingDestinations, insertShippingDestinationSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -8814,6 +8814,124 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error('Error running state first calculations:', error);
       res.status(500).json({ error: 'Failed to calculate state first records' });
+    }
+  });
+
+  // ============================================
+  // SHIPPING DESTINATIONS API ENDPOINTS
+  // ============================================
+
+  // Get all shipping destinations
+  app.get("/api/shipping/destinations", async (req, res) => {
+    try {
+      const destinations = await db.select()
+        .from(shippingDestinations)
+        .orderBy(shippingDestinations.name);
+      res.json(destinations);
+    } catch (error) {
+      console.error("Error fetching shipping destinations:", error);
+      res.status(500).json({ error: "Failed to fetch shipping destinations" });
+    }
+  });
+
+  // Get a single shipping destination
+  app.get("/api/shipping/destinations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [destination] = await db.select()
+        .from(shippingDestinations)
+        .where(eq(shippingDestinations.id, id));
+      
+      if (!destination) {
+        return res.status(404).json({ error: "Destination not found" });
+      }
+      res.json(destination);
+    } catch (error) {
+      console.error("Error fetching shipping destination:", error);
+      res.status(500).json({ error: "Failed to fetch shipping destination" });
+    }
+  });
+
+  // Create a new shipping destination
+  app.post("/api/shipping/destinations", async (req, res) => {
+    try {
+      const validatedData = insertShippingDestinationSchema.parse(req.body);
+      const [destination] = await db.insert(shippingDestinations)
+        .values(validatedData)
+        .returning();
+      res.status(201).json(destination);
+    } catch (error: any) {
+      console.error("Error creating shipping destination:", error);
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "A destination with this short code already exists" });
+      }
+      res.status(500).json({ error: "Failed to create shipping destination" });
+    }
+  });
+
+  // Update a shipping destination
+  app.patch("/api/shipping/destinations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [destination] = await db.update(shippingDestinations)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(shippingDestinations.id, id))
+        .returning();
+      
+      if (!destination) {
+        return res.status(404).json({ error: "Destination not found" });
+      }
+      res.json(destination);
+    } catch (error: any) {
+      console.error("Error updating shipping destination:", error);
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "A destination with this short code already exists" });
+      }
+      res.status(500).json({ error: "Failed to update shipping destination" });
+    }
+  });
+
+  // Delete a shipping destination
+  app.delete("/api/shipping/destinations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [destination] = await db.delete(shippingDestinations)
+        .where(eq(shippingDestinations.id, id))
+        .returning();
+      
+      if (!destination) {
+        return res.status(404).json({ error: "Destination not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting shipping destination:", error);
+      res.status(500).json({ error: "Failed to delete shipping destination" });
+    }
+  });
+
+  // Set a destination as default (clears other defaults)
+  app.post("/api/shipping/destinations/:id/set-default", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Clear existing default
+      await db.update(shippingDestinations)
+        .set({ isDefault: false })
+        .where(eq(shippingDestinations.isDefault, true));
+      
+      // Set new default
+      const [destination] = await db.update(shippingDestinations)
+        .set({ isDefault: true, updatedAt: new Date() })
+        .where(eq(shippingDestinations.id, id))
+        .returning();
+      
+      if (!destination) {
+        return res.status(404).json({ error: "Destination not found" });
+      }
+      res.json(destination);
+    } catch (error) {
+      console.error("Error setting default destination:", error);
+      res.status(500).json({ error: "Failed to set default destination" });
     }
   });
 

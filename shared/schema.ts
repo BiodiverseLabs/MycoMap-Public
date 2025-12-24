@@ -1512,6 +1512,46 @@ export const insertFitnessUserObservationsSchema = createInsertSchema(fitnessUse
 export type InsertFitnessUserObservations = z.infer<typeof insertFitnessUserObservationsSchema>;
 export type FitnessUserObservations = typeof fitnessUserObservations.$inferSelect;
 
+// Shipping Destinations - lab locations for specimen transfers
+export const shippingDestinations = pgTable("shipping_destinations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // e.g., "Mycota Lab - Main"
+  shortCode: text("short_code").notNull(), // e.g., "ML-MAIN"
+  
+  // Address
+  addressLine1: text("address_line_1"),
+  addressLine2: text("address_line_2"),
+  city: text("city"),
+  stateProvince: text("state_province"),
+  postalCode: text("postal_code"),
+  country: text("country").default("USA"),
+  
+  // Contact info
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  
+  // Settings
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false), // Default destination for new shipments
+  timezone: text("timezone").default("America/New_York"),
+  handlingNotes: text("handling_notes"), // Special instructions for specimens
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  shortCodeUnique: unique("shipping_destinations_short_code_unique").on(table.shortCode),
+}));
+
+export const insertShippingDestinationSchema = createInsertSchema(shippingDestinations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertShippingDestination = z.infer<typeof insertShippingDestinationSchema>;
+export type ShippingDestination = typeof shippingDestinations.$inferSelect;
+
 // Specimen Shipments - tracks user specimen submissions for DNA barcoding
 export const shipments = pgTable("shipments", {
   id: serial("id").primaryKey(),
@@ -1523,6 +1563,7 @@ export const shipments = pgTable("shipments", {
   // Lab transfer specific fields
   sourceLab: text("source_lab"), // Name of satellite lab sending specimens
   destinationLab: text("destination_lab"), // Name of destination lab (usually main lab)
+  destinationId: integer("destination_id").references(() => shippingDestinations.id), // FK to shipping_destinations
   
   // Questionnaire answers from page 1
   isNorthAmerica: boolean("is_north_america"),
@@ -1583,8 +1624,12 @@ export const shipmentSpecimens = pgTable("shipment_specimens", {
 }));
 
 // Relations for shipments
-export const shipmentsRelations = relations(shipments, ({ many }) => ({
+export const shipmentsRelations = relations(shipments, ({ many, one }) => ({
   bags: many(shipmentBags),
+  destination: one(shippingDestinations, {
+    fields: [shipments.destinationId],
+    references: [shippingDestinations.id],
+  }),
 }));
 
 export const shipmentBagsRelations = relations(shipmentBags, ({ one, many }) => ({
