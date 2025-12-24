@@ -1,6 +1,6 @@
 import { db, pool } from "./db";
 import { specimens, labRuns } from "@shared/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import XLSX from "xlsx";
 
@@ -19,6 +19,7 @@ interface ImportStats {
   specimensCreated: number;
   specimensSkipped: number;
   labRunsCreated: number;
+  duplicatesFound: number;
   errors: string[];
 }
 
@@ -28,6 +29,7 @@ export async function importSpecimensFromExcel(filePath: string): Promise<Import
     specimensCreated: 0,
     specimensSkipped: 0,
     labRunsCreated: 0,
+    duplicatesFound: 0,
     errors: [],
   };
 
@@ -152,6 +154,27 @@ export async function importSpecimensFromExcel(filePath: string): Promise<Import
   if (stats.errors.length > 0) {
     console.log(`[Import] First 10 errors:`, stats.errors.slice(0, 10));
   }
+
+  // Flag duplicate iNat observations (where multiple MYCO specimens share same observation ID)
+  console.log(`[Import] Checking for duplicate iNat observations...`);
+  const duplicateObsResult = await db.execute(sql`
+    WITH duplicate_obs AS (
+      SELECT primary_observation_id
+      FROM specimens
+      WHERE primary_observation_id IS NOT NULL
+        AND display_code LIKE 'MYCO-%'
+      GROUP BY primary_observation_id
+      HAVING COUNT(*) > 1
+    )
+    UPDATE specimens
+    SET inat_field_conflict = 'duplicate_inat'
+    WHERE primary_observation_id IN (SELECT primary_observation_id FROM duplicate_obs)
+      AND display_code LIKE 'MYCO-%'
+      AND (inat_field_conflict IS NULL OR inat_field_conflict = '')
+    RETURNING id
+  `);
+  stats.duplicatesFound = Array.isArray(duplicateObsResult) ? duplicateObsResult.length : 0;
+  console.log(`[Import] Flagged ${stats.duplicatesFound} specimens as duplicates`);
 
   return stats;
 }

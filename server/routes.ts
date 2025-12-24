@@ -9823,6 +9823,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               specimensLinked++;
             } else {
+              // Check if this observation ID already has OTHER specimens (duplicate detection)
+              let isDuplicate = false;
+              if (well.observationId) {
+                const [existingObs] = await db.select({ count: sql<number>`count(*)` })
+                  .from(specimens)
+                  .where(eq(specimens.primaryObservationId, well.observationId));
+                isDuplicate = Number(existingObs?.count || 0) > 0;
+              }
+              
               // Create new specimen record
               const uuid = randomUUID();
               // Always generate unique MYCO number for displayCode
@@ -9841,7 +9850,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
                 currentStatus: 'pending_accession',
                 statusChangedAt: new Date(),
+                inatFieldConflict: isDuplicate ? 'duplicate_inat' : null, // Flag duplicates
               }).returning();
+              
+              // If duplicate, also flag the existing specimen(s) with same observation ID
+              if (isDuplicate && well.observationId) {
+                await db.update(specimens)
+                  .set({ inatFieldConflict: 'duplicate_inat' })
+                  .where(and(
+                    eq(specimens.primaryObservationId, well.observationId),
+                    isNull(specimens.inatFieldConflict) // Only update if no existing flag
+                  ));
+              }
               
               // Add source record if we have an observation ID
               if (well.observationId) {
