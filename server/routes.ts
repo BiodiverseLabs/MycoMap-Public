@@ -14798,9 +14798,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 if (pushedFields.has(9539)) {
                   cacheUpdates.herbariumName = 'MYCO';
                 }
-                if (pushedFields.has(9540)) {
-                  const mycoNumber = spec.mycoNumber || (specId + 1);
-                  cacheUpdates.herbariumCatalogNumber = `MYCO-${mycoNumber}`;
+                if (pushedFields.has(9540) && spec.mycoNumber) {
+                  // Only update cache if there's a real MYCO number - never use specimen ID as fallback
+                  cacheUpdates.herbariumCatalogNumber = `MYCO-${spec.mycoNumber}`;
                 }
                 
                 if (Object.keys(cacheUpdates).length > 0) {
