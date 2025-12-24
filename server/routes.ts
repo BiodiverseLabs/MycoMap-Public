@@ -12118,7 +12118,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const [newSpecimen] = await db.insert(specimens).values({
             uuid,
             displayCode,
-            intakeSourceType: 'run',
+            intakeSourceType: 'transfer',
             intakeDate: new Date(),
             primaryObservationSource: well.observationId ? platform : null,
             primaryObservationId: well.observationId || null,
