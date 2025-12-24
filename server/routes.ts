@@ -12060,18 +12060,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // In-memory job registry for specimen generation progress
+  const specimenGenerationJobs: Map<string, {
+    status: 'running' | 'completed' | 'error';
+    total: number;
+    processed: number;
+    created: number;
+    linked: number;
+    error?: string;
+  }> = new Map();
+
   // Generate specimen records for wells in a run that don't have them
   app.post("/api/admin/runs/:id/generate-specimens", isAdmin, async (req: any, res) => {
     try {
       const runId = parseInt(req.params.id);
       const userId = req.user?.claims?.sub || req.user?.id || 'admin';
+      const jobId = `run-${runId}-${Date.now()}`;
       
       // Get all plates for this run
       const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
       const plateIds = plates.map(p => p.id);
       
       if (plateIds.length === 0) {
-        return res.json({ created: 0, linked: 0, message: "No plates found in this run" });
+        return res.json({ jobId: null, created: 0, linked: 0, message: "No plates found in this run", status: 'completed' });
       }
       
       // Get wells that have observation data but no coreSpecimenId
@@ -12082,89 +12093,162 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           isNull(labWells.coreSpecimenId)
         ));
       
-      let specimensCreated = 0;
-      let specimensLinked = 0;
-      
-      for (const well of wells) {
-        const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
-        let existingSpecimen = null;
+      if (wells.length === 0) {
+        return res.json({ jobId: null, created: 0, linked: 0, message: "All wells already have specimen records", status: 'completed' });
+      }
+
+      // Initialize job tracking
+      specimenGenerationJobs.set(jobId, {
+        status: 'running',
+        total: wells.length,
+        processed: 0,
+        created: 0,
+        linked: 0,
+      });
+
+      // Return immediately with jobId
+      res.json({ jobId, total: wells.length, status: 'running' });
+
+      // Process in background with batched operations
+      setImmediate(async () => {
+        const job = specimenGenerationJobs.get(jobId)!;
+        const CHUNK_SIZE = 50;
         
-        // First check by observation ID if available
-        if (well.observationId) {
-          const [found] = await db.select().from(specimens)
-            .where(eq(specimens.primaryObservationId, well.observationId));
-          existingSpecimen = found;
-        }
-        
-        // If no match by observation ID and we have a lab code, check by lab code
-        if (!existingSpecimen && well.labCode) {
-          const [found] = await db.select().from(specimens)
-            .where(eq(specimens.displayCode, well.labCode));
-          existingSpecimen = found;
-        }
-        
-        if (existingSpecimen) {
-          // Link existing specimen to this well
-          await db.update(labWells)
-            .set({ coreSpecimenId: existingSpecimen.id, updatedAt: new Date() })
-            .where(eq(labWells.id, well.id));
+        try {
+          // Pre-fetch existing specimens by observation ID and lab code for faster lookups
+          const observationIds = wells.filter(w => w.observationId).map(w => w.observationId!);
+          const labCodes = wells.filter(w => w.labCode).map(w => w.labCode!);
           
-          specimensLinked++;
-        } else {
-          // Create new specimen record
-          const uuid = randomUUID();
-          const displayCode = well.labCode || generateDisplayCode();
+          const existingByObsId = new Map<string, number>();
+          const existingByLabCode = new Map<string, number>();
           
-          const [newSpecimen] = await db.insert(specimens).values({
-            uuid,
-            displayCode,
-            intakeSourceType: 'transfer',
-            intakeDate: new Date(),
-            primaryObservationSource: well.observationId ? platform : null,
-            primaryObservationId: well.observationId || null,
-            voucherNumber: well.voucherNumber,
-            scientificName: null,
-            locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
-            currentStatus: 'pending_accession',
-            statusChangedAt: new Date(),
-          }).returning();
-          
-          // Add source record if we have an observation ID
-          if (well.observationId) {
-            await db.insert(specimenSources).values({
-              specimenId: newSpecimen.id,
-              platform,
-              externalId: well.observationId,
-              isPrimary: true,
-            });
+          if (observationIds.length > 0) {
+            const existing = await db.select({ id: specimens.id, obsId: specimens.primaryObservationId })
+              .from(specimens)
+              .where(inArray(specimens.primaryObservationId, observationIds));
+            existing.forEach(s => { if (s.obsId) existingByObsId.set(s.obsId, s.id); });
           }
           
-          // Log creation event
-          await db.insert(specimenEvents).values({
-            specimenId: newSpecimen.id,
-            eventType: 'created',
-            newValue: `Created from run (well ${well.wellPosition})`,
-            performedBy: userId,
-          });
+          if (labCodes.length > 0) {
+            const existing = await db.select({ id: specimens.id, code: specimens.displayCode })
+              .from(specimens)
+              .where(inArray(specimens.displayCode, labCodes));
+            existing.forEach(s => { if (s.code) existingByLabCode.set(s.code, s.id); });
+          }
+
+          // Process wells in chunks
+          for (let i = 0; i < wells.length; i += CHUNK_SIZE) {
+            const chunk = wells.slice(i, i + CHUNK_SIZE);
+            const wellsToLink: { wellId: number; specimenId: number }[] = [];
+            const wellsToCreate: typeof chunk = [];
+            
+            // Categorize wells
+            for (const well of chunk) {
+              let existingId = well.observationId ? existingByObsId.get(well.observationId) : undefined;
+              if (!existingId && well.labCode) {
+                existingId = existingByLabCode.get(well.labCode);
+              }
+              
+              if (existingId) {
+                wellsToLink.push({ wellId: well.id, specimenId: existingId });
+                job.linked++;
+              } else {
+                wellsToCreate.push(well);
+              }
+            }
+            
+            // Batch link existing specimens
+            for (const link of wellsToLink) {
+              await db.update(labWells)
+                .set({ coreSpecimenId: link.specimenId, updatedAt: new Date() })
+                .where(eq(labWells.id, link.wellId));
+            }
+            
+            // Batch create new specimens
+            for (const well of wellsToCreate) {
+              const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
+              const uuid = randomUUID();
+              const displayCode = well.labCode || generateDisplayCode();
+              
+              const [newSpecimen] = await db.insert(specimens).values({
+                uuid,
+                displayCode,
+                intakeSourceType: 'transfer',
+                intakeDate: new Date(),
+                primaryObservationSource: well.observationId ? platform : null,
+                primaryObservationId: well.observationId || null,
+                voucherNumber: well.voucherNumber,
+                scientificName: null,
+                locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
+                currentStatus: 'pending_accession',
+                statusChangedAt: new Date(),
+              }).returning();
+              
+              // Add to lookup maps for future chunks
+              if (well.observationId) {
+                existingByObsId.set(well.observationId, newSpecimen.id);
+                await db.insert(specimenSources).values({
+                  specimenId: newSpecimen.id,
+                  platform,
+                  externalId: well.observationId,
+                  isPrimary: true,
+                });
+              }
+              if (well.labCode) {
+                existingByLabCode.set(well.labCode, newSpecimen.id);
+              }
+              
+              await db.insert(specimenEvents).values({
+                specimenId: newSpecimen.id,
+                eventType: 'created',
+                newValue: `Created from run (well ${well.wellPosition})`,
+                performedBy: userId,
+              });
+              
+              await db.update(labWells)
+                .set({ coreSpecimenId: newSpecimen.id, updatedAt: new Date() })
+                .where(eq(labWells.id, well.id));
+              
+              job.created++;
+            }
+            
+            job.processed += chunk.length;
+          }
           
-          // Link to well
-          await db.update(labWells)
-            .set({ coreSpecimenId: newSpecimen.id, updatedAt: new Date() })
-            .where(eq(labWells.id, well.id));
-          
-          specimensCreated++;
+          job.status = 'completed';
+        } catch (error: any) {
+          console.error("Error in specimen generation job:", error);
+          job.status = 'error';
+          job.error = error.message || 'Unknown error';
         }
-      }
-      
-      res.json({ 
-        created: specimensCreated, 
-        linked: specimensLinked,
-        message: `Generated ${specimensCreated} new specimen records, linked ${specimensLinked} to existing records`
+        
+        // Clean up job after 5 minutes
+        setTimeout(() => specimenGenerationJobs.delete(jobId), 5 * 60 * 1000);
       });
     } catch (error) {
-      console.error("Error generating specimen records:", error);
-      res.status(500).json({ error: "Failed to generate specimen records" });
+      console.error("Error starting specimen generation:", error);
+      res.status(500).json({ error: "Failed to start specimen generation" });
     }
+  });
+
+  // Get specimen generation job status
+  app.get("/api/admin/runs/:id/generate-specimens/status/:jobId", isAdmin, async (req: any, res) => {
+    const jobId = req.params.jobId;
+    const job = specimenGenerationJobs.get(jobId);
+    
+    if (!job) {
+      return res.status(404).json({ error: "Job not found or expired" });
+    }
+    
+    res.json({
+      status: job.status,
+      total: job.total,
+      processed: job.processed,
+      created: job.created,
+      linked: job.linked,
+      error: job.error,
+      progress: job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0,
+    });
   });
 
   // ============ RUN FILE GENERATION ============

@@ -16,7 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { Progress } from "@/components/ui/progress";
 
 interface RunFile {
   id: number;
@@ -178,6 +179,16 @@ export default function AdminRunDetailPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [generateSpecimensOpen, setGenerateSpecimensOpen] = useState(false);
+  const [specimenJobId, setSpecimenJobId] = useState<string | null>(null);
+  const [specimenProgress, setSpecimenProgress] = useState<{
+    status: 'running' | 'completed' | 'error';
+    total: number;
+    processed: number;
+    created: number;
+    linked: number;
+    progress: number;
+    error?: string;
+  } | null>(null);
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
@@ -264,13 +275,20 @@ export default function AdminRunDetailPage() {
       }
       return response.json();
     },
-    onSuccess: async (data: { created: number; linked: number; message: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
-      setGenerateSpecimensOpen(false);
-      toast({ 
-        title: "Specimen Records Generated", 
-        description: data.message 
-      });
+    onSuccess: async (data: { jobId: string | null; status: string; total?: number; created?: number; linked?: number; message?: string }) => {
+      if (data.jobId) {
+        // Job started, begin polling
+        setSpecimenJobId(data.jobId);
+        setSpecimenProgress({ status: 'running', total: data.total || 0, processed: 0, created: 0, linked: 0, progress: 0 });
+      } else {
+        // Immediate completion (no wells to process)
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
+        setGenerateSpecimensOpen(false);
+        toast({ 
+          title: "Complete", 
+          description: data.message || "No specimen records needed"
+        });
+      }
     },
     onError: (error: Error) => {
       toast({ 
@@ -280,6 +298,48 @@ export default function AdminRunDetailPage() {
       });
     },
   });
+
+  // Poll for specimen generation progress
+  const { data: progressData } = useQuery({
+    queryKey: ['/api/admin/runs', runId, 'generate-specimens/status', specimenJobId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/generate-specimens/status/${specimenJobId}`);
+      if (!res.ok) throw new Error('Failed to fetch progress');
+      return res.json();
+    },
+    enabled: !!specimenJobId,
+    refetchInterval: specimenJobId ? 500 : false, // Poll every 500ms while job is running
+  });
+
+  // Handle progress data changes in useEffect to avoid render-phase updates
+  const progressRef = useRef<typeof progressData>(null);
+  useEffect(() => {
+    if (!progressData || !specimenJobId) return;
+    if (progressRef.current === progressData) return;
+    progressRef.current = progressData;
+    
+    if (progressData.status === 'completed' || progressData.status === 'error') {
+      // Job finished
+      if (progressData.status === 'completed') {
+        toast({ 
+          title: "Specimen Records Generated", 
+          description: `Created ${progressData.created} new records, linked ${progressData.linked} to existing`
+        });
+      } else {
+        toast({ 
+          title: "Error", 
+          description: progressData.error || "Failed to generate specimen records",
+          variant: "destructive"
+        });
+      }
+      setSpecimenJobId(null);
+      setSpecimenProgress(null);
+      setGenerateSpecimensOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
+    } else {
+      setSpecimenProgress(progressData);
+    }
+  }, [progressData, specimenJobId, toast, runId]);
 
   const deleteFileMutation = useMutation({
     mutationFn: async (fileId: number) => {
@@ -1422,7 +1482,9 @@ export default function AdminRunDetailPage() {
         </Dialog>
 
         {/* Generate Specimens Dialog */}
-        <Dialog open={generateSpecimensOpen} onOpenChange={setGenerateSpecimensOpen}>
+        <Dialog open={generateSpecimensOpen} onOpenChange={(open) => {
+          if (!specimenJobId) setGenerateSpecimensOpen(open);
+        }}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -1431,39 +1493,69 @@ export default function AdminRunDetailPage() {
               </DialogTitle>
             </DialogHeader>
             <div className="py-4">
-              <p className="text-sm text-gray-600 mb-4">
-                This will create specimen records in MYCO for wells that have observation data (iNaturalist/Mushroom Observer IDs or lab codes) but don't yet have linked specimen records.
-              </p>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-medium text-amber-800">{stats?.specimensNeedingRecords ?? 0} wells need records</p>
-                    <p className="text-amber-700 mt-1">
-                      Existing specimens will be linked automatically. New records will only be created when no match is found.
-                    </p>
+              {specimenProgress ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Processing specimens...</span>
+                    <span className="font-medium">{specimenProgress.progress}%</span>
+                  </div>
+                  <Progress value={specimenProgress.progress} className="h-3" />
+                  <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                    <div className="bg-gray-50 rounded p-2">
+                      <p className="text-lg font-bold text-gray-900">{specimenProgress.processed}</p>
+                      <p className="text-xs text-gray-500">of {specimenProgress.total}</p>
+                    </div>
+                    <div className="bg-green-50 rounded p-2">
+                      <p className="text-lg font-bold text-green-600">{specimenProgress.created}</p>
+                      <p className="text-xs text-gray-500">Created</p>
+                    </div>
+                    <div className="bg-blue-50 rounded p-2">
+                      <p className="text-lg font-bold text-blue-600">{specimenProgress.linked}</p>
+                      <p className="text-xs text-gray-500">Linked</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    This will create specimen records in MYCO for wells that have observation data (iNaturalist/Mushroom Observer IDs or lab codes) but don't yet have linked specimen records.
+                  </p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-800">{stats?.specimensNeedingRecords ?? 0} wells need records</p>
+                        <p className="text-amber-700 mt-1">
+                          Existing specimens will be linked automatically. New records will only be created when no match is found.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setGenerateSpecimensOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={() => generateSpecimensMutation.mutate()}
-                disabled={generateSpecimensMutation.isPending}
-                className="bg-[#8CBD45] hover:bg-[#7AAD35]"
-              >
-                {generateSpecimensMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  'Generate Records'
-                )}
-              </Button>
+              {!specimenProgress && (
+                <>
+                  <Button variant="outline" onClick={() => setGenerateSpecimensOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => generateSpecimensMutation.mutate()}
+                    disabled={generateSpecimensMutation.isPending}
+                    className="bg-[#8CBD45] hover:bg-[#7AAD35]"
+                  >
+                    {generateSpecimensMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Starting...
+                      </>
+                    ) : (
+                      'Generate Records'
+                    )}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
