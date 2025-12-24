@@ -14989,119 +14989,140 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const field9540Count = fieldPushes.filter(f => f.fieldId === 9540).length;
             console.log(`[BulkRefresh Push] Field breakdown: ${field9539Count} Herbarium Name (9539), ${field9540Count} Catalog Number (9540)`);
             
-            // Execute field updates in parallel batches
+            // Execute field updates - serialize per observation to avoid iNat race conditions
+            // Group by observation, then process observations in parallel but fields sequentially
             if (fieldPushes.length > 0) {
-              console.log(`[BulkRefresh Push] Pushing ${fieldPushes.length} field updates (${PUSH_CONCURRENCY} parallel)...`);
+              console.log(`[BulkRefresh Push] Pushing ${fieldPushes.length} field updates...`);
               
-              for (let pi = 0; pi < fieldPushes.length; pi += PUSH_CONCURRENCY) {
-                const parallelBatch = fieldPushes.slice(pi, pi + PUSH_CONCURRENCY);
+              // Group field pushes by observation ID
+              const pushesByObs = new Map<string, FieldPush[]>();
+              for (const fp of fieldPushes) {
+                if (!pushesByObs.has(fp.obsId)) {
+                  pushesByObs.set(fp.obsId, []);
+                }
+                pushesByObs.get(fp.obsId)!.push(fp);
+              }
+              
+              // Process observations in parallel, but fields within each observation sequentially
+              const obsIds = Array.from(pushesByObs.keys());
+              for (let pi = 0; pi < obsIds.length; pi += PUSH_CONCURRENCY) {
+                const parallelObsIds = obsIds.slice(pi, pi + PUSH_CONCURRENCY);
                 
-                const results = await Promise.allSettled(parallelBatch.map(async (fp) => {
-                  const MAX_RETRIES = 2;
-                  let lastStatus = 0;
+                // Process each observation's fields sequentially within parallel execution
+                const obsResults = await Promise.allSettled(parallelObsIds.map(async (obsId) => {
+                  const obsPushes = pushesByObs.get(obsId)!;
+                  const results: { ok: boolean; fp: FieldPush; status: number }[] = [];
                   
-                  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-                    try {
-                      if (fp.existingOfvId) {
-                        // Update existing field value
-                        console.log(`[BulkRefresh Push] PUT field ${fp.fieldId} for obs ${fp.obsId}, ofvId=${fp.existingOfvId}, value="${fp.value}"`);
-                        const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${fp.existingOfvId}`, {
-                          method: 'PUT',
-                          headers: {
-                            'Authorization': `Bearer ${inatToken}`,
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            observation_field_value: { value: fp.value }
-                          }),
-                        });
-                        lastStatus = putResponse.status;
-                        const responseText = await putResponse.text();
-                        console.log(`[BulkRefresh Push] PUT response ${putResponse.status}: ${responseText.substring(0, 200)}`);
-                        if (putResponse.ok) {
-                          return { ok: true, fp, status: putResponse.status, retries: attempt };
+                  for (const fp of obsPushes) {
+                    const MAX_RETRIES = 2;
+                    let lastStatus = 0;
+                    let succeeded = false;
+                    
+                    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                      try {
+                        if (fp.existingOfvId) {
+                          console.log(`[BulkRefresh Push] PUT field ${fp.fieldId} for obs ${fp.obsId}, ofvId=${fp.existingOfvId}, value="${fp.value}"`);
+                          const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${fp.existingOfvId}`, {
+                            method: 'PUT',
+                            headers: {
+                              'Authorization': `Bearer ${inatToken}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              observation_field_value: { value: fp.value }
+                            }),
+                          });
+                          lastStatus = putResponse.status;
+                          const responseText = await putResponse.text();
+                          console.log(`[BulkRefresh Push] PUT response ${putResponse.status}: ${responseText.substring(0, 200)}`);
+                          if (putResponse.ok) {
+                            results.push({ ok: true, fp, status: putResponse.status });
+                            succeeded = true;
+                            break;
+                          }
+                          if (putResponse.status >= 500 && attempt < MAX_RETRIES) {
+                            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                            continue;
+                          }
+                        } else {
+                          console.log(`[BulkRefresh Push] POST field ${fp.fieldId} for obs ${fp.obsId}, value="${fp.value}"`);
+                          const postResponse = await fetch('https://api.inaturalist.org/v1/observation_field_values', {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${inatToken}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              observation_field_value: {
+                                observation_id: parseInt(fp.obsId),
+                                observation_field_id: fp.fieldId,
+                                value: fp.value
+                              }
+                            }),
+                          });
+                          lastStatus = postResponse.status;
+                          const responseText = await postResponse.text();
+                          console.log(`[BulkRefresh Push] POST response ${postResponse.status}: ${responseText.substring(0, 200)}`);
+                          if (postResponse.ok) {
+                            results.push({ ok: true, fp, status: postResponse.status });
+                            succeeded = true;
+                            break;
+                          }
+                          if (postResponse.status >= 500 && attempt < MAX_RETRIES) {
+                            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                            continue;
+                          }
                         }
-                        // Retry on 5xx errors
-                        if (putResponse.status >= 500 && attempt < MAX_RETRIES) {
+                      } catch (err) {
+                        if (attempt < MAX_RETRIES) {
                           await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
                           continue;
                         }
-                        return { ok: false, fp, status: putResponse.status, retries: attempt };
-                      } else {
-                        // Create new field value
-                        const postResponse = await fetch('https://api.inaturalist.org/v1/observation_field_values', {
-                          method: 'POST',
-                          headers: {
-                            'Authorization': `Bearer ${inatToken}`,
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            observation_field_value: {
-                              observation_id: parseInt(fp.obsId),
-                              observation_field_id: fp.fieldId,
-                              value: fp.value
-                            }
-                          }),
-                        });
-                        lastStatus = postResponse.status;
-                        if (postResponse.ok) {
-                          return { ok: true, fp, status: postResponse.status, retries: attempt };
-                        }
-                        // Retry on 5xx errors
-                        if (postResponse.status >= 500 && attempt < MAX_RETRIES) {
-                          await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
-                          continue;
-                        }
-                        return { ok: false, fp, status: postResponse.status, retries: attempt };
                       }
-                    } catch (err) {
-                      if (attempt < MAX_RETRIES) {
-                        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
-                        continue;
-                      }
-                      return { ok: false, fp, status: 0, retries: attempt };
                     }
+                    
+                    if (!succeeded) {
+                      results.push({ ok: false, fp, status: lastStatus });
+                    }
+                    
+                    // Small delay between fields on the same observation
+                    await new Promise(r => setTimeout(r, 100));
                   }
-                  return { ok: false, fp, status: lastStatus, retries: MAX_RETRIES };
+                  
+                  return results;
                 }));
                 
-                let batchSuccess = 0;
-                let batchFail = 0;
-                for (const result of results) {
-                  if (result.status === 'fulfilled') {
-                    if (result.value.ok) {
-                      pushCount++;
-                      batchSuccess++;
-                      // Track successful push per specimen
-                      const specId = result.value.fp.specId;
-                      const fieldId = result.value.fp.fieldId;
-                      if (!successfulPushes.has(specId)) {
-                        successfulPushes.set(specId, new Set());
-                      }
-                      successfulPushes.get(specId)!.add(fieldId);
-                    } else {
-                      batchFail++;
-                      // Track failed push per specimen
-                      const specId = result.value.fp.specId;
-                      const fieldId = result.value.fp.fieldId;
-                      if (!failedPushes.has(specId)) {
-                        failedPushes.set(specId, new Set());
-                      }
-                      failedPushes.get(specId)!.add(fieldId);
-                      if (result.value.status !== 422) { // 422 = field already exists, not a real error
-                        console.error(`[BulkRefresh Push] Failed obs ${result.value.fp.obsId} field ${result.value.fp.fieldId}: HTTP ${result.value.status}`);
+                // Process results
+                for (const obsResult of obsResults) {
+                  if (obsResult.status === 'fulfilled') {
+                    for (const result of obsResult.value) {
+                      if (result.ok) {
+                        pushCount++;
+                        const specId = result.fp.specId;
+                        const fieldId = result.fp.fieldId;
+                        if (!successfulPushes.has(specId)) {
+                          successfulPushes.set(specId, new Set());
+                        }
+                        successfulPushes.get(specId)!.add(fieldId);
+                      } else {
+                        const specId = result.fp.specId;
+                        const fieldId = result.fp.fieldId;
+                        if (!failedPushes.has(specId)) {
+                          failedPushes.set(specId, new Set());
+                        }
+                        failedPushes.get(specId)!.add(fieldId);
+                        if (result.status !== 422) {
+                          console.error(`[BulkRefresh Push] Failed obs ${result.fp.obsId} field ${result.fp.fieldId}: HTTP ${result.status}`);
+                        }
                       }
                     }
-                  } else {
-                    batchFail++;
                   }
                 }
-                if (batchSuccess > 0 || batchFail > 0) {
-                  console.log(`[BulkRefresh Push] Batch: ${batchSuccess} success, ${batchFail} failed`);
-                }
                 
-                // Small delay between parallel batches to avoid rate limiting
-                if (pi + PUSH_CONCURRENCY < fieldPushes.length) {
+                console.log(`[BulkRefresh Push] Batch complete: ${pushCount} total success so far`);
+                
+                // Delay between parallel observation batches
+                if (pi + PUSH_CONCURRENCY < obsIds.length) {
                   await new Promise(resolve => setTimeout(resolve, 200));
                 }
               }
