@@ -14909,6 +14909,52 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             await db.update(specimens).set(data).where(eq(specimens.id, id));
           }
           
+          // Handle metadata flags - check for missing metadata and update flags
+          // Track specimens that need metadata flag changes
+          const metadataFlagUpdates: { id: number; flag: string | null }[] = [];
+          
+          for (const spec of batch) {
+            const obs = resultsMap.get(spec.primaryObservationId!);
+            if (!obs) continue;
+            
+            // Skip if specimen has a conflict flag that takes precedence
+            if (spec.inatFieldConflict && ['herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict'].includes(spec.inatFieldConflict)) {
+              continue;
+            }
+            
+            // Get the final data (updated or original)
+            const specimenUpdate = specimenUpdates.find(u => u.id === spec.id)?.data || {};
+            const finalScientificName = specimenUpdate.scientificName || spec.scientificName;
+            const finalCollectorName = specimenUpdate.collectorName || spec.collectorName;
+            const finalCollectionDate = specimenUpdate.collectionDate || spec.collectionDate;
+            const finalState = specimenUpdate.state || spec.state;
+            const finalCountry = specimenUpdate.country || spec.country;
+            
+            // Private observations don't need location
+            const isPrivateLocation = obs.geoprivacy === 'private';
+            const hasLocation = isPrivateLocation || finalState || finalCountry;
+            
+            const missingMetadata = !finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation;
+            
+            if (missingMetadata && spec.inatFieldConflict !== 'metadata') {
+              // Set metadata flag
+              metadataFlagUpdates.push({ id: spec.id, flag: 'metadata' });
+            } else if (!missingMetadata && spec.inatFieldConflict === 'metadata') {
+              // Clear metadata flag - data is now complete
+              metadataFlagUpdates.push({ id: spec.id, flag: null });
+            }
+          }
+          
+          // Apply metadata flag updates
+          if (metadataFlagUpdates.length > 0) {
+            console.log(`[BulkRefresh] Updating ${metadataFlagUpdates.length} metadata flags...`);
+            for (const { id, flag } of metadataFlagUpdates) {
+              await db.update(specimens)
+                .set({ inatFieldConflict: flag })
+                .where(eq(specimens.id, id));
+            }
+          }
+          
           // TWO-WAY SYNC: Push MYCO data to iNaturalist if conditions are met
           // Only runs if pushEnabled is true AND specimen has a valid MYCO number
           // Uses individual observation_field_values API (v1 PUT doesn't support batched fields)
