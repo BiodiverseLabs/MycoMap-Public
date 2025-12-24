@@ -48,6 +48,7 @@ interface Specimen {
   primaryObservationSource: string | null;
   primaryObservationId: string | null;
   voucherNumber: string | null;
+  labCode: string | null;
   collectorName: string | null;
   collectionDate: string | null;
   locality: string | null;
@@ -220,33 +221,58 @@ export default function AdminSpecimensPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Code</TableHead>
+                      <TableHead>Platform</TableHead>
+                      <TableHead>Observation #</TableHead>
+                      <TableHead>Voucher Number</TableHead>
                       <TableHead>Scientific Name</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Collector</TableHead>
                       <TableHead>Location</TableHead>
-                      <TableHead>Intake Date</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data?.specimens?.map((specimen) => (
                       <TableRow key={specimen.id} data-testid={`row-specimen-${specimen.id}`}>
-                        <TableCell className="font-mono text-sm font-medium">
-                          {specimen.displayCode}
+                        <TableCell>
+                          {specimen.primaryObservationSource ? (
+                            <Badge variant="outline" className="text-xs">
+                              {specimen.primaryObservationSource === 'inat' ? 'iNat' : 
+                               specimen.primaryObservationSource === 'mo' ? 'MO' : 
+                               specimen.primaryObservationSource === 'mycoportal' ? 'MP' : 
+                               specimen.primaryObservationSource.toUpperCase()}
+                            </Badge>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {specimen.primaryObservationId ? (
+                            <a 
+                              href={platformUrls[specimen.primaryObservationSource || '']?.(specimen.primaryObservationId)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              {specimen.primaryObservationId}
+                            </a>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          <div>
+                            {specimen.voucherNumber || specimen.labCode || <span className="text-slate-400">-</span>}
+                          </div>
+                          {specimen.voucherNumber && specimen.labCode && (
+                            <div className="text-xs text-slate-500">{specimen.labCode}</div>
+                          )}
                         </TableCell>
                         <TableCell className="italic">
                           {specimen.scientificName || <span className="text-slate-400">Unknown</span>}
                         </TableCell>
                         <TableCell>{getStatusBadge(specimen.currentStatus)}</TableCell>
-                        <TableCell className="text-sm text-slate-600">
-                          {specimen.collectorName || "-"}
-                        </TableCell>
                         <TableCell className="text-sm text-slate-600 max-w-[200px] truncate">
                           {specimen.locality || "-"}
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-600">
-                          {specimen.intakeDate ? format(new Date(specimen.intakeDate), "MMM d, yyyy") : "-"}
                         </TableCell>
                         <TableCell>
                           <Button
