@@ -248,14 +248,17 @@ export default function AdminSpecimensPage() {
                         </TableCell>
                         <TableCell className="font-mono text-sm">
                           {specimen.primaryObservationId ? (
-                            <a 
-                              href={platformUrls[specimen.primaryObservationSource || '']?.(specimen.primaryObservationId)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 hover:underline"
-                            >
-                              {specimen.primaryObservationId}
-                            </a>
+                            <div className="flex items-center gap-1">
+                              <span>{specimen.primaryObservationId}</span>
+                              <a 
+                                href={platformUrls[specimen.primaryObservationSource || '']?.(specimen.primaryObservationId)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
