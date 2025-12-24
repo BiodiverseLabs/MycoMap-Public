@@ -15145,24 +15145,31 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               console.log(`[BulkRefresh Push] Successfully pushed ${pushCount} field updates to iNaturalist`);
             }
             
-            // Clear conflict flags for specimens that successfully pushed all attempted fields
-            // (and weren't flagged as failures or conflicts)
+            // Clear conflict flags for specimens that:
+            // 1. Successfully pushed all attempted fields, OR
+            // 2. Didn't need to push (data already matched)
+            // (exclude specimens with push failures)
             const successfullyClearedIds: number[] = [];
-            for (const [specId, pushedFields] of successfulPushes) {
-              // Check if this specimen had any failures
-              if (specimenPushFailures.includes(specId)) continue;
+            
+            for (const spec of batch) {
+              if (!spec.mycoNumber) continue; // Only clear for specimens with MYCO numbers
+              if (specimenPushFailures.includes(spec.id)) continue; // Skip failures
               
-              // Check how many fields we attempted to push for this specimen
-              const attemptedFields = fieldPushes.filter(f => f.specId === specId);
+              // Check if this specimen had any attempted pushes
+              const attemptedFields = fieldPushes.filter(f => f.specId === spec.id);
+              const successfulFields = successfulPushes.get(spec.id) || new Set();
               
-              // If we successfully pushed all attempted fields, clear the conflict flag
-              if (pushedFields.size >= attemptedFields.length) {
-                successfullyClearedIds.push(specId);
+              if (attemptedFields.length === 0) {
+                // No push needed - data already matched, clear the flag
+                successfullyClearedIds.push(spec.id);
+              } else if (successfulFields.size >= attemptedFields.length) {
+                // All attempted pushes succeeded, clear the flag
+                successfullyClearedIds.push(spec.id);
               }
             }
             
             if (successfullyClearedIds.length > 0) {
-              console.log(`[BulkRefresh Push] Clearing conflict flags for ${successfullyClearedIds.length} specimens with successful pushes`);
+              console.log(`[BulkRefresh Push] Clearing conflict flags for ${successfullyClearedIds.length} specimens (data matched or push successful)`);
               for (const specId of successfullyClearedIds) {
                 await db.update(specimens)
                   .set({ inatFieldConflict: null })
