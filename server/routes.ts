@@ -13916,9 +13916,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
         longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
         coordinatesObscured: obs.obscured || false,
+        geoprivacy: obs.geoprivacy || null,
+        taxonGeoprivacy: obs.taxon_geoprivacy || null,
         positionalAccuracy: obs.positional_accuracy || null,
-        placeGuess: obs.place_guess || null,
-        locality: obs.place_guess || null,
+        placeGuess: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
+        locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
         observedOn: obs.observed_on || null,
         observedOnString: obs.observed_on_string || null,
         qualityGrade: obs.quality_grade || null,
@@ -14007,7 +14009,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || specimen.scientificName,
         collectorName: collectorsName || obs.user?.name || specimen.collectorName,
         collectionDate: obs.observed_on || specimen.collectionDate,
-        locality: obs.place_guess || specimen.locality,
+        locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || specimen.locality),
         state: specimenState || specimen.state,
         country: specimenCountry || specimen.country,
         latitude: obs.geojson?.coordinates?.[1]?.toString() || specimen.latitude,
@@ -14160,12 +14162,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             .where(eq(specimens.id, specimenId));
         } else {
           // Check for missing metadata (location, collector, scientific name, or collection date)
+          // Skip this check for private observations - they legitimately have no location
+          const isPrivateLocation = obs.geoprivacy === 'private';
           const finalScientificName = specimenUpdate.scientificName || specimen.scientificName;
           const finalCollectorName = specimenUpdate.collectorName || specimen.collectorName;
           const finalCollectionDate = specimenUpdate.collectionDate || specimen.collectionDate;
           const finalState = specimenUpdate.state || specimen.state;
           const finalCountry = specimenUpdate.country || specimen.country;
-          const hasLocation = finalState || finalCountry;
+          const hasLocation = isPrivateLocation || finalState || finalCountry;
           
           const missingMetadata = !finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation;
           
@@ -14763,9 +14767,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
               longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
               coordinatesObscured: obs.obscured || false,
+              geoprivacy: obs.geoprivacy || null,
+              taxonGeoprivacy: obs.taxon_geoprivacy || null,
               positionalAccuracy: obs.positional_accuracy || null,
-              placeGuess: obs.place_guess || null,
-              locality: obs.place_guess || null,
+              placeGuess: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
+              locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
               observedOn: obs.observed_on || null,
               observedOnString: obs.observed_on_string || null,
               qualityGrade: obs.quality_grade || null,
@@ -14818,7 +14824,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride),
               collectorName: collectorsName || obs.user?.name,
               collectionDate: obs.observed_on,
-              locality: obs.place_guess,
+              locality: obs.geoprivacy === 'private' ? 'Private' : obs.place_guess,
               state: specimenState,
               country: specimenCountry,
               latitude: obs.geojson?.coordinates?.[1]?.toString(),
