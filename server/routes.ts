@@ -14297,12 +14297,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             console.log(`[iNat Refresh] Cleared metadata flag for specimen ${specimenId} - all metadata now present`);
           }
         } else if (currentFlag && ['herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict'].includes(currentFlag)) {
+          // University of West Alabama Herbarium is a valid alternative - their catalog numbers and herbarium name are not conflicts
+          const isWestAlabamaHerbarium = herbariumName && herbariumName.includes('University of West Alabama Herbarium');
+          
           // Herbarium conflicts are only valid if there's conflicting data on iNat
-          const hasCatalogConflict = herbariumCatalogNumber && 
+          // Skip catalog conflict check for West Alabama Herbarium - their catalog numbers (UWAL-M-*) are valid
+          const hasCatalogConflict = !isWestAlabamaHerbarium && herbariumCatalogNumber && 
             !herbariumCatalogNumber.trim().includes('MYCO') && 
             herbariumCatalogNumber.trim() !== '';
-          // University of West Alabama Herbarium is a valid alternative - not a conflict
-          const isWestAlabamaHerbarium = herbariumName && herbariumName.includes('University of West Alabama Herbarium');
           const hasNameConflict = herbariumName && 
             herbariumName.toUpperCase() !== 'MYCO' && 
             herbariumName.trim() !== '' &&
