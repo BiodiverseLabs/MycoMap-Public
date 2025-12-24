@@ -164,12 +164,17 @@ export default function AdminSpecimensPage() {
   const { toast } = useToast();
   
   const flagOptions = [
-    { value: "check_specimen", label: "Check Specimen" },
-    { value: "push_incomplete", label: "Push Incomplete" },
-    { value: "herbarium_catalog_conflict", label: "Catalog Conflict" },
-    { value: "herbarium_name_conflict", label: "Name Conflict" },
-    { value: "both_conflict", label: "Both Conflict" },
+    { value: "check_specimen", label: "Check Specimen", displayLabel: "Check Specimen" },
+    { value: "push_incomplete", label: "Push Incomplete", displayLabel: "Push Incomplete" },
+    { value: "herbarium_catalog_conflict", label: "Catalog Conflict", displayLabel: "Conflict" },
+    { value: "herbarium_name_conflict", label: "Name Conflict", displayLabel: "Conflict" },
+    { value: "both_conflict", label: "Both Conflict", displayLabel: "Conflict" },
   ];
+  
+  const getFlagDisplayLabel = (flagValue: string) => {
+    const option = flagOptions.find(f => f.value === flagValue);
+    return option?.displayLabel || flagValue;
+  };
 
   // Build URL with query parameters
   const buildSpecimensUrl = () => {
@@ -887,7 +892,7 @@ export default function AdminSpecimensPage() {
                   <div className="mb-3 flex items-center gap-2">
                     <Badge variant="destructive" className="gap-1">
                       <AlertCircle className="w-3 h-3" />
-                      {flagOptions.find(f => f.value === specimenDetail.inatFieldConflict)?.label || specimenDetail.inatFieldConflict}
+                      {getFlagDisplayLabel(specimenDetail.inatFieldConflict)}
                     </Badge>
                     <Button
                       size="sm"
