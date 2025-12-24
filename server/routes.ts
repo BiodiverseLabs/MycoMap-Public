@@ -9760,34 +9760,55 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         });
       }
       
-      // If createSpecimens is true, create specimen records from plate wells
+      // If createSpecimens is true, create specimen records from plate wells or link to existing ones
       let specimensCreated = 0;
+      let specimensLinked = 0;
       if (createSpecimens) {
         for (const plateId of plateIds) {
-          // Get all wells for this plate with observation data
+          // Get all wells for this plate that have either observation ID or lab code
           const wells = await db.select().from(labWells)
             .where(and(
               eq(labWells.plateId, plateId),
-              isNotNull(labWells.observationId)
+              or(isNotNull(labWells.observationId), isNotNull(labWells.labCode))
             ));
           
           for (const well of wells) {
-            // Check if specimen already exists for this observation
-            const [existing] = await db.select().from(specimens)
-              .where(eq(specimens.primaryObservationId, well.observationId));
+            const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
+            let existingSpecimen = null;
             
-            if (!existing) {
-              const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
+            // First check by observation ID if available
+            if (well.observationId) {
+              const [found] = await db.select().from(specimens)
+                .where(eq(specimens.primaryObservationId, well.observationId));
+              existingSpecimen = found;
+            }
+            
+            // If no match by observation ID and we have a lab code, check by lab code
+            if (!existingSpecimen && well.labCode) {
+              const [found] = await db.select().from(specimens)
+                .where(eq(specimens.displayCode, well.labCode));
+              existingSpecimen = found;
+            }
+            
+            if (existingSpecimen) {
+              // Link existing specimen to this well
+              await db.update(labWells)
+                .set({ coreSpecimenId: existingSpecimen.id, updatedAt: new Date() })
+                .where(eq(labWells.id, well.id));
+              
+              specimensLinked++;
+            } else {
+              // Create new specimen record
               const uuid = randomUUID();
-              const displayCode = generateDisplayCode();
+              const displayCode = well.labCode || generateDisplayCode();
               
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
                 displayCode,
                 intakeSourceType: 'transfer',
                 intakeDate: new Date(),
-                primaryObservationSource: platform,
-                primaryObservationId: well.observationId,
+                primaryObservationSource: well.observationId ? platform : null,
+                primaryObservationId: well.observationId || null,
                 voucherNumber: well.voucherNumber,
                 scientificName: null, // Can be populated from well validation later
                 locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
@@ -9795,13 +9816,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 statusChangedAt: new Date(),
               }).returning();
               
-              // Add source record
-              await db.insert(specimenSources).values({
-                specimenId: newSpecimen.id,
-                platform,
-                externalId: well.observationId!,
-                isPrimary: true,
-              });
+              // Add source record if we have an observation ID
+              if (well.observationId) {
+                await db.insert(specimenSources).values({
+                  specimenId: newSpecimen.id,
+                  platform,
+                  externalId: well.observationId,
+                  isPrimary: true,
+                });
+              }
               
               // Log creation event
               await db.insert(specimenEvents).values({
@@ -9826,8 +9849,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         shipment: newShipment, 
         platesLinked: plateIds.length,
         specimensCreated,
+        specimensLinked,
         message: `Lab transfer shipment created with ${plateIds.length} plates` + 
-          (createSpecimens ? ` and ${specimensCreated} specimen records` : '')
+          (createSpecimens ? ` (${specimensCreated} new specimens, ${specimensLinked} linked to existing)` : '')
       });
     } catch (error) {
       console.error("Error creating lab transfer:", error);
