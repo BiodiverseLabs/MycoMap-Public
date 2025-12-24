@@ -14600,6 +14600,33 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             if (pushCount > 0) {
               console.log(`[BulkRefresh Push] Successfully pushed ${pushCount} field updates to iNaturalist`);
             }
+            
+            // Update observation cache with successfully pushed field values
+            if (successfulPushes.size > 0) {
+              console.log(`[BulkRefresh Push] Updating cache for ${successfulPushes.size} specimens with pushed values...`);
+              for (const [specId, pushedFields] of successfulPushes) {
+                const spec = batch.find(s => s.id === specId);
+                if (!spec?.primaryObservationId) continue;
+                
+                const cacheUpdates: any = {};
+                if (pushedFields.has(9539)) {
+                  cacheUpdates.herbariumName = 'MYCO';
+                }
+                if (pushedFields.has(9540)) {
+                  const mycoNumber = spec.mycoNumber || (specId + 1);
+                  cacheUpdates.herbariumCatalogNumber = `MYCO-${mycoNumber}`;
+                }
+                
+                if (Object.keys(cacheUpdates).length > 0) {
+                  await db.update(observationCache)
+                    .set(cacheUpdates)
+                    .where(and(
+                      eq(observationCache.source, 'inat'),
+                      eq(observationCache.sourceObservationId, spec.primaryObservationId)
+                    ));
+                }
+              }
+            }
           }
           
         } catch (fetchErr) {
