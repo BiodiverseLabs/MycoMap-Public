@@ -13869,14 +13869,27 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const response = await fetch(inatUrl);
       
       if (!response.ok) {
-        // Flag the specimen as having a deleted/inaccessible observation
-        await db.update(specimens)
-          .set({ inatFieldConflict: 'observation_deleted' })
-          .where(eq(specimens.id, specimenId));
-        return res.status(404).json({ 
-          error: `Observation not found on iNaturalist (HTTP ${response.status})`,
-          flagged: 'observation_deleted'
-        });
+        // Differentiate between "not found" (404) and temporary errors (5xx, etc.)
+        if (response.status === 404) {
+          // 404 = Observation was deleted from iNaturalist
+          await db.update(specimens)
+            .set({ inatFieldConflict: 'observation_deleted' })
+            .where(eq(specimens.id, specimenId));
+          return res.status(404).json({ 
+            error: "Observation was deleted from iNaturalist",
+            flagged: 'observation_deleted'
+          });
+        } else if (response.status === 403) {
+          // 403 = Access denied (different owner's private observation)
+          return res.status(403).json({ 
+            error: "Access denied - observation may be private and owned by another user"
+          });
+        } else {
+          // 5xx or other errors = temporary API failure, don't flag
+          return res.status(502).json({ 
+            error: `iNaturalist API error (HTTP ${response.status}) - try again later`
+          });
+        }
       }
       
       const data = await response.json();
