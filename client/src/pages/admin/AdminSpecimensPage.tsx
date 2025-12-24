@@ -615,10 +615,7 @@ export default function AdminSpecimensPage() {
                         <TableCell>
                           {specimen.inatFieldConflict ? (
                             <Badge variant="destructive" className="text-xs" data-testid={`badge-conflict-${specimen.id}`}>
-                              {specimen.inatFieldConflict === 'both_conflict' ? 'Herbarium Conflict' :
-                               specimen.inatFieldConflict === 'herbarium_name_conflict' ? 'Name Conflict' :
-                               specimen.inatFieldConflict === 'herbarium_catalog_conflict' ? 'Catalog Conflict' :
-                               'Conflict'}
+                              {getFlagDisplayLabel(specimen.inatFieldConflict)}
                             </Badge>
                           ) : (
                             <span className="text-slate-400">-</span>
