@@ -11786,6 +11786,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     });
                   }
                   
+                  // Extract state and country from observation
+                  let specimenState: string | null = null;
+                  let specimenCountry: string | null = null;
+                  try {
+                    const location = await extractLocationFromObservation(obs);
+                    specimenState = location.stateCode || location.stateName || null;
+                    specimenCountry = location.countryCode || location.countryName || null;
+                  } catch (locErr) {
+                    console.error(`[Validate] Location extraction error for specimen update:`, locErr);
+                  }
+                  
                   // Update any linked specimens with this observation
                   await db.update(specimens)
                     .set({
@@ -11793,6 +11804,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                       collectorName: collectorsName || obs.user?.name || undefined,
                       collectionDate: obs.observed_on || undefined,
                       locality: obs.place_guess || undefined,
+                      state: specimenState || undefined,
+                      country: specimenCountry || undefined,
                       latitude: obs.geojson?.coordinates?.[1]?.toString() || undefined,
                       longitude: obs.geojson?.coordinates?.[0]?.toString() || undefined,
                       genus: inatBaseName?.split(' ')?.[0] || undefined,
@@ -13538,8 +13551,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         positionalAccuracy: obs.positional_accuracy || null,
         placeGuess: obs.place_guess || null,
         locality: obs.place_guess || null,
-        state: null,
-        country: null,
         observedOn: obs.observed_on || null,
         observedOnString: obs.observed_on_string || null,
         qualityGrade: obs.quality_grade || null,
@@ -13586,11 +13597,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Update specimen with data from observation
       const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+      
+      // Extract state and country from observation
+      let specimenState: string | null = null;
+      let specimenCountry: string | null = null;
+      try {
+        const location = await extractLocationFromObservation(obs);
+        specimenState = location.stateCode || location.stateName || null;
+        specimenCountry = location.countryCode || location.countryName || null;
+      } catch (locErr) {
+        console.error("[Refresh] Location extraction error:", locErr);
+      }
+      
       const specimenUpdate: any = {
         scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || specimen.scientificName,
         collectorName: collectorsName || obs.user?.name || specimen.collectorName,
         collectionDate: obs.observed_on || specimen.collectionDate,
         locality: obs.place_guess || specimen.locality,
+        state: specimenState || specimen.state,
+        country: specimenCountry || specimen.country,
         latitude: obs.geojson?.coordinates?.[1]?.toString() || specimen.latitude,
         longitude: obs.geojson?.coordinates?.[0]?.toString() || specimen.longitude,
         voucherNumber: voucherNumber || voucherNumberMultiple || specimen.voucherNumber,

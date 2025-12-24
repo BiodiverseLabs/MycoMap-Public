@@ -55,6 +55,8 @@ interface Specimen {
   collectorName: string | null;
   collectionDate: string | null;
   locality: string | null;
+  state: string | null;
+  country: string | null;
   scientificName: string | null;
   genus: string | null;
   family: string | null;
@@ -313,8 +315,10 @@ export default function AdminSpecimensPage() {
                           {specimen.scientificName || <span className="text-slate-400">Unknown</span>}
                         </TableCell>
                         <TableCell>{getStatusBadge(specimen.currentStatus)}</TableCell>
-                        <TableCell className="text-sm text-slate-600 max-w-[200px] truncate">
-                          {specimen.locality || "-"}
+                        <TableCell className="text-sm text-slate-600">
+                          {specimen.state || specimen.country 
+                            ? [specimen.state, specimen.country].filter(Boolean).join(", ")
+                            : "-"}
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
                           {specimen.collectionDate ? format(new Date(specimen.collectionDate), "MMM d, yyyy") : "-"}

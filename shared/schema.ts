@@ -2201,6 +2201,8 @@ export const specimens = pgTable("specimens", {
   collectorName: text("collector_name"),
   collectionDate: date("collection_date"),
   locality: text("locality"),
+  state: text("state"),
+  country: text("country"),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
   habitat: text("habitat"),
