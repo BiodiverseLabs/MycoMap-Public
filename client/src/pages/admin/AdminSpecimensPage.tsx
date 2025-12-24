@@ -584,19 +584,17 @@ export default function AdminSpecimensPage() {
                           </Button>
                         )}
                         {filterFlagOptions.map((option) => (
-                          <div
+                          <label
                             key={option.value}
                             className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer"
-                            onClick={() => toggleFlagFilter(option.value)}
                             data-testid={`checkbox-flag-${option.value}`}
                           >
                             <Checkbox
                               checked={validationFlagFilters.includes(option.value)}
-                              onCheckedChange={(e) => e} // Prevent double-toggle, div handles click
-                              onClick={(e) => e.stopPropagation()}
+                              onCheckedChange={() => toggleFlagFilter(option.value)}
                             />
                             <span className="text-sm">{option.label}</span>
-                          </div>
+                          </label>
                         ))}
                       </div>
                     </PopoverContent>
