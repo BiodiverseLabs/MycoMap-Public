@@ -13863,6 +13863,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             .set({ inatFieldConflict: null })
             .where(eq(specimens.id, specimenId));
         }
+        
+        // Update observation cache with the pushed values so local data reflects iNat
+        if (inatPushResult.pushed) {
+          const cacheUpdates: any = {};
+          if (inatPushResult.herbariumCatalogPushed) {
+            // Get the value we pushed
+            const catalogPush = pushUpdates.find(u => u.field_id === 9540);
+            if (catalogPush) {
+              cacheUpdates.herbariumCatalogNumber = catalogPush.value;
+            }
+          }
+          if (inatPushResult.herbariumNamePushed) {
+            cacheUpdates.herbariumName = 'MYCO';
+          }
+          
+          if (Object.keys(cacheUpdates).length > 0) {
+            await db.update(observationCache)
+              .set(cacheUpdates)
+              .where(and(
+                eq(observationCache.source, 'inat'),
+                eq(observationCache.sourceObservationId, specimen.primaryObservationId)
+              ));
+          }
+        }
       }
       
       res.json({ 
