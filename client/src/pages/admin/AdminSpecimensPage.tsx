@@ -447,8 +447,13 @@ export default function AdminSpecimensPage() {
                 <div>
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Collector</p>
                   <p className="font-medium">
-                    {specimenDetail.observationData?.collectorsName || specimenDetail.collectorName || 
-                     specimenDetail.observationData?.observerName || "-"}
+                    {(() => {
+                      const collectorsName = specimenDetail.observationData?.collectorsName;
+                      const hasValidCollectorsName = collectorsName && collectorsName.toLowerCase() !== 'none';
+                      return hasValidCollectorsName 
+                        ? collectorsName 
+                        : (specimenDetail.collectorName || specimenDetail.observationData?.observerName || "-");
+                    })()}
                   </p>
                   {specimenDetail.observationData?.observerUsername && (
                     <p className="text-xs text-slate-500">@{specimenDetail.observationData.observerUsername}</p>
