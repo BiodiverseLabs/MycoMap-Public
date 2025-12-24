@@ -2221,6 +2221,9 @@ export const specimens = pgTable("specimens", {
   herbariumAccessionNumber: text("herbarium_accession_number"),
   storageLocation: text("storage_location"),
   
+  // iNaturalist sync validation
+  inatFieldConflict: text("inat_field_conflict"), // Tracks conflicts when pushing to iNat (e.g., "herbarium_name_conflict", "herbarium_catalog_conflict", "both_conflict")
+  
   // Visibility and notes
   isPublic: boolean("is_public").default(false),
   notes: text("notes"),
