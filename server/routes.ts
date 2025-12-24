@@ -13744,7 +13744,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         conflict?: string;
       } = { pushed: false };
       
-      const mycoAccession = specimen.herbariumAccessionNumber;
+      // Use herbariumAccessionNumber if set, otherwise fall back to displayCode
+      const mycoAccession = specimen.herbariumAccessionNumber || specimen.displayCode;
       if (mycoAccession && process.env.INATURALIST_API_TOKEN) {
         const conflicts: string[] = [];
         const pushUpdates: { field_id: number; value: string }[] = [];
