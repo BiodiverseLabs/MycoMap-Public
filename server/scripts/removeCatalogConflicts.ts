@@ -3,7 +3,7 @@ import { specimens, observationCache } from "@shared/schema";
 import { and, eq, like, or, isNull, isNotNull, sql } from "drizzle-orm";
 
 const INAT_TOKEN = process.env.INATURALIST_API_TOKEN;
-const RATE_LIMIT_DELAY = 350; // 350ms between requests
+const RATE_LIMIT_DELAY = 500; // 500ms between requests to avoid rate limiting
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -47,6 +47,9 @@ async function main() {
   console.log("  3. iNat specimens with NO mycoNumber but WITH catalog data in cache\n");
 
   // Match the EXACT same logic as the admin panel filter (lines 13462-13478 in routes.ts)
+  // BUT exclude legitimate herbarium accessions (UWAL-M-) and observations we can't edit
+  const EXCLUDED_OBSERVATIONS = ['299969155']; // TREEfool - different owner, 403 error
+  
   const records = await db.select({
     specimenId: specimens.id,
     observationId: specimens.primaryObservationId,
@@ -59,18 +62,22 @@ async function main() {
     eq(observationCache.source, 'inat'),
     eq(observationCache.sourceObservationId, specimens.primaryObservationId)
   ))
-  .where(or(
-    // Condition 1: explicit catalog conflict flag
-    eq(specimens.inatFieldConflict, 'herbarium_catalog_conflict'),
-    // Condition 2: both_conflict flag
-    eq(specimens.inatFieldConflict, 'both_conflict'),
-    // Condition 3: unaccessioned iNat specimens with catalog data (dynamic detection)
-    and(
-      eq(specimens.primaryObservationSource, 'inat'),
-      isNull(specimens.mycoNumber),
-      isNotNull(observationCache.herbariumCatalogNumber),
-      sql`${observationCache.herbariumCatalogNumber} != ''`
-    )
+  .where(and(
+    or(
+      // Condition 1: explicit catalog conflict flag
+      eq(specimens.inatFieldConflict, 'herbarium_catalog_conflict'),
+      // Condition 2: both_conflict flag
+      eq(specimens.inatFieldConflict, 'both_conflict'),
+      // Condition 3: unaccessioned iNat specimens with catalog data (dynamic detection)
+      and(
+        eq(specimens.primaryObservationSource, 'inat'),
+        isNull(specimens.mycoNumber),
+        isNotNull(observationCache.herbariumCatalogNumber),
+        sql`${observationCache.herbariumCatalogNumber} != ''`
+      )
+    ),
+    // EXCLUDE legitimate herbarium accessions (UWAL = University of West Alabama)
+    sql`${observationCache.herbariumCatalogNumber} NOT LIKE 'UWAL-%'`
   ));
 
   console.log(`Found ${records.length} specimens with catalog conflicts\n`);
@@ -96,6 +103,13 @@ async function main() {
     console.log(`[${i + 1}/${records.length}] Observation ${record.observationId} (Specimen ${record.specimenId})`);
     console.log(`  Conflict: ${record.conflictType}`);
     console.log(`  Cached catalog: ${record.herbariumCatalogNumber || '(empty)'}`);
+
+    // Skip excluded observations (different owner, 403 errors)
+    if (EXCLUDED_OBSERVATIONS.includes(record.observationId || '')) {
+      console.log(`  Skipping (excluded observation)\n`);
+      skippedCount++;
+      continue;
+    }
 
     if (DRY_RUN) {
       console.log(`  [DRY RUN] Would fetch and delete field 9540\n`);
