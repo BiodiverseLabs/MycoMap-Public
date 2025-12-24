@@ -13587,13 +13587,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const herbariumCatalog = cache.herbariumCatalogNumber || '';
           const herbariumName = cache.herbariumName || '';
           const mycoNum = spec.mycoNumber;
+          // University of West Alabama Herbarium is a valid alternative herbarium
+          const isWestAlabamaHerbarium = herbariumName.includes('University of West Alabama Herbarium');
           
           // Check if has MYCO number but catalog doesn't contain it
           if (mycoNum && (!herbariumCatalog || !herbariumCatalog.includes(String(mycoNum)))) {
             hasPushIncomplete = true;
           }
-          // Check if has MYCO in catalog but missing herbarium name
-          else if (herbariumCatalog.includes('MYCO') && !herbariumName) {
+          // Check if has MYCO in catalog but missing herbarium name (unless West Alabama Herbarium)
+          else if (herbariumCatalog.includes('MYCO') && !herbariumName && !isWestAlabamaHerbarium) {
             hasPushIncomplete = true;
           }
         } else if (isInatRecord && spec.mycoNumber && spec.primaryObservationId && !isRemovedObservation) {
@@ -13682,7 +13684,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} != 'check_specimen' AND ${specimens.inatFieldConflict} != 'metadata'`);
       
       // Count dynamic push_incomplete: MYCO number exists but herbarium catalog doesn't contain it, or has MYCO catalog but no herbarium name
-      // Exclude removed observations
+      // Exclude removed observations and specimens with University of West Alabama Herbarium (valid alternative)
       const pushIncompleteQuery = await db.execute(sql`
         SELECT count(*) as count FROM specimens s
         LEFT JOIN observation_cache oc ON oc.source_observation_id = s.primary_observation_id 
@@ -13697,6 +13699,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             oc.herbarium_catalog_number IS NOT NULL 
             AND oc.herbarium_catalog_number LIKE '%MYCO%'
             AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
+            AND (oc.herbarium_name IS NULL OR oc.herbarium_name NOT LIKE '%University of West Alabama Herbarium%')
           )
         )
       `);
@@ -13824,13 +13827,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const herbariumCatalog = observationData.herbariumCatalogNumber || '';
         const herbariumName = observationData.herbariumName || '';
         const mycoNum = specimen.mycoNumber;
+        // University of West Alabama Herbarium is a valid alternative herbarium
+        const isWestAlabamaHerbarium = herbariumName.includes('University of West Alabama Herbarium');
         
         // Check if has MYCO number but catalog doesn't contain it
         if (mycoNum && (!herbariumCatalog || !herbariumCatalog.includes(String(mycoNum)))) {
           hasPushIncomplete = true;
         }
-        // Check if has MYCO in catalog but missing herbarium name
-        else if (herbariumCatalog.includes('MYCO') && !herbariumName) {
+        // Check if has MYCO in catalog but missing herbarium name (unless West Alabama Herbarium)
+        else if (herbariumCatalog.includes('MYCO') && !herbariumName && !isWestAlabamaHerbarium) {
           hasPushIncomplete = true;
         }
       } else if (isInatRecord && specimen.mycoNumber && specimen.primaryObservationId) {
@@ -14122,14 +14127,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         // Check Herbarium Name (field 9539)
+        // Skip if already "University of West Alabama Herbarium" - this is a valid alternative herbarium
         const currentHerbariumName = herbariumName;
-        if (!currentHerbariumName || currentHerbariumName.trim() === '') {
+        const isWestAlabamaHerbarium = currentHerbariumName && currentHerbariumName.includes('University of West Alabama Herbarium');
+        if (isWestAlabamaHerbarium) {
+          // Valid alternative herbarium - no update needed
+        } else if (!currentHerbariumName || currentHerbariumName.trim() === '') {
           // Blank - push MYCO
           pushUpdates.push({ field_id: 9539, value: 'MYCO' });
         } else if (currentHerbariumName.toUpperCase().includes('MYCO')) {
           // Already contains MYCO, no update needed
         } else {
-          // Has different data - append MYCO (e.g., "University of West Alabama Herbarium; MYCO")
+          // Has different data - append MYCO
           const appendedName = `${currentHerbariumName.trim()}; MYCO`;
           pushUpdates.push({ field_id: 9539, value: appendedName });
         }
@@ -14292,9 +14301,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const hasCatalogConflict = herbariumCatalogNumber && 
             !herbariumCatalogNumber.trim().includes('MYCO') && 
             herbariumCatalogNumber.trim() !== '';
+          // University of West Alabama Herbarium is a valid alternative - not a conflict
+          const isWestAlabamaHerbarium = herbariumName && herbariumName.includes('University of West Alabama Herbarium');
           const hasNameConflict = herbariumName && 
             herbariumName.toUpperCase() !== 'MYCO' && 
-            herbariumName.trim() !== '';
+            herbariumName.trim() !== '' &&
+            !isWestAlabamaHerbarium;
           
           if (!hasCatalogConflict && !hasNameConflict) {
             // Conflict resolved - clear the flag
@@ -15096,13 +15108,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
               
               // Check Herbarium Name (field 9539)
-              if (!herbariumName || herbariumName.trim() === '') {
+              // Skip if already "University of West Alabama Herbarium" - this is a valid alternative herbarium
+              const isWestAlabamaHerbarium = herbariumName && herbariumName.includes('University of West Alabama Herbarium');
+              if (isWestAlabamaHerbarium) {
+                // Valid alternative herbarium - no update needed
+              } else if (!herbariumName || herbariumName.trim() === '') {
                 // Blank - push MYCO
                 fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9539, value: 'MYCO', existingOfvId: getOfvId(9539) });
               } else if (herbariumName.toUpperCase().includes('MYCO')) {
                 // Already contains MYCO, no update needed
               } else {
-                // Has different data - append MYCO (e.g., "University of West Alabama Herbarium; MYCO")
+                // Has different data - append MYCO
                 const appendedName = `${herbariumName.trim()}; MYCO`;
                 fieldPushes.push({ specId: spec.id, obsId: spec.primaryObservationId!, fieldId: 9539, value: appendedName, existingOfvId: getOfvId(9539) });
               }
