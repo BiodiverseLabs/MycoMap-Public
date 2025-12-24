@@ -13457,15 +13457,106 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         ${specimens.collectionDate} DESC NULLS LAST
       `;
       
+      // Compute dynamic validation flags based on data discrepancies
+      // push_incomplete: has MYCO number but cache doesn't have matching herbarium catalog number OR missing herbarium name
+      const dynamicFlagExpr = sql`
+        CASE 
+          WHEN ${specimens.mycoNumber} IS NOT NULL AND (
+            oc.herbarium_catalog_number IS NULL 
+            OR oc.herbarium_catalog_number = ''
+            OR oc.herbarium_catalog_number NOT LIKE '%' || ${specimens.mycoNumber}::text || '%'
+          ) THEN 'push_incomplete'
+          WHEN oc.herbarium_catalog_number IS NOT NULL 
+            AND oc.herbarium_catalog_number LIKE '%MYCO%'
+            AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
+          THEN 'push_incomplete'
+          ELSE ${specimens.inatFieldConflict}
+        END
+      `.as('computed_flag');
+      
       let allSpecimens;
       if (conditions.length > 0) {
-        allSpecimens = await db.select().from(specimens)
+        allSpecimens = await db
+          .select({
+            id: specimens.id,
+            uuid: specimens.uuid,
+            displayCode: specimens.displayCode,
+            mycoNumber: specimens.mycoNumber,
+            intakeDate: specimens.intakeDate,
+            intakeSourceType: specimens.intakeSourceType,
+            primaryObservationSource: specimens.primaryObservationSource,
+            primaryObservationId: specimens.primaryObservationId,
+            voucherNumber: specimens.voucherNumber,
+            labCode: specimens.labCode,
+            labRunId: specimens.labRunId,
+            plateNumber: specimens.plateNumber,
+            wellPosition: specimens.wellPosition,
+            scientificName: specimens.scientificName,
+            family: specimens.family,
+            collectorName: specimens.collectorName,
+            collectionDate: specimens.collectionDate,
+            locality: specimens.locality,
+            state: specimens.state,
+            country: specimens.country,
+            latitude: specimens.latitude,
+            longitude: specimens.longitude,
+            herbariumAccessionNumber: specimens.herbariumAccessionNumber,
+            storageLocation: specimens.storageLocation,
+            currentStatus: specimens.currentStatus,
+            statusChangedAt: specimens.statusChangedAt,
+            inatFieldConflict: dynamicFlagExpr,
+            lastSyncedAt: specimens.lastSyncedAt,
+            createdAt: specimens.createdAt,
+            updatedAt: specimens.updatedAt,
+          })
+          .from(specimens)
+          .leftJoin(observationCache, and(
+            eq(observationCache.sourceObservationId, specimens.primaryObservationId),
+            sql`${observationCache.source} = ${specimens.primaryObservationSource}::text`
+          ))
           .where(and(...conditions))
           .orderBy(orderByClause)
           .limit(limit)
           .offset(offset);
       } else {
-        allSpecimens = await db.select().from(specimens)
+        allSpecimens = await db
+          .select({
+            id: specimens.id,
+            uuid: specimens.uuid,
+            displayCode: specimens.displayCode,
+            mycoNumber: specimens.mycoNumber,
+            intakeDate: specimens.intakeDate,
+            intakeSourceType: specimens.intakeSourceType,
+            primaryObservationSource: specimens.primaryObservationSource,
+            primaryObservationId: specimens.primaryObservationId,
+            voucherNumber: specimens.voucherNumber,
+            labCode: specimens.labCode,
+            labRunId: specimens.labRunId,
+            plateNumber: specimens.plateNumber,
+            wellPosition: specimens.wellPosition,
+            scientificName: specimens.scientificName,
+            family: specimens.family,
+            collectorName: specimens.collectorName,
+            collectionDate: specimens.collectionDate,
+            locality: specimens.locality,
+            state: specimens.state,
+            country: specimens.country,
+            latitude: specimens.latitude,
+            longitude: specimens.longitude,
+            herbariumAccessionNumber: specimens.herbariumAccessionNumber,
+            storageLocation: specimens.storageLocation,
+            currentStatus: specimens.currentStatus,
+            statusChangedAt: specimens.statusChangedAt,
+            inatFieldConflict: dynamicFlagExpr,
+            lastSyncedAt: specimens.lastSyncedAt,
+            createdAt: specimens.createdAt,
+            updatedAt: specimens.updatedAt,
+          })
+          .from(specimens)
+          .leftJoin(observationCache, and(
+            eq(observationCache.sourceObservationId, specimens.primaryObservationId),
+            sql`${observationCache.source} = ${specimens.primaryObservationSource}::text`
+          ))
           .orderBy(orderByClause)
           .limit(limit)
           .offset(offset);
@@ -13540,6 +13631,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .from(specimens)
         .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} != 'check_specimen' AND ${specimens.inatFieldConflict} != 'metadata'`);
       
+      // Count dynamic push_incomplete: MYCO number exists but herbarium catalog doesn't contain it, or has MYCO catalog but no herbarium name
+      const [dynamicPushIncompleteResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .leftJoin(observationCache, and(
+          eq(observationCache.sourceObservationId, specimens.primaryObservationId),
+          sql`${observationCache.source} = ${specimens.primaryObservationSource}::text`
+        ))
+        .where(sql`
+          (${specimens.mycoNumber} IS NOT NULL AND (
+            ${observationCache.herbariumCatalogNumber} IS NULL 
+            OR ${observationCache.herbariumCatalogNumber} = ''
+            OR ${observationCache.herbariumCatalogNumber} NOT LIKE '%' || ${specimens.mycoNumber}::text || '%'
+          ))
+          OR (
+            ${observationCache.herbariumCatalogNumber} IS NOT NULL 
+            AND ${observationCache.herbariumCatalogNumber} LIKE '%MYCO%'
+            AND (${observationCache.herbariumName} IS NULL OR ${observationCache.herbariumName} = '')
+          )
+        `);
+      
       res.json({
         total: Number(totalResult?.count || 0),
         accessioned: Number(accessionedResult?.count || 0),
@@ -13547,6 +13658,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         checkSpecimenFlag: Number(checkSpecimenFlagResult?.count || 0),
         metadataFlag: Number(metadataFlagResult?.count || 0),
         otherFlag: Number(otherFlagResult?.count || 0),
+        pushIncomplete: Number(dynamicPushIncompleteResult?.count || 0),
         byStatus: statusCounts.reduce((acc, row) => {
           acc[row.status] = Number(row.count);
           return acc;
@@ -13644,7 +13756,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
-      res.json({ ...specimen, sources, events, observationData, photos });
+      // Compute dynamic validation flag
+      let computedFlag = specimen.inatFieldConflict;
+      if (observationData) {
+        const herbariumCatalog = observationData.herbariumCatalogNumber || '';
+        const herbariumName = observationData.herbariumName || '';
+        const mycoNum = specimen.mycoNumber;
+        
+        // Check if has MYCO number but catalog doesn't contain it
+        if (mycoNum && (!herbariumCatalog || !herbariumCatalog.includes(String(mycoNum)))) {
+          computedFlag = 'push_incomplete';
+        }
+        // Check if has MYCO in catalog but missing herbarium name
+        else if (herbariumCatalog.includes('MYCO') && !herbariumName) {
+          computedFlag = 'push_incomplete';
+        }
+      }
+      
+      res.json({ ...specimen, inatFieldConflict: computedFlag, sources, events, observationData, photos });
     } catch (error) {
       console.error("Error fetching specimen:", error);
       res.status(500).json({ error: "Failed to fetch specimen" });
