@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { specimens, observationCache } from "@shared/schema";
-import { and, eq, like, or, sql } from "drizzle-orm";
+import { and, eq, like, or, isNull, isNotNull, sql } from "drizzle-orm";
 
 const INAT_TOKEN = process.env.INATURALIST_API_TOKEN;
 const RATE_LIMIT_DELAY = 350; // 350ms between requests
@@ -41,11 +41,16 @@ async function removeFieldValue(ofvId: number): Promise<boolean> {
 
 async function main() {
   console.log("Finding specimens with catalog conflicts...\n");
+  console.log("This matches the same logic as the admin panel 'Catalog Conflict' filter:\n");
+  console.log("  1. inatFieldConflict = 'herbarium_catalog_conflict'");
+  console.log("  2. inatFieldConflict = 'both_conflict'");
+  console.log("  3. iNat specimens with NO mycoNumber but WITH catalog data in cache\n");
 
-  // Get all specimens with catalog-related conflict flags
+  // Match the EXACT same logic as the admin panel filter (lines 13462-13478 in routes.ts)
   const records = await db.select({
     specimenId: specimens.id,
     observationId: specimens.primaryObservationId,
+    mycoNumber: specimens.mycoNumber,
     conflictType: specimens.inatFieldConflict,
     herbariumCatalogNumber: observationCache.herbariumCatalogNumber,
   })
@@ -55,8 +60,17 @@ async function main() {
     eq(observationCache.sourceObservationId, specimens.primaryObservationId)
   ))
   .where(or(
-    like(specimens.inatFieldConflict, '%catalog%'),
-    eq(specimens.inatFieldConflict, 'both_conflict')
+    // Condition 1: explicit catalog conflict flag
+    eq(specimens.inatFieldConflict, 'herbarium_catalog_conflict'),
+    // Condition 2: both_conflict flag
+    eq(specimens.inatFieldConflict, 'both_conflict'),
+    // Condition 3: unaccessioned iNat specimens with catalog data (dynamic detection)
+    and(
+      eq(specimens.primaryObservationSource, 'inat'),
+      isNull(specimens.mycoNumber),
+      isNotNull(observationCache.herbariumCatalogNumber),
+      sql`${observationCache.herbariumCatalogNumber} != ''`
+    )
   ));
 
   console.log(`Found ${records.length} specimens with catalog conflicts\n`);
