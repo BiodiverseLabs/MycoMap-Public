@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -41,7 +42,10 @@ import {
   Eye,
   AlertCircle,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Database,
+  Square,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -129,6 +133,17 @@ interface SpecimensResponse {
   offset: number;
 }
 
+interface RefreshStatus {
+  syncStatus: 'idle' | 'syncing' | 'completed' | 'error' | 'rate_limited' | 'cancelled';
+  syncProgress: number;
+  totalSpecimens: number;
+  processedCount: number;
+  successCount: number;
+  errorCount: number;
+  syncMessage: string | null;
+  lastRefreshAt: string | null;
+}
+
 export default function AdminSpecimensPage() {
   const [location] = useLocation();
   const urlParams = new URLSearchParams(location.split("?")[1] || "");
@@ -141,7 +156,10 @@ export default function AdminSpecimensPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [hasSequence, setHasSequence] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
   const limit = 50;
+  const { toast } = useToast();
 
   // Build URL with query parameters
   const buildSpecimensUrl = () => {
@@ -187,7 +205,84 @@ export default function AdminSpecimensPage() {
     mycoportal: (id) => `https://mycoportal.org/portal/collections/individual/index.php?occid=${id}`,
   };
 
-  const { toast } = useToast();
+  // Check bulk refresh status on mount
+  useEffect(() => {
+    checkRefreshStatus();
+  }, []);
+
+  // Poll for status when syncing
+  useEffect(() => {
+    if (isPolling && refreshStatus?.syncStatus === 'syncing') {
+      const interval = setInterval(() => {
+        checkRefreshStatus();
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [isPolling, refreshStatus?.syncStatus]);
+
+  const checkRefreshStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/specimens/refresh/status', { credentials: 'include' });
+      if (res.ok) {
+        const status = await res.json();
+        setRefreshStatus(status);
+        
+        if (status.syncStatus === 'syncing') {
+          setIsPolling(true);
+        } else if (status.syncStatus !== 'idle' && isPolling) {
+          setIsPolling(false);
+          // Refresh list after sync completes
+          if (status.syncStatus === 'completed') {
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/specimens"] });
+            toast({ title: "Refresh Complete", description: status.syncMessage || `Refreshed ${status.successCount} specimens` });
+          } else if (status.syncStatus === 'rate_limited') {
+            toast({ title: "Rate Limited", description: status.syncMessage || "Wait 2 min and resume", variant: "destructive" });
+          } else if (status.syncStatus === 'error') {
+            toast({ title: "Error", description: status.syncMessage || "Refresh failed", variant: "destructive" });
+          } else if (status.syncStatus === 'cancelled') {
+            toast({ title: "Cancelled", description: status.syncMessage || "Refresh cancelled" });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error checking refresh status:', err);
+    }
+  };
+
+  const startBulkRefresh = async () => {
+    try {
+      const res = await fetch('/api/admin/specimens/refresh/start', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      
+      if (data.status === 'started' || data.status === 'already_syncing') {
+        setIsPolling(true);
+        toast({ title: "Refresh Started", description: data.message });
+        checkRefreshStatus();
+      } else {
+        toast({ title: "Error", description: data.message, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to start refresh", variant: "destructive" });
+    }
+  };
+
+  const cancelBulkRefresh = async () => {
+    try {
+      const res = await fetch('/api/admin/specimens/refresh/cancel', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      toast({ title: "Cancelled", description: data.message });
+      setIsPolling(false);
+      checkRefreshStatus();
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to cancel refresh", variant: "destructive" });
+    }
+  };
 
   const refreshMutation = useMutation({
     mutationFn: async (specimenId: number) => {
@@ -221,11 +316,73 @@ export default function AdminSpecimensPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">Specimens</h1>
-          <p className="text-slate-600 mt-1">
-            Browse and manage fungarium specimens
-          </p>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Specimens</h1>
+            <p className="text-slate-600 mt-1">
+              Browse and manage fungarium specimens
+            </p>
+          </div>
+          
+          {/* Bulk Refresh Panel */}
+          <div className="flex flex-col items-end gap-2">
+            {refreshStatus?.syncStatus === 'syncing' ? (
+              <div className="flex items-center gap-2 bg-white rounded-lg shadow p-3 min-w-64">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-slate-700">Refreshing...</span>
+                    <span className="text-sm text-slate-500">{refreshStatus.syncProgress}%</span>
+                  </div>
+                  <Progress value={refreshStatus.syncProgress} className="h-2" />
+                  <p className="text-xs text-slate-500 mt-1">
+                    {refreshStatus.processedCount}/{refreshStatus.totalSpecimens} specimens
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="destructive" 
+                  onClick={cancelBulkRefresh}
+                  data-testid="button-cancel-refresh"
+                >
+                  <Square className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : refreshStatus?.syncStatus === 'rate_limited' ? (
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="text-amber-600">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800">Rate Limited</p>
+                  <p className="text-xs text-amber-600">{refreshStatus.processedCount}/{refreshStatus.totalSpecimens} done</p>
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={startBulkRefresh}
+                  className="bg-amber-600 hover:bg-amber-700"
+                  data-testid="button-resume-refresh"
+                >
+                  Resume
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                onClick={startBulkRefresh} 
+                variant="outline" 
+                className="gap-2"
+                data-testid="button-bulk-refresh"
+              >
+                <Database className="w-4 h-4" />
+                Refresh All from iNat
+              </Button>
+            )}
+            
+            {refreshStatus?.lastRefreshAt && refreshStatus.syncStatus !== 'syncing' && (
+              <p className="text-xs text-slate-500">
+                Last refresh: {format(new Date(refreshStatus.lastRefreshAt), "MMM d, yyyy h:mm a")}
+              </p>
+            )}
+          </div>
         </div>
 
           <Card className="mb-6">
