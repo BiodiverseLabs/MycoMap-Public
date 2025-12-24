@@ -13988,20 +13988,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         return res.json({ status: 'error', message: 'No iNaturalist-linked specimens found' });
       }
       
-      // Create or update metadata record
-      const startId = existing?.lastProcessedId && existing.syncStatus !== 'completed' ? existing.lastProcessedId : 0;
+      // Create or update metadata record - always start fresh unless explicitly resuming
+      const isResume = req.body?.resume === true && existing?.lastProcessedId && existing.syncStatus !== 'completed';
+      const startId = isResume ? existing.lastProcessedId : 0;
       
       if (existing) {
         await db.update(specimenRefreshMetadata)
           .set({
             totalSpecimens,
-            processedCount: startId > 0 ? existing.processedCount : 0,
-            successCount: startId > 0 ? existing.successCount : 0,
-            errorCount: startId > 0 ? existing.errorCount : 0,
+            processedCount: isResume ? existing.processedCount : 0,
+            successCount: isResume ? existing.successCount : 0,
+            errorCount: isResume ? existing.errorCount : 0,
             lastProcessedId: startId,
             syncStatus: 'syncing',
-            syncProgress: startId > 0 ? existing.syncProgress : 0,
-            syncMessage: startId > 0 ? 'Resuming refresh...' : 'Starting refresh...',
+            syncProgress: isResume ? existing.syncProgress : 0,
+            syncMessage: isResume ? 'Resuming refresh...' : 'Starting fresh refresh...',
             updatedAt: new Date(),
           })
           .where(eq(specimenRefreshMetadata.id, existing.id));
