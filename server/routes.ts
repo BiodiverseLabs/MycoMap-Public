@@ -14051,14 +14051,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  // Background bulk refresh processor
+  // Background bulk refresh processor - fetches 200 observations per API call
   async function processBulkRefresh() {
-    const BATCH_SIZE = 10;
-    const DELAY_MS = 1000; // 1 second between batches to avoid rate limiting
+    const BATCH_SIZE = 200; // iNaturalist allows up to 200 per request
+    const DELAY_MS = 2000; // 2 seconds between API calls
     
     try {
       const [metadata] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
       if (!metadata) return;
+      
+      console.log(`[BulkRefresh] Starting refresh of ${metadata.totalSpecimens} specimens...`);
       
       // Get all iNat-linked specimens ordered by ID (include status for sequenced check)
       const allSpecimens = await db.select({ id: specimens.id, primaryObservationId: specimens.primaryObservationId, currentStatus: specimens.currentStatus })
@@ -14081,8 +14083,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         if (startIndex === -1) startIndex = allSpecimens.length;
       }
       
+      console.log(`[BulkRefresh] Resuming from index ${startIndex}, processed: ${processed}`);
+      
       for (let i = startIndex; i < allSpecimens.length; i += BATCH_SIZE) {
         if (bulkRefreshCancelled) {
+          console.log(`[BulkRefresh] Cancelled by user at ${processed}/${metadata.totalSpecimens}`);
           await db.update(specimenRefreshMetadata)
             .set({
               syncStatus: 'cancelled',
@@ -14096,186 +14101,208 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         const batch = allSpecimens.slice(i, i + BATCH_SIZE);
         
-        for (const spec of batch) {
-          try {
-            // Fetch from iNaturalist API
-            const inatUrl = `https://api.inaturalist.org/v1/observations/${spec.primaryObservationId}`;
-            const response = await fetch(inatUrl);
-            
-            if (response.status === 429) {
-              // Rate limited - pause and update status
-              await db.update(specimenRefreshMetadata)
-                .set({
-                  syncStatus: 'rate_limited',
-                  syncMessage: `Rate limited at ${processed}/${metadata.totalSpecimens}. Wait 2 min and resume.`,
-                  lastProcessedId: spec.id,
-                  processedCount: processed,
-                  successCount: success,
-                  errorCount: errors,
-                  syncProgress: Math.round((processed / metadata.totalSpecimens!) * 100),
-                  updatedAt: new Date(),
-                })
-                .where(eq(specimenRefreshMetadata.id, metadata.id));
-              bulkRefreshActive = false;
-              return;
-            }
-            
-            if (!response.ok) {
-              errors++;
-              processed++;
-              continue;
-            }
-            
-            const data = await response.json();
-            
-            if (!data.results || data.results.length === 0) {
-              errors++;
-              processed++;
-              continue;
-            }
-            
-            const obs = data.results[0];
-            
-            // Extract observation fields
-            const observationFields = obs.ofvs || [];
-            const getField = (fieldId: number) => observationFields.find((f: any) => f.field_id === fieldId)?.value || null;
-            
-            const voucherNumber = getField(8257);
-            const voucherNumberMultiple = getField(2863);
-            const herbariumName = getField(9539);
-            const herbariumCatalogNumber = getField(9540);
-            const genbankAccession = getField(7555);
-            const genbankNumberUrl = getField(4191);
-            const provisionalSpeciesName = getField(10675);
-            const mycomapBlastResults = getField(9864);
-            const traceFiles = getField(10109);
-            const dnaBarcodIts = getField(2330);
-            const readsInConsensus = getField(16718);
-            const speciesNameOverride = getField(20259);
-            const collectorsName = getField(9051);
-            
-            // Update observation cache
-            const cacheData = {
-              source: 'inat' as const,
-              sourceObservationId: spec.primaryObservationId!,
-              sourceUuid: obs.uuid || null,
-              scientificName: obs.taxon?.name || obs.species_guess || null,
-              commonName: obs.taxon?.preferred_common_name || null,
-              observerName: obs.user?.name || null,
-              observerUsername: obs.user?.login || null,
-              observerId: obs.user?.id?.toString() || null,
-              latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
-              longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
-              coordinatesObscured: obs.obscured || false,
-              positionalAccuracy: obs.positional_accuracy || null,
-              placeGuess: obs.place_guess || null,
-              locality: obs.place_guess || null,
-              observedOn: obs.observed_on || null,
-              observedOnString: obs.observed_on_string || null,
-              qualityGrade: obs.quality_grade || null,
-              identificationCount: obs.identifications_count || 0,
-              captive: obs.captive || false,
-              licenseCode: obs.license_code || null,
-              voucherNumber,
-              voucherNumberMultiple,
-              herbariumName,
-              herbariumCatalogNumber,
-              genbankAccession,
-              genbankNumberUrl,
-              provisionalSpeciesName,
-              mycomapBlastResults,
-              traceFiles,
-              dnaBarcodIts,
-              readsInConsensus,
-              speciesNameOverride,
-              collectorsName,
-              apiResponseJson: JSON.stringify(data),
-              lastSyncedAt: new Date(),
-              syncStatus: 'success',
-              updatedAt: new Date(),
-            };
-            
-            // Upsert into observation_cache
-            const existingCache = await db.select().from(observationCache)
-              .where(and(
-                eq(observationCache.source, 'inat'),
-                eq(observationCache.sourceObservationId, spec.primaryObservationId!)
-              ))
-              .limit(1);
-            
-            let cacheId: number;
-            if (existingCache.length > 0) {
-              cacheId = existingCache[0].id;
-              await db.update(observationCache)
-                .set(cacheData)
-                .where(eq(observationCache.id, cacheId));
-            } else {
-              const [inserted] = await db.insert(observationCache).values({
-                ...cacheData,
-                createdAt: new Date(),
-              }).returning({ id: observationCache.id });
-              cacheId = inserted.id;
-            }
-            
-            // Update photos
-            if (obs.photos && obs.photos.length > 0) {
-              await db.delete(observationMedia).where(eq(observationMedia.observationCacheId, cacheId));
-              
-              for (let photoIdx = 0; photoIdx < obs.photos.length; photoIdx++) {
-                const photo = obs.photos[photoIdx];
-                await db.insert(observationMedia).values({
-                  observationCacheId: cacheId,
-                  mediaType: 'photo',
-                  url: photo.url || '',
-                  thumbnailUrl: photo.url?.replace('/square.', '/thumb.') || photo.url || null,
-                  mediumUrl: photo.url?.replace('/square.', '/medium.') || null,
-                  largeUrl: photo.url?.replace('/square.', '/large.') || null,
-                  originalUrl: photo.url?.replace('/square.', '/original.') || null,
-                  licenseCode: photo.license_code || null,
-                  attribution: photo.attribution || null,
-                  sortOrder: photoIdx,
-                });
-              }
-            }
-            
-            // Update specimen basic data
-            const inatBaseName = obs.taxon?.name || obs.species_guess || null;
-            const specimenUpdate: any = {
-              scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride),
-              collectorName: collectorsName || obs.user?.name,
-              collectionDate: obs.observed_on,
-              locality: obs.place_guess,
-              latitude: obs.geojson?.coordinates?.[1]?.toString(),
-              longitude: obs.geojson?.coordinates?.[0]?.toString(),
-              voucherNumber: voucherNumber || voucherNumberMultiple,
-            };
-            
-            // Auto-update status to 'sequenced' if DNA barcode is now present
-            if (dnaBarcodIts && spec.currentStatus !== 'sequenced') {
-              specimenUpdate.currentStatus = 'sequenced';
-            }
-            
-            if (obs.taxon?.name) {
-              specimenUpdate.genus = obs.taxon.name.split(' ')[0];
-            }
-            
-            await db.update(specimens)
-              .set(specimenUpdate)
-              .where(eq(specimens.id, spec.id));
-            
-            success++;
-            processed++;
-            
-          } catch (err) {
-            console.error(`Error processing specimen ${spec.id}:`, err);
-            errors++;
-            processed++;
+        // Build comma-separated list of observation IDs for batch API call
+        const observationIds = batch.map(s => s.primaryObservationId).join(',');
+        const inatUrl = `https://api.inaturalist.org/v1/observations?id=${observationIds}&per_page=${BATCH_SIZE}`;
+        
+        console.log(`[BulkRefresh] Fetching batch of ${batch.length} observations...`);
+        
+        try {
+          const response = await fetch(inatUrl);
+          
+          if (response.status === 429) {
+            console.log(`[BulkRefresh] Rate limited at ${processed}/${metadata.totalSpecimens}`);
+            await db.update(specimenRefreshMetadata)
+              .set({
+                syncStatus: 'rate_limited',
+                syncMessage: `Rate limited at ${processed}/${metadata.totalSpecimens}. Wait 2 min and resume.`,
+                lastProcessedId: batch[0].id - 1, // Resume from before this batch
+                processedCount: processed,
+                successCount: success,
+                errorCount: errors,
+                syncProgress: Math.round((processed / metadata.totalSpecimens!) * 100),
+                updatedAt: new Date(),
+              })
+              .where(eq(specimenRefreshMetadata.id, metadata.id));
+            bulkRefreshActive = false;
+            return;
           }
+          
+          if (!response.ok) {
+            console.error(`[BulkRefresh] API error: ${response.status}`);
+            errors += batch.length;
+            processed += batch.length;
+            continue;
+          }
+          
+          const data = await response.json();
+          const resultsMap = new Map<string, any>();
+          
+          // Build map of observation ID -> observation data
+          for (const obs of data.results || []) {
+            resultsMap.set(obs.id.toString(), obs);
+          }
+          
+          console.log(`[BulkRefresh] Got ${resultsMap.size} observations from API`);
+          
+          // Process each specimen in the batch
+          for (const spec of batch) {
+            const obs = resultsMap.get(spec.primaryObservationId!);
+            
+            if (!obs) {
+              errors++;
+              processed++;
+              continue;
+            }
+            
+            try {
+              // Extract observation fields
+              const observationFields = obs.ofvs || [];
+              const getField = (fieldId: number) => observationFields.find((f: any) => f.field_id === fieldId)?.value || null;
+              
+              const voucherNumber = getField(8257);
+              const voucherNumberMultiple = getField(2863);
+              const herbariumName = getField(9539);
+              const herbariumCatalogNumber = getField(9540);
+              const genbankAccession = getField(7555);
+              const genbankNumberUrl = getField(4191);
+              const provisionalSpeciesName = getField(10675);
+              const mycomapBlastResults = getField(9864);
+              const traceFiles = getField(10109);
+              const dnaBarcodIts = getField(2330);
+              const readsInConsensus = getField(16718);
+              const speciesNameOverride = getField(20259);
+              const collectorsName = getField(9051);
+              
+              // Update observation cache
+              const cacheData = {
+                source: 'inat' as const,
+                sourceObservationId: spec.primaryObservationId!,
+                sourceUuid: obs.uuid || null,
+                scientificName: obs.taxon?.name || obs.species_guess || null,
+                commonName: obs.taxon?.preferred_common_name || null,
+                observerName: obs.user?.name || null,
+                observerUsername: obs.user?.login || null,
+                observerId: obs.user?.id?.toString() || null,
+                latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+                longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+                coordinatesObscured: obs.obscured || false,
+                positionalAccuracy: obs.positional_accuracy || null,
+                placeGuess: obs.place_guess || null,
+                locality: obs.place_guess || null,
+                observedOn: obs.observed_on || null,
+                observedOnString: obs.observed_on_string || null,
+                qualityGrade: obs.quality_grade || null,
+                identificationCount: obs.identifications_count || 0,
+                captive: obs.captive || false,
+                licenseCode: obs.license_code || null,
+                voucherNumber,
+                voucherNumberMultiple,
+                herbariumName,
+                herbariumCatalogNumber,
+                genbankAccession,
+                genbankNumberUrl,
+                provisionalSpeciesName,
+                mycomapBlastResults,
+                traceFiles,
+                dnaBarcodIts,
+                readsInConsensus,
+                speciesNameOverride,
+                collectorsName,
+                apiResponseJson: JSON.stringify({ results: [obs] }),
+                lastSyncedAt: new Date(),
+                syncStatus: 'success',
+                updatedAt: new Date(),
+              };
+              
+              // Upsert into observation_cache
+              const existingCache = await db.select().from(observationCache)
+                .where(and(
+                  eq(observationCache.source, 'inat'),
+                  eq(observationCache.sourceObservationId, spec.primaryObservationId!)
+                ))
+                .limit(1);
+              
+              let cacheId: number;
+              if (existingCache.length > 0) {
+                cacheId = existingCache[0].id;
+                await db.update(observationCache)
+                  .set(cacheData)
+                  .where(eq(observationCache.id, cacheId));
+              } else {
+                const [inserted] = await db.insert(observationCache).values({
+                  ...cacheData,
+                  createdAt: new Date(),
+                }).returning({ id: observationCache.id });
+                cacheId = inserted.id;
+              }
+              
+              // Update photos
+              if (obs.photos && obs.photos.length > 0) {
+                await db.delete(observationMedia).where(eq(observationMedia.observationCacheId, cacheId));
+                
+                for (let photoIdx = 0; photoIdx < obs.photos.length; photoIdx++) {
+                  const photo = obs.photos[photoIdx];
+                  await db.insert(observationMedia).values({
+                    observationCacheId: cacheId,
+                    mediaType: 'photo',
+                    url: photo.url || '',
+                    thumbnailUrl: photo.url?.replace('/square.', '/thumb.') || photo.url || null,
+                    mediumUrl: photo.url?.replace('/square.', '/medium.') || null,
+                    largeUrl: photo.url?.replace('/square.', '/large.') || null,
+                    originalUrl: photo.url?.replace('/square.', '/original.') || null,
+                    licenseCode: photo.license_code || null,
+                    attribution: photo.attribution || null,
+                    sortOrder: photoIdx,
+                  });
+                }
+              }
+              
+              // Update specimen basic data
+              const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+              const specimenUpdate: any = {
+                scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride),
+                collectorName: collectorsName || obs.user?.name,
+                collectionDate: obs.observed_on,
+                locality: obs.place_guess,
+                latitude: obs.geojson?.coordinates?.[1]?.toString(),
+                longitude: obs.geojson?.coordinates?.[0]?.toString(),
+                voucherNumber: voucherNumber || voucherNumberMultiple,
+              };
+              
+              // Auto-update status to 'sequenced' if DNA barcode is now present
+              if (dnaBarcodIts && spec.currentStatus !== 'sequenced') {
+                specimenUpdate.currentStatus = 'sequenced';
+              }
+              
+              if (obs.taxon?.name) {
+                specimenUpdate.genus = obs.taxon.name.split(' ')[0];
+              }
+              
+              await db.update(specimens)
+                .set(specimenUpdate)
+                .where(eq(specimens.id, spec.id));
+              
+              success++;
+              processed++;
+              
+            } catch (err) {
+              console.error(`[BulkRefresh] Error processing specimen ${spec.id}:`, err);
+              errors++;
+              processed++;
+            }
+          }
+        } catch (fetchErr) {
+          console.error(`[BulkRefresh] Fetch error:`, fetchErr);
+          errors += batch.length;
+          processed += batch.length;
         }
         
         // Update progress
         const progress = Math.round((processed / metadata.totalSpecimens!) * 100);
         const lastSpecimen = batch[batch.length - 1];
+        
+        console.log(`[BulkRefresh] Progress: ${processed}/${metadata.totalSpecimens} (${progress}%)`);
         
         await db.update(specimenRefreshMetadata)
           .set({
@@ -14289,7 +14316,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           })
           .where(eq(specimenRefreshMetadata.id, metadata.id));
         
-        // Delay between batches
+        // Delay between API calls
         await new Promise(resolve => setTimeout(resolve, DELAY_MS));
       }
       
