@@ -13367,6 +13367,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     try {
       const searchTerm = req.query.search?.trim() || '';
       const status = req.query.status && req.query.status !== 'all' ? req.query.status : '';
+      const validationFlag = req.query.validationFlag && req.query.validationFlag !== 'all' ? req.query.validationFlag : '';
       const dateFrom = req.query.dateFrom || '';
       const dateTo = req.query.dateTo || '';
       const hasSequence = req.query.hasSequence === 'true';
@@ -13378,6 +13379,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       if (status) {
         conditions.push(eq(specimens.currentStatus, status));
+      }
+      
+      // Validation flag filter
+      if (validationFlag) {
+        if (validationFlag === 'has_flag') {
+          conditions.push(sql`${specimens.inatFieldConflict} IS NOT NULL`);
+        } else if (validationFlag === 'no_flag') {
+          conditions.push(sql`${specimens.inatFieldConflict} IS NULL`);
+        } else {
+          conditions.push(eq(specimens.inatFieldConflict, validationFlag));
+        }
       }
       
       // Date range filter on collection date

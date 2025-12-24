@@ -151,6 +151,7 @@ export default function AdminSpecimensPage() {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [validationFlagFilter, setValidationFlagFilter] = useState("");
   const [selectedSpecimen, setSelectedSpecimen] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
@@ -166,6 +167,7 @@ export default function AdminSpecimensPage() {
     const params = new URLSearchParams();
     if (searchTerm) params.set("search", searchTerm);
     if (statusFilter) params.set("status", statusFilter);
+    if (validationFlagFilter) params.set("validationFlag", validationFlagFilter);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (hasSequence) params.set("hasSequence", "true");
@@ -175,7 +177,7 @@ export default function AdminSpecimensPage() {
   };
 
   const { data, isLoading } = useQuery<SpecimensResponse>({
-    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, page, dateFrom, dateTo, hasSequence],
+    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, validationFlagFilter, page, dateFrom, dateTo, hasSequence],
     queryFn: async () => {
       const res = await fetch(buildSpecimensUrl(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch specimens");
@@ -412,6 +414,22 @@ export default function AdminSpecimensPage() {
                       <SelectItem value="unaccessioned">Unaccessioned</SelectItem>
                       <SelectItem value="accessioned">Accessioned</SelectItem>
                       <SelectItem value="sequenced">Sequenced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={validationFlagFilter} onValueChange={(v) => { setValidationFlagFilter(v); setPage(0); }}>
+                    <SelectTrigger className="w-48" data-testid="select-validation-flag">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Validation Flag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Records</SelectItem>
+                      <SelectItem value="has_flag">Has Any Flag</SelectItem>
+                      <SelectItem value="no_flag">No Flag</SelectItem>
+                      <SelectItem value="push_incomplete">Push Incomplete</SelectItem>
+                      <SelectItem value="herbarium_catalog_conflict">Catalog Conflict</SelectItem>
+                      <SelectItem value="herbarium_name_conflict">Name Conflict</SelectItem>
+                      <SelectItem value="both_conflict">Both Conflict</SelectItem>
                     </SelectContent>
                   </Select>
                   
