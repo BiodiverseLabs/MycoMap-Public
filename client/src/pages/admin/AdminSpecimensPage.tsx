@@ -45,7 +45,8 @@ import {
   RefreshCw,
   Database,
   Square,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -441,9 +442,18 @@ export default function AdminSpecimensPage() {
                       setSearchTerm(e.target.value);
                       setPage(0);
                     }}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     data-testid="input-search"
                   />
+                  {searchTerm && (
+                    <button
+                      onClick={() => { setSearchTerm(""); setPage(0); }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      data-testid="button-clear-search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex gap-2 flex-wrap items-center">
                   <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
