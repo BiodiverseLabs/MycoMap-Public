@@ -13750,8 +13750,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       };
       
       // Auto-update status to 'sequenced' if DNA barcode is now present
-      if (dnaBarcodIts && specimen.status !== 'sequenced') {
-        specimenUpdate.status = 'sequenced';
+      if (dnaBarcodIts && specimen.currentStatus !== 'sequenced') {
+        specimenUpdate.currentStatus = 'sequenced';
       }
       
       // Extract genus and family if available
@@ -14061,7 +14061,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       if (!metadata) return;
       
       // Get all iNat-linked specimens ordered by ID (include status for sequenced check)
-      const allSpecimens = await db.select({ id: specimens.id, primaryObservationId: specimens.primaryObservationId, status: specimens.status })
+      const allSpecimens = await db.select({ id: specimens.id, primaryObservationId: specimens.primaryObservationId, currentStatus: specimens.currentStatus })
         .from(specimens)
         .where(and(
           eq(specimens.primaryObservationSource, 'inat'),
@@ -14251,8 +14251,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             };
             
             // Auto-update status to 'sequenced' if DNA barcode is now present
-            if (dnaBarcodIts && spec.status !== 'sequenced') {
-              specimenUpdate.status = 'sequenced';
+            if (dnaBarcodIts && spec.currentStatus !== 'sequenced') {
+              specimenUpdate.currentStatus = 'sequenced';
             }
             
             if (obs.taxon?.name) {
