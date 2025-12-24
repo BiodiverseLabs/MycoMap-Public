@@ -63,6 +63,7 @@ interface Specimen {
   currentStatus: string;
   herbariumAccessionNumber: string | null;
   storageLocation: string | null;
+  inatFieldConflict: string | null;
   createdAt: string;
 }
 
@@ -308,6 +309,7 @@ export default function AdminSpecimensPage() {
                       <TableHead>Status</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Collection Date</TableHead>
+                      <TableHead>Validation</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -361,6 +363,18 @@ export default function AdminSpecimensPage() {
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
                           {specimen.collectionDate ? format(new Date(specimen.collectionDate), "MMM d, yyyy") : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {specimen.inatFieldConflict ? (
+                            <Badge variant="destructive" className="text-xs" data-testid={`badge-conflict-${specimen.id}`}>
+                              {specimen.inatFieldConflict === 'both_conflict' ? 'Herbarium Conflict' :
+                               specimen.inatFieldConflict === 'herbarium_name_conflict' ? 'Name Conflict' :
+                               specimen.inatFieldConflict === 'herbarium_catalog_conflict' ? 'Catalog Conflict' :
+                               'Conflict'}
+                            </Badge>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">

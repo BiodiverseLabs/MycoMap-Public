@@ -13736,10 +13736,129 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .set(specimenUpdate)
         .where(eq(specimens.id, specimenId));
       
+      // TWO-WAY SYNC: Push MYCO data to iNaturalist if conditions are met
+      let inatPushResult: { 
+        pushed: boolean; 
+        herbariumNamePushed?: boolean;
+        herbariumCatalogPushed?: boolean;
+        conflict?: string;
+      } = { pushed: false };
+      
+      const mycoAccession = specimen.herbariumAccessionNumber;
+      if (mycoAccession && process.env.INATURALIST_API_TOKEN) {
+        const conflicts: string[] = [];
+        const pushUpdates: { field_id: number; value: string }[] = [];
+        
+        // Get existing ofvs IDs for updating existing fields
+        const existingOfvs = obs.ofvs || [];
+        const getOfvId = (fieldId: number) => existingOfvs.find((f: any) => f.field_id === fieldId)?.id || null;
+        
+        // Check Herbarium Catalog Number (field 9540)
+        const currentCatalogNumber = herbariumCatalogNumber;
+        if (!currentCatalogNumber || currentCatalogNumber.trim() === '') {
+          // Blank - push MYCO accession
+          pushUpdates.push({ field_id: 9540, value: mycoAccession });
+        } else if (currentCatalogNumber.toLowerCase().startsWith('myco') && !currentCatalogNumber.includes('-')) {
+          // Starts with MYCO but lacks dash - update to proper format
+          pushUpdates.push({ field_id: 9540, value: mycoAccession });
+        } else if (currentCatalogNumber !== mycoAccession) {
+          // Has different data - conflict
+          conflicts.push('herbarium_catalog_conflict');
+        }
+        
+        // Check Herbarium Name (field 9539)
+        const currentHerbariumName = herbariumName;
+        if (!currentHerbariumName || currentHerbariumName.trim() === '') {
+          // Blank - push MYCO
+          pushUpdates.push({ field_id: 9539, value: 'MYCO' });
+        } else if (currentHerbariumName.toUpperCase() !== 'MYCO') {
+          // Has different data - conflict
+          conflicts.push('herbarium_name_conflict');
+        }
+        
+        // Push updates to iNaturalist if we have any
+        if (pushUpdates.length > 0) {
+          const inatToken = process.env.INATURALIST_API_TOKEN;
+          
+          for (const update of pushUpdates) {
+            try {
+              const existingOfvId = getOfvId(update.field_id);
+              
+              if (existingOfvId) {
+                // Update existing observation field value
+                const putResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${existingOfvId}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Authorization': `Bearer ${inatToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    observation_field_value: {
+                      value: update.value
+                    }
+                  }),
+                });
+                
+                if (putResponse.ok) {
+                  inatPushResult.pushed = true;
+                  if (update.field_id === 9539) inatPushResult.herbariumNamePushed = true;
+                  if (update.field_id === 9540) inatPushResult.herbariumCatalogPushed = true;
+                  console.log(`[iNat Push] Updated field ${update.field_id} for observation ${specimen.primaryObservationId}`);
+                } else {
+                  console.error(`[iNat Push] Failed to update field ${update.field_id}: ${putResponse.status}`);
+                }
+              } else {
+                // Create new observation field value
+                const postResponse = await fetch('https://api.inaturalist.org/v1/observation_field_values', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${inatToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    observation_field_value: {
+                      observation_id: parseInt(specimen.primaryObservationId),
+                      observation_field_id: update.field_id,
+                      value: update.value
+                    }
+                  }),
+                });
+                
+                if (postResponse.ok) {
+                  inatPushResult.pushed = true;
+                  if (update.field_id === 9539) inatPushResult.herbariumNamePushed = true;
+                  if (update.field_id === 9540) inatPushResult.herbariumCatalogPushed = true;
+                  console.log(`[iNat Push] Created field ${update.field_id} for observation ${specimen.primaryObservationId}`);
+                } else {
+                  console.error(`[iNat Push] Failed to create field ${update.field_id}: ${postResponse.status}`);
+                }
+              }
+            } catch (pushError) {
+              console.error(`[iNat Push] Error pushing field ${update.field_id}:`, pushError);
+            }
+          }
+        }
+        
+        // Update specimen with conflict status if any
+        if (conflicts.length > 0) {
+          const conflictValue = conflicts.length === 2 ? 'both_conflict' : conflicts[0];
+          inatPushResult.conflict = conflictValue;
+          await db.update(specimens)
+            .set({ inatFieldConflict: conflictValue })
+            .where(eq(specimens.id, specimenId));
+        } else {
+          // Clear any previous conflict - either we pushed successfully or data already matches
+          await db.update(specimens)
+            .set({ inatFieldConflict: null })
+            .where(eq(specimens.id, specimenId));
+        }
+      }
+      
       res.json({ 
         success: true, 
         message: "Specimen refreshed from iNaturalist",
-        updated: specimenUpdate 
+        updated: specimenUpdate,
+        inatPush: inatPushResult
       });
     } catch (error) {
       console.error("Error refreshing specimen:", error);
