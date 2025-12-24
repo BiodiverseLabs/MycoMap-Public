@@ -14260,11 +14260,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               // Update specimen basic data
               const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+              
+              // Extract state and country from observation
+              let specimenState: string | null = null;
+              let specimenCountry: string | null = null;
+              try {
+                const location = await extractLocationFromObservation(obs);
+                specimenState = location.stateCode || location.stateName || null;
+                specimenCountry = location.countryCode || location.countryName || null;
+              } catch (locErr) {
+                // Location extraction failed, continue without it
+              }
+              
               const specimenUpdate: any = {
                 scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride),
                 collectorName: collectorsName || obs.user?.name,
                 collectionDate: obs.observed_on,
                 locality: obs.place_guess,
+                state: specimenState,
+                country: specimenCountry,
                 latitude: obs.geojson?.coordinates?.[1]?.toString(),
                 longitude: obs.geojson?.coordinates?.[0]?.toString(),
                 voucherNumber: voucherNumber || voucherNumberMultiple,
