@@ -14192,7 +14192,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             }
           }
           if (inatPushResult.herbariumNamePushed) {
-            cacheUpdates.herbariumName = 'MYCO';
+            // Get the actual value we pushed (could be 'MYCO' or 'Existing Name; MYCO')
+            const namePush = pushUpdates.find(u => u.field_id === 9539);
+            if (namePush) {
+              cacheUpdates.herbariumName = namePush.value;
+            }
           }
           
           if (Object.keys(cacheUpdates).length > 0) {
