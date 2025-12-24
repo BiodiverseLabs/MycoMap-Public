@@ -13202,8 +13202,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/admin/specimens", isAdmin, async (req: any, res) => {
     try {
       const searchTerm = req.query.search?.trim() || '';
-      const status = req.query.status || '';
-      const limit = parseInt(req.query.limit) || 100;
+      const status = req.query.status && req.query.status !== 'all' ? req.query.status : '';
+      const limit = parseInt(req.query.limit) || 50;
       const offset = parseInt(req.query.offset) || 0;
       
       let query = db.select().from(specimens);
@@ -13251,9 +13251,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
-      // Get total count
-      const [countResult] = await db.select({ count: sql`count(*)` }).from(specimens);
-      const total = Number(countResult?.count || 0);
+      // Get total count with same filters
+      let countQuery;
+      if (conditions.length > 0) {
+        [countQuery] = await db.select({ count: sql`count(*)` }).from(specimens).where(and(...conditions));
+      } else {
+        [countQuery] = await db.select({ count: sql`count(*)` }).from(specimens);
+      }
+      const total = Number(countQuery?.count || 0);
       
       res.json({
         specimens: filteredSpecimens,
