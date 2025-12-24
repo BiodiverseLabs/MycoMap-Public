@@ -14159,6 +14159,27 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               ));
           }
         }
+      } else {
+        // No MYCO number - check if existing conflict flags should be cleared
+        // Herbarium conflicts are only valid if there's conflicting data on iNat
+        const currentFlag = specimen.inatFieldConflict;
+        if (currentFlag && ['herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict'].includes(currentFlag)) {
+          // Check if the conflict still exists
+          const hasCatalogConflict = herbariumCatalogNumber && 
+            !herbariumCatalogNumber.trim().includes('MYCO') && 
+            herbariumCatalogNumber.trim() !== '';
+          const hasNameConflict = herbariumName && 
+            herbariumName.toUpperCase() !== 'MYCO' && 
+            herbariumName.trim() !== '';
+          
+          if (!hasCatalogConflict && !hasNameConflict) {
+            // Conflict resolved - clear the flag
+            await db.update(specimens)
+              .set({ inatFieldConflict: null })
+              .where(eq(specimens.id, specimenId));
+            console.log(`[iNat Refresh] Cleared resolved conflict flag for specimen ${specimenId}`);
+          }
+        }
       }
       
       res.json({ 
