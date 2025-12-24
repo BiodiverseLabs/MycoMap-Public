@@ -9786,7 +9786,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             // If no match by observation ID and we have a lab code, check by lab code
             if (!existingSpecimen && well.labCode) {
               const [found] = await db.select().from(specimens)
-                .where(eq(specimens.displayCode, well.labCode));
+                .where(eq(specimens.labCode, well.labCode));
               existingSpecimen = found;
             }
             
@@ -9800,7 +9800,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             } else {
               // Create new specimen record
               const uuid = randomUUID();
-              const displayCode = well.labCode || await generateUniqueDisplayCode();
+              // Always generate unique MYCO number for displayCode
+              // Lab codes are stored separately in the labCode field and can be duplicated
+              const displayCode = await generateUniqueDisplayCode();
               
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
@@ -9810,6 +9812,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 primaryObservationSource: well.observationId ? platform : null,
                 primaryObservationId: well.observationId || null,
                 voucherNumber: well.voucherNumber,
+                labCode: well.labCode || null, // Store lab code separately (can be duplicated)
                 scientificName: null, // Can be populated from well validation later
                 locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
                 currentStatus: 'pending_accession',
@@ -12130,9 +12133,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
           
           if (labCodes.length > 0) {
-            const existing = await db.select({ id: specimens.id, code: specimens.displayCode })
+            const existing = await db.select({ id: specimens.id, code: specimens.labCode })
               .from(specimens)
-              .where(inArray(specimens.displayCode, labCodes));
+              .where(inArray(specimens.labCode, labCodes));
             existing.forEach(s => { if (s.code) existingByLabCode.set(s.code, s.id); });
           }
 
@@ -12168,7 +12171,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             for (const well of wellsToCreate) {
               const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
               const uuid = randomUUID();
-              const displayCode = well.labCode || await generateUniqueDisplayCode();
+              
+              // Always generate unique MYCO number for displayCode
+              // Lab codes are stored separately in the labCode field and can be duplicated
+              const displayCode = await generateUniqueDisplayCode();
               
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
@@ -12178,6 +12184,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 primaryObservationSource: well.observationId ? platform : null,
                 primaryObservationId: well.observationId || null,
                 voucherNumber: well.voucherNumber,
+                labCode: well.labCode || null, // Store lab code separately (can be duplicated)
                 scientificName: null,
                 locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
                 currentStatus: 'pending_accession',
