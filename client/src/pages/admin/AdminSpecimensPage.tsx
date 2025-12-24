@@ -717,9 +717,13 @@ export default function AdminSpecimensPage() {
                       const hasValidCollectorsName = collectorsName && collectorsName.toLowerCase() !== 'none';
                       const collectorName = specimenDetail.collectorName;
                       const hasValidCollectorName = collectorName && collectorName.toLowerCase() !== 'none';
-                      return hasValidCollectorsName 
-                        ? collectorsName 
-                        : (hasValidCollectorName ? collectorName : specimenDetail.observationData?.observerName || "-");
+                      const observerName = specimenDetail.observationData?.observerName;
+                      const observerUsername = specimenDetail.observationData?.observerUsername;
+                      if (hasValidCollectorsName) return collectorsName;
+                      if (hasValidCollectorName) return collectorName;
+                      if (observerName) return observerName;
+                      if (observerUsername) return `@${observerUsername}`;
+                      return "-";
                     })()}
                   </p>
                   {specimenDetail.observationData?.observerUsername && (
