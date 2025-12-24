@@ -13509,16 +13509,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .from(specimens)
         .where(sql`${specimens.inatFieldConflict} = 'check_specimen'`);
       
-      // Count specimens with other flags (not check_specimen)
+      // Count specimens with metadata flag
+      const [metadataFlagResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .where(sql`${specimens.inatFieldConflict} = 'metadata'`);
+      
+      // Count specimens with other flags (not check_specimen and not metadata)
       const [otherFlagResult] = await db.select({ count: sql`count(*)` })
         .from(specimens)
-        .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} != 'check_specimen'`);
+        .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} != 'check_specimen' AND ${specimens.inatFieldConflict} != 'metadata'`);
       
       res.json({
         total: Number(totalResult?.count || 0),
         accessioned: Number(accessionedResult?.count || 0),
         readyForAccession: Number(readyForAccessionResult?.count || 0),
         checkSpecimenFlag: Number(checkSpecimenFlagResult?.count || 0),
+        metadataFlag: Number(metadataFlagResult?.count || 0),
         otherFlag: Number(otherFlagResult?.count || 0),
         byStatus: statusCounts.reduce((acc, row) => {
           acc[row.status] = Number(row.count);
@@ -13933,10 +13939,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             .set({ inatFieldConflict: conflictValue })
             .where(eq(specimens.id, specimenId));
         } else {
-          // Clear any previous conflict - either we pushed successfully or data already matches
-          await db.update(specimens)
-            .set({ inatFieldConflict: null })
-            .where(eq(specimens.id, specimenId));
+          // Check for missing metadata (location, collector, scientific name, or collection date)
+          const finalScientificName = specimenUpdate.scientificName || specimen.scientificName;
+          const finalCollectorName = specimenUpdate.collectorName || specimen.collectorName;
+          const finalCollectionDate = specimenUpdate.collectionDate || specimen.collectionDate;
+          const finalState = specimenUpdate.state || specimen.state;
+          const finalCountry = specimenUpdate.country || specimen.country;
+          const hasLocation = finalState || finalCountry;
+          
+          const missingMetadata = !finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation;
+          
+          if (missingMetadata) {
+            await db.update(specimens)
+              .set({ inatFieldConflict: 'metadata' })
+              .where(eq(specimens.id, specimenId));
+          } else {
+            // Clear any previous conflict - either we pushed successfully or data already matches
+            await db.update(specimens)
+              .set({ inatFieldConflict: null })
+              .where(eq(specimens.id, specimenId));
+          }
         }
         
         // Update observation cache with the pushed values so local data reflects iNat

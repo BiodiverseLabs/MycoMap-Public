@@ -19,6 +19,7 @@ interface SpecimenStats {
   accessioned: number;
   readyForAccession: number;
   checkSpecimenFlag: number;
+  metadataFlag: number;
   otherFlag: number;
   byStatus: Record<string, number>;
 }
@@ -33,6 +34,7 @@ export default function AdminFungariumOverview() {
   const sequenced = stats?.byStatus?.sequenced || 0;
   const unaccessioned = stats?.byStatus?.unaccessioned || 0;
   const checkSpecimenFlag = stats?.checkSpecimenFlag || 0;
+  const metadataFlag = stats?.metadataFlag || 0;
   const otherFlag = stats?.otherFlag || 0;
 
   return (
@@ -152,7 +154,7 @@ export default function AdminFungariumOverview() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <Link href="/admin/specimens?status=sequenced">
                 <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-status-sequenced">
                   <CardContent className="p-6">
@@ -196,6 +198,22 @@ export default function AdminFungariumOverview() {
                     </div>
                     <div className="text-2xl font-bold text-amber-600">
                       {checkSpecimenFlag.toLocaleString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/admin/specimens?validationFlag=metadata">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-metadata">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Missing Metadata</span>
+                      <div className="p-2 rounded-lg bg-orange-50">
+                        <AlertCircle className="w-4 h-4 text-orange-600" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {metadataFlag.toLocaleString()}
                     </div>
                   </CardContent>
                 </Card>
