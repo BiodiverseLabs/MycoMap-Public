@@ -15181,7 +15181,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Update observation cache with successfully pushed field values
+            // Update observation cache with the actual values that were pushed to iNat
             if (successfulPushes.size > 0) {
               console.log(`[BulkRefresh Push] Updating cache for ${successfulPushes.size} specimens with pushed values...`);
               for (const [specId, pushedFields] of successfulPushes) {
@@ -15189,12 +15189,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 if (!spec?.primaryObservationId) continue;
                 
                 const cacheUpdates: any = {};
+                
+                // Find the actual values that were pushed from the fieldPushes array
                 if (pushedFields.has(9539)) {
-                  cacheUpdates.herbariumName = 'MYCO';
+                  const pushed9539 = fieldPushes.find(f => f.specId === specId && f.fieldId === 9539);
+                  if (pushed9539) {
+                    cacheUpdates.herbariumName = pushed9539.value;
+                  }
                 }
-                if (pushedFields.has(9540) && spec.mycoNumber) {
-                  // Only update cache if there's a real MYCO number - never use specimen ID as fallback
-                  cacheUpdates.herbariumCatalogNumber = `MYCO-${spec.mycoNumber}`;
+                if (pushedFields.has(9540)) {
+                  const pushed9540 = fieldPushes.find(f => f.specId === specId && f.fieldId === 9540);
+                  if (pushed9540) {
+                    cacheUpdates.herbariumCatalogNumber = pushed9540.value;
+                  }
                 }
                 
                 if (Object.keys(cacheUpdates).length > 0) {
