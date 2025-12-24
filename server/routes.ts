@@ -14304,61 +14304,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             processed++;
           }
           
-          console.log(`[BulkRefresh] Upserting ${cacheUpserts.length} cache entries...`);
+          // SKIP cache updates during bulk refresh - too slow with 200+ sequential DB ops
+          // Cache will be updated on individual specimen refresh if needed
+          console.log(`[BulkRefresh] Skipping cache updates (${cacheUpserts.length} entries) for speed`);
           
-          // Bulk upsert observation cache using ON CONFLICT
-          if (cacheUpserts.length > 0) {
-            for (const cacheData of cacheUpserts) {
-              await db.insert(observationCache)
-                .values({ ...cacheData, createdAt: new Date() })
-                .onConflictDoUpdate({
-                  target: [observationCache.source, observationCache.sourceObservationId],
-                  set: cacheData,
-                });
-            }
-          }
-          
-          // Get cache IDs for photo updates
-          if (observationIdsForPhotos.length > 0) {
-            const cacheRows = await db.select({ id: observationCache.id, sourceObservationId: observationCache.sourceObservationId })
-              .from(observationCache)
-              .where(and(
-                eq(observationCache.source, 'inat'),
-                sql`${observationCache.sourceObservationId} IN (${sql.raw(observationIdsForPhotos.map(id => `'${id}'`).join(','))})`
-              ));
-            
-            const cacheIdMap = new Map<string, number>();
-            for (const row of cacheRows) {
-              if (row.sourceObservationId) {
-                cacheIdMap.set(row.sourceObservationId, row.id);
-              }
-            }
-            
-            // Bulk delete existing photos
-            const cacheIds = Array.from(cacheIdMap.values());
-            if (cacheIds.length > 0) {
-              await db.delete(observationMedia)
-                .where(sql`${observationMedia.observationCacheId} IN (${sql.raw(cacheIds.join(','))})`);
-            }
-            
-            // Bulk insert photos
-            if (photoInserts.length > 0) {
-              const photosWithCacheId = photoInserts
-                .map(p => ({
-                  ...p,
-                  observationCacheId: cacheIdMap.get(p.sourceObservationId),
-                }))
-                .filter(p => p.observationCacheId);
-              
-              if (photosWithCacheId.length > 0) {
-                // Insert in chunks of 100 to avoid query size limits
-                for (let j = 0; j < photosWithCacheId.length; j += 100) {
-                  const chunk = photosWithCacheId.slice(j, j + 100).map(({ sourceObservationId, ...rest }) => rest);
-                  await db.insert(observationMedia).values(chunk);
-                }
-              }
-            }
-          }
           
           console.log(`[BulkRefresh] Updating ${specimenUpdates.length} specimens...`);
           
