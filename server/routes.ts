@@ -13760,10 +13760,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           // Blank - push MYCO accession
           pushUpdates.push({ field_id: 9540, value: mycoAccession });
         } else if (currentCatalogNumber.toLowerCase().startsWith('myco') && !currentCatalogNumber.includes('-')) {
-          // Starts with MYCO but lacks dash - update to proper format
-          pushUpdates.push({ field_id: 9540, value: mycoAccession });
-        } else if (currentCatalogNumber !== mycoAccession) {
-          // Has different data - conflict
+          // Starts with MYCO but lacks dash - update to proper format while preserving additional data
+          // e.g., "MYCO1000004; TENN-F-079059" → "MYCO-1000004; TENN-F-079059"
+          const mycoMatch = currentCatalogNumber.match(/^MYCO\s*(\d+)/i);
+          if (mycoMatch) {
+            // Find where the MYCO number ends and additional data begins
+            const afterMyco = currentCatalogNumber.substring(mycoMatch[0].length);
+            // Construct new value: proper MYCO format + any additional data
+            const newValue = mycoAccession + afterMyco;
+            pushUpdates.push({ field_id: 9540, value: newValue });
+          } else {
+            pushUpdates.push({ field_id: 9540, value: mycoAccession });
+          }
+        } else if (!currentCatalogNumber.includes(mycoAccession)) {
+          // Has different data that doesn't include our MYCO number - conflict
           conflicts.push('herbarium_catalog_conflict');
         }
         
