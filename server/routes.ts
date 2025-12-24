@@ -13459,6 +13459,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 )
               )
             )`);
+          } else if (flag === 'herbarium_catalog_conflict') {
+            // Dynamic flag: catalog conflict includes stored conflicts + specimens without MYCO but with catalog data
+            flagConditions.push(sql`(
+              ${specimens.inatFieldConflict} = 'herbarium_catalog_conflict'
+              OR ${specimens.inatFieldConflict} = 'both_conflict'
+              OR (
+                ${specimens.primaryObservationSource} = 'inat'
+                AND ${specimens.mycoNumber} IS NULL
+                AND EXISTS (
+                  SELECT 1 FROM observation_cache oc 
+                  WHERE oc.source = 'inat' 
+                    AND oc.source_observation_id = ${specimens.primaryObservationId}
+                    AND oc.herbarium_catalog_number IS NOT NULL 
+                    AND oc.herbarium_catalog_number != ''
+                )
+              )
+            )`);
           } else {
             flagConditions.push(eq(specimens.inatFieldConflict, flag));
           }
@@ -14327,6 +14344,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   AND oc.source_observation_id = ${specimens.primaryObservationId}
                   AND oc.herbarium_catalog_number LIKE '%MYCO%'
                   AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
+              )
+            )
+          )`);
+        } else if (flag === 'herbarium_catalog_conflict') {
+          // Dynamic flag: catalog conflict includes stored conflicts + specimens without MYCO but with catalog data
+          flagConditions.push(sql`(
+            ${specimens.inatFieldConflict} = 'herbarium_catalog_conflict'
+            OR ${specimens.inatFieldConflict} = 'both_conflict'
+            OR (
+              ${specimens.primaryObservationSource} = 'inat'
+              AND ${specimens.mycoNumber} IS NULL
+              AND EXISTS (
+                SELECT 1 FROM observation_cache oc 
+                WHERE oc.source = 'inat' 
+                  AND oc.source_observation_id = ${specimens.primaryObservationId}
+                  AND oc.herbarium_catalog_number IS NOT NULL 
+                  AND oc.herbarium_catalog_number != ''
               )
             )
           )`);
@@ -16010,6 +16044,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     AND oc.source_observation_id = ${specimens.primaryObservationId}
                     AND oc.herbarium_catalog_number LIKE '%MYCO%'
                     AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
+                )
+              )
+            )`);
+          } else if (flag === 'herbarium_catalog_conflict') {
+            // Dynamic flag: catalog conflict includes stored conflicts + specimens without MYCO but with catalog data
+            flagConditions.push(sql`(
+              ${specimens.inatFieldConflict} = 'herbarium_catalog_conflict'
+              OR ${specimens.inatFieldConflict} = 'both_conflict'
+              OR (
+                ${specimens.primaryObservationSource} = 'inat'
+                AND ${specimens.mycoNumber} IS NULL
+                AND EXISTS (
+                  SELECT 1 FROM observation_cache oc 
+                  WHERE oc.source = 'inat' 
+                    AND oc.source_observation_id = ${specimens.primaryObservationId}
+                    AND oc.herbarium_catalog_number IS NOT NULL 
+                    AND oc.herbarium_catalog_number != ''
                 )
               )
             )`);
