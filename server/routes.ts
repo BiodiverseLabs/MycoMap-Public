@@ -14479,10 +14479,24 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   }
                 }));
                 
+                let batchSuccess = 0;
+                let batchFail = 0;
                 for (const result of results) {
-                  if (result.status === 'fulfilled' && result.value.ok) {
-                    pushCount += result.value.fieldCount;
+                  if (result.status === 'fulfilled') {
+                    if (result.value.ok) {
+                      pushCount += result.value.fieldCount;
+                      batchSuccess++;
+                    } else {
+                      batchFail++;
+                      console.error(`[BulkRefresh Push] Failed obs ${result.value.obsPush.obsId}: HTTP ${result.value.status}`);
+                    }
+                  } else {
+                    batchFail++;
+                    console.error(`[BulkRefresh Push] Promise rejected:`, result.reason);
                   }
+                }
+                if (batchSuccess > 0 || batchFail > 0) {
+                  console.log(`[BulkRefresh Push] Batch result: ${batchSuccess} success, ${batchFail} failed`);
                 }
                 
                 // Small delay between parallel batches to avoid rate limiting
