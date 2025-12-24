@@ -14305,9 +14305,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       isNotNull(specimens.primaryObservationId)
     ];
     
-    // Recency filter: when ignoreRefreshDate is false (default), only include specimens
+    // Recency filter: when onlyStale is explicitly true, only include specimens
     // that haven't been refreshed in the last 24 hours
-    if (params.ignoreRefreshDate !== true) {
+    // Default behavior (ignoreRefreshDate not specified or true): refresh all filtered specimens
+    if (params.ignoreRefreshDate === false) {
       conditions.push(sql`(
         NOT EXISTS (
           SELECT 1 FROM observation_cache oc 
@@ -14465,6 +14466,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const totalSpecimens = Number(countResult?.count || 0);
       
       if (totalSpecimens === 0) {
+        // Check if there are specimens that match filters but were recently refreshed
+        if (!filterParams.ignoreRefreshDate) {
+          const conditionsWithoutRecency = buildSpecimenFilterConditions({ ...filterParams, ignoreRefreshDate: true });
+          const [totalWithoutRecency] = await db.select({ count: sql`count(*)` })
+            .from(specimens)
+            .where(and(...conditionsWithoutRecency));
+          const countWithoutRecency = Number(totalWithoutRecency?.count || 0);
+          
+          if (countWithoutRecency > 0) {
+            return res.json({ 
+              status: 'error', 
+              message: `All ${countWithoutRecency} matching specimens were refreshed within the last 24 hours. Check "Ignore Previous Refresh Date" to refresh them again.`
+            });
+          }
+        }
         return res.json({ status: 'error', message: 'No specimens match the current filters' });
       }
       
