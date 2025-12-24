@@ -175,6 +175,7 @@ export default function AdminSpecimensPage() {
     { value: "check_specimen", label: "Check Specimen", displayLabel: "Check Specimen" },
     { value: "metadata", label: "Missing Metadata", displayLabel: "Missing Metadata" },
     { value: "push_incomplete", label: "Push Incomplete", displayLabel: "Push Incomplete" },
+    { value: "duplicate_inat", label: "Duplicate iNat", displayLabel: "Duplicate" },
     { value: "herbarium_catalog_conflict", label: "Catalog Conflict", displayLabel: "Conflict" },
     { value: "herbarium_name_conflict", label: "Name Conflict", displayLabel: "Conflict" },
     { value: "both_conflict", label: "Both Conflict", displayLabel: "Conflict" },
@@ -541,6 +542,7 @@ export default function AdminSpecimensPage() {
                       <SelectItem value="check_specimen">Check Specimen</SelectItem>
                       <SelectItem value="metadata">Missing Metadata</SelectItem>
                       <SelectItem value="push_incomplete">Push Incomplete</SelectItem>
+                      <SelectItem value="duplicate_inat">Duplicate iNat</SelectItem>
                       <SelectItem value="herbarium_catalog_conflict">Catalog Conflict</SelectItem>
                       <SelectItem value="herbarium_name_conflict">Name Conflict</SelectItem>
                       <SelectItem value="both_conflict">Both Conflict</SelectItem>
