@@ -13656,20 +13656,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .where(sql`${specimens.displayCode} LIKE 'MYCO-%'`);
       
       // Count specimens ready for accession: have DNA barcode ITS but no MYCO number
-      const [readyForAccessionResult] = await db.select({ count: sql`count(*)` })
-        .from(specimens)
-        .innerJoin(observationCache, and(
-          eq(observationCache.source, sql`CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN 'inat' ELSE ${specimens.primaryObservationSource} END`),
-          eq(observationCache.sourceObservationId, specimens.primaryObservationId)
-        ))
-        .where(and(
-          isNotNull(observationCache.dnaBarcodeIts),
-          sql`${observationCache.dnaBarcodeIts} != ''`,
-          or(
-            isNull(specimens.displayCode),
-            sql`${specimens.displayCode} NOT LIKE 'MYCO-%'`
-          )
-        ));
+      const readyForAccessionQuery = await db.execute(sql`
+        SELECT count(*) as count FROM specimens s
+        INNER JOIN observation_cache oc ON oc.source = s.primary_observation_source::text 
+          AND oc.source_observation_id = s.primary_observation_id
+        WHERE oc.dna_barcode_its IS NOT NULL 
+          AND oc.dna_barcode_its != '' 
+          AND (s.display_code IS NULL OR s.display_code NOT LIKE 'MYCO-%')
+      `);
+      const readyForAccessionResult = { count: readyForAccessionQuery.rows[0]?.count || 0 };
       
       // Count specimens with check_specimen flag
       const [checkSpecimenFlagResult] = await db.select({ count: sql`count(*)` })
@@ -13687,24 +13682,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} != 'check_specimen' AND ${specimens.inatFieldConflict} != 'metadata'`);
       
       // Count dynamic push_incomplete: MYCO number exists but herbarium catalog doesn't contain it, or has MYCO catalog but no herbarium name
-      const [dynamicPushIncompleteResult] = await db.select({ count: sql`count(*)` })
-        .from(specimens)
-        .leftJoin(observationCache, and(
-          eq(observationCache.sourceObservationId, specimens.primaryObservationId),
-          sql`${observationCache.source} = ${specimens.primaryObservationSource}::text`
-        ))
-        .where(sql`
-          (${specimens.mycoNumber} IS NOT NULL AND (
-            ${observationCache.herbariumCatalogNumber} IS NULL 
-            OR ${observationCache.herbariumCatalogNumber} = ''
-            OR ${observationCache.herbariumCatalogNumber} NOT LIKE '%' || ${specimens.mycoNumber}::text || '%'
+      // Exclude removed observations
+      const pushIncompleteQuery = await db.execute(sql`
+        SELECT count(*) as count FROM specimens s
+        LEFT JOIN observation_cache oc ON oc.source_observation_id = s.primary_observation_id 
+          AND oc.source = s.primary_observation_source::text
+        WHERE s.scientific_name != 'Removed' AND s.locality != 'Removed' AND (
+          (s.myco_number IS NOT NULL AND (
+            oc.herbarium_catalog_number IS NULL 
+            OR oc.herbarium_catalog_number = ''
+            OR oc.herbarium_catalog_number NOT LIKE '%' || s.myco_number::text || '%'
           ))
           OR (
-            ${observationCache.herbariumCatalogNumber} IS NOT NULL 
-            AND ${observationCache.herbariumCatalogNumber} LIKE '%MYCO%'
-            AND (${observationCache.herbariumName} IS NULL OR ${observationCache.herbariumName} = '')
+            oc.herbarium_catalog_number IS NOT NULL 
+            AND oc.herbarium_catalog_number LIKE '%MYCO%'
+            AND (oc.herbarium_name IS NULL OR oc.herbarium_name = '')
           )
-        `);
+        )
+      `);
+      const dynamicPushIncompleteResult = { count: pushIncompleteQuery.rows[0]?.count || 0 };
       
       res.json({
         total: Number(totalResult?.count || 0),
