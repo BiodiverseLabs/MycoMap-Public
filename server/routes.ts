@@ -14428,6 +14428,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
+            // Log field push distribution
+            const field9539Count = fieldPushes.filter(f => f.fieldId === 9539).length;
+            const field9540Count = fieldPushes.filter(f => f.fieldId === 9540).length;
+            console.log(`[BulkRefresh Push] Field breakdown: ${field9539Count} Herbarium Name (9539), ${field9540Count} Catalog Number (9540)`);
+            
             // Execute field updates in parallel batches
             if (fieldPushes.length > 0) {
               console.log(`[BulkRefresh Push] Pushing ${fieldPushes.length} field updates (${PUSH_CONCURRENCY} parallel)...`);
