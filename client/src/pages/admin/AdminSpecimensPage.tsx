@@ -101,8 +101,23 @@ export default function AdminSpecimensPage() {
   const [page, setPage] = useState(0);
   const limit = 50;
 
+  // Build URL with query parameters
+  const buildSpecimensUrl = () => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("search", searchTerm);
+    if (statusFilter) params.set("status", statusFilter);
+    params.set("limit", limit.toString());
+    params.set("offset", (page * limit).toString());
+    return `/api/admin/specimens?${params.toString()}`;
+  };
+
   const { data, isLoading } = useQuery<SpecimensResponse>({
-    queryKey: ["/api/admin/specimens", { search: searchTerm, status: statusFilter, limit, offset: page * limit }],
+    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, page],
+    queryFn: async () => {
+      const res = await fetch(buildSpecimensUrl(), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch specimens");
+      return res.json();
+    },
   });
 
   const { data: specimenDetail, isLoading: detailLoading } = useQuery<SpecimenDetail>({
