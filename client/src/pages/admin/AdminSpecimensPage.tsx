@@ -222,9 +222,9 @@ export default function AdminSpecimensPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>MYCO #</TableHead>
                       <TableHead>Platform</TableHead>
                       <TableHead>Observation #</TableHead>
-                      <TableHead>Voucher Number</TableHead>
                       <TableHead>Scientific Name</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Location</TableHead>
@@ -235,6 +235,13 @@ export default function AdminSpecimensPage() {
                   <TableBody>
                     {data?.specimens?.map((specimen) => (
                       <TableRow key={specimen.id} data-testid={`row-specimen-${specimen.id}`}>
+                        <TableCell className="font-mono text-sm font-medium">
+                          {specimen.displayCode?.startsWith('MYCO-') ? (
+                            <span className="text-[#8CBD45]">{specimen.displayCode}</span>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           {specimen.primaryObservationSource ? (
                             <Badge variant="outline" className="text-xs">
@@ -262,14 +269,6 @@ export default function AdminSpecimensPage() {
                             </div>
                           ) : (
                             <span className="text-slate-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          <div>
-                            {specimen.voucherNumber || specimen.labCode || <span className="text-slate-400">-</span>}
-                          </div>
-                          {specimen.voucherNumber && specimen.labCode && (
-                            <div className="text-xs text-slate-500">{specimen.labCode}</div>
                           )}
                         </TableCell>
                         <TableCell className="italic">
