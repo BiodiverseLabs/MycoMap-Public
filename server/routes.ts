@@ -14,7 +14,7 @@ import { db, pool } from "./db";
 import { sql, eq, desc, and, gte, lte, inArray, or, isNotNull, isNull } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
-import { extractLocationFromObservation, normalizeState, normalizeCountry } from "./locationService";
+import { extractLocationFromObservation, normalizeState, normalizeCountry, fetchPlaces } from "./locationService";
 import { WebSocketServer } from "ws";
 import { setupAuth, registerAuthRoutes, isAuthenticated, requireSubscription, setSubscriptionChecker, isAdmin, setAdminChecker } from "./replit_integrations/auth";
 
