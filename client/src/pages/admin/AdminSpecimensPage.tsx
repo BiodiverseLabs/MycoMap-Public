@@ -111,6 +111,7 @@ export default function AdminSpecimensPage() {
     received: { label: "Received", icon: Package, variant: "secondary" },
     processing: { label: "Processing", icon: FlaskConical, variant: "outline" },
     sequenced: { label: "Sequenced", icon: Dna, variant: "default" },
+    pending_accession: { label: "Pending Accession", icon: Package, variant: "outline" },
     accessioned: { label: "Accessioned", icon: CheckCircle2, variant: "default" },
     archived: { label: "Archived", icon: Archive, variant: "secondary" },
     retired: { label: "Retired", icon: AlertCircle, variant: "destructive" },
