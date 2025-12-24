@@ -18,7 +18,6 @@ interface SpecimenStats {
   total: number;
   accessioned: number;
   byStatus: Record<string, number>;
-  byIntakeSource: Record<string, number>;
 }
 
 export default function AdminFungariumOverview() {

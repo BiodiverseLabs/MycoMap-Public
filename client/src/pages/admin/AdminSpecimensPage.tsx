@@ -44,7 +44,6 @@ interface Specimen {
   id: number;
   uuid: string;
   displayCode: string;
-  intakeSourceType: string;
   intakeDate: string;
   primaryObservationSource: string | null;
   primaryObservationId: string | null;
@@ -94,13 +93,12 @@ export default function AdminSpecimensPage() {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState(initialStatus);
-  const [intakeFilter, setIntakeFilter] = useState("");
   const [selectedSpecimen, setSelectedSpecimen] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const limit = 50;
 
   const { data, isLoading } = useQuery<SpecimensResponse>({
-    queryKey: ["/api/admin/specimens", { search: searchTerm, status: statusFilter, intakeSource: intakeFilter, limit, offset: page * limit }],
+    queryKey: ["/api/admin/specimens", { search: searchTerm, status: statusFilter, limit, offset: page * limit }],
   });
 
   const { data: specimenDetail, isLoading: detailLoading } = useQuery<SpecimenDetail>({
@@ -116,15 +114,6 @@ export default function AdminSpecimensPage() {
     archived: { label: "Archived", icon: Archive, variant: "secondary" },
     retired: { label: "Retired", icon: AlertCircle, variant: "destructive" },
     lost: { label: "Lost", icon: AlertCircle, variant: "destructive" },
-  };
-
-  const intakeLabels: Record<string, string> = {
-    shipment: "Shipment",
-    herbarium_direct: "Herbarium Direct",
-    field_collection: "Field Collection",
-    donation: "Donation",
-    transfer: "Transfer",
-    legacy_import: "Legacy Import",
   };
 
   const platformUrls: Record<string, (id: string) => string> = {
@@ -185,18 +174,6 @@ export default function AdminSpecimensPage() {
                       <SelectItem value="archived">Archived</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={intakeFilter} onValueChange={(v) => { setIntakeFilter(v); setPage(0); }}>
-                    <SelectTrigger className="w-44" data-testid="select-intake">
-                      <SelectValue placeholder="Intake Source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Sources</SelectItem>
-                      <SelectItem value="shipment">Shipment</SelectItem>
-                      <SelectItem value="herbarium_direct">Herbarium Direct</SelectItem>
-                      <SelectItem value="field_collection">Field Collection</SelectItem>
-                      <SelectItem value="donation">Donation</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </CardContent>
@@ -246,7 +223,6 @@ export default function AdminSpecimensPage() {
                       <TableHead>Code</TableHead>
                       <TableHead>Scientific Name</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Source</TableHead>
                       <TableHead>Collector</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Intake Date</TableHead>
@@ -263,11 +239,6 @@ export default function AdminSpecimensPage() {
                           {specimen.scientificName || <span className="text-slate-400">Unknown</span>}
                         </TableCell>
                         <TableCell>{getStatusBadge(specimen.currentStatus)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {intakeLabels[specimen.intakeSourceType] || specimen.intakeSourceType}
-                          </Badge>
-                        </TableCell>
                         <TableCell className="text-sm text-slate-600">
                           {specimen.collectorName || "-"}
                         </TableCell>

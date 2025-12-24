@@ -9807,7 +9807,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
                 displayCode,
-                intakeSourceType: 'transfer',
                 intakeDate: new Date(),
                 primaryObservationSource: well.observationId ? platform : null,
                 primaryObservationId: well.observationId || null,
@@ -12179,7 +12178,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
                 displayCode,
-                intakeSourceType: 'transfer',
                 intakeDate: new Date(),
                 primaryObservationSource: well.observationId ? platform : null,
                 primaryObservationId: well.observationId || null,
@@ -13205,7 +13203,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     try {
       const searchTerm = req.query.search?.trim() || '';
       const status = req.query.status || '';
-      const intakeSource = req.query.intakeSource || '';
       const limit = parseInt(req.query.limit) || 100;
       const offset = parseInt(req.query.offset) || 0;
       
@@ -13216,10 +13213,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       if (status) {
         conditions.push(eq(specimens.currentStatus, status));
-      }
-      
-      if (intakeSource) {
-        conditions.push(eq(specimens.intakeSourceType, intakeSource));
       }
       
       // Apply conditions if any
@@ -13284,13 +13277,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .from(specimens)
         .groupBy(specimens.currentStatus);
       
-      const intakeSourceCounts = await db.select({
-        source: specimens.intakeSourceType,
-        count: sql`count(*)`,
-      })
-        .from(specimens)
-        .groupBy(specimens.intakeSourceType);
-      
       const [totalResult] = await db.select({ count: sql`count(*)` }).from(specimens);
       
       // Count specimens with MYCO accession numbers (display_code starts with 'MYCO-')
@@ -13303,10 +13289,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         accessioned: Number(accessionedResult?.count || 0),
         byStatus: statusCounts.reduce((acc, row) => {
           acc[row.status] = Number(row.count);
-          return acc;
-        }, {} as Record<string, number>),
-        byIntakeSource: intakeSourceCounts.reduce((acc, row) => {
-          acc[row.source] = Number(row.count);
           return acc;
         }, {} as Record<string, number>),
       });
@@ -13360,7 +13342,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     try {
       const userId = req.user?.claims?.sub || req.user?.id || null;
       const {
-        intakeSourceType = 'herbarium_direct',
         primaryObservationSource,
         primaryObservationId,
         voucherNumber,
@@ -13383,7 +13364,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const [newSpecimen] = await db.insert(specimens).values({
         uuid,
         displayCode,
-        intakeSourceType,
         intakeDate: new Date(),
         primaryObservationSource,
         primaryObservationId,
@@ -13407,7 +13387,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       await db.insert(specimenEvents).values({
         specimenId: newSpecimen.id,
         eventType: 'created',
-        newValue: `Created via ${intakeSourceType}`,
+        newValue: 'Created manually',
         performedBy: userId,
       });
       
@@ -13581,7 +13561,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const [newSpecimen] = await db.insert(specimens).values({
         uuid,
         displayCode,
-        intakeSourceType: 'shipment',
         intakeSourceId: shipmentSpecimenId,
         intakeDate: new Date(),
         primaryObservationSource: platform,
@@ -13655,7 +13634,6 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const [newSpecimen] = await db.insert(specimens).values({
           uuid,
           displayCode,
-          intakeSourceType: 'shipment',
           intakeSourceId: shipmentSpec.id,
           intakeDate: new Date(),
           primaryObservationSource: platform,
