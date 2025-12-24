@@ -13504,10 +13504,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           )
         ));
       
+      // Count specimens with check_specimen flag
+      const [checkSpecimenFlagResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .where(eq(specimens.inatFieldConflict, 'check_specimen'));
+      
+      // Count specimens with other flags (not check_specimen)
+      const [otherFlagResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .where(and(
+          isNotNull(specimens.inatFieldConflict),
+          sql`${specimens.inatFieldConflict} != ''`,
+          sql`${specimens.inatFieldConflict} != 'check_specimen'`
+        ));
+      
       res.json({
         total: Number(totalResult?.count || 0),
         accessioned: Number(accessionedResult?.count || 0),
         readyForAccession: Number(readyForAccessionResult?.count || 0),
+        checkSpecimenFlag: Number(checkSpecimenFlagResult?.count || 0),
+        otherFlag: Number(otherFlagResult?.count || 0),
         byStatus: statusCounts.reduce((acc, row) => {
           acc[row.status] = Number(row.count);
           return acc;

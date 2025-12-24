@@ -2,21 +2,24 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
-  Package, 
-  FlaskConical, 
   Dna, 
-  Archive, 
   AlertCircle,
   ArrowRight,
   Clock,
   CheckCircle2,
-  Database
+  Database,
+  FileX,
+  AlertTriangle,
+  Flag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SpecimenStats {
   total: number;
   accessioned: number;
+  readyForAccession: number;
+  checkSpecimenFlag: number;
+  otherFlag: number;
   byStatus: Record<string, number>;
 }
 
@@ -25,41 +28,12 @@ export default function AdminFungariumOverview() {
     queryKey: ["/api/admin/specimens/stats"],
   });
 
-  const statusConfig: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
-    received: { 
-      label: "Received", 
-      icon: Package, 
-      color: "text-blue-600",
-      bgColor: "bg-blue-50"
-    },
-    processing: { 
-      label: "Processing", 
-      icon: FlaskConical, 
-      color: "text-amber-600",
-      bgColor: "bg-amber-50"
-    },
-    sequenced: { 
-      label: "Sequenced", 
-      icon: Dna, 
-      color: "text-purple-600",
-      bgColor: "bg-purple-50"
-    },
-    accessioned: { 
-      label: "Accessioned", 
-      icon: CheckCircle2, 
-      color: "text-[#8CBD45]",
-      bgColor: "bg-[#8CBD45]/10"
-    },
-    archived: { 
-      label: "Archived", 
-      icon: Archive, 
-      color: "text-slate-600",
-      bgColor: "bg-slate-100"
-    },
-  };
-
   const readyForAccession = stats?.readyForAccession || 0;
   const accessioned = stats?.accessioned || 0;
+  const sequenced = stats?.byStatus?.sequenced || 0;
+  const unaccessioned = stats?.byStatus?.unaccessioned || 0;
+  const checkSpecimenFlag = stats?.checkSpecimenFlag || 0;
+  const otherFlag = stats?.otherFlag || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -178,26 +152,70 @@ export default function AdminFungariumOverview() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {Object.entries(statusConfig).map(([status, config]) => {
-                const Icon = config.icon;
-                const count = stats?.byStatus?.[status] || 0;
-                return (
-                  <Card key={status} className="hover:shadow-md transition-shadow" data-testid={`card-status-${status}`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-slate-600">{config.label}</span>
-                        <div className={`p-2 rounded-lg ${config.bgColor}`}>
-                          <Icon className={`w-4 h-4 ${config.color}`} />
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Link href="/admin/specimens?status=sequenced">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-status-sequenced">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Sequenced</span>
+                      <div className="p-2 rounded-lg bg-purple-50">
+                        <Dna className="w-4 h-4 text-purple-600" />
                       </div>
-                      <div className={`text-2xl font-bold ${config.color}`}>
-                        {count.toLocaleString()}
+                    </div>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {sequenced.toLocaleString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/admin/specimens?status=unaccessioned">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-status-unaccessioned">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Unaccessioned</span>
+                      <div className="p-2 rounded-lg bg-slate-100">
+                        <FileX className="w-4 h-4 text-slate-600" />
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                    </div>
+                    <div className="text-2xl font-bold text-slate-600">
+                      {unaccessioned.toLocaleString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/admin/specimens?validationFlag=check_specimen">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-check-specimen">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Check Specimen</span>
+                      <div className="p-2 rounded-lg bg-amber-50">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-amber-600">
+                      {checkSpecimenFlag.toLocaleString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/admin/specimens?validationFlag=conflicts">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-other">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Other Flags</span>
+                      <div className="p-2 rounded-lg bg-red-50">
+                        <Flag className="w-4 h-4 text-red-600" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-red-600">
+                      {otherFlag.toLocaleString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             </div>
           </>
         )}
