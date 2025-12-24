@@ -13869,13 +13869,27 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const response = await fetch(inatUrl);
       
       if (!response.ok) {
-        return res.status(404).json({ error: `Failed to fetch observation from iNaturalist: ${response.status}` });
+        // Flag the specimen as having a deleted/inaccessible observation
+        await db.update(specimens)
+          .set({ inatFieldConflict: 'observation_deleted' })
+          .where(eq(specimens.id, specimenId));
+        return res.status(404).json({ 
+          error: `Observation not found on iNaturalist (HTTP ${response.status})`,
+          flagged: 'observation_deleted'
+        });
       }
       
       const data = await response.json();
       
       if (!data.results || data.results.length === 0) {
-        return res.status(404).json({ error: "Observation not found on iNaturalist" });
+        // Flag the specimen as having a deleted observation
+        await db.update(specimens)
+          .set({ inatFieldConflict: 'observation_deleted' })
+          .where(eq(specimens.id, specimenId));
+        return res.status(404).json({ 
+          error: "Observation no longer exists on iNaturalist",
+          flagged: 'observation_deleted'
+        });
       }
       
       const obs = data.results[0];
