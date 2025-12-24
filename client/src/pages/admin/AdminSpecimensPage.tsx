@@ -159,8 +159,17 @@ export default function AdminSpecimensPage() {
   const [hasSequence, setHasSequence] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [selectedFlag, setSelectedFlag] = useState("");
   const limit = 50;
   const { toast } = useToast();
+  
+  const flagOptions = [
+    { value: "check_specimen", label: "Check Specimen" },
+    { value: "push_incomplete", label: "Push Incomplete" },
+    { value: "herbarium_catalog_conflict", label: "Catalog Conflict" },
+    { value: "herbarium_name_conflict", label: "Name Conflict" },
+    { value: "both_conflict", label: "Both Conflict" },
+  ];
 
   // Build URL with query parameters
   const buildSpecimensUrl = () => {
@@ -312,6 +321,21 @@ export default function AdminSpecimensPage() {
     },
   });
 
+  const updateFlagMutation = useMutation({
+    mutationFn: async ({ specimenId, flag }: { specimenId: number; flag: string | null }) => {
+      const res = await apiRequest("PATCH", `/api/admin/specimens/${specimenId}/flag`, { flag });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Flag Updated", description: "Validation flag has been updated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/specimens"] });
+      setSelectedFlag("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleRefreshSpecimen = (specimenId: number) => {
     refreshMutation.mutate(specimenId);
   };
@@ -438,6 +462,7 @@ export default function AdminSpecimensPage() {
                       <SelectItem value="all">All Records</SelectItem>
                       <SelectItem value="has_flag">Has Any Flag</SelectItem>
                       <SelectItem value="no_flag">No Flag</SelectItem>
+                      <SelectItem value="check_specimen">Check Specimen</SelectItem>
                       <SelectItem value="push_incomplete">Push Incomplete</SelectItem>
                       <SelectItem value="herbarium_catalog_conflict">Catalog Conflict</SelectItem>
                       <SelectItem value="herbarium_name_conflict">Name Conflict</SelectItem>
@@ -854,6 +879,52 @@ export default function AdminSpecimensPage() {
                   </div>
                 </div>
               )}
+
+              {/* Validation Flag Section */}
+              <div className="border-t pt-4">
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Validation Flag</p>
+                {specimenDetail.inatFieldConflict && (
+                  <div className="mb-3 flex items-center gap-2">
+                    <Badge variant="destructive" className="gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {flagOptions.find(f => f.value === specimenDetail.inatFieldConflict)?.label || specimenDetail.inatFieldConflict}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => updateFlagMutation.mutate({ specimenId: specimenDetail.id, flag: null })}
+                      disabled={updateFlagMutation.isPending}
+                      data-testid="button-clear-flag"
+                    >
+                      Clear Flag
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Select value={selectedFlag} onValueChange={setSelectedFlag}>
+                    <SelectTrigger className="w-48" data-testid="select-add-flag">
+                      <SelectValue placeholder="Select Flag..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {flagOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (selectedFlag) {
+                        updateFlagMutation.mutate({ specimenId: specimenDetail.id, flag: selectedFlag });
+                      }
+                    }}
+                    disabled={!selectedFlag || updateFlagMutation.isPending}
+                    data-testid="button-add-flag"
+                  >
+                    {updateFlagMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Flag"}
+                  </Button>
+                </div>
+              </div>
             </div>
           ) : null}
         </DialogContent>

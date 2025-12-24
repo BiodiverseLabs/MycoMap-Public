@@ -14963,6 +14963,33 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Update specimen validation flag
+  app.patch("/api/admin/specimens/:id/flag", isAdmin, async (req: any, res) => {
+    try {
+      const specimenId = parseInt(req.params.id);
+      const { flag } = req.body;
+      
+      const [existingSpecimen] = await db.select().from(specimens).where(eq(specimens.id, specimenId));
+      
+      if (!existingSpecimen) {
+        return res.status(404).json({ error: "Specimen not found" });
+      }
+      
+      const [updatedSpecimen] = await db.update(specimens)
+        .set({ 
+          inatFieldConflict: flag || null,
+          updatedAt: new Date()
+        })
+        .where(eq(specimens.id, specimenId))
+        .returning();
+      
+      res.json(updatedSpecimen);
+    } catch (error) {
+      console.error("Error updating specimen flag:", error);
+      res.status(500).json({ error: "Failed to update specimen flag" });
+    }
+  });
+
   // Add source to specimen
   app.post("/api/admin/specimens/:id/sources", isAdmin, async (req: any, res) => {
     try {
