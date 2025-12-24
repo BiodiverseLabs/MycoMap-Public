@@ -14448,7 +14448,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const filterParams = {
         search: req.body.search || '',
         status: req.body.status || '',
-        validationFlag: req.body.validationFlag || '',
+        validationFlags: req.body.validationFlags || req.body.validationFlag || '',
         dateFrom: req.body.dateFrom || '',
         dateTo: req.body.dateTo || '',
         hasSequence: req.body.hasSequence === true,
@@ -14577,7 +14577,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       let filterParams = {
         search: '',
         status: '',
-        validationFlag: '',
+        validationFlags: '',
         dateFrom: '',
         dateTo: '',
         hasSequence: false,
