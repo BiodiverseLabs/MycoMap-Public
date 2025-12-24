@@ -9812,7 +9812,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 voucherNumber: well.voucherNumber,
                 scientificName: null, // Can be populated from well validation later
                 locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
-                currentStatus: 'received',
+                currentStatus: 'pending_accession',
                 statusChangedAt: new Date(),
               }).returning();
               
@@ -12125,7 +12125,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             voucherNumber: well.voucherNumber,
             scientificName: null,
             locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
-            currentStatus: 'received',
+            currentStatus: 'pending_accession',
             statusChangedAt: new Date(),
           }).returning();
           
