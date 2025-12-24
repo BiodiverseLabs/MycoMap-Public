@@ -13349,6 +13349,153 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Refresh a specimen from its linked observation
+  app.post("/api/admin/specimens/:id/refresh", isAdmin, async (req: any, res) => {
+    try {
+      const specimenId = parseInt(req.params.id);
+      
+      const [specimen] = await db.select().from(specimens).where(eq(specimens.id, specimenId));
+      
+      if (!specimen) {
+        return res.status(404).json({ error: "Specimen not found" });
+      }
+      
+      if (!specimen.primaryObservationId || specimen.primaryObservationSource !== 'inat') {
+        return res.status(400).json({ error: "Specimen has no iNaturalist observation linked" });
+      }
+      
+      // Fetch fresh data from iNaturalist API
+      const inatUrl = `https://api.inaturalist.org/v1/observations/${specimen.primaryObservationId}`;
+      const response = await fetch(inatUrl);
+      
+      if (!response.ok) {
+        return res.status(404).json({ error: `Failed to fetch observation from iNaturalist: ${response.status}` });
+      }
+      
+      const data = await response.json();
+      
+      if (!data.results || data.results.length === 0) {
+        return res.status(404).json({ error: "Observation not found on iNaturalist" });
+      }
+      
+      const obs = data.results[0];
+      
+      // Extract observation fields
+      const observationFields = obs.ofvs || [];
+      const getField = (fieldId: number) => observationFields.find((f: any) => f.field_id === fieldId)?.value || null;
+      
+      // iNaturalist observation field IDs
+      const voucherNumber = getField(8257); // Voucher Number
+      const voucherNumberMultiple = getField(2863); // Voucher Number(s)
+      const herbariumName = getField(9539); // Herbarium Name
+      const herbariumCatalogNumber = getField(9540); // Herbarium Catalog Number  
+      const genbankAccession = getField(7555); // GenBank Accession Number
+      const genbankNumberUrl = getField(4191); // GenBank Number (URL)
+      const provisionalSpeciesName = getField(10675); // Provisional Species Name
+      const mycomapBlastResults = getField(9864); // MycoMap BLAST Results
+      const traceFiles = getField(10109); // Trace Files (Raw DNA Data)
+      const dnaBarcodIts = getField(2330); // DNA Barcode ITS
+      const readsInConsensus = getField(16718); // Reads in Consensus (Ric)
+      const speciesNameOverride = getField(20259); // Species Name Override
+      const collectorsName = getField(9051); // Collector's Name
+      
+      // Update or create observation cache entry
+      const cacheData = {
+        source: 'inat' as const,
+        sourceObservationId: specimen.primaryObservationId,
+        sourceUuid: obs.uuid || null,
+        scientificName: obs.taxon?.name || obs.species_guess || null,
+        commonName: obs.taxon?.preferred_common_name || null,
+        family: obs.taxon?.ancestry?.split('/')?.slice(-2, -1)?.[0] || null,
+        genus: obs.taxon?.name?.split(' ')?.[0] || null,
+        species: obs.taxon?.name?.split(' ')?.[1] || null,
+        taxonRank: obs.taxon?.rank || null,
+        observerName: obs.user?.name || null,
+        observerUsername: obs.user?.login || null,
+        observerId: obs.user?.id?.toString() || null,
+        latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+        longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+        coordinatesObscured: obs.obscured || false,
+        positionalAccuracy: obs.positional_accuracy || null,
+        placeGuess: obs.place_guess || null,
+        locality: obs.place_guess || null,
+        state: null,
+        country: null,
+        observedOn: obs.observed_on || null,
+        observedOnString: obs.observed_on_string || null,
+        qualityGrade: obs.quality_grade || null,
+        identificationCount: obs.identifications_count || 0,
+        captive: obs.captive || false,
+        licenseCode: obs.license_code || null,
+        voucherNumber,
+        voucherNumberMultiple,
+        herbariumName,
+        herbariumCatalogNumber,
+        genbankAccession,
+        genbankNumberUrl,
+        provisionalSpeciesName,
+        mycomapBlastResults,
+        traceFiles,
+        dnaBarcodIts,
+        readsInConsensus,
+        speciesNameOverride,
+        collectorsName,
+        apiResponseJson: JSON.stringify(data),
+        lastSyncedAt: new Date(),
+        syncStatus: 'success',
+        updatedAt: new Date(),
+      };
+      
+      // Upsert into observation_cache
+      const existingCache = await db.select().from(observationCache)
+        .where(and(
+          eq(observationCache.source, 'inat'),
+          eq(observationCache.sourceObservationId, specimen.primaryObservationId)
+        ))
+        .limit(1);
+      
+      if (existingCache.length > 0) {
+        await db.update(observationCache)
+          .set(cacheData)
+          .where(eq(observationCache.id, existingCache[0].id));
+      } else {
+        await db.insert(observationCache).values({
+          ...cacheData,
+          createdAt: new Date(),
+        });
+      }
+      
+      // Update specimen with data from observation
+      const specimenUpdate: any = {
+        scientificName: speciesNameOverride || provisionalSpeciesName || obs.taxon?.name || obs.species_guess || specimen.scientificName,
+        collectorName: collectorsName || obs.user?.name || specimen.collectorName,
+        collectionDate: obs.observed_on || specimen.collectionDate,
+        locality: obs.place_guess || specimen.locality,
+        latitude: obs.geojson?.coordinates?.[1]?.toString() || specimen.latitude,
+        longitude: obs.geojson?.coordinates?.[0]?.toString() || specimen.longitude,
+        voucherNumber: voucherNumber || voucherNumberMultiple || specimen.voucherNumber,
+      };
+      
+      // Extract genus and family if available
+      if (obs.taxon?.name) {
+        specimenUpdate.genus = obs.taxon.name.split(' ')[0];
+      }
+      
+      await db.update(specimens)
+        .set(specimenUpdate)
+        .where(eq(specimens.id, specimenId));
+      
+      res.json({ 
+        success: true, 
+        message: "Specimen refreshed from iNaturalist",
+        updated: specimenUpdate 
+      });
+    } catch (error) {
+      console.error("Error refreshing specimen:", error);
+      res.status(500).json({ error: "Failed to refresh specimen" });
+    }
+  });
+
   // Create a new specimen manually
   app.post("/api/admin/specimens", isAdmin, async (req: any, res) => {
     try {

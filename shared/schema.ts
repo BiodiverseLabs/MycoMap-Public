@@ -1001,9 +1001,21 @@ export const observationCache = pgTable("observation_cache", {
   provisionalSpeciesName: text("provisional_species_name"),
   
   // Voucher/specimen info (extracted from observation fields)
-  voucherNumber: text("voucher_number"),
+  voucherNumber: text("voucher_number"), // Field 8257
+  voucherNumberMultiple: text("voucher_number_multiple"), // Field 2863 - Voucher Number(s)
   specimenAvailable: boolean("specimen_available").default(false),
   herbariumCode: text("herbarium_code"),
+  
+  // iNaturalist observation fields for herbarium/DNA tracking
+  herbariumName: text("herbarium_name"), // Field 9539
+  herbariumCatalogNumber: text("herbarium_catalog_number"), // Field 9540
+  genbankNumberUrl: text("genbank_number_url"), // Field 4191
+  mycomapBlastResults: text("mycomap_blast_results"), // Field 9864
+  traceFiles: text("trace_files"), // Field 10109
+  dnaBarcodIts: text("dna_barcode_its"), // Field 2330
+  readsInConsensus: text("reads_in_consensus"), // Field 16718
+  speciesNameOverride: text("species_name_override"), // Field 20259
+  collectorsName: text("collectors_name"), // Field 9051
   
   // Notes/description
   description: text("description"),

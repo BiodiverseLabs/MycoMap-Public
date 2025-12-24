@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,7 +38,8 @@ import {
   Archive,
   Eye,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -122,6 +125,26 @@ export default function AdminSpecimensPage() {
     inat: (id) => `https://www.inaturalist.org/observations/${id}`,
     mo: (id) => `https://mushroomobserver.org/observations/${id}`,
     mycoportal: (id) => `https://mycoportal.org/portal/collections/individual/index.php?occid=${id}`,
+  };
+
+  const { toast } = useToast();
+
+  const refreshMutation = useMutation({
+    mutationFn: async (specimenId: number) => {
+      const res = await apiRequest("POST", `/api/admin/specimens/${specimenId}/refresh`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Refreshed", description: "Specimen data updated from observation" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/specimens"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleRefreshSpecimen = (specimenId: number) => {
+    refreshMutation.mutate(specimenId);
   };
 
   const getStatusBadge = (status: string) => {
@@ -282,14 +305,27 @@ export default function AdminSpecimensPage() {
                           {specimen.collectionDate ? format(new Date(specimen.collectionDate), "MMM d, yyyy") : "-"}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedSpecimen(specimen.id)}
-                            data-testid={`button-view-${specimen.id}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedSpecimen(specimen.id)}
+                              data-testid={`button-view-${specimen.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            {specimen.primaryObservationId && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 rounded-full"
+                                onClick={() => handleRefreshSpecimen(specimen.id)}
+                                data-testid={`button-refresh-${specimen.id}`}
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
