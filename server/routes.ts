@@ -13367,16 +13367,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     try {
       const searchTerm = req.query.search?.trim() || '';
       const status = req.query.status && req.query.status !== 'all' ? req.query.status : '';
+      const dateFrom = req.query.dateFrom || '';
+      const dateTo = req.query.dateTo || '';
+      const hasSequence = req.query.hasSequence === 'true';
       const limit = parseInt(req.query.limit) || 50;
       const offset = parseInt(req.query.offset) || 0;
-      
-      let query = db.select().from(specimens);
       
       // Build conditions
       const conditions: any[] = [];
       
       if (status) {
         conditions.push(eq(specimens.currentStatus, status));
+      }
+      
+      // Date range filter on collection date
+      if (dateFrom) {
+        conditions.push(sql`${specimens.collectionDate} >= ${dateFrom}::date`);
+      }
+      if (dateTo) {
+        conditions.push(sql`${specimens.collectionDate} <= ${dateTo}::date`);
       }
       
       // Add search filter at database level
@@ -13392,6 +13401,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             sql`${specimens.primaryObservationId} ILIKE ${searchPattern}`,
             sql`${specimens.labCode} ILIKE ${searchPattern}`
           )
+        );
+      }
+      
+      // Has sequence filter - join with observation_cache to check for DNA barcode
+      if (hasSequence) {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM observation_cache oc 
+            WHERE oc.source = 'inat' 
+              AND oc.source_observation_id = ${specimens.primaryObservationId}
+              AND oc.dna_barcode_its IS NOT NULL 
+              AND oc.dna_barcode_its != ''
+          )`
         );
       }
       

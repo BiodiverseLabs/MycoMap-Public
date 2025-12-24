@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -136,6 +138,9 @@ export default function AdminSpecimensPage() {
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [selectedSpecimen, setSelectedSpecimen] = useState<number | null>(null);
   const [page, setPage] = useState(0);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [hasSequence, setHasSequence] = useState(false);
   const limit = 50;
 
   // Build URL with query parameters
@@ -143,13 +148,16 @@ export default function AdminSpecimensPage() {
     const params = new URLSearchParams();
     if (searchTerm) params.set("search", searchTerm);
     if (statusFilter) params.set("status", statusFilter);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    if (hasSequence) params.set("hasSequence", "true");
     params.set("limit", limit.toString());
     params.set("offset", (page * limit).toString());
     return `/api/admin/specimens?${params.toString()}`;
   };
 
   const { data, isLoading } = useQuery<SpecimensResponse>({
-    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, page],
+    queryKey: ["/api/admin/specimens", searchTerm, statusFilter, page, dateFrom, dateTo, hasSequence],
     queryFn: async () => {
       const res = await fetch(buildSpecimensUrl(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch specimens");
@@ -236,7 +244,7 @@ export default function AdminSpecimensPage() {
                     data-testid="input-search"
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap items-center">
                   <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
                     <SelectTrigger className="w-40" data-testid="select-status">
                       <Filter className="w-4 h-4 mr-2" />
@@ -249,6 +257,36 @@ export default function AdminSpecimensPage() {
                       <SelectItem value="sequenced">Sequenced</SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => { setDateFrom(e.target.value); setPage(0); }}
+                      className="w-36"
+                      placeholder="From"
+                      data-testid="input-date-from"
+                    />
+                    <span className="text-slate-400">to</span>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => { setDateTo(e.target.value); setPage(0); }}
+                      className="w-36"
+                      placeholder="To"
+                      data-testid="input-date-to"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-white">
+                    <Checkbox
+                      id="hasSequence"
+                      checked={hasSequence}
+                      onCheckedChange={(checked) => { setHasSequence(checked === true); setPage(0); }}
+                      data-testid="checkbox-has-sequence"
+                    />
+                    <Label htmlFor="hasSequence" className="text-sm cursor-pointer">Has Sequence</Label>
+                  </div>
                 </div>
               </div>
             </CardContent>
