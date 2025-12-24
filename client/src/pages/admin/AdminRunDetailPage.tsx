@@ -29,6 +29,7 @@ interface RunFile {
 
 interface RunStats {
   totalSpecimens: number;
+  specimensNeedingRecords: number;
   topStates: { state: string; count: number }[];
   allStates: { state: string; count: number }[];
   topUsers: { username: string; count: number }[];
@@ -176,6 +177,7 @@ export default function AdminRunDetailPage() {
   const [expandedCodeStages, setExpandedCodeStages] = useState<Record<string, boolean>>({});
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
+  const [generateSpecimensOpen, setGenerateSpecimensOpen] = useState(false);
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
     queryKey: ['/api/admin/runs', runId],
@@ -248,6 +250,32 @@ export default function AdminRunDetailPage() {
       toast({ 
         title: "Cannot Generate Files", 
         description: error.message || "Failed to generate files", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const generateSpecimensMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/admin/runs/${runId}/generate-specimens`, {});
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate specimen records');
+      }
+      return response.json();
+    },
+    onSuccess: async (data: { created: number; linked: number; message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
+      setGenerateSpecimensOpen(false);
+      toast({ 
+        title: "Specimen Records Generated", 
+        description: data.message 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to generate specimen records", 
         variant: "destructive" 
       });
     },
@@ -682,6 +710,16 @@ export default function AdminRunDetailPage() {
                 <p className="text-3xl font-bold text-gray-900" data-testid="stat-total-specimens">
                   {stats?.totalSpecimens ?? 0}
                 </p>
+                {(stats?.specimensNeedingRecords ?? 0) > 0 && (
+                  <button
+                    onClick={() => setGenerateSpecimensOpen(true)}
+                    className="text-xs text-amber-600 hover:text-amber-700 hover:underline mt-1 flex items-center gap-1"
+                    data-testid="link-specimens-needing-records"
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {stats?.specimensNeedingRecords} need records in MYCO
+                  </button>
+                )}
               </div>
 
               {/* Top States */}
@@ -1377,6 +1415,53 @@ export default function AdminRunDetailPage() {
                   </>
                 ) : (
                   'Save Notes'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Generate Specimens Dialog */}
+        <Dialog open={generateSpecimensOpen} onOpenChange={setGenerateSpecimensOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <TestTube className="h-5 w-5 text-[#8CBD45]" />
+                Generate Specimen Records
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-gray-600 mb-4">
+                This will create specimen records in MYCO for wells that have observation data (iNaturalist/Mushroom Observer IDs or lab codes) but don't yet have linked specimen records.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-800">{stats?.specimensNeedingRecords ?? 0} wells need records</p>
+                    <p className="text-amber-700 mt-1">
+                      Existing specimens will be linked automatically. New records will only be created when no match is found.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setGenerateSpecimensOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => generateSpecimensMutation.mutate()}
+                disabled={generateSpecimensMutation.isPending}
+                className="bg-[#8CBD45] hover:bg-[#7AAD35]"
+              >
+                {generateSpecimensMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Generate Records'
                 )}
               </Button>
             </DialogFooter>

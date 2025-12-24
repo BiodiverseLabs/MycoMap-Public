@@ -12038,8 +12038,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
+      // Count wells that need specimen records (have observation data but no coreSpecimenId)
+      const wellsNeedingRecords = wells.filter(w => 
+        (w.observationId || w.labCode) && !w.coreSpecimenId
+      ).length;
+      
       res.json({
         totalSpecimens,
+        specimensNeedingRecords: wellsNeedingRecords,
         topStates: sortedStates.slice(0, 5),
         allStates: sortedStates,
         topUsers: sortedUsers.slice(0, 5),
@@ -12051,6 +12057,113 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error fetching run stats:", error);
       res.status(500).json({ error: "Failed to fetch run statistics" });
+    }
+  });
+
+  // Generate specimen records for wells in a run that don't have them
+  app.post("/api/admin/runs/:id/generate-specimens", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub || req.user?.id || 'admin';
+      
+      // Get all plates for this run
+      const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
+      const plateIds = plates.map(p => p.id);
+      
+      if (plateIds.length === 0) {
+        return res.json({ created: 0, linked: 0, message: "No plates found in this run" });
+      }
+      
+      // Get wells that have observation data but no coreSpecimenId
+      const wells = await db.select().from(labWells)
+        .where(and(
+          inArray(labWells.plateId, plateIds),
+          or(isNotNull(labWells.observationId), isNotNull(labWells.labCode)),
+          isNull(labWells.coreSpecimenId)
+        ));
+      
+      let specimensCreated = 0;
+      let specimensLinked = 0;
+      
+      for (const well of wells) {
+        const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
+        let existingSpecimen = null;
+        
+        // First check by observation ID if available
+        if (well.observationId) {
+          const [found] = await db.select().from(specimens)
+            .where(eq(specimens.primaryObservationId, well.observationId));
+          existingSpecimen = found;
+        }
+        
+        // If no match by observation ID and we have a lab code, check by lab code
+        if (!existingSpecimen && well.labCode) {
+          const [found] = await db.select().from(specimens)
+            .where(eq(specimens.displayCode, well.labCode));
+          existingSpecimen = found;
+        }
+        
+        if (existingSpecimen) {
+          // Link existing specimen to this well
+          await db.update(labWells)
+            .set({ coreSpecimenId: existingSpecimen.id, updatedAt: new Date() })
+            .where(eq(labWells.id, well.id));
+          
+          specimensLinked++;
+        } else {
+          // Create new specimen record
+          const uuid = randomUUID();
+          const displayCode = well.labCode || generateDisplayCode();
+          
+          const [newSpecimen] = await db.insert(specimens).values({
+            uuid,
+            displayCode,
+            intakeSourceType: 'run',
+            intakeDate: new Date(),
+            primaryObservationSource: well.observationId ? platform : null,
+            primaryObservationId: well.observationId || null,
+            voucherNumber: well.voucherNumber,
+            scientificName: null,
+            locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
+            currentStatus: 'received',
+            statusChangedAt: new Date(),
+          }).returning();
+          
+          // Add source record if we have an observation ID
+          if (well.observationId) {
+            await db.insert(specimenSources).values({
+              specimenId: newSpecimen.id,
+              platform,
+              externalId: well.observationId,
+              isPrimary: true,
+            });
+          }
+          
+          // Log creation event
+          await db.insert(specimenEvents).values({
+            specimenId: newSpecimen.id,
+            eventType: 'created',
+            newValue: `Created from run (well ${well.wellPosition})`,
+            performedBy: userId,
+          });
+          
+          // Link to well
+          await db.update(labWells)
+            .set({ coreSpecimenId: newSpecimen.id, updatedAt: new Date() })
+            .where(eq(labWells.id, well.id));
+          
+          specimensCreated++;
+        }
+      }
+      
+      res.json({ 
+        created: specimensCreated, 
+        linked: specimensLinked,
+        message: `Generated ${specimensCreated} new specimen records, linked ${specimensLinked} to existing records`
+      });
+    } catch (error) {
+      console.error("Error generating specimen records:", error);
+      res.status(500).json({ error: "Failed to generate specimen records" });
     }
   });
 
