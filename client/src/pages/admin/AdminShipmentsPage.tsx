@@ -10,10 +10,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useMemo } from "react";
+
+interface ShippingDestination {
+  id: number;
+  name: string;
+  shortCode: string;
+  city: string | null;
+  stateProvince: string | null;
+  isActive: boolean;
+}
 
 interface PendingShipment {
   id: number;
@@ -41,8 +51,8 @@ export default function AdminShipmentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [selectedPlates, setSelectedPlates] = useState<number[]>([]);
-  const [sourceLab, setSourceLab] = useState("Satellite Lab");
-  const [destinationLab, setDestinationLab] = useState("Main Lab");
+  const [sourceLabId, setSourceLabId] = useState<string>("");
+  const [destinationLabId, setDestinationLabId] = useState<string>("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [createSpecimens, setCreateSpecimens] = useState(true);
   
@@ -54,6 +64,15 @@ export default function AdminShipmentsPage() {
     queryKey: ['/api/admin/pending-plates'],
     enabled: showTransferDialog,
   });
+
+  const { data: destinations } = useQuery<ShippingDestination[]>({
+    queryKey: ['/api/shipping/destinations'],
+  });
+
+  const activeDestinations = useMemo(() => 
+    destinations?.filter(d => d.isActive) || [], 
+    [destinations]
+  );
 
   const labTransferMutation = useMutation({
     mutationFn: async (data: { plateIds: number[]; sourceLab: string; destinationLab: string; trackingNumber: string; createSpecimens: boolean }) => {
@@ -93,10 +112,21 @@ export default function AdminShipmentsPage() {
       });
       return;
     }
+    if (!sourceLabId || !destinationLabId) {
+      toast({
+        title: "Missing Lab Selection",
+        description: "Please select both source and destination labs",
+        variant: "destructive",
+      });
+      return;
+    }
+    const sourceDest = activeDestinations.find(d => d.id.toString() === sourceLabId);
+    const destDest = activeDestinations.find(d => d.id.toString() === destinationLabId);
+    
     labTransferMutation.mutate({
       plateIds: selectedPlates,
-      sourceLab,
-      destinationLab,
+      sourceLab: sourceDest?.name || "Unknown",
+      destinationLab: destDest?.name || "Unknown",
       trackingNumber,
       createSpecimens,
     });
@@ -267,23 +297,33 @@ export default function AdminShipmentsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="sourceLab">Source Lab</Label>
-                <Input
-                  id="sourceLab"
-                  value={sourceLab}
-                  onChange={(e) => setSourceLab(e.target.value)}
-                  placeholder="Satellite Lab"
-                  data-testid="input-source-lab"
-                />
+                <Select value={sourceLabId} onValueChange={setSourceLabId}>
+                  <SelectTrigger data-testid="select-source-lab">
+                    <SelectValue placeholder="Select source lab" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeDestinations.map((dest) => (
+                      <SelectItem key={dest.id} value={dest.id.toString()}>
+                        {dest.name} {dest.city && dest.stateProvince ? `(${dest.city}, ${dest.stateProvince})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="destinationLab">Destination Lab</Label>
-                <Input
-                  id="destinationLab"
-                  value={destinationLab}
-                  onChange={(e) => setDestinationLab(e.target.value)}
-                  placeholder="Main Lab"
-                  data-testid="input-destination-lab"
-                />
+                <Select value={destinationLabId} onValueChange={setDestinationLabId}>
+                  <SelectTrigger data-testid="select-destination-lab">
+                    <SelectValue placeholder="Select destination lab" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeDestinations.map((dest) => (
+                      <SelectItem key={dest.id} value={dest.id.toString()}>
+                        {dest.name} {dest.city && dest.stateProvince ? `(${dest.city}, ${dest.stateProvince})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -373,7 +413,7 @@ export default function AdminShipmentsPage() {
             </Button>
             <Button
               onClick={handleCreateTransfer}
-              disabled={selectedPlates.length === 0 || labTransferMutation.isPending}
+              disabled={selectedPlates.length === 0 || !sourceLabId || !destinationLabId || labTransferMutation.isPending}
               data-testid="button-confirm-transfer"
             >
               {labTransferMutation.isPending ? "Creating..." : `Create Transfer (${selectedPlates.length} plates)`}
