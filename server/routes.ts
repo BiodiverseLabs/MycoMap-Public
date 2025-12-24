@@ -14160,11 +14160,29 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
         }
       } else {
-        // No MYCO number - check if existing conflict flags should be cleared
-        // Herbarium conflicts are only valid if there's conflicting data on iNat
+        // No MYCO number - check if existing flags should be cleared
         const currentFlag = specimen.inatFieldConflict;
-        if (currentFlag && ['herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict'].includes(currentFlag)) {
-          // Check if the conflict still exists
+        
+        if (currentFlag === 'metadata') {
+          // Check if metadata is now complete after the update
+          const finalScientificName = specimenUpdate.scientificName || specimen.scientificName;
+          const finalCollectorName = specimenUpdate.collectorName || specimen.collectorName;
+          const finalCollectionDate = specimenUpdate.collectionDate || specimen.collectionDate;
+          const finalState = specimenUpdate.state || specimen.state;
+          const finalCountry = specimenUpdate.country || specimen.country;
+          const hasLocation = finalState || finalCountry;
+          
+          const missingMetadata = !finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation;
+          
+          if (!missingMetadata) {
+            // Metadata is now complete - clear the flag
+            await db.update(specimens)
+              .set({ inatFieldConflict: null })
+              .where(eq(specimens.id, specimenId));
+            console.log(`[iNat Refresh] Cleared metadata flag for specimen ${specimenId} - all metadata now present`);
+          }
+        } else if (currentFlag && ['herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict'].includes(currentFlag)) {
+          // Herbarium conflicts are only valid if there's conflicting data on iNat
           const hasCatalogConflict = herbariumCatalogNumber && 
             !herbariumCatalogNumber.trim().includes('MYCO') && 
             herbariumCatalogNumber.trim() !== '';
