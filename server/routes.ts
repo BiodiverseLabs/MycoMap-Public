@@ -13749,6 +13749,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         voucherNumber: voucherNumber || voucherNumberMultiple || specimen.voucherNumber,
       };
       
+      // Auto-update status to 'sequenced' if DNA barcode is now present
+      if (dnaBarcodIts && specimen.status !== 'sequenced') {
+        specimenUpdate.status = 'sequenced';
+      }
+      
       // Extract genus and family if available
       if (obs.taxon?.name) {
         specimenUpdate.genus = obs.taxon.name.split(' ')[0];
@@ -14055,8 +14060,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const [metadata] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
       if (!metadata) return;
       
-      // Get all iNat-linked specimens ordered by ID
-      const allSpecimens = await db.select({ id: specimens.id, primaryObservationId: specimens.primaryObservationId })
+      // Get all iNat-linked specimens ordered by ID (include status for sequenced check)
+      const allSpecimens = await db.select({ id: specimens.id, primaryObservationId: specimens.primaryObservationId, status: specimens.status })
         .from(specimens)
         .where(and(
           eq(specimens.primaryObservationSource, 'inat'),
@@ -14244,6 +14249,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               longitude: obs.geojson?.coordinates?.[0]?.toString(),
               voucherNumber: voucherNumber || voucherNumberMultiple,
             };
+            
+            // Auto-update status to 'sequenced' if DNA barcode is now present
+            if (dnaBarcodIts && spec.status !== 'sequenced') {
+              specimenUpdate.status = 'sequenced';
+            }
             
             if (obs.taxon?.name) {
               specimenUpdate.genus = obs.taxon.name.split(' ')[0];
