@@ -13759,21 +13759,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         if (!currentCatalogNumber || currentCatalogNumber.trim() === '') {
           // Blank - push MYCO accession
           pushUpdates.push({ field_id: 9540, value: mycoAccession });
-        } else if (currentCatalogNumber.toLowerCase().startsWith('myco') && !currentCatalogNumber.includes('-')) {
-          // Starts with MYCO but lacks dash - update to proper format while preserving additional data
-          // e.g., "MYCO1000004; TENN-F-079059" → "MYCO-1000004; TENN-F-079059"
-          const mycoMatch = currentCatalogNumber.match(/^MYCO\s*(\d+)/i);
+        } else if (currentCatalogNumber.toLowerCase().includes('myco')) {
+          // Contains MYCO - check if it needs formatting update
+          // Match MYCO followed by optional dash/space and digits
+          const mycoMatch = currentCatalogNumber.match(/MYCO[-\s]*(\d+)/i);
           if (mycoMatch) {
-            // Find where the MYCO number ends and additional data begins
-            const afterMyco = currentCatalogNumber.substring(mycoMatch[0].length);
-            // Construct new value: proper MYCO format + any additional data
-            const newValue = mycoAccession + afterMyco;
-            pushUpdates.push({ field_id: 9540, value: newValue });
-          } else {
-            pushUpdates.push({ field_id: 9540, value: mycoAccession });
+            // Check if already in proper format with this specimen's accession
+            if (!currentCatalogNumber.includes(mycoAccession)) {
+              // Find where the MYCO number ends and additional data begins
+              const fullMatch = mycoMatch[0]; // e.g., "MYCO1000004" or "MYCO-1000004"
+              const matchIndex = currentCatalogNumber.indexOf(fullMatch);
+              const afterMyco = currentCatalogNumber.substring(matchIndex + fullMatch.length);
+              // Construct new value: proper MYCO format + any additional data
+              const newValue = mycoAccession + afterMyco;
+              pushUpdates.push({ field_id: 9540, value: newValue });
+            }
+            // If already contains proper mycoAccession, no update needed
           }
-        } else if (!currentCatalogNumber.includes(mycoAccession)) {
-          // Has different data that doesn't include our MYCO number - conflict
+        } else {
+          // Has data but NO MYCO at all - that's a conflict
           conflicts.push('herbarium_catalog_conflict');
         }
         
