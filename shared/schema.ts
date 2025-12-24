@@ -1501,6 +1501,7 @@ export const specimenRefreshMetadata = pgTable("specimen_refresh_metadata", {
   syncStatus: text("sync_status").default("idle"), // idle, syncing, completed, error, rate_limited, cancelled
   syncProgress: integer("sync_progress").default(0), // 0-100 percentage
   syncMessage: text("sync_message"),
+  filterParams: text("filter_params"), // JSON string of filter parameters for filtered refresh
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

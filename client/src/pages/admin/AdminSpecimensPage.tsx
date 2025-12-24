@@ -253,9 +253,21 @@ export default function AdminSpecimensPage() {
 
   const startBulkRefresh = async () => {
     try {
+      // Pass current filter state to refresh only matching specimens
+      const filterPayload = {
+        search: searchTerm,
+        status: statusFilter,
+        validationFlag: validationFlagFilter,
+        dateFrom,
+        dateTo,
+        hasSequence,
+      };
+      
       const res = await fetch('/api/admin/specimens/refresh/start', {
         method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(filterPayload),
       });
       const data = await res.json();
       

@@ -13980,6 +13980,71 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Helper to build specimen filter conditions
+  function buildSpecimenFilterConditions(params: {
+    search?: string;
+    status?: string;
+    validationFlag?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    hasSequence?: boolean;
+  }) {
+    const conditions: any[] = [
+      eq(specimens.primaryObservationSource, 'inat'),
+      isNotNull(specimens.primaryObservationId)
+    ];
+    
+    if (params.status && params.status !== 'all') {
+      conditions.push(eq(specimens.currentStatus, params.status));
+    }
+    
+    if (params.validationFlag && params.validationFlag !== 'all') {
+      if (params.validationFlag === 'has_flag') {
+        conditions.push(sql`${specimens.inatFieldConflict} IS NOT NULL`);
+      } else if (params.validationFlag === 'no_flag') {
+        conditions.push(sql`${specimens.inatFieldConflict} IS NULL`);
+      } else {
+        conditions.push(eq(specimens.inatFieldConflict, params.validationFlag));
+      }
+    }
+    
+    if (params.dateFrom) {
+      conditions.push(sql`${specimens.collectionDate} >= ${params.dateFrom}::date`);
+    }
+    if (params.dateTo) {
+      conditions.push(sql`${specimens.collectionDate} <= ${params.dateTo}::date`);
+    }
+    
+    if (params.search) {
+      const searchPattern = `%${params.search}%`;
+      conditions.push(
+        or(
+          sql`${specimens.displayCode} ILIKE ${searchPattern}`,
+          sql`${specimens.scientificName} ILIKE ${searchPattern}`,
+          sql`${specimens.voucherNumber} ILIKE ${searchPattern}`,
+          sql`${specimens.collectorName} ILIKE ${searchPattern}`,
+          sql`${specimens.locality} ILIKE ${searchPattern}`,
+          sql`${specimens.primaryObservationId} ILIKE ${searchPattern}`,
+          sql`${specimens.labCode} ILIKE ${searchPattern}`
+        )
+      );
+    }
+    
+    if (params.hasSequence) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM observation_cache oc 
+          WHERE oc.source = 'inat' 
+            AND oc.source_observation_id = ${specimens.primaryObservationId}
+            AND oc.dna_barcode_its IS NOT NULL 
+            AND oc.dna_barcode_its != ''
+        )`
+      );
+    }
+    
+    return conditions;
+  }
+
   // Start bulk refresh
   app.post("/api/admin/specimens/refresh/start", isAdmin, async (req: any, res) => {
     try {
@@ -13990,30 +14055,48 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         return res.json({ status: 'already_syncing', message: 'Bulk refresh is already in progress' });
       }
       
-      // Count iNat-linked specimens
+      // Get filter params from request body
+      const filterParams = {
+        search: req.body.search || '',
+        status: req.body.status || '',
+        validationFlag: req.body.validationFlag || '',
+        dateFrom: req.body.dateFrom || '',
+        dateTo: req.body.dateTo || '',
+        hasSequence: req.body.hasSequence === true,
+      };
+      
+      // Build filter conditions
+      const conditions = buildSpecimenFilterConditions(filterParams);
+      
+      // Count filtered iNat-linked specimens
       const [countResult] = await db.select({ count: sql`count(*)` })
         .from(specimens)
-        .where(eq(specimens.primaryObservationSource, 'inat'));
+        .where(and(...conditions));
       const totalSpecimens = Number(countResult?.count || 0);
       
       if (totalSpecimens === 0) {
-        return res.json({ status: 'error', message: 'No iNaturalist-linked specimens found' });
+        return res.json({ status: 'error', message: 'No specimens match the current filters' });
       }
       
-      // Create or update metadata record - resume from where we left off if not completed
-      const startId = existing?.lastProcessedId && existing.syncStatus !== 'completed' ? existing.lastProcessedId : 0;
+      // Store filter params as JSON
+      const filterParamsJson = JSON.stringify(filterParams);
+      
+      // Create or update metadata record - always start fresh when filters change
+      const isNewFilter = !existing || existing.filterParams !== filterParamsJson || existing.syncStatus === 'completed';
+      const startId = !isNewFilter && existing?.lastProcessedId ? existing.lastProcessedId : 0;
       
       if (existing) {
         await db.update(specimenRefreshMetadata)
           .set({
             totalSpecimens,
-            processedCount: startId > 0 ? existing.processedCount : 0,
-            successCount: startId > 0 ? existing.successCount : 0,
-            errorCount: startId > 0 ? existing.errorCount : 0,
+            processedCount: isNewFilter ? 0 : (existing.processedCount || 0),
+            successCount: isNewFilter ? 0 : (existing.successCount || 0),
+            errorCount: isNewFilter ? 0 : (existing.errorCount || 0),
             lastProcessedId: startId,
             syncStatus: 'syncing',
-            syncProgress: startId > 0 ? existing.syncProgress : 0,
-            syncMessage: startId > 0 ? 'Resuming refresh...' : 'Starting refresh...',
+            syncProgress: isNewFilter ? 0 : (existing.syncProgress || 0),
+            syncMessage: isNewFilter ? 'Starting filtered refresh...' : 'Resuming refresh...',
+            filterParams: filterParamsJson,
             updatedAt: new Date(),
           })
           .where(eq(specimenRefreshMetadata.id, existing.id));
@@ -14026,7 +14109,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           lastProcessedId: 0,
           syncStatus: 'syncing',
           syncProgress: 0,
-          syncMessage: 'Starting refresh...',
+          syncMessage: 'Starting filtered refresh...',
+          filterParams: filterParamsJson,
         });
       }
       
@@ -14035,7 +14119,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       bulkRefreshCancelled = false;
       processBulkRefresh();
       
-      res.json({ status: 'started', message: `Starting refresh of ${totalSpecimens} specimens` });
+      res.json({ status: 'started', message: `Starting refresh of ${totalSpecimens} filtered specimens` });
     } catch (error) {
       console.error("Error starting bulk refresh:", error);
       res.status(500).json({ error: "Failed to start bulk refresh" });
@@ -14077,19 +14161,37 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       console.log(`[BulkRefresh] Starting refresh of ${metadata.totalSpecimens} specimens...`);
       
-      // Get all iNat-linked specimens ordered by ID (include all fields needed for push)
+      // Parse filter params from metadata
+      let filterParams = {
+        search: '',
+        status: '',
+        validationFlag: '',
+        dateFrom: '',
+        dateTo: '',
+        hasSequence: false,
+      };
+      if (metadata.filterParams) {
+        try {
+          filterParams = JSON.parse(metadata.filterParams);
+        } catch (e) {
+          console.log(`[BulkRefresh] No valid filter params, using defaults`);
+        }
+      }
+      
+      // Build filter conditions
+      const conditions = buildSpecimenFilterConditions(filterParams);
+      
+      // Get filtered iNat-linked specimens ordered by ID (include all fields needed for push)
       const allSpecimens = await db.select({ 
         id: specimens.id, 
         primaryObservationId: specimens.primaryObservationId, 
         currentStatus: specimens.currentStatus,
         displayCode: specimens.displayCode,
         herbariumAccessionNumber: specimens.herbariumAccessionNumber,
+        mycoNumber: specimens.mycoNumber,
       })
         .from(specimens)
-        .where(and(
-          eq(specimens.primaryObservationSource, 'inat'),
-          isNotNull(specimens.primaryObservationId)
-        ))
+        .where(and(...conditions))
         .orderBy(specimens.id);
       
       let processed = metadata.processedCount || 0;
