@@ -14893,19 +14893,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Prepare specimen update
+            // Prepare specimen update - ensure all fields have explicit null instead of undefined
             const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+            const collectorNameResolved = collectorsName || obs.user?.name || obs.user?.login || null;
             const specimenUpdate: any = {
-              scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride),
-              collectorName: collectorsName || obs.user?.name || obs.user?.login,
-              collectionDate: obs.observed_on,
-              locality: obs.geoprivacy === 'private' ? 'Private' : obs.place_guess,
-              state: specimenState,
-              country: specimenCountry,
-              latitude: obs.geojson?.coordinates?.[1]?.toString(),
-              longitude: obs.geojson?.coordinates?.[0]?.toString(),
-              voucherNumber: voucherNumber || voucherNumberMultiple,
+              scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || null,
+              collectorName: collectorNameResolved,
+              collectionDate: obs.observed_on || null,
+              locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
+              state: specimenState || null,
+              country: specimenCountry || null,
+              latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+              longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+              voucherNumber: voucherNumber || voucherNumberMultiple || null,
             };
+            
+            // Debug: log if collector name is missing despite having user info
+            if (!collectorNameResolved && obs.user) {
+              console.log(`[BulkRefresh] Missing collector for ${spec.primaryObservationId}: user.name='${obs.user?.name}', user.login='${obs.user?.login}'`);
+            }
             
             if (dnaBarcodIts && spec.currentStatus !== 'sequenced') {
               specimenUpdate.currentStatus = 'sequenced';
@@ -15013,13 +15019,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             }
             
             // Get the final data (updated or original)
+            // Use explicit null checks to avoid undefined falling through
             const specimenUpdate = specimenUpdates.find(u => u.id === spec.id)?.data || {};
-            const finalScientificName = specimenUpdate.scientificName || spec.scientificName;
-            const finalCollectorName = specimenUpdate.collectorName || spec.collectorName;
-            const finalCollectionDate = specimenUpdate.collectionDate || spec.collectionDate;
-            const finalState = specimenUpdate.state || spec.state;
-            const finalCountry = specimenUpdate.country || spec.country;
-            const finalLocality = specimenUpdate.locality || spec.locality;
+            const finalScientificName = specimenUpdate.scientificName !== undefined ? specimenUpdate.scientificName : spec.scientificName;
+            const finalCollectorName = specimenUpdate.collectorName !== undefined ? specimenUpdate.collectorName : spec.collectorName;
+            const finalCollectionDate = specimenUpdate.collectionDate !== undefined ? specimenUpdate.collectionDate : spec.collectionDate;
+            const finalState = specimenUpdate.state !== undefined ? specimenUpdate.state : spec.state;
+            const finalCountry = specimenUpdate.country !== undefined ? specimenUpdate.country : spec.country;
+            const finalLocality = specimenUpdate.locality !== undefined ? specimenUpdate.locality : spec.locality;
             
             // Private observations don't need location
             const isPrivateLocation = obs.geoprivacy === 'private';
@@ -15028,6 +15035,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             // Specimens marked as "Removed" should never get metadata flags
             const isRemovedSpecimen = finalScientificName === 'Removed' || finalCollectorName === 'Removed';
             const missingMetadata = !isRemovedSpecimen && (!finalScientificName || !finalCollectorName || !finalCollectionDate || !hasLocation);
+            
+            // Debug: log why metadata flag is not being cleared
+            if (spec.inatFieldConflict === 'metadata' && missingMetadata) {
+              const missing = [];
+              if (!finalScientificName) missing.push('scientificName');
+              if (!finalCollectorName) missing.push('collectorName');
+              if (!finalCollectionDate) missing.push('collectionDate');
+              if (!hasLocation) missing.push('location');
+              if (missing.length > 0) {
+                console.log(`[BulkRefresh] Still missing metadata for ${spec.id} (${spec.primaryObservationId}): ${missing.join(', ')}`);
+              }
+            }
             
             if (missingMetadata && spec.inatFieldConflict !== 'metadata') {
               // Set metadata flag
