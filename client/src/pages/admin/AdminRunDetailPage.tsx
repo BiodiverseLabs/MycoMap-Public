@@ -202,6 +202,7 @@ export default function AdminRunDetailPage() {
   const mycoMapSuccessInputRef = useRef<HTMLInputElement>(null);
   const mycoMapFailureInputRef = useRef<HTMLInputElement>(null);
   const [showSequencesToUpload, setShowSequencesToUpload] = useState(false);
+  const [showNoLinkage, setShowNoLinkage] = useState(false);
   const [dragOverSuccess, setDragOverSuccess] = useState(false);
   const [dragOverFailure, setDragOverFailure] = useState(false);
   const [specimenJobId, setSpecimenJobId] = useState<string | null>(null);
@@ -1080,8 +1081,17 @@ export default function AdminRunDetailPage() {
                 <p className="text-xs text-gray-500 mt-1">from MycoMap Failure CSV</p>
               </div>
 
-              {/* No Analysis Linkage */}
-              <div className="bg-gradient-to-br from-amber-50 to-white rounded-xl p-4 border border-amber-100 hover:shadow-md transition-all">
+              {/* No Analysis Linkage - Clickable */}
+              <div 
+                className={`bg-gradient-to-br from-amber-50 to-white rounded-xl p-4 border border-amber-100 hover:shadow-md transition-all ${
+                  (mycoMapAnalysis.noAnalysisLinkageCount || 0) > 0 ? 'cursor-pointer hover:border-amber-300' : ''
+                }`}
+                onClick={() => {
+                  if ((mycoMapAnalysis.noAnalysisLinkageCount || 0) > 0) {
+                    setShowNoLinkage(true);
+                  }
+                }}
+              >
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-2 bg-amber-100 rounded-lg">
                     <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -1091,7 +1101,11 @@ export default function AdminRunDetailPage() {
                 <p className="text-3xl font-bold text-amber-600" data-testid="stat-mycomap-no-linkage">
                   {mycoMapAnalysis.noAnalysisLinkageCount || 0}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">in run but not in MycoMap</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {(mycoMapAnalysis.noAnalysisLinkageCount || 0) > 0 
+                    ? 'Click to view observation IDs' 
+                    : 'in run but not in MycoMap'}
+                </p>
               </div>
 
               {/* Sequences to Upload - Clickable */}
@@ -1151,6 +1165,55 @@ export default function AdminRunDetailPage() {
                     <ExternalLink className="h-4 w-4 text-gray-400" />
                   </div>
                 ))}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* No Analysis Linkage Dialog */}
+        <Dialog open={showNoLinkage} onOpenChange={setShowNoLinkage}>
+          <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                No Analysis Linkage ({mycoMapAnalysis?.noAnalysisLinkageCount || 0})
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-600 mb-3">
+              These observations are in this sequencing run but weren't found in either the MycoMap Success or Failure CSV files.
+            </p>
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
+              <div className="space-y-2">
+                {mycoMapAnalysis?.noAnalysisLinkageIds?.map((key) => {
+                  const [platform, obsId] = key.split(':');
+                  const isInat = platform === 'iNaturalist';
+                  const isMO = platform === 'Mushroom Observer';
+                  const url = isInat 
+                    ? `https://www.inaturalist.org/observations/${obsId}`
+                    : isMO 
+                      ? `https://mushroomobserver.org/observations/${obsId}`
+                      : null;
+                  return (
+                    <div key={key} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500">{platform}</span>
+                        {url ? (
+                          <a 
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-amber-600 hover:underline"
+                          >
+                            {obsId}
+                          </a>
+                        ) : (
+                          <span className="font-medium text-gray-700">{obsId}</span>
+                        )}
+                      </div>
+                      {url && <ExternalLink className="h-4 w-4 text-gray-400" />}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </DialogContent>

@@ -13272,21 +13272,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       if (validInatSuccessIds.length > 0) {
         try {
-          // Get observations that have DNA barcode in our cache
-          const cachedWithSequence = await db.select({ 
-            sourceObservationId: observationCache.sourceObservationId,
-            dnaBarcodeIts: observationCache.dnaBarcodeIts
-          })
-            .from(observationCache)
-            .where(and(
-              eq(observationCache.source, 'inat'),
-              inArray(observationCache.sourceObservationId, validInatSuccessIds)
-            ));
+          // Use raw SQL to get observations with DNA barcode - bypasses drizzle ORM issues
+          // Build the IN clause as a raw string since the IDs are validated
+          const idsClause = validInatSuccessIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+          const cachedWithSequence = await db.execute(sql`
+            SELECT source_observation_id, dna_barcode_its 
+            FROM observation_cache 
+            WHERE source = 'inat' 
+            AND source_observation_id IN (${sql.raw(idsClause)})
+            AND dna_barcode_its IS NOT NULL 
+            AND dna_barcode_its != ''
+          `);
           
-          // Filter for non-null, non-empty DNA barcodes in JS to avoid drizzle SQL issues
-          const cachedIds = new Set(cachedWithSequence
-            .filter(c => c.sourceObservationId && c.dnaBarcodeIts && c.dnaBarcodeIts.trim() !== '')
-            .map(c => c.sourceObservationId));
+          // Extract IDs that have sequences
+          const cachedIds = new Set(
+            (cachedWithSequence.rows || [])
+              .map((r: any) => r.source_observation_id)
+              .filter((id: any) => id)
+          );
+          console.log(`[MycoMap] Found ${cachedIds.size} observations with DNA barcodes in cache`);
           sequencesToUpload = validInatSuccessIds.filter(id => !cachedIds.has(id));
         } catch (cacheErr: any) {
           console.error(`[MycoMap] Error querying cache:`, cacheErr.message);
