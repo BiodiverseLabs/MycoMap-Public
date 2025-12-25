@@ -13354,7 +13354,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               cacheDetails.set(`iNaturalist:${r.source_observation_id}`, {
                 scientificName: r.scientific_name,
                 observedOn: r.observed_on,
-                location: r.place_guess || [r.state, r.country].filter(Boolean).join(', ')
+                state: r.state || null,
+                country: r.country || null,
               });
             }
           } catch (e) { console.error('[MycoMap] Error fetching iNat details:', e); }
@@ -13373,7 +13374,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               cacheDetails.set(`Mushroom Observer:${r.source_observation_id}`, {
                 scientificName: r.scientific_name,
                 observedOn: r.observed_on,
-                location: r.place_guess || [r.state, r.country].filter(Boolean).join(', ')
+                state: r.state || null,
+                country: r.country || null,
               });
             }
           } catch (e) { console.error('[MycoMap] Error fetching MO details:', e); }
@@ -13399,13 +13401,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             FROM observation_cache 
             WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
           `);
-          const cacheMap = new Map<string, { scientificName?: string; observedOn?: string; location?: string }>();
+          const cacheMap = new Map<string, { scientificName?: string; observedOn?: string; state?: string; country?: string }>();
           for (const row of (cached.rows || [])) {
             const r = row as any;
             cacheMap.set(r.source_observation_id, {
               scientificName: r.scientific_name,
               observedOn: r.observed_on,
-              location: r.place_guess || [r.state, r.country].filter(Boolean).join(', ')
+              state: r.state || null,
+              country: r.country || null,
             });
           }
           

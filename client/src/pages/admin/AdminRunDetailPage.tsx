@@ -1193,19 +1193,12 @@ export default function AdminRunDetailPage() {
                         {obs.scientificName && (
                           <p className="font-medium text-gray-800 italic truncate">{obs.scientificName}</p>
                         )}
-                        <a 
-                          href={`https://www.inaturalist.org/observations/${obs.obsId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline"
-                        >
-                          iNat #{obs.obsId}
-                        </a>
-                        {(obs.observedOn || obs.location) && (
+                        <span className="text-sm text-gray-700">iNat #{obs.obsId}</span>
+                        {(obs.observedOn || obs.state || obs.country) && (
                           <p className="text-xs text-gray-500 mt-1">
                             {obs.observedOn && <span>{new Date(obs.observedOn).toLocaleDateString()}</span>}
-                            {obs.observedOn && obs.location && <span> • </span>}
-                            {obs.location && <span>{obs.location}</span>}
+                            {obs.observedOn && (obs.state || obs.country) && <span> • </span>}
+                            {(obs.state || obs.country) && <span>{[obs.state, obs.country].filter(Boolean).join(', ')}</span>}
                           </p>
                         )}
                       </div>
@@ -1277,28 +1270,27 @@ export default function AdminRunDetailPage() {
                           )}
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">{obs.platform}</span>
-                            {url ? (
-                              <a 
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-amber-600 hover:underline"
-                              >
-                                #{obs.obsId}
-                              </a>
-                            ) : (
-                              <span className="text-sm text-gray-700">{obs.obsId}</span>
-                            )}
+                            <span className="text-sm text-gray-700">#{obs.obsId}</span>
                           </div>
-                          {(obs.observedOn || obs.location) && (
+                          {(obs.observedOn || obs.state || obs.country) && (
                             <p className="text-xs text-gray-500 mt-1">
                               {obs.observedOn && <span>{new Date(obs.observedOn).toLocaleDateString()}</span>}
-                              {obs.observedOn && obs.location && <span> • </span>}
-                              {obs.location && <span>{obs.location}</span>}
+                              {obs.observedOn && (obs.state || obs.country) && <span> • </span>}
+                              {(obs.state || obs.country) && <span>{[obs.state, obs.country].filter(Boolean).join(', ')}</span>}
                             </p>
                           )}
                         </div>
-                        {url && <ExternalLink className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />}
+                        {url && (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-amber-600 transition-colors flex-shrink-0 ml-2"
+                            title={`Open in ${obs.platform}`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
                       </div>
                     </div>
                   );
