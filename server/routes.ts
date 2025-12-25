@@ -12707,8 +12707,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     created: number;
     linked: number;
     error?: string;
-    refreshJobId?: string;  // Job ID for auto-triggered iNat refresh
+    refreshJobId?: string;  // Job ID for auto-triggered iNat refresh (legacy)
     runId?: number;         // Run ID for auto-refresh
+    usingBulkRefresh?: boolean; // Whether this job uses the shared bulk refresh system
   }> = new Map();
 
   // Generate specimen records for wells in a run that don't have them
@@ -12883,11 +12884,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           job.status = 'completed';
           
-          // Auto-trigger iNat refresh for this run's specimens
-          console.log(`[SpecimenGeneration] Completed. Triggering iNat refresh for run ${runId}...`);
+          // Auto-trigger bulk refresh for this run's specimens using the shared bulk refresh system
+          console.log(`[SpecimenGeneration] Completed. Triggering bulk refresh for run ${runId}...`);
           try {
-            const refreshJobId = `run-refresh-${runId}-${Date.now()}`;
-            
             // Get wells with iNat observations for this run
             const inatWells = await db.select({
               observationId: labWells.observationId,
@@ -12902,195 +12901,59 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             const uniqueObsIds = [...new Set(inatWells.filter(w => w.observationId).map(w => w.observationId!))];
             
             if (uniqueObsIds.length > 0) {
-              // Initialize refresh job
-              runRefreshJobs.set(refreshJobId, {
-                status: 'running',
-                total: uniqueObsIds.length,
-                processed: 0,
-                success: 0,
-                errors: 0,
-                withDnaBarcode: 0,
-              });
+              console.log(`[SpecimenGeneration] Starting bulk refresh for ${uniqueObsIds.length} observations from run ${runId}`);
               
-              job.refreshJobId = refreshJobId;
+              // Store the observation IDs for bulk refresh and trigger it
+              const filterParams = {
+                observationIds: uniqueObsIds,
+                runId,
+                pushEnabled: false, // Never push during import
+                ignoreRefreshDate: true, // Always refresh regardless of previous refresh date
+              };
               
-              // Process refresh in background - updates BOTH observation_cache AND specimens table
-              setImmediate(async () => {
-                const refreshJob = runRefreshJobs.get(refreshJobId)!;
-                const BATCH_SIZE = 200;
-                const DELAY_MS = 1000;
-                
-                try {
-                  // Pre-fetch specimen mapping for all observation IDs
-                  const specimensByObsId = new Map<string, number>();
-                  const specimensList = await db.select({ 
-                    id: specimens.id, 
-                    primaryObservationId: specimens.primaryObservationId 
+              // Get or create metadata record for bulk refresh
+              const [existing] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
+              
+              const totalSpecimens = uniqueObsIds.length;
+              const filterParamsJson = JSON.stringify(filterParams);
+              
+              if (existing) {
+                await db.update(specimenRefreshMetadata)
+                  .set({
+                    totalSpecimens,
+                    processedCount: 0,
+                    successCount: 0,
+                    errorCount: 0,
+                    lastProcessedId: 0,
+                    syncStatus: 'syncing',
+                    syncProgress: 0,
+                    syncMessage: `Starting refresh for Run ${runId}...`,
+                    filterParams: filterParamsJson,
+                    updatedAt: new Date(),
                   })
-                    .from(specimens)
-                    .where(and(
-                      eq(specimens.primaryObservationSource, 'inat'),
-                      inArray(specimens.primaryObservationId, uniqueObsIds)
-                    ));
-                  specimensList.forEach(s => {
-                    if (s.primaryObservationId) specimensByObsId.set(s.primaryObservationId, s.id);
-                  });
-                  
-                  for (let i = 0; i < uniqueObsIds.length; i += BATCH_SIZE) {
-                    const batch = uniqueObsIds.slice(i, i + BATCH_SIZE);
-                    const idsParam = batch.join(',');
-                    
-                    try {
-                      const inatUrl = `https://api.inaturalist.org/v1/observations?id=${idsParam}&per_page=${BATCH_SIZE}`;
-                      const response = await fetch(inatUrl);
-                      
-                      if (!response.ok) {
-                        refreshJob.errors += batch.length;
-                        refreshJob.processed += batch.length;
-                        continue;
-                      }
-                      
-                      const data = await response.json();
-                      const observations = data.results || [];
-                      
-                      // Pre-fetch all place_ids for location extraction
-                      const allPlaceIds = new Set<number>();
-                      for (const obs of observations) {
-                        if (obs.place_ids && Array.isArray(obs.place_ids)) {
-                          obs.place_ids.forEach((id: number) => allPlaceIds.add(id));
-                        }
-                      }
-                      if (allPlaceIds.size > 0) {
-                        await fetchPlaces(Array.from(allPlaceIds));
-                      }
-                      
-                      for (const obs of observations) {
-                        const obsIdStr = String(obs.id);
-                        
-                        // Extract observation fields
-                        const getField = (fieldId: number) => obs.ofvs?.find((f: any) => f.field_id === fieldId)?.value || null;
-                        const dnaBarcodeIts = getField(2330);
-                        const voucherNumber = getField(8257);
-                        const voucherNumberMultiple = getField(2863);
-                        const herbariumName = getField(9539);
-                        const herbariumCatalogNumber = getField(9540);
-                        const genbankAccession = getField(7555);
-                        const provisionalSpeciesName = getField(10675);
-                        const speciesNameOverride = getField(20259);
-                        const collectorsName = getField(9051);
-                        
-                        // Extract location
-                        let specimenState: string | null = null;
-                        let specimenCountry: string | null = null;
-                        try {
-                          const location = await extractLocationFromObservation(obs);
-                          specimenState = location.stateCode || location.stateName || null;
-                          specimenCountry = location.countryCode || location.countryName || null;
-                        } catch (locErr) { /* continue */ }
-                        
-                        const [existing] = await db.select({ id: observationCache.id })
-                          .from(observationCache)
-                          .where(and(
-                            eq(observationCache.source, 'inat'),
-                            eq(observationCache.sourceObservationId, obsIdStr)
-                          ));
-                        
-                        const cacheData = {
-                          source: 'inat' as const,
-                          sourceObservationId: obsIdStr,
-                          scientificName: obs.taxon?.name || null,
-                          observerUsername: obs.user?.login || null,
-                          observerName: obs.user?.name || null,
-                          observedOn: obs.observed_on ? new Date(obs.observed_on) : null,
-                          latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
-                          longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
-                          locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
-                          stateProvince: specimenState,
-                          countryCode: specimenCountry,
-                          dnaBarcodeIts,
-                          voucherNumber: voucherNumber || voucherNumberMultiple || null,
-                          herbariumName,
-                          herbariumCatalogNumber,
-                          genbankAccession,
-                          provisionalSpeciesName,
-                          speciesNameOverride,
-                          collectorsName,
-                          apiResponseJson: obs, // Store raw JSON object, not stringified
-                          updatedAt: new Date(),
-                        };
-                        
-                        if (existing) {
-                          await db.update(observationCache).set(cacheData).where(eq(observationCache.id, existing.id));
-                        } else {
-                          await db.insert(observationCache).values(cacheData);
-                        }
-                        
-                        // Update the specimens table with metadata from iNaturalist
-                        const specimenId = specimensByObsId.get(obsIdStr);
-                        if (specimenId) {
-                          const inatBaseName = obs.taxon?.name || obs.species_guess || null;
-                          const collectorNameResolved = collectorsName || obs.user?.name || obs.user?.login || null;
-                          const apiLocality = obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null);
-                          
-                          // Get current specimen status to avoid overwriting
-                          const [currentSpec] = await db.select({ currentStatus: specimens.currentStatus })
-                            .from(specimens).where(eq(specimens.id, specimenId));
-                          
-                          const specimenUpdate: any = {
-                            scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || null,
-                            collectorName: collectorNameResolved,
-                            collectionDate: obs.observed_on || null,
-                            voucherNumber: voucherNumber || voucherNumberMultiple || null,
-                          };
-                          
-                          if (apiLocality) specimenUpdate.locality = apiLocality;
-                          if (specimenState) specimenUpdate.state = specimenState;
-                          if (specimenCountry) specimenUpdate.country = specimenCountry;
-                          if (obs.geojson?.coordinates?.[1]) specimenUpdate.latitude = obs.geojson.coordinates[1].toString();
-                          if (obs.geojson?.coordinates?.[0]) specimenUpdate.longitude = obs.geojson.coordinates[0].toString();
-                          if (obs.taxon?.name) specimenUpdate.genus = obs.taxon.name.split(' ')[0];
-                          
-                          // Update status to sequenced if DNA barcode exists and current status is not already sequenced
-                          if (dnaBarcodeIts && currentSpec?.currentStatus !== 'sequenced') {
-                            specimenUpdate.currentStatus = 'sequenced';
-                          }
-                          
-                          await db.update(specimens).set(specimenUpdate).where(eq(specimens.id, specimenId));
-                        }
-                        
-                        if (dnaBarcodeIts) refreshJob.withDnaBarcode++;
-                        refreshJob.success++;
-                      }
-                      
-                      const foundIds = new Set(observations.map((o: any) => String(o.id)));
-                      const notFound = batch.filter(id => !foundIds.has(id));
-                      refreshJob.errors += notFound.length;
-                      refreshJob.processed += batch.length;
-                      
-                    } catch (batchError) {
-                      console.error(`[AutoRefresh] Batch error:`, batchError);
-                      refreshJob.errors += batch.length;
-                      refreshJob.processed += batch.length;
-                    }
-                    
-                    if (i + BATCH_SIZE < uniqueObsIds.length) {
-                      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
-                    }
-                  }
-                  
-                  refreshJob.status = 'completed';
-                  console.log(`[AutoRefresh] Completed for run ${runId}: ${refreshJob.withDnaBarcode}/${refreshJob.total} have DNA barcode`);
-                } catch (error: any) {
-                  console.error(`[AutoRefresh] Job error:`, error);
-                  refreshJob.status = 'error';
-                  refreshJob.error = error.message || 'Unknown error';
-                }
-                
-                setTimeout(() => runRefreshJobs.delete(refreshJobId), 10 * 60 * 1000);
-              });
+                  .where(eq(specimenRefreshMetadata.id, existing.id));
+              } else {
+                await db.insert(specimenRefreshMetadata).values({
+                  totalSpecimens,
+                  processedCount: 0,
+                  successCount: 0,
+                  errorCount: 0,
+                  lastProcessedId: 0,
+                  syncStatus: 'syncing',
+                  syncProgress: 0,
+                  syncMessage: `Starting refresh for Run ${runId}...`,
+                  filterParams: filterParamsJson,
+                });
+              }
+              
+              // Start the shared bulk refresh processor
+              bulkRefreshActive = true;
+              bulkRefreshCancelled = false;
+              job.usingBulkRefresh = true;
+              processBulkRefresh();
             }
           } catch (refreshError) {
-            console.error(`[SpecimenGeneration] Failed to trigger refresh:`, refreshError);
+            console.error(`[SpecimenGeneration] Failed to trigger bulk refresh:`, refreshError);
           }
         } catch (error: any) {
           console.error("Error in specimen generation job:", error);
@@ -13116,9 +12979,42 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       return res.status(404).json({ error: "Job not found or expired" });
     }
     
-    // If refresh job started, include its status
+    // If using bulk refresh, get status from specimenRefreshMetadata
     let refreshStatus = null;
-    if (job.refreshJobId) {
+    if (job.usingBulkRefresh) {
+      const [metadata] = await db.select().from(specimenRefreshMetadata).orderBy(sql`id DESC`).limit(1);
+      if (metadata) {
+        // Count specimens with DNA barcode from observation_cache for this refresh
+        let withDnaBarcode = 0;
+        if (metadata.filterParams) {
+          try {
+            const params = JSON.parse(metadata.filterParams);
+            if (params.observationIds && params.observationIds.length > 0) {
+              const [dnaCount] = await db.select({
+                count: sql<number>`count(*) FILTER (WHERE dna_barcode_its IS NOT NULL AND dna_barcode_its != '')`
+              })
+                .from(observationCache)
+                .where(and(
+                  eq(observationCache.source, 'inat'),
+                  inArray(observationCache.sourceObservationId, params.observationIds)
+                ));
+              withDnaBarcode = Number(dnaCount?.count || 0);
+            }
+          } catch (e) { /* ignore */ }
+        }
+        
+        refreshStatus = {
+          status: metadata.syncStatus,
+          total: metadata.totalSpecimens || 0,
+          processed: metadata.processedCount || 0,
+          withDnaBarcode,
+          progress: metadata.syncProgress || 0,
+          successRate: (metadata.processedCount || 0) > 0 ? Math.round((withDnaBarcode / (metadata.processedCount || 1)) * 100) : 0,
+          message: metadata.syncMessage,
+        };
+      }
+    } else if (job.refreshJobId) {
+      // Legacy: check runRefreshJobs
       const refreshJob = runRefreshJobs.get(job.refreshJobId);
       if (refreshJob) {
         refreshStatus = {
@@ -13142,6 +13038,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       error: job.error,
       progress: job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0,
       refreshStatus,
+      usingBulkRefresh: job.usingBulkRefresh || false,
     });
   });
 
@@ -15371,11 +15268,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     dateTo?: string;
     hasSequence?: boolean;
     ignoreRefreshDate?: boolean;
+    observationIds?: string[]; // Filter to specific observation IDs (for sequencing run refresh)
   }) {
     const conditions: any[] = [
       eq(specimens.primaryObservationSource, 'inat'),
       isNotNull(specimens.primaryObservationId)
     ];
+    
+    // Filter to specific observation IDs if provided
+    if (params.observationIds && params.observationIds.length > 0) {
+      conditions.push(inArray(specimens.primaryObservationId, params.observationIds));
+    }
     
     // Recency filter: when onlyStale is explicitly true, only include specimens
     // that haven't been refreshed in the last 24 hours
@@ -15531,6 +15434,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         hasSequence: req.body.hasSequence === true,
         pushEnabled: req.body.pushEnabled === true, // Default to false - pull only
         ignoreRefreshDate: req.body.ignoreRefreshDate === true, // Refresh all filtered specimens
+        observationIds: Array.isArray(req.body.observationIds) ? req.body.observationIds : undefined, // Filter to specific observation IDs
+        runId: req.body.runId || undefined, // Track which run triggered this refresh
       };
       
       // Build filter conditions
@@ -15652,7 +15557,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       console.log(`[BulkRefresh] Starting refresh of ${metadata.totalSpecimens} specimens...`);
       
       // Parse filter params from metadata
-      let filterParams = {
+      let filterParams: {
+        search: string;
+        status: string;
+        validationFlags: string;
+        dateFrom: string;
+        dateTo: string;
+        hasSequence: boolean;
+        pushEnabled: boolean;
+        ignoreRefreshDate: boolean;
+        observationIds?: string[];
+        runId?: number;
+      } = {
         search: '',
         status: '',
         validationFlags: '',
@@ -15670,7 +15586,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
-      console.log(`[BulkRefresh] Options - Push: ${filterParams.pushEnabled ? 'YES' : 'NO'}, Ignore Refresh Date: ${filterParams.ignoreRefreshDate ? 'YES' : 'NO'}`);
+      const isRunRefresh = !!filterParams.runId;
+      console.log(`[BulkRefresh] Options - Push: ${filterParams.pushEnabled ? 'YES' : 'NO'}, Ignore Refresh Date: ${filterParams.ignoreRefreshDate ? 'YES' : 'NO'}${isRunRefresh ? `, Run: ${filterParams.runId}` : ''}`);
       
       
       // Build filter conditions
