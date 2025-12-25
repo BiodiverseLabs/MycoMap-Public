@@ -849,6 +849,31 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
     const scientificName = obs.consensus?.name || obs.name?.text_name || 
                           (typeof obs.name === 'string' ? obs.name : null) || null;
     
+    // Extract sequence data from MO (if available)
+    let dnaBarcodIts: string | null = null;
+    let mycomapBlastResults: string | null = null;
+    
+    if (obs.sequences && Array.isArray(obs.sequences) && obs.sequences.length > 0) {
+      // Find ITS sequence (most common for fungi)
+      const itsSequence = obs.sequences.find((seq: any) => 
+        seq.locus?.toLowerCase() === 'its' || seq.locus?.toLowerCase().includes('its')
+      ) || obs.sequences[0]; // Fall back to first sequence
+      
+      if (itsSequence) {
+        dnaBarcodIts = itsSequence.bases || null;
+        
+        // Extract BLAST results URL from notes (HTML content)
+        if (itsSequence.notes) {
+          const urlMatch = itsSequence.notes.match(/href="([^"]+)"/);
+          if (urlMatch && urlMatch[1]) {
+            mycomapBlastResults = urlMatch[1];
+          }
+        }
+        
+        console.log(`[MO Refresh] Found ${obs.sequences.length} sequence(s), ITS length: ${dnaBarcodIts?.length || 0} bp`);
+      }
+    }
+    
     // Build cache data for unified observation_cache
     // Use stored ID format for consistency in cache lookups
     const cacheData = {
@@ -878,16 +903,16 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
       identificationCount: 0,
       captive: false,
       licenseCode: obs.license || null,
-      voucherNumber: null, // MO doesn't have observation fields
+      voucherNumber: null, // MO doesn't have observation fields like iNat
       voucherNumberMultiple: null,
       herbariumName: null,
       herbariumCatalogNumber: null,
       genbankAccession: null,
       genbankNumberUrl: null,
       provisionalSpeciesName: null,
-      mycomapBlastResults: null,
+      mycomapBlastResults,
       traceFiles: null,
-      dnaBarcodIts: null,
+      dnaBarcodIts,
       readsInConsensus: null,
       speciesNameOverride: null,
       collectorsName: observerName,
