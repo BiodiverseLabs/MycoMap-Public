@@ -13042,6 +13042,89 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     });
   });
 
+  // ============ MYCOMAP RESULTS UPLOAD ============
+  
+  // Upload MycoMap success/failure CSV files for a run
+  app.post("/api/admin/runs/:id/mycomap-results", isAdmin, uploadMemory.fields([
+    { name: 'successFile', maxCount: 1 },
+    { name: 'failureFile', maxCount: 1 }
+  ]), async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      
+      let successCount = 0;
+      let failureCount = 0;
+      const results: { success: any[]; failure: any[] } = { success: [], failure: [] };
+      
+      // Process success file
+      if (files.successFile && files.successFile[0]) {
+        const successContent = files.successFile[0].buffer.toString('utf-8');
+        const lines = successContent.split('\n');
+        const headers = lines[0]?.split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          const row: Record<string, string> = {};
+          headers?.forEach((h, idx) => {
+            row[h] = values[idx] || '';
+          });
+          results.success.push(row);
+          successCount++;
+        }
+      }
+      
+      // Process failure file
+      if (files.failureFile && files.failureFile[0]) {
+        const failureContent = files.failureFile[0].buffer.toString('utf-8');
+        const lines = failureContent.split('\n');
+        const headers = lines[0]?.split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          const row: Record<string, string> = {};
+          headers?.forEach((h, idx) => {
+            row[h] = values[idx] || '';
+          });
+          results.failure.push(row);
+          failureCount++;
+        }
+      }
+      
+      // Store results as run files for later comparison
+      const resultsJson = JSON.stringify(results, null, 2);
+      const filename = `mycomap_results_${new Date().toISOString().slice(0,10)}.json`;
+      
+      // Save to labRunFiles
+      await db.insert(labRunFiles).values({
+        runId,
+        fileType: 'mycomap_results',
+        filename,
+        mimeType: 'application/json',
+        content: Buffer.from(resultsJson),
+        size: resultsJson.length,
+      });
+      
+      console.log(`[MycoMap] Uploaded results for run ${runId}: ${successCount} success, ${failureCount} failure records`);
+      
+      res.json({
+        success: true,
+        successCount,
+        failureCount,
+        message: `Processed ${successCount} success and ${failureCount} failure records`
+      });
+    } catch (error: any) {
+      console.error('[MycoMap] Upload error:', error);
+      res.status(500).json({ message: error.message || 'Failed to process MycoMap results' });
+    }
+  });
+
   // ============ RUN iNAT REFRESH ============
   
   // In-memory job registry for run-scoped iNat refresh

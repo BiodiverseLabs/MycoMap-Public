@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -185,6 +185,11 @@ export default function AdminRunDetailPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [generateSpecimensOpen, setGenerateSpecimensOpen] = useState(false);
+  const [mycoMapUploadOpen, setMycoMapUploadOpen] = useState(false);
+  const [mycoMapSuccessFile, setMycoMapSuccessFile] = useState<File | null>(null);
+  const [mycoMapFailureFile, setMycoMapFailureFile] = useState<File | null>(null);
+  const mycoMapSuccessInputRef = useRef<HTMLInputElement>(null);
+  const mycoMapFailureInputRef = useRef<HTMLInputElement>(null);
   const [specimenJobId, setSpecimenJobId] = useState<string | null>(null);
   const [specimenProgress, setSpecimenProgress] = useState<{
     status: 'running' | 'completed' | 'error';
@@ -393,6 +398,38 @@ export default function AdminRunDetailPage() {
       completionToastShown.current = false;
     }
   }, [specimenJobId]);
+
+  const mycoMapUploadMutation = useMutation({
+    mutationFn: async ({ successFile, failureFile }: { successFile: File | null; failureFile: File | null }) => {
+      const formData = new FormData();
+      formData.append('runId', runId.toString());
+      if (successFile) formData.append('successFile', successFile);
+      if (failureFile) formData.append('failureFile', failureFile);
+      
+      const response = await fetch(`/api/admin/runs/${runId}/mycomap-results`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to upload files');
+      }
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      await refetchFiles();
+      setMycoMapUploadOpen(false);
+      setMycoMapSuccessFile(null);
+      setMycoMapFailureFile(null);
+      toast({ 
+        title: "MycoMap Results Uploaded", 
+        description: `Processed ${data.successCount || 0} success and ${data.failureCount || 0} failure records`
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   const deleteFileMutation = useMutation({
     mutationFn: async (fileId: number) => {
@@ -734,6 +771,16 @@ export default function AdminRunDetailPage() {
                     <ShieldCheck className="h-4 w-4 mr-1" /> Validate All
                   </>
                 )}
+              </Button>
+            )}
+            {run.plates.length > 0 && (stats?.specimensNeedingRecords ?? 0) === 0 && (
+              <Button 
+                onClick={() => setMycoMapUploadOpen(true)}
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                data-testid="button-upload-mycomap"
+              >
+                <Upload className="h-4 w-4 mr-1" /> Upload MycoMap Success
               </Button>
             )}
             <Dialog open={addPlateOpen} onOpenChange={setAddPlateOpen}>
@@ -1674,6 +1721,139 @@ export default function AdminRunDetailPage() {
                   </Button>
                 </>
               )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* MycoMap Results Upload Dialog */}
+        <Dialog open={mycoMapUploadOpen} onOpenChange={(open) => {
+          setMycoMapUploadOpen(open);
+          if (!open) {
+            setMycoMapSuccessFile(null);
+            setMycoMapFailureFile(null);
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-blue-600" />
+                Upload MycoMap Results
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-6">
+              <p className="text-sm text-gray-600">
+                Upload the success and failure CSV files from MycoMap Analysis to compare against specimens in this run.
+              </p>
+              
+              {/* Success File Upload */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">MycoMap Success</Label>
+                <div 
+                  className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center cursor-pointer hover:bg-green-50 transition-colors"
+                  onClick={() => mycoMapSuccessInputRef.current?.click()}
+                >
+                  <input
+                    ref={mycoMapSuccessInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setMycoMapSuccessFile(file);
+                    }}
+                    data-testid="input-mycomap-success"
+                  />
+                  {mycoMapSuccessFile ? (
+                    <div className="flex items-center justify-center gap-2 text-green-700">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="font-medium">{mycoMapSuccessFile.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMycoMapSuccessFile(null);
+                          if (mycoMapSuccessInputRef.current) mycoMapSuccessInputRef.current.value = '';
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500">
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-green-400" />
+                      <p className="text-sm">Click to select success CSV</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Failure File Upload */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">MycoMap Failure</Label>
+                <div 
+                  className="border-2 border-dashed border-red-300 rounded-lg p-4 text-center cursor-pointer hover:bg-red-50 transition-colors"
+                  onClick={() => mycoMapFailureInputRef.current?.click()}
+                >
+                  <input
+                    ref={mycoMapFailureInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setMycoMapFailureFile(file);
+                    }}
+                    data-testid="input-mycomap-failure"
+                  />
+                  {mycoMapFailureFile ? (
+                    <div className="flex items-center justify-center gap-2 text-red-700">
+                      <CheckCircle className="h-5 w-5" />
+                      <span className="font-medium">{mycoMapFailureFile.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMycoMapFailureFile(null);
+                          if (mycoMapFailureInputRef.current) mycoMapFailureInputRef.current.value = '';
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500">
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-red-400" />
+                      <p className="text-sm">Click to select failure CSV</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMycoMapUploadOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => mycoMapUploadMutation.mutate({ 
+                  successFile: mycoMapSuccessFile, 
+                  failureFile: mycoMapFailureFile 
+                })}
+                disabled={mycoMapUploadMutation.isPending || (!mycoMapSuccessFile && !mycoMapFailureFile)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {mycoMapUploadMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  'Upload Files'
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
