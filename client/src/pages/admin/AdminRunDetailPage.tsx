@@ -888,24 +888,26 @@ export default function AdminRunDetailPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-600">Sequencing Success</span>
                 </div>
-                {stats?.sequencingSuccess?.rate !== null && stats?.sequencingSuccess?.rate !== undefined ? (
+                {stats?.sequencingSuccess?.totalChecked !== undefined && stats?.sequencingSuccess?.totalChecked > 0 ? (
                   <>
                     <p className="text-3xl font-bold text-green-600" data-testid="stat-sequencing-success">
-                      {stats.sequencingSuccess.rate}%
+                      {stats.sequencingSuccess.totalInat > 0 
+                        ? Math.round((stats.sequencingSuccess.withDnaBarcode / stats.sequencingSuccess.totalInat) * 100)
+                        : 0}%
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {stats.sequencingSuccess.withDnaBarcode}/{stats.sequencingSuccess.totalChecked} with DNA barcode
+                      {stats.sequencingSuccess.withDnaBarcode}/{stats.sequencingSuccess.totalInat} with DNA barcode (iNat field)
                     </p>
                     {stats.sequencingSuccess.totalInat > stats.sequencingSuccess.totalChecked && (
                       <p className="text-xs text-amber-600 mt-0.5">
-                        {stats.sequencingSuccess.totalInat - stats.sequencingSuccess.totalChecked} pending refresh
+                        {stats.sequencingSuccess.totalInat - stats.sequencingSuccess.totalChecked} awaiting cache sync
                       </p>
                     )}
                   </>
                 ) : stats?.sequencingSuccess?.totalInat === 0 ? (
                   <p className="text-gray-400 text-sm italic">No iNat specimens</p>
                 ) : (
-                  <p className="text-gray-400 text-sm italic">Run iNat refresh</p>
+                  <p className="text-gray-400 text-sm italic">Run iNat refresh to check</p>
                 )}
               </div>
 
