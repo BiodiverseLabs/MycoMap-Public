@@ -170,10 +170,11 @@ export default function AdminSpecimensPage() {
   const [location] = useLocation();
   const urlParams = new URLSearchParams(location.split("?")[1] || "");
   const initialStatus = urlParams.get("status") || "";
+  const initialValidationFlags = urlParams.get("validationFlags")?.split(",").filter(Boolean) || [];
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState(initialStatus);
-  const [validationFlagFilters, setValidationFlagFilters] = useState<string[]>([]);
+  const [validationFlagFilters, setValidationFlagFilters] = useState<string[]>(initialValidationFlags);
   const [selectedSpecimen, setSelectedSpecimen] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState("");

@@ -14102,10 +14102,20 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .from(specimens)
         .where(sql`${specimens.inatFieldConflict} = 'metadata'`);
       
-      // Count specimens with other flags (not check_specimen and not metadata)
+      // Count specimens with duplicate_inat flag
+      const [duplicateInatFlagResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .where(sql`${specimens.inatFieldConflict} = 'duplicate_inat'`);
+      
+      // Count specimens with push_incomplete flag
+      const [pushIncompleteFlagResult] = await db.select({ count: sql`count(*)` })
+        .from(specimens)
+        .where(sql`${specimens.inatFieldConflict} = 'push_incomplete'`);
+      
+      // Count specimens with other flags (not check_specimen, metadata, duplicate_inat, or push_incomplete)
       const [otherFlagResult] = await db.select({ count: sql`count(*)` })
         .from(specimens)
-        .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} != 'check_specimen' AND ${specimens.inatFieldConflict} != 'metadata'`);
+        .where(sql`${specimens.inatFieldConflict} IS NOT NULL AND ${specimens.inatFieldConflict} != '' AND ${specimens.inatFieldConflict} NOT IN ('check_specimen', 'metadata', 'duplicate_inat', 'push_incomplete')`);
       
       // Count dynamic push_incomplete: MYCO number exists but herbarium catalog doesn't contain it, or has MYCO catalog but no herbarium name
       // Exclude removed observations and specimens with University of West Alabama Herbarium (valid alternative)
@@ -14135,6 +14145,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         readyForAccession: Number(readyForAccessionResult?.count || 0),
         checkSpecimenFlag: Number(checkSpecimenFlagResult?.count || 0),
         metadataFlag: Number(metadataFlagResult?.count || 0),
+        duplicateInatFlag: Number(duplicateInatFlagResult?.count || 0),
+        pushIncompleteFlag: Number(pushIncompleteFlagResult?.count || 0),
         otherFlag: Number(otherFlagResult?.count || 0),
         pushIncomplete: Number(dynamicPushIncompleteResult?.count || 0),
         byStatus: statusCounts.reduce((acc, row) => {

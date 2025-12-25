@@ -20,6 +20,8 @@ interface SpecimenStats {
   readyForAccession: number;
   checkSpecimenFlag: number;
   metadataFlag: number;
+  duplicateInatFlag: number;
+  pushIncompleteFlag: number;
   otherFlag: number;
   byStatus: Record<string, number>;
 }
@@ -35,6 +37,8 @@ export default function AdminFungariumOverview() {
   const unaccessioned = stats?.byStatus?.unaccessioned || 0;
   const checkSpecimenFlag = stats?.checkSpecimenFlag || 0;
   const metadataFlag = stats?.metadataFlag || 0;
+  const duplicateInatFlag = stats?.duplicateInatFlag || 0;
+  const pushIncompleteFlag = stats?.pushIncompleteFlag || 0;
   const otherFlag = stats?.otherFlag || 0;
 
   return (
@@ -154,7 +158,7 @@ export default function AdminFungariumOverview() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Link href="/admin/specimens?status=sequenced">
                 <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-status-sequenced">
                   <CardContent className="p-6">
@@ -187,7 +191,7 @@ export default function AdminFungariumOverview() {
                 </Card>
               </Link>
 
-              <Link href="/admin/specimens?validationFlag=check_specimen">
+              <Link href="/admin/specimens?validationFlags=check_specimen">
                 <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-check-specimen">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-2">
@@ -203,7 +207,7 @@ export default function AdminFungariumOverview() {
                 </Card>
               </Link>
 
-              <Link href="/admin/specimens?validationFlag=metadata">
+              <Link href="/admin/specimens?validationFlags=metadata">
                 <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-metadata">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-2">
@@ -218,18 +222,52 @@ export default function AdminFungariumOverview() {
                   </CardContent>
                 </Card>
               </Link>
+            </div>
 
-              <Link href="/admin/specimens?validationFlag=conflicts">
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-other">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Link href="/admin/specimens?validationFlags=duplicate_inat">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-duplicate">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-slate-600">Other Flags</span>
+                      <span className="text-sm font-medium text-slate-600">Duplicate iNat</span>
                       <div className="p-2 rounded-lg bg-red-50">
-                        <Flag className="w-4 h-4 text-red-600" />
+                        <AlertCircle className="w-4 h-4 text-red-600" />
                       </div>
                     </div>
                     <div className="text-2xl font-bold text-red-600">
-                      {otherFlag.toLocaleString()}
+                      {duplicateInatFlag.toLocaleString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/admin/specimens?validationFlags=push_incomplete">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-push-incomplete">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Push Incomplete</span>
+                      <div className="p-2 rounded-lg bg-yellow-50">
+                        <Flag className="w-4 h-4 text-yellow-600" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {pushIncompleteFlag.toLocaleString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/admin/specimens?validationFlags=has_flag">
+                <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid="card-flag-any">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Any Flag</span>
+                      <div className="p-2 rounded-lg bg-slate-100">
+                        <Flag className="w-4 h-4 text-slate-600" />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-slate-600">
+                      {(checkSpecimenFlag + metadataFlag + duplicateInatFlag + pushIncompleteFlag + otherFlag).toLocaleString()}
                     </div>
                   </CardContent>
                 </Card>
