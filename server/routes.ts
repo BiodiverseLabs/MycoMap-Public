@@ -1047,14 +1047,14 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
           };
         } else {
           // Push new herbarium record
+          // MO API v2 parameter names: observation, herbarium, initial_det, accession_number
           const pushUrl = new URL('https://mushroomobserver.org/api2/herbarium_records');
           pushUrl.searchParams.set('api_key', process.env.MUSHROOM_OBSERVER_API_KEY);
           pushUrl.searchParams.set('format', 'json');
-          pushUrl.searchParams.set('observation_id', moObsIdNumeric);
-          pushUrl.searchParams.set('herbarium_name', 'Mycota Fungarium (MYCO)');
-          pushUrl.searchParams.set('initial_determination', scientificName || '');
+          pushUrl.searchParams.set('observation', moObsIdNumeric);
+          pushUrl.searchParams.set('herbarium', 'Mycota Fungarium (MYCO)');
+          pushUrl.searchParams.set('initial_det', scientificName || '');
           pushUrl.searchParams.set('accession_number', mycoNumber);
-          pushUrl.searchParams.set('notes', '');
           
           console.log(`[MO Push] Pushing herbarium record for MO ${moObsIdNumeric} with MYCO number ${mycoNumber}`);
           
