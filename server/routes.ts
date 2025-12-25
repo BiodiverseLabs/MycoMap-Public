@@ -740,7 +740,7 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
       return res.status(400).json({ error: "Invalid Mushroom Observer observation ID" });
     }
     
-    const moUrl = `https://mushroomobserver.org/api2/observations?id=${numericObsId}&detail=high`;
+    const moUrl = `https://mushroomobserver.org/api2/observations?id=${numericObsId}&detail=high&format=json`;
     
     console.log(`[MO Refresh] Fetching observation ${numericObsId} from MO API (stored as: ${storedObsId})`);
     
@@ -921,22 +921,38 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
     }
     
     // Store photos in observation_media
-    if (obs.images && obs.images.length > 0) {
+    // MO provides primary_image separately plus an images array
+    const allImages: any[] = [];
+    if (obs.primary_image) {
+      allImages.push(obs.primary_image);
+    }
+    if (obs.images && Array.isArray(obs.images)) {
+      allImages.push(...obs.images);
+    }
+    
+    if (allImages.length > 0) {
       await db.delete(observationMedia).where(eq(observationMedia.observationCacheId, cacheId));
       
-      for (let photoIdx = 0; photoIdx < obs.images.length; photoIdx++) {
-        const img = obs.images[photoIdx];
-        const imageUrl = typeof img === 'string' ? img : (img.url || img.original_url || img.thumbnail_url || '');
+      for (let photoIdx = 0; photoIdx < allImages.length; photoIdx++) {
+        const img = allImages[photoIdx];
+        // MO image URLs: https://mushroomobserver.org/images/orig/1130858.jpg
+        // Sizes available: orig, 1280, 960, 640, 320 (thumbnail)
+        const imageId = img.id;
+        const originalUrl = img.original_url || (imageId ? `https://mushroomobserver.org/images/orig/${imageId}.jpg` : null);
+        const thumbnailUrl = imageId ? `https://mushroomobserver.org/images/320/${imageId}.jpg` : originalUrl;
+        const mediumUrl = imageId ? `https://mushroomobserver.org/images/640/${imageId}.jpg` : originalUrl;
+        const largeUrl = imageId ? `https://mushroomobserver.org/images/960/${imageId}.jpg` : originalUrl;
+        
         await db.insert(observationMedia).values({
           observationCacheId: cacheId,
           mediaType: 'photo',
-          url: imageUrl,
-          thumbnailUrl: typeof img === 'object' ? (img.thumbnail_url || img.url || null) : imageUrl,
-          mediumUrl: typeof img === 'object' ? (img.medium_url || img.url || null) : null,
-          largeUrl: typeof img === 'object' ? (img.large_url || img.url || null) : null,
-          originalUrl: typeof img === 'object' ? (img.original_url || img.url || null) : null,
-          licenseCode: typeof img === 'object' ? (img.license || null) : null,
-          attribution: typeof img === 'object' ? (img.attribution || img.copyright || null) : null,
+          url: thumbnailUrl || '',
+          thumbnailUrl,
+          mediumUrl,
+          largeUrl,
+          originalUrl,
+          licenseCode: img.license || null,
+          attribution: img.copyright_holder || null,
           sortOrder: photoIdx,
         });
       }
@@ -957,6 +973,14 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
     // Extract genus if available
     if (scientificName) {
       specimenUpdate.genus = scientificName.split(' ')[0];
+    }
+    
+    // Clear missing_metadata flag if we successfully retrieved data
+    // Only clear if the current flag is 'missing_metadata' or 'metadata'
+    const currentFlag = specimen.inatFieldConflict;
+    if (currentFlag === 'missing_metadata' || currentFlag === 'metadata') {
+      specimenUpdate.inatFieldConflict = null;
+      console.log(`[MO Refresh] Clearing ${currentFlag} flag for specimen ${specimenId}`);
     }
     
     await db.update(specimens)
