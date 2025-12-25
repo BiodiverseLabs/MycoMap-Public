@@ -16030,6 +16030,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       console.log(`[BulkRefresh] Resuming from index ${startIndex}, processed: ${processed}`);
       
+      // Track failed specimens for retry
+      const failedSpecimenIds: number[] = [];
+      
       for (let i = startIndex; i < allSpecimens.length; i += BATCH_SIZE) {
         if (bulkRefreshCancelled) {
           console.log(`[BulkRefresh] Cancelled by user at ${processed}/${metadata.totalSpecimens}`);
@@ -16847,9 +16850,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           errors += batch.length;
           processed += batch.length;
           
+          // Track failed specimen IDs for retry
+          for (const spec of batch) {
+            failedSpecimenIds.push(spec.id);
+          }
+          
           // Log the error message for debugging
           const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
           console.error(`[BulkRefresh] Error details: ${errMsg}`);
+          console.log(`[BulkRefresh] Added ${batch.length} specimens to retry queue (total: ${failedSpecimenIds.length})`);
           
           // Clamp to prevent exceeding total
           processed = Math.min(processed, metadata.totalSpecimens!);
@@ -16881,6 +16890,340 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         
         // Delay between API calls
         await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      }
+      
+      // RETRY PASS: Retry failed specimens with smaller batch size
+      if (failedSpecimenIds.length > 0 && !bulkRefreshCancelled) {
+        const RETRY_BATCH_SIZE = 50; // Smaller batches for retry
+        const RETRY_DELAY_MS = 2000; // Longer delay between retries
+        
+        console.log(`[BulkRefresh] Starting retry pass for ${failedSpecimenIds.length} failed specimens...`);
+        
+        await db.update(specimenRefreshMetadata)
+          .set({
+            syncMessage: `Retrying ${failedSpecimenIds.length} failed specimens...`,
+            updatedAt: new Date(),
+          })
+          .where(eq(specimenRefreshMetadata.id, metadata.id));
+        
+        // Get the failed specimens from the original list
+        const failedSpecimens = allSpecimens.filter(s => failedSpecimenIds.includes(s.id));
+        let retrySuccess = 0;
+        let retryErrors = 0;
+        const stillFailedObsIds: string[] = [];
+        
+        for (let i = 0; i < failedSpecimens.length; i += RETRY_BATCH_SIZE) {
+          if (bulkRefreshCancelled) break;
+          
+          const retryBatch = failedSpecimens.slice(i, i + RETRY_BATCH_SIZE);
+          const observationIds = retryBatch.map(s => s.primaryObservationId).join(',');
+          const inatUrl = `https://api.inaturalist.org/v1/observations?id=${observationIds}&per_page=${RETRY_BATCH_SIZE}`;
+          
+          console.log(`[BulkRefresh Retry] Fetching batch of ${retryBatch.length} observations...`);
+          
+          try {
+            const response = await fetch(inatUrl, {
+              headers: { 'User-Agent': 'MycoMap/1.0' }
+            });
+            
+            if (!response.ok) {
+              console.error(`[BulkRefresh Retry] API error: ${response.status}`);
+              retryErrors += retryBatch.length;
+              for (const spec of retryBatch) {
+                stillFailedObsIds.push(spec.primaryObservationId!);
+              }
+              continue;
+            }
+            
+            const data = await response.json();
+            const resultsMap = new Map<string, any>();
+            for (const obs of data.results || []) {
+              resultsMap.set(obs.id.toString(), obs);
+            }
+            
+            console.log(`[BulkRefresh Retry] Got ${resultsMap.size} observations from API`);
+            
+            // Pre-fetch places
+            const allPlaceIds = new Set<number>();
+            for (const obs of data.results || []) {
+              if (obs.place_ids && Array.isArray(obs.place_ids)) {
+                obs.place_ids.forEach((id: number) => allPlaceIds.add(id));
+              }
+            }
+            if (allPlaceIds.size > 0) {
+              await fetchPlaces(Array.from(allPlaceIds));
+            }
+            
+            // Prepare batch data for retry (same structure as main loop)
+            const retryCacheUpserts: any[] = [];
+            const retryPhotoInserts: any[] = [];
+            const retrySpecimenUpdates: { id: number; data: any; obsId: string }[] = [];
+            const retryProcessedObsIds: string[] = [];
+            
+            // Process each specimen in retry batch
+            for (const spec of retryBatch) {
+              const obs = resultsMap.get(spec.primaryObservationId!);
+              
+              if (!obs) {
+                stillFailedObsIds.push(spec.primaryObservationId!);
+                retryErrors++;
+                continue;
+              }
+              
+              // Extract observation fields
+              const observationFields = obs.ofvs || [];
+              const getField = (fieldId: number) => observationFields.find((f: any) => f.field_id === fieldId)?.value || null;
+              
+              const voucherNumber = getField(8257);
+              const voucherNumberMultiple = getField(2863);
+              const herbariumName = getField(9539);
+              const herbariumCatalogNumber = getField(9540);
+              const dnaBarcodIts = getField(2330);
+              const provisionalSpeciesName = getField(10675);
+              const speciesNameOverride = getField(20259);
+              const collectorsName = getField(9051);
+              const genbankAccession = getField(7555);
+              const genbankNumberUrl = getField(4191);
+              const mycomapBlastResults = getField(9864);
+              const traceFiles = getField(10109);
+              const readsInConsensus = getField(16718);
+              
+              // Extract location
+              let specimenState: string | null = null;
+              let specimenCountry: string | null = null;
+              try {
+                const location = await extractLocationFromObservation(obs);
+                specimenState = location.stateCode || location.stateName || null;
+                specimenCountry = location.countryCode || location.countryName || null;
+              } catch (e) {}
+              
+              // Prepare cache upsert (matching main loop fields)
+              retryCacheUpserts.push({
+                source: 'inat' as const,
+                sourceObservationId: spec.primaryObservationId!,
+                sourceUuid: obs.uuid || null,
+                scientificName: obs.taxon?.name || obs.species_guess || null,
+                commonName: obs.taxon?.preferred_common_name || null,
+                family: obs.taxon?.ancestry?.split('/')?.slice(-2, -1)?.[0] || null,
+                genus: obs.taxon?.name?.split(' ')?.[0] || null,
+                species: obs.taxon?.name?.split(' ')?.[1] || null,
+                taxonRank: obs.taxon?.rank || null,
+                observerName: obs.user?.name || null,
+                observerUsername: obs.user?.login || null,
+                observerId: obs.user?.id?.toString() || null,
+                latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+                longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+                coordinatesObscured: obs.obscured || false,
+                geoprivacy: obs.geoprivacy || null,
+                taxonGeoprivacy: obs.taxon_geoprivacy || null,
+                positionalAccuracy: obs.positional_accuracy || null,
+                placeGuess: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
+                locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
+                observedOn: obs.observed_on || null,
+                observedOnString: obs.observed_on_string || null,
+                qualityGrade: obs.quality_grade || null,
+                identificationCount: obs.identifications_count || 0,
+                captive: obs.captive || false,
+                licenseCode: obs.license_code || null,
+                voucherNumber,
+                voucherNumberMultiple,
+                herbariumName,
+                herbariumCatalogNumber,
+                genbankAccession,
+                genbankNumberUrl,
+                provisionalSpeciesName,
+                mycomapBlastResults,
+                traceFiles,
+                dnaBarcodIts,
+                readsInConsensus,
+                speciesNameOverride,
+                collectorsName,
+                apiResponseJson: JSON.stringify({ results: [obs] }),
+                lastSyncedAt: new Date(),
+                syncStatus: 'success',
+                updatedAt: new Date(),
+              });
+              
+              retryProcessedObsIds.push(spec.primaryObservationId!);
+              
+              // Prepare photo inserts
+              if (obs.photos && obs.photos.length > 0) {
+                for (let photoIdx = 0; photoIdx < obs.photos.length; photoIdx++) {
+                  const photo = obs.photos[photoIdx];
+                  retryPhotoInserts.push({
+                    sourceObservationId: spec.primaryObservationId!,
+                    mediaType: 'photo',
+                    url: photo.url || '',
+                    thumbnailUrl: photo.url?.replace('/square.', '/thumb.') || photo.url || null,
+                    mediumUrl: photo.url?.replace('/square.', '/medium.') || null,
+                    largeUrl: photo.url?.replace('/square.', '/large.') || null,
+                    originalUrl: photo.url?.replace('/square.', '/original.') || null,
+                    licenseCode: photo.license_code || null,
+                    attribution: photo.attribution || null,
+                    sortOrder: photoIdx,
+                  });
+                }
+              }
+              
+              // Prepare specimen update
+              const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+              const collectorNameResolved = collectorsName || obs.user?.name || obs.user?.login || null;
+              const apiLocality = obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null);
+              
+              const specimenUpdate: any = {
+                scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || null,
+                collectorName: collectorNameResolved,
+                collectionDate: obs.observed_on || null,
+                voucherNumber: voucherNumber || voucherNumberMultiple || null,
+              };
+              
+              if (apiLocality) specimenUpdate.locality = apiLocality;
+              if (specimenState) specimenUpdate.state = specimenState;
+              if (specimenCountry) specimenUpdate.country = specimenCountry;
+              if (obs.geojson?.coordinates?.[1]) specimenUpdate.latitude = obs.geojson.coordinates[1].toString();
+              if (obs.geojson?.coordinates?.[0]) specimenUpdate.longitude = obs.geojson.coordinates[0].toString();
+              
+              if (dnaBarcodIts && spec.currentStatus !== 'sequenced') {
+                specimenUpdate.currentStatus = 'sequenced';
+              }
+              if (obs.taxon?.name) {
+                specimenUpdate.genus = obs.taxon.name.split(' ')[0];
+              }
+              
+              retrySpecimenUpdates.push({ id: spec.id, data: specimenUpdate, obsId: spec.primaryObservationId! });
+            }
+            
+            // Bulk upsert cache entries
+            if (retryCacheUpserts.length > 0) {
+              for (let c = 0; c < retryCacheUpserts.length; c += 10) {
+                const chunk = retryCacheUpserts.slice(c, c + 10);
+                await db.insert(observationCache).values(chunk).onConflictDoUpdate({
+                  target: [observationCache.source, observationCache.sourceObservationId],
+                  set: {
+                    scientificName: sql`EXCLUDED.scientific_name`,
+                    commonName: sql`EXCLUDED.common_name`,
+                    family: sql`EXCLUDED.family`,
+                    genus: sql`EXCLUDED.genus`,
+                    species: sql`EXCLUDED.species`,
+                    taxonRank: sql`EXCLUDED.taxon_rank`,
+                    observerName: sql`EXCLUDED.observer_name`,
+                    observerUsername: sql`EXCLUDED.observer_username`,
+                    observerId: sql`EXCLUDED.observer_id`,
+                    latitude: sql`EXCLUDED.latitude`,
+                    longitude: sql`EXCLUDED.longitude`,
+                    coordinatesObscured: sql`EXCLUDED.coordinates_obscured`,
+                    geoprivacy: sql`EXCLUDED.geoprivacy`,
+                    taxonGeoprivacy: sql`EXCLUDED.taxon_geoprivacy`,
+                    positionalAccuracy: sql`EXCLUDED.positional_accuracy`,
+                    placeGuess: sql`EXCLUDED.place_guess`,
+                    locality: sql`EXCLUDED.locality`,
+                    observedOn: sql`EXCLUDED.observed_on`,
+                    observedOnString: sql`EXCLUDED.observed_on_string`,
+                    qualityGrade: sql`EXCLUDED.quality_grade`,
+                    identificationCount: sql`EXCLUDED.identification_count`,
+                    captive: sql`EXCLUDED.captive`,
+                    licenseCode: sql`EXCLUDED.license_code`,
+                    voucherNumber: sql`EXCLUDED.voucher_number`,
+                    voucherNumberMultiple: sql`EXCLUDED.voucher_number_multiple`,
+                    herbariumName: sql`EXCLUDED.herbarium_name`,
+                    herbariumCatalogNumber: sql`EXCLUDED.herbarium_catalog_number`,
+                    genbankAccession: sql`EXCLUDED.genbank_accession`,
+                    genbankNumberUrl: sql`EXCLUDED.genbank_number_url`,
+                    provisionalSpeciesName: sql`EXCLUDED.provisional_species_name`,
+                    mycomapBlastResults: sql`EXCLUDED.mycomap_blast_results`,
+                    traceFiles: sql`EXCLUDED.trace_files`,
+                    dnaBarcodIts: sql`EXCLUDED.dna_barcod_its`,
+                    readsInConsensus: sql`EXCLUDED.reads_in_consensus`,
+                    speciesNameOverride: sql`EXCLUDED.species_name_override`,
+                    collectorsName: sql`EXCLUDED.collectors_name`,
+                    apiResponseJson: sql`EXCLUDED.api_response_json`,
+                    lastSyncedAt: sql`NOW()`,
+                    syncStatus: sql`EXCLUDED.sync_status`,
+                    updatedAt: sql`NOW()`,
+                  },
+                });
+              }
+            }
+            
+            // Handle photos (delete old, insert new)
+            if (retryProcessedObsIds.length > 0) {
+              const obsIdsClause = retryProcessedObsIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+              await db.execute(sql`DELETE FROM observation_media WHERE source_observation_id IN (${sql.raw(obsIdsClause)})`);
+              
+              if (retryPhotoInserts.length > 0) {
+                for (let p = 0; p < retryPhotoInserts.length; p += 20) {
+                  const photoChunk = retryPhotoInserts.slice(p, p + 20);
+                  await db.insert(observationMedia).values(photoChunk).onConflictDoNothing();
+                }
+              }
+            }
+            
+            // Get cache IDs for linking
+            const retryCacheIdMap = new Map<string, number>();
+            if (retryProcessedObsIds.length > 0) {
+              const obsIdsClause = retryProcessedObsIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+              const cacheRows = await db.execute(sql`
+                SELECT id, source_observation_id FROM observation_cache 
+                WHERE source = 'inat' AND source_observation_id IN (${sql.raw(obsIdsClause)})
+              `);
+              for (const row of (cacheRows.rows || [])) {
+                const r = row as any;
+                retryCacheIdMap.set(r.source_observation_id, r.id);
+              }
+            }
+            
+            // Update specimens with cache linking
+            for (const update of retrySpecimenUpdates) {
+              const cacheId = retryCacheIdMap.get(update.obsId);
+              if (cacheId) {
+                update.data.observationCacheId = cacheId;
+              }
+              await db.update(specimens)
+                .set(update.data)
+                .where(eq(specimens.id, update.id));
+              retrySuccess++;
+            }
+            
+          } catch (retryErr) {
+            const errMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            console.error(`[BulkRefresh Retry] Batch error: ${errMsg}`);
+            retryErrors += retryBatch.length;
+            for (const spec of retryBatch) {
+              stillFailedObsIds.push(spec.primaryObservationId!);
+            }
+          }
+          
+          // Update metadata progress during retry
+          const retryProgress = Math.round(((i + retryBatch.length) / failedSpecimens.length) * 100);
+          await db.update(specimenRefreshMetadata)
+            .set({
+              syncMessage: `Retrying failed specimens: ${i + retryBatch.length}/${failedSpecimens.length} (${retrySuccess} recovered)`,
+              updatedAt: new Date(),
+            })
+            .where(eq(specimenRefreshMetadata.id, metadata.id));
+          
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        }
+        
+        // Update counts after retry
+        success += retrySuccess;
+        errors = errors - failedSpecimenIds.length + retryErrors; // Adjust error count
+        
+        // Update metadata with final retry results
+        await db.update(specimenRefreshMetadata)
+          .set({
+            successCount: success,
+            errorCount: errors,
+            syncMessage: `Retry complete: ${retrySuccess} recovered, ${retryErrors} still failed`,
+            updatedAt: new Date(),
+          })
+          .where(eq(specimenRefreshMetadata.id, metadata.id));
+        
+        console.log(`[BulkRefresh Retry] Complete: ${retrySuccess} recovered, ${retryErrors} still failed`);
+        
+        if (stillFailedObsIds.length > 0) {
+          console.log(`[BulkRefresh Retry] Still failed observation IDs: ${stillFailedObsIds.slice(0, 20).join(', ')}${stillFailedObsIds.length > 20 ? ` ... and ${stillFailedObsIds.length - 20} more` : ''}`);
+        }
       }
       
       // POST-REFRESH CLEANUP: Run comprehensive flag normalization
