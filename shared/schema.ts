@@ -2059,6 +2059,39 @@ export type InsertLabRunFile = z.infer<typeof insertLabRunFileSchema>;
 export type LabRunFile = typeof labRunFiles.$inferSelect;
 
 // =============================================
+// MycoMap Category Overrides - manual category reassignments
+// =============================================
+
+export const mycoMapCategoryOverrides = pgTable("mycomap_category_overrides", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
+  obsKey: text("obs_key").notNull(), // Format: "platform:observationId" e.g., "iNaturalist:12345"
+  originalCategory: text("original_category").notNull(), // 'success' or 'failure'
+  targetCategory: text("target_category").notNull(), // 'success' or 'failure'
+  reason: text("reason"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  runObsKeyIdx: unique("mycomap_overrides_run_obs_key_idx").on(table.runId, table.obsKey),
+  runIdx: index("mycomap_overrides_run_idx").on(table.runId),
+}));
+
+export const mycoMapCategoryOverridesRelations = relations(mycoMapCategoryOverrides, ({ one }) => ({
+  run: one(labRuns, {
+    fields: [mycoMapCategoryOverrides.runId],
+    references: [labRuns.id],
+  }),
+}));
+
+export const insertMycoMapCategoryOverrideSchema = createInsertSchema(mycoMapCategoryOverrides).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMycoMapCategoryOverride = z.infer<typeof insertMycoMapCategoryOverrideSchema>;
+export type MycoMapCategoryOverride = typeof mycoMapCategoryOverrides.$inferSelect;
+
+// =============================================
 // Bioinformatics Management - Global pipeline methods
 // =============================================
 

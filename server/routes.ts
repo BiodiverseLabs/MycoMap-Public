@@ -2,7 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa, shippingDestinations, insertShippingDestinationSchema, specimenRefreshMetadata, specimenRunAssociations } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa, shippingDestinations, insertShippingDestinationSchema, specimenRefreshMetadata, specimenRunAssociations, mycoMapCategoryOverrides } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -13238,8 +13238,30 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         return keys;
       };
       
-      const successKeys = extractPlatformObsKeys(results.success);
-      const failureKeys = extractPlatformObsKeys(results.failure);
+      const successKeysRaw = extractPlatformObsKeys(results.success);
+      const failureKeysRaw = extractPlatformObsKeys(results.failure);
+      
+      // Load overrides and apply them
+      const overrides = await db.select().from(mycoMapCategoryOverrides)
+        .where(eq(mycoMapCategoryOverrides.runId, runId));
+      
+      // Create mutable sets to apply overrides
+      const successKeys = new Set(successKeysRaw);
+      const failureKeys = new Set(failureKeysRaw);
+      const overrideMap = new Map<string, { from: string; to: string }>();
+      
+      for (const override of overrides) {
+        overrideMap.set(override.obsKey, { from: override.originalCategory, to: override.targetCategory });
+        if (override.originalCategory === 'success' && override.targetCategory === 'failure') {
+          successKeys.delete(override.obsKey);
+          failureKeys.add(override.obsKey);
+        } else if (override.originalCategory === 'failure' && override.targetCategory === 'success') {
+          failureKeys.delete(override.obsKey);
+          successKeys.add(override.obsKey);
+        }
+      }
+      console.log(`[MycoMap] Applied ${overrides.length} overrides`);
+      
       const allMycoMapKeys = new Set([...successKeys, ...failureKeys]);
       console.log(`[MycoMap] Extracted keys: successKeys=${successKeys.size}, failureKeys=${failureKeys.size}, allMycoMapKeys=${allMycoMapKeys.size}`);
       
@@ -13277,13 +13299,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       );
       
       // Extract iNat observation IDs from MycoMap success that are ALSO in this run
+      // Exclude observations that have been moved to failure via overrides
       const inatSuccessObsIds = results.success
         .filter((row: any) => {
           const platform = row._platform || normalizeMycoMapPlatform(row['Source Database'] || row['source_database'] || '');
           return platform === 'iNaturalist';
         })
         .map((row: any) => row._obsId || row['Reference Number'] || row['reference_number'] || '')
-        .filter((obsId: string) => obsId && runInatObsIds.has(obsId)); // Only include if in this run
+        .filter((obsId: string) => {
+          if (!obsId || !runInatObsIds.has(obsId)) return false;
+          // Exclude if moved to failure via override
+          const obsKey = `iNaturalist:${obsId}`;
+          const override = overrideMap.get(obsKey);
+          if (override && override.to === 'failure') return false;
+          return true;
+        });
       const uniqueInatSuccessIds = [...new Set(inatSuccessObsIds)].filter(id => id);
       console.log(`[MycoMap] iNat success IDs in run: ${uniqueInatSuccessIds.length} (run has ${runInatObsIds.size} iNat observations)`);
       
@@ -13505,6 +13535,80 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error: any) {
       console.error('[MycoMap] Analysis error:', error);
       res.status(500).json({ message: error.message || 'Failed to get MycoMap analysis' });
+    }
+  });
+
+  // ============ MYCOMAP CATEGORY OVERRIDES ============
+  
+  // Move an observation to failure (or success)
+  app.post("/api/admin/runs/:id/mycomap/overrides", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const { obsKey, originalCategory, targetCategory, reason } = req.body;
+      
+      if (!obsKey || !originalCategory || !targetCategory) {
+        return res.status(400).json({ message: 'Missing required fields: obsKey, originalCategory, targetCategory' });
+      }
+      
+      // Check if override already exists
+      const existing = await db.select().from(mycoMapCategoryOverrides)
+        .where(and(
+          eq(mycoMapCategoryOverrides.runId, runId),
+          eq(mycoMapCategoryOverrides.obsKey, obsKey)
+        ));
+      
+      if (existing.length > 0) {
+        // Update existing override
+        await db.update(mycoMapCategoryOverrides)
+          .set({ 
+            targetCategory, 
+            reason,
+            createdBy: req.user?.username || 'admin'
+          })
+          .where(eq(mycoMapCategoryOverrides.id, existing[0].id));
+        console.log(`[MycoMap Override] Updated override for ${obsKey} in run ${runId}: ${originalCategory} -> ${targetCategory}`);
+      } else {
+        // Insert new override
+        await db.insert(mycoMapCategoryOverrides).values({
+          runId,
+          obsKey,
+          originalCategory,
+          targetCategory,
+          reason,
+          createdBy: req.user?.username || 'admin'
+        });
+        console.log(`[MycoMap Override] Created override for ${obsKey} in run ${runId}: ${originalCategory} -> ${targetCategory}`);
+      }
+      
+      res.json({ success: true, message: `Observation moved to ${targetCategory}` });
+    } catch (error: any) {
+      console.error('[MycoMap Override] Error:', error);
+      res.status(500).json({ message: error.message || 'Failed to create override' });
+    }
+  });
+  
+  // Remove an override (undo)
+  app.delete("/api/admin/runs/:id/mycomap/overrides/:obsKey", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const obsKey = decodeURIComponent(req.params.obsKey);
+      
+      const deleted = await db.delete(mycoMapCategoryOverrides)
+        .where(and(
+          eq(mycoMapCategoryOverrides.runId, runId),
+          eq(mycoMapCategoryOverrides.obsKey, obsKey)
+        ))
+        .returning();
+      
+      if (deleted.length > 0) {
+        console.log(`[MycoMap Override] Deleted override for ${obsKey} in run ${runId}`);
+        res.json({ success: true, message: 'Override removed' });
+      } else {
+        res.status(404).json({ message: 'Override not found' });
+      }
+    } catch (error: any) {
+      console.error('[MycoMap Override] Delete error:', error);
+      res.status(500).json({ message: error.message || 'Failed to delete override' });
     }
   });
 
