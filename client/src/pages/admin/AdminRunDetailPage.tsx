@@ -202,6 +202,8 @@ export default function AdminRunDetailPage() {
   const mycoMapSuccessInputRef = useRef<HTMLInputElement>(null);
   const mycoMapFailureInputRef = useRef<HTMLInputElement>(null);
   const [showSequencesToUpload, setShowSequencesToUpload] = useState(false);
+  const [dragOverSuccess, setDragOverSuccess] = useState(false);
+  const [dragOverFailure, setDragOverFailure] = useState(false);
   const [specimenJobId, setSpecimenJobId] = useState<string | null>(null);
   const [specimenProgress, setSpecimenProgress] = useState<{
     status: 'running' | 'completed' | 'error';
@@ -1884,8 +1886,36 @@ export default function AdminRunDetailPage() {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">MycoMap Success</Label>
                 <div 
-                  className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center cursor-pointer hover:bg-green-50 transition-colors"
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                    dragOverSuccess 
+                      ? 'border-green-500 bg-green-100' 
+                      : 'border-green-300 hover:bg-green-50'
+                  }`}
                   onClick={() => mycoMapSuccessInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverSuccess(true);
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverSuccess(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverSuccess(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverSuccess(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && file.name.endsWith('.csv')) {
+                      setMycoMapSuccessFile(file);
+                    }
+                  }}
                 >
                   <input
                     ref={mycoMapSuccessInputRef}
@@ -1918,7 +1948,7 @@ export default function AdminRunDetailPage() {
                   ) : (
                     <div className="text-gray-500">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-green-400" />
-                      <p className="text-sm">Click to select success CSV</p>
+                      <p className="text-sm">{dragOverSuccess ? 'Drop CSV here' : 'Click or drag to upload success CSV'}</p>
                     </div>
                   )}
                 </div>
@@ -1928,8 +1958,36 @@ export default function AdminRunDetailPage() {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">MycoMap Failure</Label>
                 <div 
-                  className="border-2 border-dashed border-red-300 rounded-lg p-4 text-center cursor-pointer hover:bg-red-50 transition-colors"
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                    dragOverFailure 
+                      ? 'border-red-500 bg-red-100' 
+                      : 'border-red-300 hover:bg-red-50'
+                  }`}
                   onClick={() => mycoMapFailureInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverFailure(true);
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverFailure(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverFailure(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverFailure(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && file.name.endsWith('.csv')) {
+                      setMycoMapFailureFile(file);
+                    }
+                  }}
                 >
                   <input
                     ref={mycoMapFailureInputRef}
@@ -1962,7 +2020,7 @@ export default function AdminRunDetailPage() {
                   ) : (
                     <div className="text-gray-500">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-red-400" />
-                      <p className="text-sm">Click to select failure CSV</p>
+                      <p className="text-sm">{dragOverFailure ? 'Drop CSV here' : 'Click or drag to upload failure CSV'}</p>
                     </div>
                   )}
                 </div>
