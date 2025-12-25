@@ -2209,6 +2209,7 @@ export const specimens = pgTable("specimens", {
   mycoNumber: integer("myco_number").unique(), // MYCO specimen ID number (1000001, 1000002, etc.)
   
   // Intake information
+  intakeSourceType: specimenIntakeSourceEnum("intake_source_type").notNull(),
   intakeSourceId: integer("intake_source_id"), // FK to source record (e.g., shipment_specimens.id)
   intakeDate: timestamp("intake_date").defaultNow(),
   
