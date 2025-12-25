@@ -699,7 +699,7 @@ export default function AdminRunDetailPage() {
                 ))}
               </SelectContent>
             </Select>
-            {run.plates.length > 0 && (
+            {run.plates.length > 0 && (stats?.specimensNeedingRecords ?? 0) > 0 && (
               <Button 
                 onClick={() => generateFilesMutation.mutate()}
                 disabled={generateFilesMutation.isPending}
@@ -718,7 +718,7 @@ export default function AdminRunDetailPage() {
                 )}
               </Button>
             )}
-            {run.plates.length > 0 && (
+            {run.plates.length > 0 && (stats?.specimensNeedingRecords ?? 0) > 0 && (
               <Button 
                 onClick={() => validateAllMutation.mutate(run.plates.map(p => p.id))}
                 disabled={validateAllMutation.isPending}
