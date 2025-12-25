@@ -13007,6 +13007,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const indexLines: string[] = ['SampleID\tPrimerPool\tFwIndex\tFwPrimer\tRvIndex\tRvPrimer'];
       const usedPrimers: Map<string, { sequence: string; pool: string; position: string }> = new Map();
       const missingSequences: string[] = [];
+      const wellErrors: { plateNumber: number; wellPosition: string; sampleId: string; error: string }[] = [];
       
       for (const { plate, wells, forwardIndexEntries, reverseIndexEntries } of allWellsData) {
         // Build index lookup maps by well position
@@ -13017,7 +13018,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const plateIndexKey = `plate_${plate.plateNumber}`;
         
         for (const well of wells) {
-          if (!well.observationId && !well.labCode) continue; // Skip empty wells
+          // Check for missing data and flag errors - but still include in output
+          const hasMissingData = !well.observationId && !well.labCode;
           
           // Build SampleID: ONT[PlateNumber].[WellNumber]-[WellPosition]-[LabCode]-[iNat/MO][ObsNumber]
           const plateNum = plate.plateNumber.toString().padStart(2, '0');
@@ -13089,6 +13091,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const fwPrimer = fwIsPool ? '*' : fwPrimerRaw;
           const rvPrimer = rvIsPool ? '*' : rvPrimerRaw;
           
+          // Track error if missing both observation ID and lab code
+          if (hasMissingData) {
+            wellErrors.push({
+              plateNumber: plate.plateNumber,
+              wellPosition: well.wellPosition,
+              sampleId: sampleId,
+              error: 'Missing observation ID and lab code'
+            });
+          }
+          
+          // Always include in index file, even with missing data
           indexLines.push(`${sampleId}\t${primerPoolName}\t${fwIndex}\t${fwPrimer}\t${rvIndex}\t${rvPrimer}`);
           
           // Track primers for FASTA generation
@@ -13244,7 +13257,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           totalSamples: indexLines.length - 1,
           uniquePrimers: usedPrimers.size,
           missingSequences: missingSequences.length > 0 ? missingSequences : undefined,
-        }
+        },
+        wellErrors: wellErrors.length > 0 ? wellErrors : undefined,
       });
     } catch (error) {
       console.error("Error generating files:", error);

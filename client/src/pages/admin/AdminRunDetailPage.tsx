@@ -253,9 +253,23 @@ export default function AdminRunDetailPage() {
       }
       return response.json();
     },
-    onSuccess: async () => {
+    onSuccess: async (data: any) => {
       await refetchFiles();
-      toast({ title: "Files Generated", description: "Index and primer files created successfully" });
+      if (data.wellErrors && data.wellErrors.length > 0) {
+        const errorCount = data.wellErrors.length;
+        const errorList = data.wellErrors.slice(0, 3).map((e: any) => 
+          `Plate ${e.plateNumber} ${e.wellPosition}: ${e.sampleId}`
+        ).join(', ');
+        const moreText = errorCount > 3 ? ` and ${errorCount - 3} more` : '';
+        toast({ 
+          title: `Files Generated with ${errorCount} Warning${errorCount > 1 ? 's' : ''}`, 
+          description: `Wells missing observation/lab code: ${errorList}${moreText}`,
+          variant: "destructive",
+          duration: 10000,
+        });
+      } else {
+        toast({ title: "Files Generated", description: "Index and primer files created successfully" });
+      }
     },
     onError: (error: Error) => {
       toast({ 
