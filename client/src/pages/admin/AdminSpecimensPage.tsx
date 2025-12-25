@@ -1072,6 +1072,12 @@ export default function AdminSpecimensPage() {
                         <p className="font-mono text-xs break-all bg-slate-50 p-1 rounded max-h-20 overflow-y-auto">{specimenDetail.observationData.dnaBarcodIts}</p>
                       </div>
                     )}
+                    {specimenDetail.observationData.traceFiles && (
+                      <div>
+                        <p className="text-xs text-slate-400">Sequence Notes</p>
+                        <p className="text-sm text-slate-700">{specimenDetail.observationData.traceFiles}</p>
+                      </div>
+                    )}
                     {specimenDetail.observationData.mycomapBlastResults && (
                       <div>
                         <p className="text-xs text-slate-400">MycoMap BLAST Results</p>

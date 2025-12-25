@@ -852,6 +852,8 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
     // Extract sequence data from MO (if available)
     let dnaBarcodIts: string | null = null;
     let mycomapBlastResults: string | null = null;
+    let sequenceNotes: string | null = null;
+    let sequenceLocus: string | null = null;
     
     if (obs.sequences && Array.isArray(obs.sequences) && obs.sequences.length > 0) {
       // Find ITS sequence (most common for fungi)
@@ -861,16 +863,20 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
       
       if (itsSequence) {
         dnaBarcodIts = itsSequence.bases || null;
+        sequenceLocus = itsSequence.locus || null;
         
         // Extract BLAST results URL from notes (HTML content)
         if (itsSequence.notes) {
+          // Store raw notes (strip HTML tags for display)
+          sequenceNotes = itsSequence.notes.replace(/<[^>]*>/g, ' ').trim();
+          
           const urlMatch = itsSequence.notes.match(/href="([^"]+)"/);
           if (urlMatch && urlMatch[1]) {
             mycomapBlastResults = urlMatch[1];
           }
         }
         
-        console.log(`[MO Refresh] Found ${obs.sequences.length} sequence(s), ITS length: ${dnaBarcodIts?.length || 0} bp`);
+        console.log(`[MO Refresh] Found ${obs.sequences.length} sequence(s), locus: ${sequenceLocus}, length: ${dnaBarcodIts?.length || 0} bp`);
       }
     }
     
@@ -911,7 +917,7 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
       genbankNumberUrl: null,
       provisionalSpeciesName: null,
       mycomapBlastResults,
-      traceFiles: null,
+      traceFiles: sequenceNotes ? `${sequenceLocus || 'Sequence'}: ${sequenceNotes}` : null,
       dnaBarcodIts,
       readsInConsensus: null,
       speciesNameOverride: null,
