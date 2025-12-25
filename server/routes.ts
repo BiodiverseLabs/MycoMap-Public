@@ -17117,6 +17117,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         id: specimens.id,
         uuid: specimens.uuid,
         displayCode: specimens.displayCode,
+        mycoNumber: specimens.mycoNumber,
         scientificName: specimens.scientificName,
         locality: specimens.locality,
         state: specimens.state,
@@ -17131,6 +17132,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         observerUsername: observationCache.observerUsername,
       };
 
+      // Custom sort: MYCO numbered first (ascending), then iNat (ascending), then MO (ascending)
+      const customOrderBy = sql`
+        CASE 
+          WHEN ${specimens.mycoNumber} IS NOT NULL THEN 0
+          WHEN ${specimens.primaryObservationSource} = 'inat' THEN 1
+          WHEN ${specimens.primaryObservationSource} = 'mo' THEN 2
+          ELSE 3
+        END ASC,
+        ${specimens.mycoNumber} ASC NULLS LAST,
+        CASE WHEN ${specimens.primaryObservationSource} = 'inat' THEN CAST(${specimens.primaryObservationId} AS BIGINT) ELSE NULL END ASC NULLS LAST,
+        CASE WHEN ${specimens.primaryObservationSource} = 'mo' THEN CAST(${specimens.primaryObservationId} AS BIGINT) ELSE NULL END ASC NULLS LAST
+      `;
+
       let query;
       if (hasSequence === 'true') {
         query = db.select(selectFields)
@@ -17140,7 +17154,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           eq(observationCache.sourceObservationId, specimens.primaryObservationId)
         ))
         .where(conditions.length > 0 ? and(...conditions, isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`) : and(isNotNull(observationCache.dnaBarcodeIts), sql`${observationCache.dnaBarcodeIts} != ''`))
-        .orderBy(desc(specimens.id))
+        .orderBy(customOrderBy)
         .limit(limit)
         .offset(offset);
       } else {
@@ -17151,7 +17165,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           eq(observationCache.sourceObservationId, specimens.primaryObservationId)
         ))
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(specimens.id))
+        .orderBy(customOrderBy)
         .limit(limit)
         .offset(offset);
       }
