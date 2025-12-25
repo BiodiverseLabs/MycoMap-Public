@@ -15647,6 +15647,107 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         await new Promise(resolve => setTimeout(resolve, DELAY_MS));
       }
       
+      // POST-REFRESH CLEANUP: Run comprehensive flag normalization
+      console.log(`[BulkRefresh] Running post-refresh flag normalization...`);
+      
+      // 1. Clear flags for Removed specimens (scientificName='Removed' or no primaryObservationId)
+      const removedCleared = await db.update(specimens)
+        .set({ inatFieldConflict: null })
+        .where(
+          and(
+            isNotNull(specimens.inatFieldConflict),
+            or(
+              eq(specimens.scientificName, 'Removed'),
+              isNull(specimens.primaryObservationId)
+            )
+          )
+        );
+      console.log(`[BulkRefresh] Cleared flags for Removed/orphaned specimens`);
+      
+      // 2. Scan for duplicate iNat observations and flag them
+      // Find all iNat observation IDs that appear more than once
+      const duplicateObsIds = await db.execute(sql`
+        SELECT "primary_observation_id", COUNT(*) as cnt
+        FROM specimens
+        WHERE "primary_observation_source" = 'inat'
+          AND "primary_observation_id" IS NOT NULL
+          AND "scientific_name" != 'Removed'
+        GROUP BY "primary_observation_id"
+        HAVING COUNT(*) > 1
+      `);
+      
+      if (duplicateObsIds.rows && duplicateObsIds.rows.length > 0) {
+        const dupIds = duplicateObsIds.rows.map((r: any) => r.primary_observation_id);
+        console.log(`[BulkRefresh] Found ${dupIds.length} duplicate observation IDs, flagging specimens...`);
+        
+        // Flag all specimens with duplicate observation IDs
+        await db.update(specimens)
+          .set({ inatFieldConflict: 'duplicate_inat' })
+          .where(
+            and(
+              eq(specimens.primaryObservationSource, 'inat'),
+              inArray(specimens.primaryObservationId, dupIds)
+            )
+          );
+      }
+      
+      // 3. Clear stale push_incomplete flags for specimens where data already matches
+      // Get all specimens with push_incomplete flag
+      const staleIncomplete = await db.select({
+        id: specimens.id,
+        mycoNumber: specimens.mycoNumber,
+        primaryObservationId: specimens.primaryObservationId,
+      })
+        .from(specimens)
+        .where(
+          and(
+            eq(specimens.inatFieldConflict, 'push_incomplete'),
+            isNotNull(specimens.primaryObservationId),
+            isNotNull(specimens.mycoNumber)
+          )
+        );
+      
+      if (staleIncomplete.length > 0) {
+        // Get cache data for these specimens
+        const obsIds = staleIncomplete.map(s => s.primaryObservationId!);
+        const cacheData = await db.select()
+          .from(observationCache)
+          .where(
+            and(
+              eq(observationCache.source, 'inat'),
+              inArray(observationCache.sourceObservationId, obsIds)
+            )
+          );
+        
+        const cacheMap = new Map(cacheData.map(c => [c.sourceObservationId, c]));
+        const clearedIds: number[] = [];
+        
+        for (const spec of staleIncomplete) {
+          const cache = cacheMap.get(spec.primaryObservationId!);
+          if (!cache) continue;
+          
+          const mycoAccession = `MYCO-${spec.mycoNumber}`;
+          const catalogMatches = cache.herbariumCatalogNumber?.includes(mycoAccession);
+          const nameMatches = cache.herbariumName?.toUpperCase().includes('MYCO');
+          
+          // If both fields already contain our data, clear the flag
+          if (catalogMatches && nameMatches) {
+            clearedIds.push(spec.id);
+          }
+        }
+        
+        if (clearedIds.length > 0) {
+          console.log(`[BulkRefresh] Clearing ${clearedIds.length} stale push_incomplete flags (data already matches)`);
+          for (const specId of clearedIds) {
+            await db.update(specimens)
+              .set({ inatFieldConflict: null })
+              .where(eq(specimens.id, specId));
+          }
+        }
+      }
+      
+      console.log(`[BulkRefresh] Post-refresh normalization complete`);
+      
       // Complete - report different status based on whether errors occurred
       const finalStatus = errors > 0 ? 'completed_with_errors' : 'completed';
       const finalMessage = errors > 0 
