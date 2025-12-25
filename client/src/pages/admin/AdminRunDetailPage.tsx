@@ -629,6 +629,7 @@ export default function AdminRunDetailPage() {
   });
 
   const getMethodsForStage = (stage: string) => {
+    if (!Array.isArray(bioMethods)) return [];
     return bioMethods.filter(m => m.stage === stage && m.isActive);
   };
 
