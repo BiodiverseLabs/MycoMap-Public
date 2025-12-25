@@ -13439,6 +13439,31 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
+      // Find duplicates for diagnostic purposes
+      const successFailureOverlap = [...successKeys].filter(key => failureKeys.has(key));
+      const runKeysInBothSuccessAndFailure = uniqueRunKeys.filter(key => successKeys.has(key) && failureKeys.has(key));
+      
+      // Calculate expected total: unique run keys should equal success_only + failure_only + no_linkage
+      const successOnly = [...successKeys].filter(key => !failureKeys.has(key) && uniqueRunKeys.includes(key));
+      const failureOnly = [...failureKeys].filter(key => !successKeys.has(key) && uniqueRunKeys.includes(key));
+      const inBoth = [...successKeys].filter(key => failureKeys.has(key) && uniqueRunKeys.includes(key));
+      
+      // Log diagnostics to server console
+      console.log(`[MycoMap Diagnostics] Run ${runId}:`);
+      console.log(`  Total run keys: ${uniqueRunKeys.length}`);
+      console.log(`  Success keys (total in CSV): ${successKeys.size}`);
+      console.log(`  Failure keys (total in CSV): ${failureKeys.size}`);
+      console.log(`  All MycoMap keys (union): ${allMycoMapKeys.size}`);
+      console.log(`  Success/Failure overlap (in both CSVs): ${successFailureOverlap.length}`);
+      console.log(`  Success only (in run): ${successOnly.length}`);
+      console.log(`  Failure only (in run): ${failureOnly.length}`);
+      console.log(`  In both (in run): ${inBoth.length}`);
+      console.log(`  No analysis linkage: ${noAnalysisLinkage.length}`);
+      console.log(`  Expected total: ${successOnly.length} + ${failureOnly.length} + ${inBoth.length} + ${noAnalysisLinkage.length} = ${successOnly.length + failureOnly.length + inBoth.length + noAnalysisLinkage.length}`);
+      if (inBoth.length > 0) {
+        console.log(`  Observations in BOTH success AND failure (first 50): ${inBoth.slice(0, 50).join(', ')}`);
+      }
+      
       res.json({
         hasResults: true,
         uploadedAt: resultsFile.createdAt,
@@ -13450,6 +13475,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         sequencesToUploadCount: sequencesToUpload.length,
         sequencesToUploadIds: sequencesToUpload,
         sequencesToUploadDetails: uploadDetails,
+        // Diagnostic info
+        diagnostics: {
+          totalRunKeys: uniqueRunKeys.length,
+          successKeysTotal: successKeys.size,
+          failureKeysTotal: failureKeys.size,
+          allMycoMapKeysTotal: allMycoMapKeys.size,
+          successFailureOverlapCount: successFailureOverlap.length,
+          successFailureOverlapKeys: successFailureOverlap.slice(0, 50), // First 50 for debugging
+          successOnlyInRun: successOnly.length,
+          failureOnlyInRun: failureOnly.length,
+          inBothInRun: inBoth.length,
+          inBothInRunKeys: inBoth.slice(0, 50), // First 50 for debugging
+        }
       });
     } catch (error: any) {
       console.error('[MycoMap] Analysis error:', error);
