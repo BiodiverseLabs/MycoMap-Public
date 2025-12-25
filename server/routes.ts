@@ -12647,6 +12647,34 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         (w.observationId || w.labCode) && !w.coreSpecimenId
       ).length;
       
+      // Calculate Sequencing Success % - count specimens with DNA Barcode ITS
+      const inatObsIds = wells
+        .filter(w => w.observationId && w.platform?.toLowerCase() !== 'mushroom observer')
+        .map(w => w.observationId!);
+      
+      let sequencingSuccessCount = 0;
+      let sequencingTotalChecked = 0;
+      
+      if (inatObsIds.length > 0) {
+        // Count observations with DNA barcode ITS in observation_cache
+        const [dnaResult] = await db.select({
+          withDna: sql<number>`count(*) FILTER (WHERE dna_barcode_its IS NOT NULL AND dna_barcode_its != '')`,
+          total: sql<number>`count(*)`,
+        })
+          .from(observationCache)
+          .where(and(
+            eq(observationCache.source, 'inat'),
+            inArray(observationCache.sourceObservationId, inatObsIds)
+          ));
+        
+        sequencingSuccessCount = Number(dnaResult?.withDna || 0);
+        sequencingTotalChecked = Number(dnaResult?.total || 0);
+      }
+      
+      const sequencingSuccessRate = sequencingTotalChecked > 0 
+        ? Math.round((sequencingSuccessCount / sequencingTotalChecked) * 100) 
+        : null;
+      
       res.json({
         totalSpecimens,
         specimensNeedingRecords: wellsNeedingRecords,
@@ -12657,6 +12685,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         successRate: null,  // Will be populated when results are linked
         totalFails: null,   // Will be populated when results are linked
         platesWithMissingPrimers,
+        sequencingSuccess: {
+          rate: sequencingSuccessRate,
+          withDnaBarcode: sequencingSuccessCount,
+          totalChecked: sequencingTotalChecked,
+          totalInat: inatObsIds.length,
+        },
       });
     } catch (error) {
       console.error("Error fetching run stats:", error);
