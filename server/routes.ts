@@ -14676,7 +14676,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Build filter conditions
       const conditions = buildSpecimenFilterConditions(filterParams);
       
-      // Get filtered iNat-linked specimens ordered by ID (include all fields needed for push)
+      // Get filtered iNat-linked specimens ordered by ID (include all fields needed for push and metadata checks)
       const allSpecimens = await db.select({ 
         id: specimens.id, 
         primaryObservationId: specimens.primaryObservationId, 
@@ -14684,6 +14684,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         displayCode: specimens.displayCode,
         herbariumAccessionNumber: specimens.herbariumAccessionNumber,
         mycoNumber: specimens.mycoNumber,
+        inatFieldConflict: specimens.inatFieldConflict,
+        scientificName: specimens.scientificName,
+        collectorName: specimens.collectorName,
+        collectionDate: specimens.collectionDate,
+        locality: specimens.locality,
+        state: specimens.state,
+        country: specimens.country,
       })
         .from(specimens)
         .where(and(...conditions))
