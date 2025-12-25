@@ -13324,8 +13324,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       console.log(`[MycoMap] Final results: successCount=${successKeys.size}, failureCount=${failureKeys.size}, noLinkage=${noAnalysisLinkage.length}, toUpload=${sequencesToUpload.length}`);
       
-      // Enrich no-linkage observations with details from observation_cache
-      type ObsDetail = { key: string; platform: string; obsId: string; scientificName?: string; observedOn?: string; location?: string };
+      // Enrich no-linkage observations with details from specimens table
+      type ObsDetail = { key: string; platform: string; obsId: string; scientificName?: string; observedOn?: string; state?: string; country?: string };
       let noLinkageDetails: ObsDetail[] = [];
       
       if (noAnalysisLinkage.length > 0) {
@@ -13335,104 +13335,100 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           return { key, platform, obsId };
         });
         
-        // Get iNat observations
+        // Get iNat and MO observations
         const inatIds = noLinkageParsed.filter(p => p.platform === 'iNaturalist').map(p => p.obsId);
         const moIds = noLinkageParsed.filter(p => p.platform === 'Mushroom Observer').map(p => p.obsId);
         
-        const cacheDetails = new Map<string, { scientificName?: string; observedOn?: string; location?: string }>();
+        const specimenDetails = new Map<string, { scientificName?: string; observedOn?: string; state?: string; country?: string }>();
         
         if (inatIds.length > 0) {
           try {
             const idsClause = inatIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
-            const cached = await db.execute(sql`
-              SELECT source_observation_id, scientific_name, observed_on, place_guess, state, country
-              FROM observation_cache 
-              WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
+            const specResult = await db.execute(sql`
+              SELECT primary_observation_id, scientific_name, collection_date, state, country
+              FROM specimens 
+              WHERE primary_observation_source = 'inat' AND primary_observation_id IN (${sql.raw(idsClause)})
             `);
-            for (const row of (cached.rows || [])) {
+            for (const row of (specResult.rows || [])) {
               const r = row as any;
-              cacheDetails.set(`iNaturalist:${r.source_observation_id}`, {
-                scientificName: r.scientific_name,
-                observedOn: r.observed_on,
+              specimenDetails.set(`iNaturalist:${r.primary_observation_id}`, {
+                scientificName: r.scientific_name || null,
+                observedOn: r.collection_date || null,
                 state: r.state || null,
                 country: r.country || null,
               });
             }
-          } catch (e) { console.error('[MycoMap] Error fetching iNat details:', e); }
+          } catch (e) { console.error('[MycoMap] Error fetching iNat specimen details:', e); }
         }
         
         if (moIds.length > 0) {
           try {
             const idsClause = moIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
-            const cached = await db.execute(sql`
-              SELECT source_observation_id, scientific_name, observed_on, place_guess, state, country
-              FROM observation_cache 
-              WHERE source = 'mo' AND source_observation_id IN (${sql.raw(idsClause)})
+            const specResult = await db.execute(sql`
+              SELECT primary_observation_id, scientific_name, collection_date, state, country
+              FROM specimens 
+              WHERE primary_observation_source = 'mo' AND primary_observation_id IN (${sql.raw(idsClause)})
             `);
-            for (const row of (cached.rows || [])) {
+            for (const row of (specResult.rows || [])) {
               const r = row as any;
-              cacheDetails.set(`Mushroom Observer:${r.source_observation_id}`, {
-                scientificName: r.scientific_name,
-                observedOn: r.observed_on,
+              specimenDetails.set(`Mushroom Observer:${r.primary_observation_id}`, {
+                scientificName: r.scientific_name || null,
+                observedOn: r.collection_date || null,
                 state: r.state || null,
                 country: r.country || null,
               });
             }
-          } catch (e) { console.error('[MycoMap] Error fetching MO details:', e); }
+          } catch (e) { console.error('[MycoMap] Error fetching MO specimen details:', e); }
         }
         
         noLinkageDetails = noLinkageParsed.map(p => ({
           key: p.key,
           platform: p.platform,
           obsId: p.obsId,
-          ...cacheDetails.get(p.key)
+          ...specimenDetails.get(p.key)
         }));
       }
       
       // Enrich sequences to upload with details (including specimenId for refresh)
+      // Get data from specimens table which has state/country populated
       let uploadDetails: ObsDetail[] = [];
       if (sequencesToUpload.length > 0) {
         try {
           const idsClause = sequencesToUpload.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
           
-          // Get cache details
-          const cached = await db.execute(sql`
-            SELECT source_observation_id, scientific_name, observed_on, place_guess, state, country
-            FROM observation_cache 
-            WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
-          `);
-          const cacheMap = new Map<string, { scientificName?: string; observedOn?: string; state?: string; country?: string }>();
-          for (const row of (cached.rows || [])) {
-            const r = row as any;
-            cacheMap.set(r.source_observation_id, {
-              scientificName: r.scientific_name,
-              observedOn: r.observed_on,
-              state: r.state || null,
-              country: r.country || null,
-            });
-          }
-          
-          // Get specimen IDs for these observations
+          // Get specimen details including state/country
           const specimensResult = await db.execute(sql`
-            SELECT id, primary_observation_id
+            SELECT id, primary_observation_id, scientific_name, collection_date, state, country
             FROM specimens
             WHERE primary_observation_source = 'inat' AND primary_observation_id IN (${sql.raw(idsClause)})
           `);
-          const specimenMap = new Map<string, number>();
+          const specimenMap = new Map<string, { id: number; scientificName?: string; observedOn?: string; state?: string; country?: string }>();
           for (const row of (specimensResult.rows || [])) {
             const r = row as any;
             if (r.primary_observation_id) {
-              specimenMap.set(r.primary_observation_id, r.id);
+              specimenMap.set(r.primary_observation_id, {
+                id: r.id,
+                scientificName: r.scientific_name || null,
+                observedOn: r.collection_date || null,
+                state: r.state || null,
+                country: r.country || null,
+              });
             }
           }
           
-          uploadDetails = sequencesToUpload.map(obsId => ({
-            key: `iNaturalist:${obsId}`,
-            platform: 'iNaturalist',
-            obsId,
-            specimenId: specimenMap.get(obsId),
-            ...cacheMap.get(obsId)
-          }));
+          uploadDetails = sequencesToUpload.map(obsId => {
+            const spec = specimenMap.get(obsId);
+            return {
+              key: `iNaturalist:${obsId}`,
+              platform: 'iNaturalist',
+              obsId,
+              specimenId: spec?.id,
+              scientificName: spec?.scientificName,
+              observedOn: spec?.observedOn,
+              state: spec?.state,
+              country: spec?.country,
+            };
+          });
         } catch (e) { 
           console.error('[MycoMap] Error fetching upload details:', e);
           uploadDetails = sequencesToUpload.map(obsId => ({
