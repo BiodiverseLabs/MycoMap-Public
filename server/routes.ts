@@ -9790,6 +9790,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       let specimensLinked = 0;
       if (createSpecimens) {
         for (const plateId of plateIds) {
+          // Get plate info including run details
+          const [plate] = await db.select({
+            id: labPlates.id,
+            plateNumber: labPlates.plateNumber,
+            runId: labPlates.runId,
+          }).from(labPlates).where(eq(labPlates.id, plateId));
+          
+          // Get run info if plate is linked to a run
+          let runInfo: { runId: number; runName: string } | null = null;
+          if (plate?.runId) {
+            const [run] = await db.select({
+              id: labRuns.id,
+              name: labRuns.name,
+            }).from(labRuns).where(eq(labRuns.id, plate.runId));
+            if (run) {
+              runInfo = { runId: run.id, runName: run.name || `Run${String(run.id).padStart(3, '0')}` };
+            }
+          }
+          
           // Get all wells for this plate that have either observation ID or lab code
           const wells = await db.select().from(labWells)
             .where(and(
@@ -9873,11 +9892,31 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 });
               }
               
-              // Log creation event
+              // Log creation event with run info for proper display
+              // Calculate well position number (A01=1, A12=12, B01=13, H12=96)
+              const wellPosStr = well.wellPosition || '';
+              const rowLetter = wellPosStr.charAt(0).toUpperCase();
+              const colNum = parseInt(wellPosStr.substring(1)) || 0;
+              const rowNum = rowLetter.charCodeAt(0) - 'A'.charCodeAt(0); // A=0, B=1, etc
+              const positionNumber = rowNum * 12 + colNum; // 1-96
+              
               await db.insert(specimenEvents).values({
                 specimenId: newSpecimen.id,
                 eventType: 'created',
-                newValue: `Created from lab transfer plate (well ${well.wellPosition})`,
+                newValue: runInfo 
+                  ? `Created from ${runInfo.runName} (Position ${positionNumber})`
+                  : `Created from lab transfer plate (well ${well.wellPosition})`,
+                notes: runInfo 
+                  ? JSON.stringify({ 
+                      runId: runInfo.runId, 
+                      runName: runInfo.runName, 
+                      wellId: well.id, 
+                      wellPosition: well.wellPosition, 
+                      plateId, 
+                      plateNumber: plate?.plateNumber || 1, 
+                      positionNumber 
+                    })
+                  : null,
                 performedBy: userId,
               });
               
