@@ -481,7 +481,7 @@ export default function AdminSpecimensPage() {
                     data-testid="button-bulk-refresh-menu"
                   >
                     <Database className="w-4 h-4" />
-                    Refresh from iNat
+                    Refresh Observations
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72" align="end">

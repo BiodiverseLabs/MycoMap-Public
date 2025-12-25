@@ -728,6 +728,246 @@ async function syncUploadedInaturalistData(uploadId: number, progressTracker: Ma
   }
 }
 
+// Refresh a specimen from Mushroom Observer API
+async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any) {
+  try {
+    const obsId = specimen.primaryObservationId.replace(/\D/g, '');
+    const moUrl = `https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`;
+    
+    console.log(`[MO Refresh] Fetching observation ${obsId} from MO API`);
+    
+    const response = await fetch(moUrl, {
+      headers: { 
+        'Accept': 'application/json',
+        'User-Agent': 'MycoMap Specimen Refresh'
+      },
+      signal: AbortSignal.timeout(15000)
+    });
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        await db.update(specimens)
+          .set({ 
+            scientificName: 'Removed',
+            locality: 'Removed', 
+            collectorName: 'Removed',
+            inatFieldConflict: null 
+          })
+          .where(eq(specimens.id, specimenId));
+        return res.json({ 
+          success: true,
+          message: "Observation was deleted from Mushroom Observer - specimen marked as Removed"
+        });
+      }
+      return res.status(502).json({ 
+        error: `Mushroom Observer API error (HTTP ${response.status}) - try again later`
+      });
+    }
+    
+    const data = await response.json();
+    
+    if (!data.results || data.results.length === 0) {
+      await db.update(specimens)
+        .set({ 
+          scientificName: 'Removed',
+          locality: 'Removed', 
+          collectorName: 'Removed',
+          inatFieldConflict: null 
+        })
+        .where(eq(specimens.id, specimenId));
+      return res.json({ 
+        success: true,
+        message: "Observation no longer exists on Mushroom Observer - specimen marked as Removed"
+      });
+    }
+    
+    const obs = data.results[0];
+    
+    // Extract username from MO response
+    let observerName: string | null = null;
+    let observerUsername: string | null = null;
+    let observerId: string | null = null;
+    
+    const userInfo = obs.owner || obs.user;
+    if (typeof userInfo === 'object' && userInfo) {
+      observerUsername = userInfo.login_name || userInfo.login || null;
+      observerName = userInfo.name || observerUsername;
+      observerId = userInfo.id?.toString() || null;
+    } else if (typeof userInfo === 'string') {
+      try {
+        const parsed = JSON.parse(userInfo);
+        observerUsername = parsed.login_name || parsed.login || null;
+        observerName = parsed.name || observerUsername;
+        observerId = parsed.id?.toString() || null;
+      } catch (e) {
+        observerUsername = userInfo;
+        observerName = userInfo;
+      }
+    }
+    
+    // Extract location info from MO
+    let locationName: string | null = null;
+    let specimenState: string | null = null;
+    let specimenCountry: string | null = null;
+    
+    if (obs.location) {
+      if (typeof obs.location === 'object') {
+        locationName = obs.location.name || obs.location.title || null;
+      } else if (typeof obs.location === 'string') {
+        locationName = obs.location;
+      }
+    }
+    if (obs.where) {
+      locationName = obs.where;
+    }
+    
+    // Try to parse state/country from location name (format: "City, State, Country" or similar)
+    if (locationName) {
+      const parts = locationName.split(',').map((p: string) => p.trim());
+      if (parts.length >= 2) {
+        specimenCountry = parts[parts.length - 1] || null;
+        specimenState = parts[parts.length - 2] || null;
+      }
+    }
+    
+    // Extract coordinates
+    const latitude = obs.lat?.toString() || obs.latitude?.toString() || null;
+    const longitude = obs.lng?.toString() || obs.longitude?.toString() || obs.long?.toString() || null;
+    
+    // Extract observation date (MO uses 'when' field)
+    const observedOn = obs.when || obs.date || obs.created_at || null;
+    
+    // Extract scientific name from consensus or name
+    const scientificName = obs.consensus?.name || obs.name?.text_name || 
+                          (typeof obs.name === 'string' ? obs.name : null) || null;
+    
+    // Build cache data for unified observation_cache
+    const cacheData = {
+      source: 'mo' as const,
+      sourceObservationId: obsId,
+      sourceUuid: null,
+      scientificName,
+      commonName: null, // MO doesn't typically provide common names
+      family: null,
+      genus: scientificName?.split(' ')?.[0] || null,
+      species: scientificName?.split(' ')?.[1] || null,
+      taxonRank: null,
+      observerName,
+      observerUsername,
+      observerId,
+      latitude,
+      longitude,
+      coordinatesObscured: false,
+      geoprivacy: null,
+      taxonGeoprivacy: null,
+      positionalAccuracy: null,
+      placeGuess: locationName,
+      locality: locationName,
+      observedOn,
+      observedOnString: observedOn,
+      qualityGrade: null,
+      identificationCount: 0,
+      captive: false,
+      licenseCode: obs.license || null,
+      voucherNumber: null, // MO doesn't have observation fields
+      voucherNumberMultiple: null,
+      herbariumName: null,
+      herbariumCatalogNumber: null,
+      genbankAccession: null,
+      genbankNumberUrl: null,
+      provisionalSpeciesName: null,
+      mycomapBlastResults: null,
+      traceFiles: null,
+      dnaBarcodIts: null,
+      readsInConsensus: null,
+      speciesNameOverride: null,
+      collectorsName: observerName,
+      apiResponseJson: JSON.stringify(data),
+      lastSyncedAt: new Date(),
+      syncStatus: 'success',
+      updatedAt: new Date(),
+    };
+    
+    // Upsert into observation_cache
+    const existingCache = await db.select().from(observationCache)
+      .where(and(
+        eq(observationCache.source, 'mo'),
+        eq(observationCache.sourceObservationId, obsId)
+      ))
+      .limit(1);
+    
+    let cacheId: number;
+    if (existingCache.length > 0) {
+      cacheId = existingCache[0].id;
+      console.log(`[MO Refresh] Updating cache ID ${cacheId} for observation ${obsId}`);
+      await db.update(observationCache)
+        .set(cacheData)
+        .where(eq(observationCache.id, cacheId));
+    } else {
+      const [inserted] = await db.insert(observationCache).values({
+        ...cacheData,
+        createdAt: new Date(),
+      }).returning({ id: observationCache.id });
+      cacheId = inserted.id;
+    }
+    
+    // Store photos in observation_media
+    if (obs.images && obs.images.length > 0) {
+      await db.delete(observationMedia).where(eq(observationMedia.observationCacheId, cacheId));
+      
+      for (let photoIdx = 0; photoIdx < obs.images.length; photoIdx++) {
+        const img = obs.images[photoIdx];
+        const imageUrl = typeof img === 'string' ? img : (img.url || img.original_url || img.thumbnail_url || '');
+        await db.insert(observationMedia).values({
+          observationCacheId: cacheId,
+          mediaType: 'photo',
+          url: imageUrl,
+          thumbnailUrl: typeof img === 'object' ? (img.thumbnail_url || img.url || null) : imageUrl,
+          mediumUrl: typeof img === 'object' ? (img.medium_url || img.url || null) : null,
+          largeUrl: typeof img === 'object' ? (img.large_url || img.url || null) : null,
+          originalUrl: typeof img === 'object' ? (img.original_url || img.url || null) : null,
+          licenseCode: typeof img === 'object' ? (img.license || null) : null,
+          attribution: typeof img === 'object' ? (img.attribution || img.copyright || null) : null,
+          sortOrder: photoIdx,
+        });
+      }
+    }
+    
+    // Update specimen with data from observation
+    const specimenUpdate: any = {
+      scientificName: scientificName || specimen.scientificName,
+      collectorName: observerName || specimen.collectorName,
+      collectionDate: observedOn || specimen.collectionDate,
+      locality: locationName || specimen.locality,
+      state: specimenState || specimen.state,
+      country: specimenCountry || specimen.country,
+      latitude: latitude || specimen.latitude,
+      longitude: longitude || specimen.longitude,
+    };
+    
+    // Extract genus if available
+    if (scientificName) {
+      specimenUpdate.genus = scientificName.split(' ')[0];
+    }
+    
+    await db.update(specimens)
+      .set(specimenUpdate)
+      .where(eq(specimens.id, specimenId));
+    
+    console.log(`[MO Refresh] Successfully refreshed specimen ${specimenId} from MO observation ${obsId}`);
+    
+    return res.json({ 
+      success: true, 
+      message: "Specimen refreshed from Mushroom Observer",
+      updated: specimenUpdate
+    });
+    
+  } catch (error: any) {
+    console.error(`[MO Refresh] Error refreshing specimen ${specimenId}:`, error);
+    return res.status(500).json({ error: `Failed to refresh specimen from Mushroom Observer: ${error.message}` });
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Serve attached_assets as static files
@@ -13910,7 +14150,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
-  // Refresh a specimen from its linked observation
+  // Refresh a specimen from its linked observation (supports both iNaturalist and Mushroom Observer)
   app.post("/api/admin/specimens/:id/refresh", isAdmin, async (req: any, res) => {
     try {
       const specimenId = parseInt(req.params.id);
@@ -13921,11 +14161,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         return res.status(404).json({ error: "Specimen not found" });
       }
       
-      if (!specimen.primaryObservationId || specimen.primaryObservationSource !== 'inat') {
-        return res.status(400).json({ error: "Specimen has no iNaturalist observation linked" });
+      const source = specimen.primaryObservationSource;
+      if (!specimen.primaryObservationId || (source !== 'inat' && source !== 'mo')) {
+        return res.status(400).json({ error: "Specimen has no valid observation linked (must be iNaturalist or Mushroom Observer)" });
       }
       
-      // Fetch fresh data from iNaturalist API
+      // Route to appropriate API based on source
+      if (source === 'mo') {
+        // Mushroom Observer API refresh
+        return await refreshSpecimenFromMO(specimenId, specimen, res);
+      }
+      
+      // iNaturalist API refresh (default path)
       const inatUrl = `https://api.inaturalist.org/v1/observations/${specimen.primaryObservationId}`;
       const response = await fetch(inatUrl);
       
