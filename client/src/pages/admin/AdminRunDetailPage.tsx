@@ -38,6 +38,12 @@ interface RunStats {
   successRate: number | null;
   totalFails: number | null;
   platesWithMissingPrimers?: { plateNumber: number; plateName: string | null; wellsWithData: number; wellsMissingPrimers: number }[];
+  sequencingSuccess?: {
+    rate: number | null;
+    withDnaBarcode: number;
+    totalChecked: number;
+    totalInat: number;
+  };
 }
 
 interface Plate {
@@ -188,6 +194,15 @@ export default function AdminRunDetailPage() {
     linked: number;
     progress: number;
     error?: string;
+    refreshStatus?: {
+      jobId: string;
+      status: 'running' | 'completed' | 'error';
+      total: number;
+      processed: number;
+      withDnaBarcode: number;
+      progress: number;
+      successRate: number;
+    };
   } | null>(null);
   
   const { data: run, isLoading, refetch } = useQuery<LabRun>({
@@ -332,26 +347,39 @@ export default function AdminRunDetailPage() {
     if (progressRef.current === progressData) return;
     progressRef.current = progressData;
     
+    // Always update the progress state to show current status
+    setSpecimenProgress(progressData);
+    
     if (progressData.status === 'completed' || progressData.status === 'error') {
-      // Job finished
-      if (progressData.status === 'completed') {
-        toast({ 
-          title: "Specimen Records Generated", 
-          description: `Created ${progressData.created} new records, linked ${progressData.linked} to existing`
-        });
-      } else {
+      // Check if refresh is still running
+      const refreshStillRunning = progressData.refreshStatus?.status === 'running';
+      
+      if (progressData.status === 'completed' && !refreshStillRunning) {
+        // Both specimen generation and refresh are done
+        if (progressData.refreshStatus) {
+          toast({ 
+            title: "Import Complete", 
+            description: `Created ${progressData.created} records. ${progressData.refreshStatus.withDnaBarcode}/${progressData.refreshStatus.total} have DNA barcode (${progressData.refreshStatus.successRate}%)`
+          });
+        } else {
+          toast({ 
+            title: "Specimen Records Generated", 
+            description: `Created ${progressData.created} new records, linked ${progressData.linked} to existing`
+          });
+        }
+        // Don't auto-close - let user click Done button
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
+      } else if (progressData.status === 'error') {
         toast({ 
           title: "Error", 
           description: progressData.error || "Failed to generate specimen records",
           variant: "destructive"
         });
+        setSpecimenJobId(null);
+        setSpecimenProgress(null);
+        setGenerateSpecimensOpen(false);
       }
-      setSpecimenJobId(null);
-      setSpecimenProgress(null);
-      setGenerateSpecimensOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
-    } else {
-      setSpecimenProgress(progressData);
+      // If refresh is still running, keep polling
     }
   }, [progressData, specimenJobId, toast, runId]);
 
@@ -852,18 +880,32 @@ export default function AdminRunDetailPage() {
                 )}
               </div>
 
-              {/* Success Rate */}
+              {/* Sequencing Success Rate */}
               <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-4 border border-green-100 hover:shadow-md transition-all">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-2 bg-green-100 rounded-lg">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   </div>
-                  <span className="text-sm font-medium text-gray-600">Success %</span>
+                  <span className="text-sm font-medium text-gray-600">Sequencing Success</span>
                 </div>
-                {stats?.successRate !== null && stats?.successRate !== undefined ? (
-                  <p className="text-3xl font-bold text-green-600">{stats.successRate}%</p>
+                {stats?.sequencingSuccess?.rate !== null && stats?.sequencingSuccess?.rate !== undefined ? (
+                  <>
+                    <p className="text-3xl font-bold text-green-600" data-testid="stat-sequencing-success">
+                      {stats.sequencingSuccess.rate}%
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {stats.sequencingSuccess.withDnaBarcode}/{stats.sequencingSuccess.totalChecked} with DNA barcode
+                    </p>
+                    {stats.sequencingSuccess.totalInat > stats.sequencingSuccess.totalChecked && (
+                      <p className="text-xs text-amber-600 mt-0.5">
+                        {stats.sequencingSuccess.totalInat - stats.sequencingSuccess.totalChecked} pending refresh
+                      </p>
+                    )}
+                  </>
+                ) : stats?.sequencingSuccess?.totalInat === 0 ? (
+                  <p className="text-gray-400 text-sm italic">No iNat specimens</p>
                 ) : (
-                  <p className="text-gray-400 text-sm italic">Pending results</p>
+                  <p className="text-gray-400 text-sm italic">Run iNat refresh</p>
                 )}
               </div>
 
@@ -1509,8 +1551,11 @@ export default function AdminRunDetailPage() {
             <div className="py-4">
               {specimenProgress ? (
                 <div className="space-y-4">
+                  {/* Specimen Generation Progress */}
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Processing specimens...</span>
+                    <span className="text-gray-600">
+                      {specimenProgress.status === 'completed' ? 'Specimens created' : 'Processing specimens...'}
+                    </span>
                     <span className="font-medium">{specimenProgress.progress}%</span>
                   </div>
                   <Progress value={specimenProgress.progress} className="h-3" />
@@ -1528,6 +1573,51 @@ export default function AdminRunDetailPage() {
                       <p className="text-xs text-gray-500">Linked</p>
                     </div>
                   </div>
+                  
+                  {/* iNat Refresh Progress */}
+                  {specimenProgress.refreshStatus && (
+                    <div className="border-t pt-4 mt-4 space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 flex items-center gap-2">
+                          <Loader2 className={`h-3 w-3 ${specimenProgress.refreshStatus.status === 'running' ? 'animate-spin' : ''}`} />
+                          {specimenProgress.refreshStatus.status === 'completed' 
+                            ? 'iNaturalist data refreshed' 
+                            : 'Refreshing from iNaturalist...'}
+                        </span>
+                        <span className="font-medium">{specimenProgress.refreshStatus.progress}%</span>
+                      </div>
+                      <Progress value={specimenProgress.refreshStatus.progress} className="h-2" />
+                      <div className="grid grid-cols-2 gap-2 text-center text-sm">
+                        <div className="bg-blue-50 rounded p-2">
+                          <p className="text-lg font-bold text-blue-600">{specimenProgress.refreshStatus.processed}</p>
+                          <p className="text-xs text-gray-500">of {specimenProgress.refreshStatus.total} refreshed</p>
+                        </div>
+                        <div className="bg-green-50 rounded p-2">
+                          <p className="text-lg font-bold text-green-600">{specimenProgress.refreshStatus.successRate}%</p>
+                          <p className="text-xs text-gray-500">{specimenProgress.refreshStatus.withDnaBarcode} with DNA barcode</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Done Button */}
+                  {specimenProgress.status === 'completed' && 
+                   (!specimenProgress.refreshStatus || specimenProgress.refreshStatus.status === 'completed') && (
+                    <div className="pt-2">
+                      <Button 
+                        className="w-full bg-[#8CBD45] hover:bg-[#7AAD35]"
+                        onClick={() => {
+                          setGenerateSpecimensOpen(false);
+                          setSpecimenJobId(null);
+                          setSpecimenProgress(null);
+                          queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
+                        }}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Done
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
