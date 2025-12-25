@@ -14939,20 +14939,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Prepare specimen update - ensure all fields have explicit null instead of undefined
+            // Prepare specimen update - only include fields if they have actual data
+            // This preserves existing specimen data when API extraction fails
             const inatBaseName = obs.taxon?.name || obs.species_guess || null;
             const collectorNameResolved = collectorsName || obs.user?.name || obs.user?.login || null;
+            const apiLocality = obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null);
+            
             const specimenUpdate: any = {
               scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || null,
               collectorName: collectorNameResolved,
               collectionDate: obs.observed_on || null,
-              locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
-              state: specimenState || null,
-              country: specimenCountry || null,
-              latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
-              longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
               voucherNumber: voucherNumber || voucherNumberMultiple || null,
             };
+            
+            // Only include location fields if we have actual data - don't overwrite existing with null
+            if (apiLocality) specimenUpdate.locality = apiLocality;
+            if (specimenState) specimenUpdate.state = specimenState;
+            if (specimenCountry) specimenUpdate.country = specimenCountry;
+            if (obs.geojson?.coordinates?.[1]) specimenUpdate.latitude = obs.geojson.coordinates[1].toString();
+            if (obs.geojson?.coordinates?.[0]) specimenUpdate.longitude = obs.geojson.coordinates[0].toString();
             
             // Debug: log if collector name is missing despite having user info
             if (!collectorNameResolved && obs.user) {
