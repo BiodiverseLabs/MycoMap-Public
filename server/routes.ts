@@ -12672,6 +12672,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     created: number;
     linked: number;
     error?: string;
+    refreshJobId?: string;  // Job ID for auto-triggered iNat refresh
+    runId?: number;         // Run ID for auto-refresh
   }> = new Map();
 
   // Generate specimen records for wells in a run that don't have them
@@ -12718,6 +12720,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         processed: 0,
         created: 0,
         linked: 0,
+        runId,
       });
 
       // Return immediately with jobId
@@ -12844,6 +12847,134 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
           
           job.status = 'completed';
+          
+          // Auto-trigger iNat refresh for this run's specimens
+          console.log(`[SpecimenGeneration] Completed. Triggering iNat refresh for run ${runId}...`);
+          try {
+            const refreshJobId = `run-refresh-${runId}-${Date.now()}`;
+            
+            // Get wells with iNat observations for this run
+            const inatWells = await db.select({
+              observationId: labWells.observationId,
+            }).from(labWells)
+              .where(and(
+                inArray(labWells.plateId, plateIds),
+                isNotNull(labWells.coreSpecimenId),
+                isNotNull(labWells.observationId),
+                sql`LOWER(${labWells.platform}) NOT LIKE '%mushroom%'`
+              ));
+            
+            const uniqueObsIds = [...new Set(inatWells.filter(w => w.observationId).map(w => w.observationId!))];
+            
+            if (uniqueObsIds.length > 0) {
+              // Initialize refresh job
+              runRefreshJobs.set(refreshJobId, {
+                status: 'running',
+                total: uniqueObsIds.length,
+                processed: 0,
+                success: 0,
+                errors: 0,
+                withDnaBarcode: 0,
+              });
+              
+              job.refreshJobId = refreshJobId;
+              
+              // Process refresh in background
+              setImmediate(async () => {
+                const refreshJob = runRefreshJobs.get(refreshJobId)!;
+                const BATCH_SIZE = 200;
+                const DELAY_MS = 1000;
+                
+                try {
+                  for (let i = 0; i < uniqueObsIds.length; i += BATCH_SIZE) {
+                    const batch = uniqueObsIds.slice(i, i + BATCH_SIZE);
+                    const idsParam = batch.join(',');
+                    
+                    try {
+                      const inatUrl = `https://api.inaturalist.org/v1/observations?id=${idsParam}&per_page=${BATCH_SIZE}`;
+                      const response = await fetch(inatUrl);
+                      
+                      if (!response.ok) {
+                        refreshJob.errors += batch.length;
+                        refreshJob.processed += batch.length;
+                        continue;
+                      }
+                      
+                      const data = await response.json();
+                      const observations = data.results || [];
+                      
+                      for (const obs of observations) {
+                        const obsIdStr = String(obs.id);
+                        const dnaBarcodeIts = obs.ofvs?.find((f: any) => f.field_id === 2330)?.value || null;
+                        
+                        const [existing] = await db.select({ id: observationCache.id })
+                          .from(observationCache)
+                          .where(and(
+                            eq(observationCache.source, 'inat'),
+                            eq(observationCache.sourceObservationId, obsIdStr)
+                          ));
+                        
+                        const cacheData = {
+                          source: 'inat' as const,
+                          sourceObservationId: obsIdStr,
+                          scientificName: obs.taxon?.name || null,
+                          observerUsername: obs.user?.login || null,
+                          observerName: obs.user?.name || null,
+                          observedOn: obs.observed_on ? new Date(obs.observed_on) : null,
+                          latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+                          longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+                          locality: obs.place_guess || null,
+                          stateProvince: null,
+                          countryCode: null,
+                          dnaBarcodeIts,
+                          voucherNumber: obs.ofvs?.find((f: any) => f.field_id === 14618)?.value || null,
+                          herbariumName: obs.ofvs?.find((f: any) => f.field_id === 9539)?.value || null,
+                          herbariumCatalogNumber: obs.ofvs?.find((f: any) => f.field_id === 9540)?.value || null,
+                          genbankAccession: obs.ofvs?.find((f: any) => [15353, 15324, 7555].includes(f.field_id))?.value || null,
+                          apiResponseJson: obs,
+                          updatedAt: new Date(),
+                        };
+                        
+                        if (existing) {
+                          await db.update(observationCache).set(cacheData).where(eq(observationCache.id, existing.id));
+                        } else {
+                          await db.insert(observationCache).values(cacheData);
+                        }
+                        
+                        if (dnaBarcodeIts) refreshJob.withDnaBarcode++;
+                        refreshJob.success++;
+                      }
+                      
+                      const foundIds = new Set(observations.map((o: any) => String(o.id)));
+                      const notFound = batch.filter(id => !foundIds.has(id));
+                      refreshJob.errors += notFound.length;
+                      refreshJob.processed += batch.length;
+                      
+                    } catch (batchError) {
+                      console.error(`[AutoRefresh] Batch error:`, batchError);
+                      refreshJob.errors += batch.length;
+                      refreshJob.processed += batch.length;
+                    }
+                    
+                    if (i + BATCH_SIZE < uniqueObsIds.length) {
+                      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+                    }
+                  }
+                  
+                  refreshJob.status = 'completed';
+                  console.log(`[AutoRefresh] Completed for run ${runId}: ${refreshJob.withDnaBarcode}/${refreshJob.total} have DNA barcode`);
+                } catch (error: any) {
+                  console.error(`[AutoRefresh] Job error:`, error);
+                  refreshJob.status = 'error';
+                  refreshJob.error = error.message || 'Unknown error';
+                }
+                
+                setTimeout(() => runRefreshJobs.delete(refreshJobId), 10 * 60 * 1000);
+              });
+            }
+          } catch (refreshError) {
+            console.error(`[SpecimenGeneration] Failed to trigger refresh:`, refreshError);
+          }
         } catch (error: any) {
           console.error("Error in specimen generation job:", error);
           job.status = 'error';
@@ -12868,6 +12999,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       return res.status(404).json({ error: "Job not found or expired" });
     }
     
+    // If refresh job started, include its status
+    let refreshStatus = null;
+    if (job.refreshJobId) {
+      const refreshJob = runRefreshJobs.get(job.refreshJobId);
+      if (refreshJob) {
+        refreshStatus = {
+          jobId: job.refreshJobId,
+          status: refreshJob.status,
+          total: refreshJob.total,
+          processed: refreshJob.processed,
+          withDnaBarcode: refreshJob.withDnaBarcode,
+          progress: refreshJob.total > 0 ? Math.round((refreshJob.processed / refreshJob.total) * 100) : 0,
+          successRate: refreshJob.processed > 0 ? Math.round((refreshJob.withDnaBarcode / refreshJob.processed) * 100) : 0,
+        };
+      }
+    }
+    
     res.json({
       status: job.status,
       total: job.total,
@@ -12876,6 +13024,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       linked: job.linked,
       error: job.error,
       progress: job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0,
+      refreshStatus,
     });
   });
 
