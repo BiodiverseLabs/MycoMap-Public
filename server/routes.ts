@@ -1049,6 +1049,7 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
           // Push new herbarium record
           const pushUrl = new URL('https://mushroomobserver.org/api2/herbarium_records');
           pushUrl.searchParams.set('api_key', process.env.MUSHROOM_OBSERVER_API_KEY);
+          pushUrl.searchParams.set('format', 'json');
           pushUrl.searchParams.set('observation_id', moObsIdNumeric);
           pushUrl.searchParams.set('herbarium_name', 'Mycota Fungarium (MYCO)');
           pushUrl.searchParams.set('initial_determination', scientificName || '');
