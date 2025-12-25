@@ -731,10 +731,18 @@ async function syncUploadedInaturalistData(uploadId: number, progressTracker: Ma
 // Refresh a specimen from Mushroom Observer API
 async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any) {
   try {
-    const obsId = specimen.primaryObservationId.replace(/\D/g, '');
-    const moUrl = `https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`;
+    // Store the original ID for cache lookups (might be "571812" or "MO571812")
+    const storedObsId = specimen.primaryObservationId;
     
-    console.log(`[MO Refresh] Fetching observation ${obsId} from MO API`);
+    // Extract numeric ID for API calls - MO API expects just the number
+    const numericObsId = storedObsId.replace(/\D/g, '');
+    if (!numericObsId) {
+      return res.status(400).json({ error: "Invalid Mushroom Observer observation ID" });
+    }
+    
+    const moUrl = `https://mushroomobserver.org/api2/observations?id=${numericObsId}&detail=high`;
+    
+    console.log(`[MO Refresh] Fetching observation ${numericObsId} from MO API (stored as: ${storedObsId})`);
     
     const response = await fetch(moUrl, {
       headers: { 
@@ -842,9 +850,10 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
                           (typeof obs.name === 'string' ? obs.name : null) || null;
     
     // Build cache data for unified observation_cache
+    // Use stored ID format for consistency in cache lookups
     const cacheData = {
       source: 'mo' as const,
-      sourceObservationId: obsId,
+      sourceObservationId: storedObsId,
       sourceUuid: null,
       scientificName,
       commonName: null, // MO doesn't typically provide common names
@@ -892,14 +901,14 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
     const existingCache = await db.select().from(observationCache)
       .where(and(
         eq(observationCache.source, 'mo'),
-        eq(observationCache.sourceObservationId, obsId)
+        eq(observationCache.sourceObservationId, storedObsId)
       ))
       .limit(1);
     
     let cacheId: number;
     if (existingCache.length > 0) {
       cacheId = existingCache[0].id;
-      console.log(`[MO Refresh] Updating cache ID ${cacheId} for observation ${obsId}`);
+      console.log(`[MO Refresh] Updating cache ID ${cacheId} for observation ${storedObsId}`);
       await db.update(observationCache)
         .set(cacheData)
         .where(eq(observationCache.id, cacheId));
@@ -954,7 +963,7 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
       .set(specimenUpdate)
       .where(eq(specimens.id, specimenId));
     
-    console.log(`[MO Refresh] Successfully refreshed specimen ${specimenId} from MO observation ${obsId}`);
+    console.log(`[MO Refresh] Successfully refreshed specimen ${specimenId} from MO observation ${storedObsId}`);
     
     return res.json({ 
       success: true, 
