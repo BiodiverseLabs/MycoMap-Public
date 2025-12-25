@@ -13252,9 +13252,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Extract just the iNat observation IDs from success for sequence check
       const inatSuccessObsIds = results.success
-        .filter((row: any) => row._platform === 'iNaturalist')
-        .map((row: any) => row._obsId);
-      const uniqueInatSuccessIds = [...new Set(inatSuccessObsIds)];
+        .filter((row: any) => {
+          const platform = row._platform || normalizeMycoMapPlatform(row['Source Database'] || row['source_database'] || '');
+          return platform === 'iNaturalist';
+        })
+        .map((row: any) => row._obsId || row['Reference Number'] || row['reference_number'] || '');
+      const uniqueInatSuccessIds = [...new Set(inatSuccessObsIds)].filter(id => id);
       
       // Check which success observations are missing sequences in observation_cache
       let sequencesToUpload: string[] = [];
