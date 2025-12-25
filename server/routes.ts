@@ -13176,6 +13176,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   app.get("/api/admin/runs/:id/mycomap-analysis", isAdmin, async (req: any, res) => {
     try {
       const runId = parseInt(req.params.id);
+      console.log(`[MycoMap] Fetching analysis for run ${runId}`);
       
       // Get the most recent MycoMap results file for this run
       const [resultsFile] = await db.select()
@@ -13187,13 +13188,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .orderBy(sql`created_at DESC`)
         .limit(1);
       
+      console.log(`[MycoMap] Results file found: ${!!resultsFile}, fileId: ${resultsFile?.id}`);
+      
       if (!resultsFile) {
+        console.log(`[MycoMap] No results file - returning hasResults: false`);
         return res.json({ hasResults: false });
       }
       
       // Parse the stored results
       const resultsJson = resultsFile.content?.toString('utf-8') || '{}';
       const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
+      console.log(`[MycoMap] Parsed results: success=${results.success?.length || 0}, failure=${results.failure?.length || 0}`);
       
       // Extract unique platform:observationId keys from results
       // Uses _platform and _obsId fields if present, otherwise falls back to original column names
@@ -13222,10 +13227,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const successKeys = extractPlatformObsKeys(results.success);
       const failureKeys = extractPlatformObsKeys(results.failure);
       const allMycoMapKeys = new Set([...successKeys, ...failureKeys]);
+      console.log(`[MycoMap] Extracted keys: successKeys=${successKeys.size}, failureKeys=${failureKeys.size}, allMycoMapKeys=${allMycoMapKeys.size}`);
       
       // Get all platform:observationId pairs from wells in this run
       const plates = await db.select({ id: labPlates.id }).from(labPlates).where(eq(labPlates.runId, runId));
       const plateIds = plates.map(p => p.id);
+      console.log(`[MycoMap] Found ${plates.length} plates for run ${runId}`);
       
       let runKeys: string[] = [];
       let runWells: { platform: string | null; observationId: string | null }[] = [];
@@ -13277,6 +13284,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           .map(c => c.sourceObservationId));
         sequencesToUpload = uniqueInatSuccessIds.filter(id => !cachedIds.has(id));
       }
+      
+      console.log(`[MycoMap] Final results: successCount=${successKeys.size}, failureCount=${failureKeys.size}, noLinkage=${noAnalysisLinkage.length}, toUpload=${sequencesToUpload.length}`);
       
       res.json({
         hasResults: true,
