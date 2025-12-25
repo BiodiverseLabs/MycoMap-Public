@@ -15291,6 +15291,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         latitude: obs.geojson?.coordinates?.[1]?.toString() || specimen.latitude,
         longitude: obs.geojson?.coordinates?.[0]?.toString() || specimen.longitude,
         voucherNumber: voucherNumber || voucherNumberMultiple || specimen.voucherNumber,
+        observationCacheId: cacheId, // Link to observation cache
       };
       
       // Auto-update status to 'sequenced' if DNA barcode is now present
@@ -16085,7 +16086,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           // Prepare bulk data arrays
           const cacheUpserts: any[] = [];
-          const specimenUpdates: { id: number; data: any }[] = [];
+          const specimenUpdates: { id: number; data: any; obsId: string }[] = []; // Include obsId for cache linking
+          const allProcessedObsIds: string[] = []; // Track ALL observation IDs for cache linking
           const observationIdsForPhotos: string[] = [];
           const photoInserts: any[] = [];
           
@@ -16180,6 +16182,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             });
             
             observationIdsForPhotos.push(spec.primaryObservationId!);
+            allProcessedObsIds.push(spec.primaryObservationId!);
             
             // Prepare photo data
             if (obs.photos && obs.photos.length > 0) {
@@ -16233,7 +16236,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               specimenUpdate.genus = obs.taxon.name.split(' ')[0];
             }
             
-            specimenUpdates.push({ id: spec.id, data: specimenUpdate });
+            specimenUpdates.push({ id: spec.id, data: specimenUpdate, obsId: spec.primaryObservationId! });
             // Don't increment success/processed here - wait until DB operations complete
           }
           
@@ -16255,22 +16258,25 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             ));
           }
           
-          // Update photos
-          if (observationIdsForPhotos.length > 0) {
+          // Fetch cache IDs for ALL processed observations (needed for specimen linking)
+          const cacheIdMap = new Map<string, number>();
+          if (allProcessedObsIds.length > 0) {
             const cacheRows = await db.select({ id: observationCache.id, sourceObservationId: observationCache.sourceObservationId })
               .from(observationCache)
               .where(and(
                 eq(observationCache.source, 'inat'),
-                sql`${observationCache.sourceObservationId} IN (${sql.raw(observationIdsForPhotos.map(id => `'${id}'`).join(','))})`
+                sql`${observationCache.sourceObservationId} IN (${sql.raw(allProcessedObsIds.map(id => `'${id}'`).join(','))})`
               ));
             
-            const cacheIdMap = new Map<string, number>();
             for (const row of cacheRows) {
               if (row.sourceObservationId) {
                 cacheIdMap.set(row.sourceObservationId, row.id);
               }
             }
-            
+          }
+          
+          // Update photos (only for observations with photos)
+          if (observationIdsForPhotos.length > 0) {
             // Bulk delete existing photos
             const cacheIds = Array.from(cacheIdMap.values());
             if (cacheIds.length > 0) {
@@ -16299,9 +16305,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           console.log(`[BulkRefresh] Updating ${specimenUpdates.length} specimens...`);
           
-          // Bulk update specimens
-          for (const { id, data } of specimenUpdates) {
-            await db.update(specimens).set(data).where(eq(specimens.id, id));
+          // Bulk update specimens - include observationCacheId from the cacheIdMap
+          for (const update of specimenUpdates) {
+            // Use the stored obsId to get the cache ID directly
+            if (cacheIdMap.has(update.obsId)) {
+              update.data.observationCacheId = cacheIdMap.get(update.obsId);
+            }
+            await db.update(specimens).set(update.data).where(eq(specimens.id, update.id));
           }
           
           // Handle deleted observations - mark specimens as "Removed"
