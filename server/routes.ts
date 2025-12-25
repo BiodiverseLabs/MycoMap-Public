@@ -13354,8 +13354,28 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       console.log(`[MycoMap] Final results: successCount=${successKeys.size}, failureCount=${failureKeys.size}, noLinkage=${noAnalysisLinkage.length}, toUpload=${sequencesToUpload.length}`);
       
-      // Enrich no-linkage observations with details from specimens table
-      type ObsDetail = { key: string; platform: string; obsId: string; scientificName?: string; observedOn?: string; state?: string; country?: string };
+      // Enrich observations with details from specimens and lab_wells tables
+      type ObsDetail = { key: string; platform: string; obsId: string; scientificName?: string; observedOn?: string; state?: string; country?: string; labCode?: string; specimenId?: number };
+      
+      // Build a map of obsKey -> labCode from this run's wells
+      const labCodeMap = new Map<string, string>();
+      if (runWells.length > 0 && plateIds.length > 0) {
+        try {
+          const wellsWithLabCode = await db.select({
+            platform: labWells.platform,
+            observationId: labWells.observationId,
+            labCode: labWells.labCode
+          })
+            .from(labWells)
+            .where(inArray(labWells.plateId, plateIds));
+          for (const w of wellsWithLabCode) {
+            if (w.platform && w.observationId && w.labCode) {
+              labCodeMap.set(`${w.platform}:${w.observationId}`, w.labCode);
+            }
+          }
+        } catch (e) { console.error('[MycoMap] Error fetching lab codes:', e); }
+      }
+      
       let noLinkageDetails: ObsDetail[] = [];
       
       if (noAnalysisLinkage.length > 0) {
@@ -13415,6 +13435,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           key: p.key,
           platform: p.platform,
           obsId: p.obsId,
+          labCode: labCodeMap.get(p.key),
           ...specimenDetails.get(p.key)
         }));
       }
@@ -13448,8 +13469,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           
           uploadDetails = sequencesToUpload.map(obsId => {
             const spec = specimenMap.get(obsId);
+            const obsKey = `iNaturalist:${obsId}`;
             return {
-              key: `iNaturalist:${obsId}`,
+              key: obsKey,
               platform: 'iNaturalist',
               obsId,
               specimenId: spec?.id,
@@ -13457,6 +13479,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               observedOn: spec?.observedOn,
               state: spec?.state,
               country: spec?.country,
+              labCode: labCodeMap.get(obsKey),
             };
           });
         } catch (e) { 
@@ -13464,7 +13487,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           uploadDetails = sequencesToUpload.map(obsId => ({
             key: `iNaturalist:${obsId}`,
             platform: 'iNaturalist',
-            obsId
+            obsId,
+            labCode: labCodeMap.get(`iNaturalist:${obsId}`),
           }));
         }
       }
@@ -13504,6 +13528,67 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const onSheetsNotRun = [...allMycoMapKeys].filter(key => !runKeysSet.has(key));
       console.log(`  On sheets not run: ${onSheetsNotRun.length}`);
       
+      // Enrich "On Sheets Not Run" with details from specimens table
+      let onSheetsNotRunDetails: ObsDetail[] = [];
+      if (onSheetsNotRun.length > 0) {
+        const onSheetsParsed = onSheetsNotRun.map(key => {
+          const [platform, obsId] = key.split(':');
+          return { key, platform, obsId };
+        });
+        
+        const inatIds = onSheetsParsed.filter(p => p.platform === 'iNaturalist').map(p => p.obsId);
+        const moIds = onSheetsParsed.filter(p => p.platform === 'Mushroom Observer').map(p => p.obsId);
+        
+        const specimenDetailsNotRun = new Map<string, { scientificName?: string; observedOn?: string; state?: string; country?: string }>();
+        
+        if (inatIds.length > 0) {
+          try {
+            const idsClause = inatIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+            const specResult = await db.execute(sql`
+              SELECT primary_observation_id, scientific_name, collection_date, state, country
+              FROM specimens 
+              WHERE primary_observation_source = 'inat' AND primary_observation_id IN (${sql.raw(idsClause)})
+            `);
+            for (const row of (specResult.rows || [])) {
+              const r = row as any;
+              specimenDetailsNotRun.set(`iNaturalist:${r.primary_observation_id}`, {
+                scientificName: r.scientific_name || null,
+                observedOn: r.collection_date || null,
+                state: r.state || null,
+                country: r.country || null,
+              });
+            }
+          } catch (e) { console.error('[MycoMap] Error fetching iNat specimen details for onSheetsNotRun:', e); }
+        }
+        
+        if (moIds.length > 0) {
+          try {
+            const idsClause = moIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+            const specResult = await db.execute(sql`
+              SELECT primary_observation_id, scientific_name, collection_date, state, country
+              FROM specimens 
+              WHERE primary_observation_source = 'mo' AND primary_observation_id IN (${sql.raw(idsClause)})
+            `);
+            for (const row of (specResult.rows || [])) {
+              const r = row as any;
+              specimenDetailsNotRun.set(`Mushroom Observer:${r.primary_observation_id}`, {
+                scientificName: r.scientific_name || null,
+                observedOn: r.collection_date || null,
+                state: r.state || null,
+                country: r.country || null,
+              });
+            }
+          } catch (e) { console.error('[MycoMap] Error fetching MO specimen details for onSheetsNotRun:', e); }
+        }
+        
+        onSheetsNotRunDetails = onSheetsParsed.map(p => ({
+          key: p.key,
+          platform: p.platform,
+          obsId: p.obsId,
+          ...specimenDetailsNotRun.get(p.key)
+        }));
+      }
+      
       res.json({
         hasResults: true,
         uploadedAt: resultsFile.createdAt,
@@ -13518,6 +13603,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // On Sheets Not Run - observations in CSV but not in this run
         onSheetsNotRunCount: onSheetsNotRun.length,
         onSheetsNotRunIds: onSheetsNotRun,
+        onSheetsNotRunDetails: onSheetsNotRunDetails,
         // Diagnostic info
         diagnostics: {
           totalRunKeys: uniqueRunKeys.length,

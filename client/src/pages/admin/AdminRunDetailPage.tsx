@@ -54,6 +54,9 @@ interface ObsDetail {
   scientificName?: string;
   observedOn?: string;
   location?: string;
+  state?: string;
+  country?: string;
+  labCode?: string;
 }
 
 interface MycoMapAnalysis {
@@ -69,6 +72,7 @@ interface MycoMapAnalysis {
   sequencesToUploadDetails?: ObsDetail[];
   onSheetsNotRunCount?: number;
   onSheetsNotRunIds?: string[];
+  onSheetsNotRunDetails?: ObsDetail[];
 }
 
 interface Plate {
@@ -1253,7 +1257,13 @@ export default function AdminRunDetailPage() {
                         {obs.scientificName && (
                           <p className="font-medium text-gray-800 italic truncate">{obs.scientificName}</p>
                         )}
-                        <span className="text-sm text-gray-700">iNat #{obs.obsId}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">iNaturalist</span>
+                          <span className="text-sm text-gray-700">#{obs.obsId}</span>
+                          {obs.labCode && (
+                            <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded font-medium">{obs.labCode}</span>
+                          )}
+                        </div>
                         {(obs.observedOn || obs.state || obs.country) && (
                           <p className="text-xs text-gray-500 mt-1">
                             {obs.observedOn && <span>{new Date(obs.observedOn).toLocaleDateString()}</span>}
@@ -1344,6 +1354,9 @@ export default function AdminRunDetailPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">{obs.platform}</span>
                             <span className="text-sm text-gray-700">#{obs.obsId}</span>
+                            {obs.labCode && (
+                              <span className="text-xs text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded font-medium">{obs.labCode}</span>
+                            )}
                           </div>
                           {(obs.observedOn || obs.state || obs.country) && (
                             <p className="text-xs text-gray-500 mt-1">
@@ -1387,23 +1400,35 @@ export default function AdminRunDetailPage() {
             </p>
             <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
               <div className="space-y-2">
-                {(mycoMapAnalysis?.onSheetsNotRunIds || []).map((key: string) => {
+                {(mycoMapAnalysis?.onSheetsNotRunDetails || mycoMapAnalysis?.onSheetsNotRunIds?.map((key: string) => {
                   const [platform, obsId] = key.split(':');
-                  const isInat = platform === 'iNaturalist';
-                  const isMO = platform === 'Mushroom Observer';
+                  return { key, platform, obsId };
+                }) || []).map((obs: any) => {
+                  const isInat = obs.platform === 'iNaturalist';
+                  const isMO = obs.platform === 'Mushroom Observer';
                   const url = isInat 
-                    ? `https://www.inaturalist.org/observations/${obsId}`
+                    ? `https://www.inaturalist.org/observations/${obs.obsId}`
                     : isMO 
-                      ? `https://mushroomobserver.org/observations/${obsId}`
+                      ? `https://mushroomobserver.org/observations/${obs.obsId}`
                       : null;
                   return (
-                    <div key={key} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div key={obs.key} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
+                          {obs.scientificName && (
+                            <p className="font-medium text-gray-800 italic truncate">{obs.scientificName}</p>
+                          )}
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">{platform}</span>
-                            <span className="text-sm text-gray-700">#{obsId}</span>
+                            <span className="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">{obs.platform}</span>
+                            <span className="text-sm text-gray-700">#{obs.obsId}</span>
                           </div>
+                          {(obs.observedOn || obs.state || obs.country) && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {obs.observedOn && <span>{new Date(obs.observedOn).toLocaleDateString()}</span>}
+                              {obs.observedOn && (obs.state || obs.country) && <span> • </span>}
+                              {(obs.state || obs.country) && <span>{[obs.state, obs.country].filter(Boolean).join(', ')}</span>}
+                            </p>
+                          )}
                         </div>
                         {url && (
                           <a
@@ -1411,7 +1436,7 @@ export default function AdminRunDetailPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-purple-600 transition-colors flex-shrink-0 ml-2"
-                            title={`Open in ${platform}`}
+                            title={`Open in ${obs.platform}`}
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
