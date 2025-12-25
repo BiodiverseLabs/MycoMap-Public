@@ -2,7 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa, shippingDestinations, insertShippingDestinationSchema, specimenRefreshMetadata } from "@shared/schema";
+import { insertObservationSchema, insertUploadSchema, species, observations, inaturalistData, fieldGuides, fieldGuideSpecies, insertFieldGuideSchema, insertFieldGuideSpeciesSchema, inatObservationsCache, inatCacheMetadata, moObservationsCache, moCacheMetadata, inaturalistApiCache, insertInaturalistApiCacheSchema, cmsPages, cmsPageSections, cmsNavigationLinks, cmsMediaAssets, insertCmsPageSchema, insertCmsPageSectionSchema, insertCmsNavigationLinkSchema, users, shipments, shipmentBags, shipmentSpecimens, insertShipmentSchema, insertShipmentBagSchema, insertShipmentSpecimenSchema, labRuns, labPlates, labWells, insertLabRunSchema, insertLabPlateSchema, insertLabWellSchema, indexSets, indexEntries, primerSets, primerItems, primerPools, labRunFiles, labRunBioSteps, insertLabRunBioStepSchema, bioinformaticsMethods, labRunMethodSelections, specimens, specimenSources, specimenEvents, insertSpecimenSchema, shipmentPlates, specimenRecipients, specimenRequests, insertSpecimenRecipientSchema, insertSpecimenRequestSchema, observationCache, observationMedia, observationTaxa, shippingDestinations, insertShippingDestinationSchema, specimenRefreshMetadata, specimenRunAssociations } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -12810,12 +12810,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Batch link existing specimens and update their labRunId
+            // Batch link existing specimens and add run association
             for (const link of wellsToLink) {
               await db.update(labWells)
                 .set({ coreSpecimenId: link.specimenId, updatedAt: new Date() })
                 .where(eq(labWells.id, link.wellId));
-              // Also link the specimen to this run if not already linked
+              // Add to junction table (specimen can be in multiple runs)
+              await db.insert(specimenRunAssociations)
+                .values({ specimenId: link.specimenId, runId })
+                .onConflictDoNothing();
+              // Also update legacy labRunId if not already set
               await db.update(specimens)
                 .set({ labRunId: runId })
                 .where(and(eq(specimens.id, link.specimenId), isNull(specimens.labRunId)));
@@ -12880,6 +12884,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               await db.update(labWells)
                 .set({ coreSpecimenId: newSpecimen.id, updatedAt: new Date() })
                 .where(eq(labWells.id, well.id));
+              
+              // Add to junction table (specimen can be in multiple runs)
+              await db.insert(specimenRunAssociations)
+                .values({ specimenId: newSpecimen.id, runId })
+                .onConflictDoNothing();
               
               job.created++;
             }
