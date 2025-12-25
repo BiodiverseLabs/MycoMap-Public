@@ -13263,17 +13263,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       let sequencesToUpload: string[] = [];
       if (uniqueInatSuccessIds.length > 0) {
         // Get observations that have DNA barcode in our cache
-        // Using raw SQL to avoid drizzle query generation issues
-        const cachedWithSequence = await db.execute(sql`
-          SELECT source_observation_id 
-          FROM observation_cache 
-          WHERE source = 'inat' 
-            AND source_observation_id = ANY(${uniqueInatSuccessIds})
-            AND dna_barcode_its IS NOT NULL 
-            AND dna_barcode_its <> ''
-        `);
+        const cachedWithSequence = await db.select({ sourceObservationId: observationCache.sourceObservationId })
+          .from(observationCache)
+          .where(and(
+            eq(observationCache.source, 'inat'),
+            inArray(observationCache.sourceObservationId, uniqueInatSuccessIds),
+            isNotNull(observationCache.dnaBarcodeIts)
+          ));
         
-        const cachedIds = new Set((cachedWithSequence.rows as any[]).map(c => c.source_observation_id));
+        // Filter out empty strings in JS
+        const cachedIds = new Set(cachedWithSequence
+          .filter(c => c.sourceObservationId && c.sourceObservationId.trim() !== '')
+          .map(c => c.sourceObservationId));
         sequencesToUpload = uniqueInatSuccessIds.filter(id => !cachedIds.has(id));
       }
       
