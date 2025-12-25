@@ -14837,8 +14837,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             if (!obs) {
               // Observation was deleted from iNaturalist - mark for "Removed" update
               deletedSpecimenIds.push(spec.id);
-              success++; // Count as success since we're handling it
-              processed++;
+              // Don't increment success/processed here - wait until DB operations complete
               continue;
             }
             
@@ -14973,9 +14972,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             }
             
             specimenUpdates.push({ id: spec.id, data: specimenUpdate });
-            success++;
-            processed++;
+            // Don't increment success/processed here - wait until DB operations complete
           }
+          
+          // Track how many specimens we're about to process in this batch
+          const batchPreparedCount = specimenUpdates.length + deletedSpecimenIds.length;
           
           // Upsert observation cache in smaller chunks (10 at a time for speed)
           console.log(`[BulkRefresh] Upserting ${cacheUpserts.length} cache entries...`);
@@ -15480,11 +15481,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             }
           }
           
+          // All DB operations completed successfully - now increment success/processed
+          success += batchPreparedCount;
+          processed += batchPreparedCount;
+          
         } catch (fetchErr) {
-          console.error(`[BulkRefresh] Fetch error:`, fetchErr);
-          // Mark batch as errors and advance past it to avoid infinite retry loop
+          console.error(`[BulkRefresh] Batch error:`, fetchErr);
+          // Mark entire batch as errors since we can't reliably know what completed
           errors += batch.length;
           processed += batch.length;
+          
+          // Log the error message for debugging
+          const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          console.error(`[BulkRefresh] Error details: ${errMsg}`);
           
           // Clamp to prevent exceeding total
           processed = Math.min(processed, metadata.totalSpecimens!);
@@ -15518,12 +15527,17 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         await new Promise(resolve => setTimeout(resolve, DELAY_MS));
       }
       
-      // Complete
+      // Complete - report different status based on whether errors occurred
+      const finalStatus = errors > 0 ? 'completed_with_errors' : 'completed';
+      const finalMessage = errors > 0 
+        ? `Completed with errors: ${success} success, ${errors} failed. Some specimens may not have been updated.`
+        : `Completed: ${success} specimens refreshed successfully`;
+      
       await db.update(specimenRefreshMetadata)
         .set({
-          syncStatus: 'completed',
+          syncStatus: finalStatus,
           syncProgress: 100,
-          syncMessage: `Completed: ${success} success, ${errors} errors`,
+          syncMessage: finalMessage,
           lastRefreshAt: new Date(),
           updatedAt: new Date(),
         })
