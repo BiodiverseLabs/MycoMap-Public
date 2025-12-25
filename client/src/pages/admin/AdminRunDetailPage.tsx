@@ -46,6 +46,17 @@ interface RunStats {
   };
 }
 
+interface MycoMapAnalysis {
+  hasResults: boolean;
+  uploadedAt?: string;
+  successCount?: number;
+  failureCount?: number;
+  noAnalysisLinkageCount?: number;
+  noAnalysisLinkageIds?: string[];
+  sequencesToUploadCount?: number;
+  sequencesToUploadIds?: string[];
+}
+
 interface Plate {
   id: number;
   plateNumber: number;
@@ -190,6 +201,7 @@ export default function AdminRunDetailPage() {
   const [mycoMapFailureFile, setMycoMapFailureFile] = useState<File | null>(null);
   const mycoMapSuccessInputRef = useRef<HTMLInputElement>(null);
   const mycoMapFailureInputRef = useRef<HTMLInputElement>(null);
+  const [showSequencesToUpload, setShowSequencesToUpload] = useState(false);
   const [specimenJobId, setSpecimenJobId] = useState<string | null>(null);
   const [specimenProgress, setSpecimenProgress] = useState<{
     status: 'running' | 'completed' | 'error';
@@ -225,6 +237,16 @@ export default function AdminRunDetailPage() {
     queryFn: async () => {
       const res = await fetch(`/api/admin/runs/${runId}/stats`);
       if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
+    enabled: !!runId,
+  });
+
+  const { data: mycoMapAnalysis, refetch: refetchMycoMapAnalysis } = useQuery<MycoMapAnalysis>({
+    queryKey: ['/api/admin/runs', runId, 'mycomap-analysis'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/mycomap-analysis`);
+      if (!res.ok) throw new Error('Failed to fetch MycoMap analysis');
       return res.json();
     },
     enabled: !!runId,
@@ -418,6 +440,7 @@ export default function AdminRunDetailPage() {
     },
     onSuccess: async (data) => {
       await refetchFiles();
+      await refetchMycoMapAnalysis();
       setMycoMapUploadOpen(false);
       setMycoMapSuccessFile(null);
       setMycoMapFailureFile(null);
@@ -1017,6 +1040,118 @@ export default function AdminRunDetailPage() {
             )}
           </div>
         </div>
+
+        {/* MycoMap Sequence Analysis Section */}
+        {mycoMapAnalysis?.hasResults && (
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              MycoMap Sequence Analysis
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Successful Observations */}
+              <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-4 border border-green-100 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Successful Observations</span>
+                </div>
+                <p className="text-3xl font-bold text-green-600" data-testid="stat-mycomap-success">
+                  {mycoMapAnalysis.successCount || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">from MycoMap Success CSV</p>
+              </div>
+
+              {/* Observation Fails */}
+              <div className="bg-gradient-to-br from-red-50 to-white rounded-xl p-4 border border-red-100 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <X className="h-4 w-4 text-red-500" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Observation Fails</span>
+                </div>
+                <p className="text-3xl font-bold text-red-600" data-testid="stat-mycomap-failure">
+                  {mycoMapAnalysis.failureCount || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">from MycoMap Failure CSV</p>
+              </div>
+
+              {/* No Analysis Linkage */}
+              <div className="bg-gradient-to-br from-amber-50 to-white rounded-xl p-4 border border-amber-100 hover:shadow-md transition-all">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">No Analysis Linkage</span>
+                </div>
+                <p className="text-3xl font-bold text-amber-600" data-testid="stat-mycomap-no-linkage">
+                  {mycoMapAnalysis.noAnalysisLinkageCount || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">in run but not in MycoMap</p>
+              </div>
+
+              {/* Sequences to Upload - Clickable */}
+              <div 
+                className={`bg-gradient-to-br from-blue-50 to-white rounded-xl p-4 border border-blue-100 hover:shadow-md transition-all ${
+                  (mycoMapAnalysis.sequencesToUploadCount || 0) > 0 ? 'cursor-pointer hover:border-blue-300' : ''
+                }`}
+                onClick={() => {
+                  if ((mycoMapAnalysis.sequencesToUploadCount || 0) > 0) {
+                    setShowSequencesToUpload(true);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Upload className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Sequences to Upload</span>
+                </div>
+                <p className="text-3xl font-bold text-blue-600" data-testid="stat-mycomap-to-upload">
+                  {mycoMapAnalysis.sequencesToUploadCount || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {(mycoMapAnalysis.sequencesToUploadCount || 0) > 0 
+                    ? 'Click to view observation IDs' 
+                    : 'success but no sequence in cache'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sequences to Upload Dialog */}
+        <Dialog open={showSequencesToUpload} onOpenChange={setShowSequencesToUpload}>
+          <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-blue-600" />
+                Sequences to Upload ({mycoMapAnalysis?.sequencesToUploadCount || 0})
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-600 mb-3">
+              These observations are in the MycoMap Success CSV but don't have a DNA barcode sequence in our platform's cache.
+            </p>
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
+              <div className="space-y-2">
+                {mycoMapAnalysis?.sequencesToUploadIds?.map((obsId) => (
+                  <div key={obsId} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <a 
+                      href={`https://www.inaturalist.org/observations/${obsId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-blue-600 hover:underline"
+                    >
+                      {obsId}
+                    </a>
+                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* All States Dialog */}
         <Dialog open={showAllStates} onOpenChange={setShowAllStates}>

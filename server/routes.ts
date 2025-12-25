@@ -13125,6 +13125,100 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get MycoMap analysis summary for a run
+  app.get("/api/admin/runs/:id/mycomap-analysis", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      // Get the most recent MycoMap results file for this run
+      const [resultsFile] = await db.select()
+        .from(labRunFiles)
+        .where(and(
+          eq(labRunFiles.runId, runId),
+          eq(labRunFiles.fileType, 'mycomap_results')
+        ))
+        .orderBy(sql`created_at DESC`)
+        .limit(1);
+      
+      if (!resultsFile) {
+        return res.json({ hasResults: false });
+      }
+      
+      // Parse the stored results
+      const resultsJson = resultsFile.content?.toString('utf-8') || '{}';
+      const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
+      
+      // Extract observation IDs from success and failure CSVs
+      // Look for common column names that might contain observation IDs
+      const extractObsIds = (rows: any[]): string[] => {
+        const ids: string[] = [];
+        for (const row of rows) {
+          // Try common column names for observation ID
+          const obsId = row['observation_id'] || row['observationId'] || row['obs_id'] || 
+                        row['inat_id'] || row['iNatId'] || row['Observation ID'] || 
+                        row['ObservationID'] || row['id'] || row['ID'];
+          if (obsId) {
+            ids.push(String(obsId).trim());
+          }
+        }
+        return ids;
+      };
+      
+      const successObsIds = extractObsIds(results.success);
+      const failureObsIds = extractObsIds(results.failure);
+      const allMycoMapObsIds = new Set([...successObsIds, ...failureObsIds]);
+      
+      // Get all observation IDs from wells in this run
+      const plates = await db.select({ id: labPlates.id }).from(labPlates).where(eq(labPlates.runId, runId));
+      const plateIds = plates.map(p => p.id);
+      
+      let runObsIds: string[] = [];
+      if (plateIds.length > 0) {
+        const wells = await db.select({ observationId: labWells.observationId })
+          .from(labWells)
+          .where(and(
+            inArray(labWells.plateId, plateIds),
+            isNotNull(labWells.observationId)
+          ));
+        runObsIds = wells.filter(w => w.observationId).map(w => w.observationId!);
+      }
+      
+      // Calculate "No Analysis Linkage" - observations in run but not in MycoMap CSVs
+      const noAnalysisLinkage = runObsIds.filter(id => !allMycoMapObsIds.has(id));
+      
+      // Check which success observations are missing sequences in observation_cache
+      let sequencesToUpload: string[] = [];
+      if (successObsIds.length > 0) {
+        // Get observations that have DNA barcode in our cache
+        const cachedWithSequence = await db.select({ sourceObservationId: observationCache.sourceObservationId })
+          .from(observationCache)
+          .where(and(
+            eq(observationCache.source, 'inat'),
+            inArray(observationCache.sourceObservationId, successObsIds),
+            isNotNull(observationCache.dnaBarcodeIts),
+            sql`${observationCache.dnaBarcodeIts} != ''`
+          ));
+        
+        const cachedIds = new Set(cachedWithSequence.map(c => c.sourceObservationId));
+        sequencesToUpload = successObsIds.filter(id => !cachedIds.has(id));
+      }
+      
+      res.json({
+        hasResults: true,
+        uploadedAt: resultsFile.createdAt,
+        successCount: results.success.length,
+        failureCount: results.failure.length,
+        noAnalysisLinkageCount: noAnalysisLinkage.length,
+        noAnalysisLinkageIds: noAnalysisLinkage,
+        sequencesToUploadCount: sequencesToUpload.length,
+        sequencesToUploadIds: sequencesToUpload,
+      });
+    } catch (error: any) {
+      console.error('[MycoMap] Analysis error:', error);
+      res.status(500).json({ message: error.message || 'Failed to get MycoMap analysis' });
+    }
+  });
+
   // ============ RUN iNAT REFRESH ============
   
   // In-memory job registry for run-scoped iNat refresh
