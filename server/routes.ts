@@ -13464,11 +13464,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         console.log(`  Observations in BOTH success AND failure (first 50): ${inBoth.slice(0, 50).join(', ')}`);
       }
       
+      // Calculate success/failure counts filtered to this run (not total CSV counts)
+      // An observation in both success AND failure is counted once in "inBoth" (added to success for display)
+      const runSuccessCount = successOnly.length + inBoth.length;
+      const runFailureCount = failureOnly.length;
+      
       res.json({
         hasResults: true,
         uploadedAt: resultsFile.createdAt,
-        successCount: successKeys.size,
-        failureCount: failureKeys.size,
+        successCount: runSuccessCount, // Run-specific count (was: successKeys.size)
+        failureCount: runFailureCount, // Run-specific count (was: failureKeys.size)
         noAnalysisLinkageCount: noAnalysisLinkage.length,
         noAnalysisLinkageIds: noAnalysisLinkage,
         noAnalysisLinkageDetails: noLinkageDetails,
