@@ -46,6 +46,15 @@ interface RunStats {
   };
 }
 
+interface ObsDetail {
+  key: string;
+  platform: string;
+  obsId: string;
+  scientificName?: string;
+  observedOn?: string;
+  location?: string;
+}
+
 interface MycoMapAnalysis {
   hasResults: boolean;
   uploadedAt?: string;
@@ -53,8 +62,10 @@ interface MycoMapAnalysis {
   failureCount?: number;
   noAnalysisLinkageCount?: number;
   noAnalysisLinkageIds?: string[];
+  noAnalysisLinkageDetails?: ObsDetail[];
   sequencesToUploadCount?: number;
   sequencesToUploadIds?: string[];
+  sequencesToUploadDetails?: ObsDetail[];
 }
 
 interface Plate {
@@ -1140,7 +1151,7 @@ export default function AdminRunDetailPage() {
 
         {/* Sequences to Upload Dialog */}
         <Dialog open={showSequencesToUpload} onOpenChange={setShowSequencesToUpload}>
-          <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Upload className="h-5 w-5 text-blue-600" />
@@ -1152,17 +1163,31 @@ export default function AdminRunDetailPage() {
             </p>
             <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
               <div className="space-y-2">
-                {mycoMapAnalysis?.sequencesToUploadIds?.map((obsId) => (
-                  <div key={obsId} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <a 
-                      href={`https://www.inaturalist.org/observations/${obsId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-blue-600 hover:underline"
-                    >
-                      {obsId}
-                    </a>
-                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                {(mycoMapAnalysis?.sequencesToUploadDetails || mycoMapAnalysis?.sequencesToUploadIds?.map((id: string) => ({ obsId: id, platform: 'iNaturalist' })) || []).map((obs: any) => (
+                  <div key={obs.obsId} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        {obs.scientificName && (
+                          <p className="font-medium text-gray-800 italic truncate">{obs.scientificName}</p>
+                        )}
+                        <a 
+                          href={`https://www.inaturalist.org/observations/${obs.obsId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          iNat #{obs.obsId}
+                        </a>
+                        {(obs.observedOn || obs.location) && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {obs.observedOn && <span>{new Date(obs.observedOn).toLocaleDateString()}</span>}
+                            {obs.observedOn && obs.location && <span> • </span>}
+                            {obs.location && <span>{obs.location}</span>}
+                          </p>
+                        )}
+                      </div>
+                      <ExternalLink className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1172,7 +1197,7 @@ export default function AdminRunDetailPage() {
 
         {/* No Analysis Linkage Dialog */}
         <Dialog open={showNoLinkage} onOpenChange={setShowNoLinkage}>
-          <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -1184,33 +1209,49 @@ export default function AdminRunDetailPage() {
             </p>
             <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
               <div className="space-y-2">
-                {mycoMapAnalysis?.noAnalysisLinkageIds?.map((key) => {
+                {(mycoMapAnalysis?.noAnalysisLinkageDetails || mycoMapAnalysis?.noAnalysisLinkageIds?.map((key: string) => {
                   const [platform, obsId] = key.split(':');
-                  const isInat = platform === 'iNaturalist';
-                  const isMO = platform === 'Mushroom Observer';
+                  return { key, platform, obsId };
+                }) || []).map((obs: any) => {
+                  const isInat = obs.platform === 'iNaturalist';
+                  const isMO = obs.platform === 'Mushroom Observer';
                   const url = isInat 
-                    ? `https://www.inaturalist.org/observations/${obsId}`
+                    ? `https://www.inaturalist.org/observations/${obs.obsId}`
                     : isMO 
-                      ? `https://mushroomobserver.org/observations/${obsId}`
+                      ? `https://mushroomobserver.org/observations/${obs.obsId}`
                       : null;
                   return (
-                    <div key={key} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex flex-col">
-                        <span className="text-xs text-gray-500">{platform}</span>
-                        {url ? (
-                          <a 
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-amber-600 hover:underline"
-                          >
-                            {obsId}
-                          </a>
-                        ) : (
-                          <span className="font-medium text-gray-700">{obsId}</span>
-                        )}
+                    <div key={obs.key} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          {obs.scientificName && (
+                            <p className="font-medium text-gray-800 italic truncate">{obs.scientificName}</p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">{obs.platform}</span>
+                            {url ? (
+                              <a 
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-amber-600 hover:underline"
+                              >
+                                #{obs.obsId}
+                              </a>
+                            ) : (
+                              <span className="text-sm text-gray-700">{obs.obsId}</span>
+                            )}
+                          </div>
+                          {(obs.observedOn || obs.location) && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {obs.observedOn && <span>{new Date(obs.observedOn).toLocaleDateString()}</span>}
+                              {obs.observedOn && obs.location && <span> • </span>}
+                              {obs.location && <span>{obs.location}</span>}
+                            </p>
+                          )}
+                        </div>
+                        {url && <ExternalLink className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />}
                       </div>
-                      {url && <ExternalLink className="h-4 w-4 text-gray-400" />}
                     </div>
                   );
                 })}

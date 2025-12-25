@@ -13301,6 +13301,104 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       console.log(`[MycoMap] Final results: successCount=${successKeys.size}, failureCount=${failureKeys.size}, noLinkage=${noAnalysisLinkage.length}, toUpload=${sequencesToUpload.length}`);
       
+      // Enrich no-linkage observations with details from observation_cache
+      type ObsDetail = { key: string; platform: string; obsId: string; scientificName?: string; observedOn?: string; location?: string };
+      let noLinkageDetails: ObsDetail[] = [];
+      
+      if (noAnalysisLinkage.length > 0) {
+        // Parse keys into platform and obsId
+        const noLinkageParsed = noAnalysisLinkage.map(key => {
+          const [platform, obsId] = key.split(':');
+          return { key, platform, obsId };
+        });
+        
+        // Get iNat observations
+        const inatIds = noLinkageParsed.filter(p => p.platform === 'iNaturalist').map(p => p.obsId);
+        const moIds = noLinkageParsed.filter(p => p.platform === 'Mushroom Observer').map(p => p.obsId);
+        
+        const cacheDetails = new Map<string, { scientificName?: string; observedOn?: string; location?: string }>();
+        
+        if (inatIds.length > 0) {
+          try {
+            const idsClause = inatIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+            const cached = await db.execute(sql`
+              SELECT source_observation_id, scientific_name, observed_on, place_guess, state, country
+              FROM observation_cache 
+              WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
+            `);
+            for (const row of (cached.rows || [])) {
+              const r = row as any;
+              cacheDetails.set(`iNaturalist:${r.source_observation_id}`, {
+                scientificName: r.scientific_name,
+                observedOn: r.observed_on,
+                location: r.place_guess || [r.state, r.country].filter(Boolean).join(', ')
+              });
+            }
+          } catch (e) { console.error('[MycoMap] Error fetching iNat details:', e); }
+        }
+        
+        if (moIds.length > 0) {
+          try {
+            const idsClause = moIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+            const cached = await db.execute(sql`
+              SELECT source_observation_id, scientific_name, observed_on, place_guess, state, country
+              FROM observation_cache 
+              WHERE source = 'mo' AND source_observation_id IN (${sql.raw(idsClause)})
+            `);
+            for (const row of (cached.rows || [])) {
+              const r = row as any;
+              cacheDetails.set(`Mushroom Observer:${r.source_observation_id}`, {
+                scientificName: r.scientific_name,
+                observedOn: r.observed_on,
+                location: r.place_guess || [r.state, r.country].filter(Boolean).join(', ')
+              });
+            }
+          } catch (e) { console.error('[MycoMap] Error fetching MO details:', e); }
+        }
+        
+        noLinkageDetails = noLinkageParsed.map(p => ({
+          key: p.key,
+          platform: p.platform,
+          obsId: p.obsId,
+          ...cacheDetails.get(p.key)
+        }));
+      }
+      
+      // Enrich sequences to upload with details
+      let uploadDetails: ObsDetail[] = [];
+      if (sequencesToUpload.length > 0) {
+        try {
+          const idsClause = sequencesToUpload.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+          const cached = await db.execute(sql`
+            SELECT source_observation_id, scientific_name, observed_on, place_guess, state, country
+            FROM observation_cache 
+            WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
+          `);
+          const cacheMap = new Map<string, { scientificName?: string; observedOn?: string; location?: string }>();
+          for (const row of (cached.rows || [])) {
+            const r = row as any;
+            cacheMap.set(r.source_observation_id, {
+              scientificName: r.scientific_name,
+              observedOn: r.observed_on,
+              location: r.place_guess || [r.state, r.country].filter(Boolean).join(', ')
+            });
+          }
+          uploadDetails = sequencesToUpload.map(obsId => ({
+            key: `iNaturalist:${obsId}`,
+            platform: 'iNaturalist',
+            obsId,
+            ...cacheMap.get(obsId)
+          }));
+        } catch (e) { 
+          console.error('[MycoMap] Error fetching upload details:', e);
+          uploadDetails = sequencesToUpload.map(obsId => ({
+            key: `iNaturalist:${obsId}`,
+            platform: 'iNaturalist',
+            obsId
+          }));
+        }
+      }
+      
       res.json({
         hasResults: true,
         uploadedAt: resultsFile.createdAt,
@@ -13308,8 +13406,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         failureCount: failureKeys.size,
         noAnalysisLinkageCount: noAnalysisLinkage.length,
         noAnalysisLinkageIds: noAnalysisLinkage,
+        noAnalysisLinkageDetails: noLinkageDetails,
         sequencesToUploadCount: sequencesToUpload.length,
         sequencesToUploadIds: sequencesToUpload,
+        sequencesToUploadDetails: uploadDetails,
       });
     } catch (error: any) {
       console.error('[MycoMap] Analysis error:', error);
