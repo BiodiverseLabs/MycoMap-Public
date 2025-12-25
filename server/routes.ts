@@ -13619,12 +13619,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         // Compute push_incomplete dynamically - ONLY for iNat records
-        // Skip for removed observations - nothing to push to
+        // Skip for removed observations, duplicates, and curator-only - nothing to push or already handled
         let hasPushIncomplete = false;
         const isInatRecord = spec.primaryObservationSource === 'inat';
         const isRemovedObservation = spec.scientificName === 'Removed' || spec.locality === 'Removed';
+        const hasTerminalFlag = storedFlag === 'duplicate_inat' || storedFlag === 'curator_only';
         
-        if (isInatRecord && cache && !isRemovedObservation) {
+        if (isInatRecord && cache && !isRemovedObservation && !hasTerminalFlag) {
           const herbariumCatalog = cache.herbariumCatalogNumber || '';
           const herbariumName = cache.herbariumName || '';
           const mycoNum = spec.mycoNumber;
@@ -13639,7 +13640,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           else if (herbariumCatalog.includes('MYCO') && !herbariumName && !isWestAlabamaHerbarium) {
             hasPushIncomplete = true;
           }
-        } else if (isInatRecord && spec.mycoNumber && spec.primaryObservationId && !isRemovedObservation) {
+        } else if (isInatRecord && spec.mycoNumber && spec.primaryObservationId && !isRemovedObservation && !hasTerminalFlag) {
           // Has MYCO number but no cache data - definitely push incomplete
           hasPushIncomplete = true;
         }
@@ -13861,10 +13862,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       // Compute push_incomplete dynamically - ONLY for iNat records
+      // Skip for duplicates and curator-only - already handled
       let hasPushIncomplete = false;
       const isInatRecord = specimen.primaryObservationSource === 'inat';
+      const isRemovedObservation = specimen.scientificName === 'Removed' || specimen.locality === 'Removed';
+      const hasTerminalFlag = storedFlag === 'duplicate_inat' || storedFlag === 'curator_only';
       
-      if (isInatRecord && observationData) {
+      if (isInatRecord && observationData && !isRemovedObservation && !hasTerminalFlag) {
         const herbariumCatalog = observationData.herbariumCatalogNumber || '';
         const herbariumName = observationData.herbariumName || '';
         const mycoNum = specimen.mycoNumber;
@@ -13879,7 +13883,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         else if (herbariumCatalog.includes('MYCO') && !herbariumName && !isWestAlabamaHerbarium) {
           hasPushIncomplete = true;
         }
-      } else if (isInatRecord && specimen.mycoNumber && specimen.primaryObservationId) {
+      } else if (isInatRecord && specimen.mycoNumber && specimen.primaryObservationId && !isRemovedObservation && !hasTerminalFlag) {
         // Has MYCO number but no cache data - definitely push incomplete
         hasPushIncomplete = true;
       }
