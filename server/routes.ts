@@ -14242,6 +14242,43 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 } else {
                   const errorBody = await postResponse.text();
                   console.error(`[iNat Push] Failed to create field ${update.field_id}: ${postResponse.status} - ${errorBody}`);
+                  
+                  // Handle 422 "already taken" by refetching and doing a PUT
+                  if (postResponse.status === 422 && errorBody.includes('already been taken')) {
+                    console.log(`[iNat Push] 422 conflict - refetching observation to retry as PUT...`);
+                    try {
+                      const obsRefetch = await fetch(`https://api.inaturalist.org/v1/observations/${specimen.primaryObservationId}`);
+                      if (obsRefetch.ok) {
+                        const obsData = await obsRefetch.json();
+                        const refetchedObs = obsData.results?.[0];
+                        const existingOfv = refetchedObs?.ofvs?.find((f: any) => f.field_id === update.field_id);
+                        if (existingOfv?.id) {
+                          console.log(`[iNat Push] Found existing ofvId=${existingOfv.id}, retrying as PUT...`);
+                          const putRetryResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${existingOfv.id}`, {
+                            method: 'PUT',
+                            headers: {
+                              'Authorization': `Bearer ${inatToken}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              observation_field_value: { value: update.value }
+                            }),
+                          });
+                          if (putRetryResponse.ok) {
+                            inatPushResult.pushed = true;
+                            if (update.field_id === 9539) inatPushResult.herbariumNamePushed = true;
+                            if (update.field_id === 9540) inatPushResult.herbariumCatalogPushed = true;
+                            console.log(`[iNat Push] PUT retry succeeded for field ${update.field_id}`);
+                          } else {
+                            const putRetryError = await putRetryResponse.text();
+                            console.error(`[iNat Push] PUT retry failed: ${putRetryResponse.status} - ${putRetryError}`);
+                          }
+                        }
+                      }
+                    } catch (refetchErr) {
+                      console.error(`[iNat Push] Error refetching observation:`, refetchErr);
+                    }
+                  }
                 }
               }
             } catch (pushError) {
