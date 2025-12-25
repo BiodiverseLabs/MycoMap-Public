@@ -12821,13 +12821,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               const platform = well.platform?.toLowerCase().includes('mushroom') ? 'mo' : 'inat';
               const uuid = randomUUID();
               
-              // Always generate unique MYCO number for displayCode
+              // DO NOT generate MYCO numbers on initial import - they're assigned during accession
               // Lab codes are stored separately in the labCode field and can be duplicated
-              const displayCode = await generateUniqueDisplayCode();
               
               const [newSpecimen] = await db.insert(specimens).values({
                 uuid,
-                displayCode,
+                displayCode: null, // MYCO number assigned during accession, not import
                 intakeSourceType: 'legacy_import',
                 intakeDate: new Date(),
                 primaryObservationSource: well.observationId ? platform : null,
@@ -12915,13 +12914,28 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               
               job.refreshJobId = refreshJobId;
               
-              // Process refresh in background
+              // Process refresh in background - updates BOTH observation_cache AND specimens table
               setImmediate(async () => {
                 const refreshJob = runRefreshJobs.get(refreshJobId)!;
                 const BATCH_SIZE = 200;
                 const DELAY_MS = 1000;
                 
                 try {
+                  // Pre-fetch specimen mapping for all observation IDs
+                  const specimensByObsId = new Map<string, number>();
+                  const specimensList = await db.select({ 
+                    id: specimens.id, 
+                    primaryObservationId: specimens.primaryObservationId 
+                  })
+                    .from(specimens)
+                    .where(and(
+                      eq(specimens.primaryObservationSource, 'inat'),
+                      inArray(specimens.primaryObservationId, uniqueObsIds)
+                    ));
+                  specimensList.forEach(s => {
+                    if (s.primaryObservationId) specimensByObsId.set(s.primaryObservationId, s.id);
+                  });
+                  
                   for (let i = 0; i < uniqueObsIds.length; i += BATCH_SIZE) {
                     const batch = uniqueObsIds.slice(i, i + BATCH_SIZE);
                     const idsParam = batch.join(',');
@@ -12939,9 +12953,40 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                       const data = await response.json();
                       const observations = data.results || [];
                       
+                      // Pre-fetch all place_ids for location extraction
+                      const allPlaceIds = new Set<number>();
+                      for (const obs of observations) {
+                        if (obs.place_ids && Array.isArray(obs.place_ids)) {
+                          obs.place_ids.forEach((id: number) => allPlaceIds.add(id));
+                        }
+                      }
+                      if (allPlaceIds.size > 0) {
+                        await fetchPlaces(Array.from(allPlaceIds));
+                      }
+                      
                       for (const obs of observations) {
                         const obsIdStr = String(obs.id);
-                        const dnaBarcodeIts = obs.ofvs?.find((f: any) => f.field_id === 2330)?.value || null;
+                        
+                        // Extract observation fields
+                        const getField = (fieldId: number) => obs.ofvs?.find((f: any) => f.field_id === fieldId)?.value || null;
+                        const dnaBarcodeIts = getField(2330);
+                        const voucherNumber = getField(8257);
+                        const voucherNumberMultiple = getField(2863);
+                        const herbariumName = getField(9539);
+                        const herbariumCatalogNumber = getField(9540);
+                        const genbankAccession = getField(7555);
+                        const provisionalSpeciesName = getField(10675);
+                        const speciesNameOverride = getField(20259);
+                        const collectorsName = getField(9051);
+                        
+                        // Extract location
+                        let specimenState: string | null = null;
+                        let specimenCountry: string | null = null;
+                        try {
+                          const location = await extractLocationFromObservation(obs);
+                          specimenState = location.stateCode || location.stateName || null;
+                          specimenCountry = location.countryCode || location.countryName || null;
+                        } catch (locErr) { /* continue */ }
                         
                         const [existing] = await db.select({ id: observationCache.id })
                           .from(observationCache)
@@ -12959,15 +13004,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                           observedOn: obs.observed_on ? new Date(obs.observed_on) : null,
                           latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
                           longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
-                          locality: obs.place_guess || null,
-                          stateProvince: null,
-                          countryCode: null,
+                          locality: obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null),
+                          stateProvince: specimenState,
+                          countryCode: specimenCountry,
                           dnaBarcodeIts,
-                          voucherNumber: obs.ofvs?.find((f: any) => f.field_id === 14618)?.value || null,
-                          herbariumName: obs.ofvs?.find((f: any) => f.field_id === 9539)?.value || null,
-                          herbariumCatalogNumber: obs.ofvs?.find((f: any) => f.field_id === 9540)?.value || null,
-                          genbankAccession: obs.ofvs?.find((f: any) => [15353, 15324, 7555].includes(f.field_id))?.value || null,
-                          apiResponseJson: obs,
+                          voucherNumber: voucherNumber || voucherNumberMultiple || null,
+                          herbariumName,
+                          herbariumCatalogNumber,
+                          genbankAccession,
+                          provisionalSpeciesName,
+                          speciesNameOverride,
+                          collectorsName,
+                          apiResponseJson: obs, // Store raw JSON object, not stringified
                           updatedAt: new Date(),
                         };
                         
@@ -12975,6 +13023,39 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                           await db.update(observationCache).set(cacheData).where(eq(observationCache.id, existing.id));
                         } else {
                           await db.insert(observationCache).values(cacheData);
+                        }
+                        
+                        // Update the specimens table with metadata from iNaturalist
+                        const specimenId = specimensByObsId.get(obsIdStr);
+                        if (specimenId) {
+                          const inatBaseName = obs.taxon?.name || obs.species_guess || null;
+                          const collectorNameResolved = collectorsName || obs.user?.name || obs.user?.login || null;
+                          const apiLocality = obs.geoprivacy === 'private' ? 'Private' : (obs.place_guess || null);
+                          
+                          // Get current specimen status to avoid overwriting
+                          const [currentSpec] = await db.select({ currentStatus: specimens.currentStatus })
+                            .from(specimens).where(eq(specimens.id, specimenId));
+                          
+                          const specimenUpdate: any = {
+                            scientificName: getInatScientificName(inatBaseName, provisionalSpeciesName, speciesNameOverride) || null,
+                            collectorName: collectorNameResolved,
+                            collectionDate: obs.observed_on || null,
+                            voucherNumber: voucherNumber || voucherNumberMultiple || null,
+                          };
+                          
+                          if (apiLocality) specimenUpdate.locality = apiLocality;
+                          if (specimenState) specimenUpdate.state = specimenState;
+                          if (specimenCountry) specimenUpdate.country = specimenCountry;
+                          if (obs.geojson?.coordinates?.[1]) specimenUpdate.latitude = obs.geojson.coordinates[1].toString();
+                          if (obs.geojson?.coordinates?.[0]) specimenUpdate.longitude = obs.geojson.coordinates[0].toString();
+                          if (obs.taxon?.name) specimenUpdate.genus = obs.taxon.name.split(' ')[0];
+                          
+                          // Update status to sequenced if DNA barcode exists and current status is not already sequenced
+                          if (dnaBarcodeIts && currentSpec?.currentStatus !== 'sequenced') {
+                            specimenUpdate.currentStatus = 'sequenced';
+                          }
+                          
+                          await db.update(specimens).set(specimenUpdate).where(eq(specimens.id, specimenId));
                         }
                         
                         if (dnaBarcodeIts) refreshJob.withDnaBarcode++;
