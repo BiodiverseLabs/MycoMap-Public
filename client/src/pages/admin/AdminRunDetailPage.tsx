@@ -195,13 +195,14 @@ export default function AdminRunDetailPage() {
     progress: number;
     error?: string;
     refreshStatus?: {
-      jobId: string;
-      status: 'running' | 'completed' | 'error';
+      jobId?: string;
+      status: 'running' | 'syncing' | 'completed' | 'error';
       total: number;
       processed: number;
       withDnaBarcode: number;
       progress: number;
       successRate: number;
+      message?: string;
     };
   } | null>(null);
   
@@ -342,6 +343,7 @@ export default function AdminRunDetailPage() {
 
   // Handle progress data changes in useEffect to avoid render-phase updates
   const progressRef = useRef<typeof progressData>(null);
+  const completionToastShown = useRef(false);
   useEffect(() => {
     if (!progressData || !specimenJobId) return;
     if (progressRef.current === progressData) return;
@@ -351,11 +353,13 @@ export default function AdminRunDetailPage() {
     setSpecimenProgress(progressData);
     
     if (progressData.status === 'completed' || progressData.status === 'error') {
-      // Check if refresh is still running
-      const refreshStillRunning = progressData.refreshStatus?.status === 'running';
+      // Check if refresh is still running (handle both 'running' and 'syncing' statuses)
+      const refreshStatus = progressData.refreshStatus?.status;
+      const refreshStillRunning = refreshStatus === 'running' || refreshStatus === 'syncing';
       
-      if (progressData.status === 'completed' && !refreshStillRunning) {
-        // Both specimen generation and refresh are done
+      if (progressData.status === 'completed' && !refreshStillRunning && !completionToastShown.current) {
+        // Both specimen generation and refresh are done - show toast only once
+        completionToastShown.current = true;
         if (progressData.refreshStatus) {
           toast({ 
             title: "Import Complete", 
@@ -382,6 +386,13 @@ export default function AdminRunDetailPage() {
       // If refresh is still running, keep polling
     }
   }, [progressData, specimenJobId, toast, runId]);
+  
+  // Reset completion toast flag when job changes
+  useEffect(() => {
+    if (!specimenJobId) {
+      completionToastShown.current = false;
+    }
+  }, [specimenJobId]);
 
   const deleteFileMutation = useMutation({
     mutationFn: async (fileId: number) => {
@@ -1581,7 +1592,7 @@ export default function AdminRunDetailPage() {
                     <div className="border-t pt-4 mt-4 space-y-3">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600 flex items-center gap-2">
-                          <Loader2 className={`h-3 w-3 ${specimenProgress.refreshStatus.status === 'running' ? 'animate-spin' : ''}`} />
+                          <Loader2 className={`h-3 w-3 ${specimenProgress.refreshStatus.status === 'running' || specimenProgress.refreshStatus.status === 'syncing' ? 'animate-spin' : ''}`} />
                           {specimenProgress.refreshStatus.status === 'completed' 
                             ? 'iNaturalist data refreshed' 
                             : 'Refreshing from iNaturalist...'}
@@ -1602,9 +1613,10 @@ export default function AdminRunDetailPage() {
                     </div>
                   )}
                   
-                  {/* Done Button */}
+                  {/* Done Button - show when generation is complete AND refresh is not running/syncing */}
                   {specimenProgress.status === 'completed' && 
-                   (!specimenProgress.refreshStatus || specimenProgress.refreshStatus.status === 'completed') && (
+                   (!specimenProgress.refreshStatus || 
+                    (specimenProgress.refreshStatus.status !== 'running' && specimenProgress.refreshStatus.status !== 'syncing')) && (
                     <div className="pt-2">
                       <Button 
                         className="w-full bg-[#8CBD45] hover:bg-[#7AAD35]"
