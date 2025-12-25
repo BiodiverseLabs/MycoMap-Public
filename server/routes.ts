@@ -15305,6 +15305,41 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                             succeeded = true;
                             break;
                           }
+                          // Handle 422 "already taken" by fetching the observation and doing a PUT instead
+                          if (postResponse.status === 422 && responseText.includes('already been taken')) {
+                            console.log(`[BulkRefresh Push] 422 conflict - fetching observation to retry as PUT...`);
+                            try {
+                              const obsRefetch = await fetch(`https://api.inaturalist.org/v1/observations/${fp.obsId}`);
+                              if (obsRefetch.ok) {
+                                const obsData = await obsRefetch.json();
+                                const obs = obsData.results?.[0];
+                                const existingOfv = obs?.ofvs?.find((f: any) => f.field_id === fp.fieldId);
+                                if (existingOfv?.id) {
+                                  console.log(`[BulkRefresh Push] Found existing ofvId=${existingOfv.id}, retrying as PUT...`);
+                                  const putRetryResponse = await fetch(`https://api.inaturalist.org/v1/observation_field_values/${existingOfv.id}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Authorization': `Bearer ${inatToken}`,
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      observation_field_value: { value: fp.value }
+                                    }),
+                                  });
+                                  const putRetryText = await putRetryResponse.text();
+                                  console.log(`[BulkRefresh Push] PUT retry response ${putRetryResponse.status}: ${putRetryText.substring(0, 200)}`);
+                                  if (putRetryResponse.ok) {
+                                    results.push({ ok: true, fp, status: putRetryResponse.status });
+                                    succeeded = true;
+                                    break;
+                                  }
+                                  lastStatus = putRetryResponse.status;
+                                }
+                              }
+                            } catch (refetchErr) {
+                              console.error(`[BulkRefresh Push] Error refetching observation:`, refetchErr);
+                            }
+                          }
                           if (postResponse.status >= 500 && attempt < MAX_RETRIES) {
                             await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
                             continue;
@@ -15348,7 +15383,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                           failedPushes.set(specId, new Set());
                         }
                         failedPushes.get(specId)!.add(fieldId);
-                        if (result.status !== 422) {
+                        // Log all failures, including 422s (but at info level for 422)
+                        if (result.status === 422) {
+                          console.log(`[BulkRefresh Push] Conflict for obs ${result.fp.obsId} field ${result.fp.fieldId}: HTTP 422 (already taken, retry failed)`);
+                        } else {
                           console.error(`[BulkRefresh Push] Failed obs ${result.fp.obsId} field ${result.fp.fieldId}: HTTP ${result.status}`);
                         }
                       }
