@@ -2300,6 +2300,39 @@ export const specimenEvents = pgTable("specimen_events", {
   performedAtIdx: index("specimen_events_performed_at_idx").on(table.performedAt),
 }));
 
+// Specimen-Run associations - junction table for many-to-many relationship
+// A specimen can appear in multiple runs over time (re-sequencing, etc.)
+export const specimenRunAssociations = pgTable("specimen_run_associations", {
+  id: serial("id").primaryKey(),
+  specimenId: integer("specimen_id").notNull().references(() => specimens.id, { onDelete: "cascade" }),
+  runId: integer("run_id").notNull().references(() => labRuns.id, { onDelete: "cascade" }),
+  addedAt: timestamp("added_at").defaultNow(),
+  notes: text("notes"), // Optional context about why specimen is in this run
+}, (table) => ({
+  specimenIdx: index("specimen_run_assoc_specimen_idx").on(table.specimenId),
+  runIdx: index("specimen_run_assoc_run_idx").on(table.runId),
+  uniqueAssoc: unique("specimen_run_unique").on(table.specimenId, table.runId),
+}));
+
+export const specimenRunAssociationsRelations = relations(specimenRunAssociations, ({ one }) => ({
+  specimen: one(specimens, {
+    fields: [specimenRunAssociations.specimenId],
+    references: [specimens.id],
+  }),
+  run: one(labRuns, {
+    fields: [specimenRunAssociations.runId],
+    references: [labRuns.id],
+  }),
+}));
+
+export const insertSpecimenRunAssociationSchema = createInsertSchema(specimenRunAssociations).omit({
+  id: true,
+  addedAt: true,
+});
+
+export type InsertSpecimenRunAssociation = z.infer<typeof insertSpecimenRunAssociationSchema>;
+export type SpecimenRunAssociation = typeof specimenRunAssociations.$inferSelect;
+
 // Relations for specimens
 export const specimensRelations = relations(specimens, ({ one, many }) => ({
   observationCacheRecord: one(observationCache, {
@@ -2310,6 +2343,7 @@ export const specimensRelations = relations(specimens, ({ one, many }) => ({
     fields: [specimens.labRunId],
     references: [labRuns.id],
   }),
+  runAssociations: many(specimenRunAssociations), // Many-to-many with runs
   sources: many(specimenSources),
   events: many(specimenEvents),
 }));
