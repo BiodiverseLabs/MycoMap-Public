@@ -14609,9 +14609,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const isStaleSync = existing?.syncStatus === 'syncing' && 
         existing.updatedAt && new Date(existing.updatedAt) < fiveMinutesAgo;
       
-      // Create or update metadata record - always start fresh when filters change or sync is stale/completed
+      // Create or update metadata record - always start fresh when filters change or sync is stale/completed/cancelled
       const isNewFilter = !existing || existing.filterParams !== filterParamsJson || 
-        existing.syncStatus === 'completed' || isStaleSync;
+        existing.syncStatus === 'completed' || existing.syncStatus === 'cancelled' || 
+        existing.syncStatus === 'completed_with_errors' || isStaleSync;
       const startId = !isNewFilter && existing?.lastProcessedId ? existing.lastProcessedId : 0;
       
       if (existing) {
