@@ -12879,6 +12879,194 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     });
   });
 
+  // ============ RUN iNAT REFRESH ============
+  
+  // In-memory job registry for run-scoped iNat refresh
+  const runRefreshJobs: Map<string, {
+    status: 'running' | 'completed' | 'error';
+    total: number;
+    processed: number;
+    success: number;
+    errors: number;
+    withDnaBarcode: number;
+    error?: string;
+  }> = new Map();
+
+  // Start iNat refresh for specimens in a specific run
+  app.post("/api/admin/runs/:id/refresh-inat", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      const jobId = `run-refresh-${runId}-${Date.now()}`;
+      
+      // Get all plates for this run
+      const plates = await db.select().from(labPlates).where(eq(labPlates.runId, runId));
+      const plateIds = plates.map(p => p.id);
+      
+      if (plateIds.length === 0) {
+        return res.json({ jobId: null, status: 'completed', message: 'No plates in this run' });
+      }
+      
+      // Get wells with iNat observations
+      const wells = await db.select({
+        coreSpecimenId: labWells.coreSpecimenId,
+        observationId: labWells.observationId,
+        platform: labWells.platform,
+      }).from(labWells)
+        .where(and(
+          inArray(labWells.plateId, plateIds),
+          isNotNull(labWells.coreSpecimenId),
+          isNotNull(labWells.observationId),
+          sql`LOWER(${labWells.platform}) NOT LIKE '%mushroom%'` // iNat only
+        ));
+      
+      // Get unique iNat observation IDs
+      const uniqueObsIds = [...new Set(wells.filter(w => w.observationId).map(w => w.observationId!))];
+      
+      if (uniqueObsIds.length === 0) {
+        return res.json({ jobId: null, status: 'completed', message: 'No iNaturalist observations to refresh' });
+      }
+      
+      // Initialize job
+      runRefreshJobs.set(jobId, {
+        status: 'running',
+        total: uniqueObsIds.length,
+        processed: 0,
+        success: 0,
+        errors: 0,
+        withDnaBarcode: 0,
+      });
+      
+      res.json({ jobId, total: uniqueObsIds.length, status: 'running' });
+      
+      // Process in background
+      setImmediate(async () => {
+        const job = runRefreshJobs.get(jobId)!;
+        const BATCH_SIZE = 200;
+        const DELAY_MS = 1000;
+        
+        try {
+          for (let i = 0; i < uniqueObsIds.length; i += BATCH_SIZE) {
+            const batch = uniqueObsIds.slice(i, i + BATCH_SIZE);
+            const idsParam = batch.join(',');
+            
+            try {
+              const inatUrl = `https://api.inaturalist.org/v1/observations?id=${idsParam}&per_page=${BATCH_SIZE}`;
+              const response = await fetch(inatUrl);
+              
+              if (!response.ok) {
+                job.errors += batch.length;
+                job.processed += batch.length;
+                continue;
+              }
+              
+              const data = await response.json();
+              const observations = data.results || [];
+              
+              // Process each observation
+              for (const obs of observations) {
+                const obsIdStr = String(obs.id);
+                
+                // Extract DNA barcode ITS from observation fields
+                const dnaBarcodeIts = obs.ofvs?.find((f: any) => f.field_id === 2330)?.value || null;
+                
+                // Update observation_cache
+                const [existing] = await db.select({ id: observationCache.id })
+                  .from(observationCache)
+                  .where(and(
+                    eq(observationCache.source, 'inat'),
+                    eq(observationCache.sourceObservationId, obsIdStr)
+                  ));
+                
+                const cacheData = {
+                  source: 'inat' as const,
+                  sourceObservationId: obsIdStr,
+                  scientificName: obs.taxon?.name || null,
+                  observerUsername: obs.user?.login || null,
+                  observerName: obs.user?.name || null,
+                  observedOn: obs.observed_on ? new Date(obs.observed_on) : null,
+                  latitude: obs.geojson?.coordinates?.[1]?.toString() || null,
+                  longitude: obs.geojson?.coordinates?.[0]?.toString() || null,
+                  locality: obs.place_guess || null,
+                  stateProvince: null,
+                  countryCode: null,
+                  dnaBarcodeIts,
+                  voucherNumber: obs.ofvs?.find((f: any) => f.field_id === 14618)?.value || null,
+                  herbariumName: obs.ofvs?.find((f: any) => f.field_id === 9539)?.value || null,
+                  herbariumCatalogNumber: obs.ofvs?.find((f: any) => f.field_id === 9540)?.value || null,
+                  genbankAccession: obs.ofvs?.find((f: any) => [15353, 15324, 7555].includes(f.field_id))?.value || null,
+                  apiResponseJson: obs,
+                  updatedAt: new Date(),
+                };
+                
+                if (existing) {
+                  await db.update(observationCache).set(cacheData).where(eq(observationCache.id, existing.id));
+                } else {
+                  await db.insert(observationCache).values(cacheData);
+                }
+                
+                if (dnaBarcodeIts) {
+                  job.withDnaBarcode++;
+                }
+                job.success++;
+              }
+              
+              // Count observations not found in response
+              const foundIds = new Set(observations.map((o: any) => String(o.id)));
+              const notFound = batch.filter(id => !foundIds.has(id));
+              job.errors += notFound.length;
+              
+              job.processed += batch.length;
+              
+            } catch (batchError) {
+              console.error(`[RunRefresh] Batch error:`, batchError);
+              job.errors += batch.length;
+              job.processed += batch.length;
+            }
+            
+            // Delay between batches
+            if (i + BATCH_SIZE < uniqueObsIds.length) {
+              await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+            }
+          }
+          
+          job.status = 'completed';
+        } catch (error: any) {
+          console.error(`[RunRefresh] Job error:`, error);
+          job.status = 'error';
+          job.error = error.message || 'Unknown error';
+        }
+        
+        // Clean up after 10 minutes
+        setTimeout(() => runRefreshJobs.delete(jobId), 10 * 60 * 1000);
+      });
+    } catch (error) {
+      console.error("Error starting run refresh:", error);
+      res.status(500).json({ error: "Failed to start refresh" });
+    }
+  });
+
+  // Get run refresh job status
+  app.get("/api/admin/runs/:id/refresh-inat/status/:jobId", isAdmin, async (req: any, res) => {
+    const jobId = req.params.jobId;
+    const job = runRefreshJobs.get(jobId);
+    
+    if (!job) {
+      return res.status(404).json({ error: "Job not found or expired" });
+    }
+    
+    res.json({
+      status: job.status,
+      total: job.total,
+      processed: job.processed,
+      success: job.success,
+      errors: job.errors,
+      withDnaBarcode: job.withDnaBarcode,
+      error: job.error,
+      progress: job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0,
+      successRate: job.processed > 0 ? Math.round((job.withDnaBarcode / job.processed) * 100) : 0,
+    });
+  });
+
   // ============ RUN FILE GENERATION ============
 
   // Get files for a run
