@@ -993,8 +993,8 @@ export default function AdminSpecimensPage() {
                 )}
               </div>
 
-              {/* iNaturalist Observation Fields */}
-              {specimenDetail.observationData && (
+              {/* iNaturalist Observation Fields - only show for iNat specimens */}
+              {specimenDetail.observationData && specimenDetail.primaryObservationSource === 'inat' && (
                 <div className="border-t pt-4">
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">iNaturalist Observation Fields</p>
                   <div className="grid grid-cols-2 gap-3 text-sm">
