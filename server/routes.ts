@@ -13373,11 +13373,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }));
       }
       
-      // Enrich sequences to upload with details
+      // Enrich sequences to upload with details (including specimenId for refresh)
       let uploadDetails: ObsDetail[] = [];
       if (sequencesToUpload.length > 0) {
         try {
           const idsClause = sequencesToUpload.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+          
+          // Get cache details
           const cached = await db.execute(sql`
             SELECT source_observation_id, scientific_name, observed_on, place_guess, state, country
             FROM observation_cache 
@@ -13392,10 +13394,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               location: r.place_guess || [r.state, r.country].filter(Boolean).join(', ')
             });
           }
+          
+          // Get specimen IDs for these observations
+          const specimensResult = await db.execute(sql`
+            SELECT id, primary_observation_id
+            FROM specimens
+            WHERE primary_observation_source = 'inat' AND primary_observation_id IN (${sql.raw(idsClause)})
+          `);
+          const specimenMap = new Map<string, number>();
+          for (const row of (specimensResult.rows || [])) {
+            const r = row as any;
+            if (r.primary_observation_id) {
+              specimenMap.set(r.primary_observation_id, r.id);
+            }
+          }
+          
           uploadDetails = sequencesToUpload.map(obsId => ({
             key: `iNaturalist:${obsId}`,
             platform: 'iNaturalist',
             obsId,
+            specimenId: specimenMap.get(obsId),
             ...cacheMap.get(obsId)
           }));
         } catch (e) { 

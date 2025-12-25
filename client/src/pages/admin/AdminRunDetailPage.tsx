@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload, RefreshCw } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +50,7 @@ interface ObsDetail {
   key: string;
   platform: string;
   obsId: string;
+  specimenId?: number;
   scientificName?: string;
   observedOn?: string;
   location?: string;
@@ -214,6 +215,7 @@ export default function AdminRunDetailPage() {
   const mycoMapFailureInputRef = useRef<HTMLInputElement>(null);
   const [showSequencesToUpload, setShowSequencesToUpload] = useState(false);
   const [showNoLinkage, setShowNoLinkage] = useState(false);
+  const [refreshingSpecimenIds, setRefreshingSpecimenIds] = useState<Set<number>>(new Set());
   const [dragOverSuccess, setDragOverSuccess] = useState(false);
   const [dragOverFailure, setDragOverFailure] = useState(false);
   const [specimenJobId, setSpecimenJobId] = useState<string | null>(null);
@@ -637,6 +639,27 @@ export default function AdminRunDetailPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update title", variant: "destructive" });
+    },
+  });
+
+  const refreshSpecimenMutation = useMutation({
+    mutationFn: async (specimenId: number) => {
+      setRefreshingSpecimenIds(prev => new Set(prev).add(specimenId));
+      return apiRequest('POST', `/api/admin/specimens/${specimenId}/refresh`, {});
+    },
+    onSuccess: async () => {
+      await refetchMycoMapAnalysis();
+      toast({ title: "Refreshed", description: "Specimen data refreshed from iNaturalist" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to refresh specimen", variant: "destructive" });
+    },
+    onSettled: (_, __, specimenId) => {
+      setRefreshingSpecimenIds(prev => {
+        const next = new Set(prev);
+        next.delete(specimenId);
+        return next;
+      });
     },
   });
 
@@ -1186,7 +1209,32 @@ export default function AdminRunDetailPage() {
                           </p>
                         )}
                       </div>
-                      <ExternalLink className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        {obs.specimenId && (
+                          <button
+                            onClick={() => refreshSpecimenMutation.mutate(obs.specimenId)}
+                            disabled={refreshingSpecimenIds.has(obs.specimenId)}
+                            className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50"
+                            title="Refresh from iNaturalist"
+                            data-testid={`btn-refresh-specimen-${obs.specimenId}`}
+                          >
+                            {refreshingSpecimenIds.has(obs.specimenId) ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                        <a
+                          href={`https://www.inaturalist.org/observations/${obs.obsId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Open in iNaturalist"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
                     </div>
                   </div>
                 ))}
