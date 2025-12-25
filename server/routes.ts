@@ -13242,10 +13242,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           observationId: labWells.observationId 
         })
           .from(labWells)
-          .where(and(
-            inArray(labWells.plateId, plateIds),
-            isNotNull(labWells.observationId)
-          ));
+          .where(inArray(labWells.plateId, plateIds));
+        // Filter in JavaScript instead of SQL to avoid drizzle isNotNull issues
         runKeys = runWells
           .filter(w => w.platform && w.observationId)
           .map(w => `${w.platform}:${w.observationId}`);
@@ -13270,17 +13268,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       let sequencesToUpload: string[] = [];
       if (uniqueInatSuccessIds.length > 0) {
         // Get observations that have DNA barcode in our cache
-        const cachedWithSequence = await db.select({ sourceObservationId: observationCache.sourceObservationId })
+        const cachedWithSequence = await db.select({ 
+          sourceObservationId: observationCache.sourceObservationId,
+          dnaBarcodeIts: observationCache.dnaBarcodeIts
+        })
           .from(observationCache)
           .where(and(
             eq(observationCache.source, 'inat'),
-            inArray(observationCache.sourceObservationId, uniqueInatSuccessIds),
-            isNotNull(observationCache.dnaBarcodeIts)
+            inArray(observationCache.sourceObservationId, uniqueInatSuccessIds)
           ));
         
-        // Filter out empty strings in JS
+        // Filter for non-null, non-empty DNA barcodes in JS to avoid drizzle SQL issues
         const cachedIds = new Set(cachedWithSequence
-          .filter(c => c.sourceObservationId && c.sourceObservationId.trim() !== '')
+          .filter(c => c.sourceObservationId && c.dnaBarcodeIts && c.dnaBarcodeIts.trim() !== '')
           .map(c => c.sourceObservationId));
         sequencesToUpload = uniqueInatSuccessIds.filter(id => !cachedIds.has(id));
       }
