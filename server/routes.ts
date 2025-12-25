@@ -15009,12 +15009,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           // Track specimens that need metadata flag changes
           const metadataFlagUpdates: { id: number; flag: string | null }[] = [];
           
+          let metadataSkippedNoObs = 0;
+          let metadataSkippedConflict = 0;
+          let metadataStillMissing = 0;
+          let metadataCleared = 0;
+          
           for (const spec of batch) {
             const obs = resultsMap.get(spec.primaryObservationId!);
-            if (!obs) continue;
+            if (!obs) {
+              metadataSkippedNoObs++;
+              continue;
+            }
             
             // Skip if specimen has a conflict flag that takes precedence
             if (spec.inatFieldConflict && ['herbarium_catalog_conflict', 'herbarium_name_conflict', 'both_conflict'].includes(spec.inatFieldConflict)) {
+              metadataSkippedConflict++;
               continue;
             }
             
@@ -15054,8 +15063,16 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             } else if (!missingMetadata && spec.inatFieldConflict === 'metadata') {
               // Clear metadata flag - data is now complete
               metadataFlagUpdates.push({ id: spec.id, flag: null });
+              metadataCleared++;
+            }
+            
+            if (spec.inatFieldConflict === 'metadata' && missingMetadata) {
+              metadataStillMissing++;
             }
           }
+          
+          // Log metadata processing stats
+          console.log(`[BulkRefresh] Metadata check: ${batch.length} specimens, skippedNoObs=${metadataSkippedNoObs}, skippedConflict=${metadataSkippedConflict}, stillMissing=${metadataStillMissing}, cleared=${metadataCleared}`);
           
           // Apply metadata flag updates
           if (metadataFlagUpdates.length > 0) {
