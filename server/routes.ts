@@ -12810,11 +12810,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Batch link existing specimens
+            // Batch link existing specimens and update their labRunId
             for (const link of wellsToLink) {
               await db.update(labWells)
                 .set({ coreSpecimenId: link.specimenId, updatedAt: new Date() })
                 .where(eq(labWells.id, link.wellId));
+              // Also link the specimen to this run if not already linked
+              await db.update(specimens)
+                .set({ labRunId: runId })
+                .where(and(eq(specimens.id, link.specimenId), isNull(specimens.labRunId)));
             }
             
             // Batch create new specimens
@@ -12838,6 +12842,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 locality: well.state ? `${well.state}, ${well.country || 'USA'}` : null,
                 currentStatus: 'pending_accession',
                 statusChangedAt: new Date(),
+                labRunId: runId, // Link specimen to the sequencing run
               }).returning();
               
               // Add to lookup maps for future chunks
