@@ -11,7 +11,7 @@ import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
 import { db, pool } from "./db";
-import { sql, eq, desc, and, gte, lte, inArray, or, isNotNull, isNull } from "drizzle-orm";
+import { sql, eq, ne, desc, and, gte, lte, inArray, or, isNotNull, isNull } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { extractLocationFromObservation, normalizeState, normalizeCountry, fetchPlaces } from "./locationService";
@@ -13269,7 +13269,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             eq(observationCache.source, 'inat'),
             inArray(observationCache.sourceObservationId, uniqueInatSuccessIds),
             isNotNull(observationCache.dnaBarcodeIts),
-            sql`${observationCache.dnaBarcodeIts} != ''`
+            ne(observationCache.dnaBarcodeIts, '')
           ));
         
         const cachedIds = new Set(cachedWithSequence.map(c => c.sourceObservationId));
