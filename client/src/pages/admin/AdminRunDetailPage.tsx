@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload, RefreshCw } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload, RefreshCw, FileQuestion } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,6 +67,8 @@ interface MycoMapAnalysis {
   sequencesToUploadCount?: number;
   sequencesToUploadIds?: string[];
   sequencesToUploadDetails?: ObsDetail[];
+  onSheetsNotRunCount?: number;
+  onSheetsNotRunIds?: string[];
 }
 
 interface Plate {
@@ -215,6 +217,7 @@ export default function AdminRunDetailPage() {
   const mycoMapFailureInputRef = useRef<HTMLInputElement>(null);
   const [showSequencesToUpload, setShowSequencesToUpload] = useState(false);
   const [showNoLinkage, setShowNoLinkage] = useState(false);
+  const [showOnSheetsNotRun, setShowOnSheetsNotRun] = useState(false);
   const [refreshingSpecimenIds, setRefreshingSpecimenIds] = useState<Set<number>>(new Set());
   const [dragOverSuccess, setDragOverSuccess] = useState(false);
   const [dragOverFailure, setDragOverFailure] = useState(false);
@@ -1086,7 +1089,7 @@ export default function AdminRunDetailPage() {
               <BarChart3 className="h-5 w-5 text-blue-600" />
               MycoMap Sequence Analysis
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {/* Successful Observations */}
               <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-4 border border-green-100 hover:shadow-md transition-all">
                 <div className="flex items-center gap-2 mb-3">
@@ -1166,6 +1169,33 @@ export default function AdminRunDetailPage() {
                   {(mycoMapAnalysis.sequencesToUploadCount || 0) > 0 
                     ? 'Click to view observation IDs' 
                     : 'success but no sequence in cache'}
+                </p>
+              </div>
+
+              {/* On Sheets Not Run - Clickable */}
+              <div 
+                className={`bg-gradient-to-br from-purple-50 to-white rounded-xl p-4 border border-purple-100 hover:shadow-md transition-all ${
+                  (mycoMapAnalysis.onSheetsNotRunCount || 0) > 0 ? 'cursor-pointer hover:border-purple-300' : ''
+                }`}
+                onClick={() => {
+                  if ((mycoMapAnalysis.onSheetsNotRunCount || 0) > 0) {
+                    setShowOnSheetsNotRun(true);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <FileQuestion className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">On Sheets Not Run</span>
+                </div>
+                <p className="text-3xl font-bold text-purple-600" data-testid="stat-mycomap-sheets-not-run">
+                  {mycoMapAnalysis.onSheetsNotRunCount || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {(mycoMapAnalysis.onSheetsNotRunCount || 0) > 0 
+                    ? 'Click to view observation IDs' 
+                    : 'in CSV but not in run'}
                 </p>
               </div>
             </div>
@@ -1287,6 +1317,58 @@ export default function AdminRunDetailPage() {
                             rel="noopener noreferrer"
                             className="p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-amber-600 transition-colors flex-shrink-0 ml-2"
                             title={`Open in ${obs.platform}`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* On Sheets Not Run Dialog */}
+        <Dialog open={showOnSheetsNotRun} onOpenChange={setShowOnSheetsNotRun}>
+          <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileQuestion className="h-5 w-5 text-purple-600" />
+                On Sheets Not Run ({mycoMapAnalysis?.onSheetsNotRunCount || 0})
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-600 mb-3">
+              These observations are in the uploaded MycoMap CSV files but weren't found in this sequencing run.
+            </p>
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
+              <div className="space-y-2">
+                {(mycoMapAnalysis?.onSheetsNotRunIds || []).map((key: string) => {
+                  const [platform, obsId] = key.split(':');
+                  const isInat = platform === 'iNaturalist';
+                  const isMO = platform === 'Mushroom Observer';
+                  const url = isInat 
+                    ? `https://www.inaturalist.org/observations/${obsId}`
+                    : isMO 
+                      ? `https://mushroomobserver.org/observations/${obsId}`
+                      : null;
+                  return (
+                    <div key={key} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">{platform}</span>
+                            <span className="text-sm text-gray-700">#{obsId}</span>
+                          </div>
+                        </div>
+                        {url && (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-purple-600 transition-colors flex-shrink-0 ml-2"
+                            title={`Open in ${platform}`}
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>

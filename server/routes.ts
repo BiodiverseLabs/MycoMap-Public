@@ -13469,6 +13469,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const runSuccessCount = successOnly.length + inBoth.length;
       const runFailureCount = failureOnly.length;
       
+      // Calculate "On Sheets Not Run" - observations in the MycoMap CSVs but NOT in this run
+      const runKeysSet = new Set(uniqueRunKeys);
+      const onSheetsNotRun = [...allMycoMapKeys].filter(key => !runKeysSet.has(key));
+      console.log(`  On sheets not run: ${onSheetsNotRun.length}`);
+      
       res.json({
         hasResults: true,
         uploadedAt: resultsFile.createdAt,
@@ -13480,6 +13485,9 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         sequencesToUploadCount: sequencesToUpload.length,
         sequencesToUploadIds: sequencesToUpload,
         sequencesToUploadDetails: uploadDetails,
+        // On Sheets Not Run - observations in CSV but not in this run
+        onSheetsNotRunCount: onSheetsNotRun.length,
+        onSheetsNotRunIds: onSheetsNotRun,
         // Diagnostic info
         diagnostics: {
           totalRunKeys: uniqueRunKeys.length,
