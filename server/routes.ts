@@ -1052,7 +1052,7 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
           pushUrl.searchParams.set('api_key', process.env.MUSHROOM_OBSERVER_API_KEY);
           pushUrl.searchParams.set('format', 'json');
           pushUrl.searchParams.set('observation', moObsIdNumeric);
-          pushUrl.searchParams.set('herbarium', 'Mycota Fungarium (MYCO)');
+          pushUrl.searchParams.set('herbarium', 'MYCO - Mycota Fungarium');
           pushUrl.searchParams.set('initial_det', scientificName || '');
           pushUrl.searchParams.set('accession_number', mycoNumber);
           
