@@ -1069,9 +1069,15 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
             };
           } else {
             console.error(`[MO Push] Failed to create herbarium record:`, pushData);
+            // Extract error message from MO API response
+            let errorMsg = 'Failed to create herbarium record';
+            if (pushData.errors && Array.isArray(pushData.errors) && pushData.errors.length > 0) {
+              const firstError = pushData.errors[0];
+              errorMsg = firstError.details || firstError.code || JSON.stringify(firstError);
+            }
             herbariumPushResult = { 
               success: false, 
-              message: pushData.errors?.join(', ') || 'Failed to create herbarium record' 
+              message: errorMsg 
             };
           }
         }
