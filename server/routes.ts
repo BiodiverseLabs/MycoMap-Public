@@ -13196,12 +13196,22 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
       
       // Extract unique platform:observationId keys from results
-      // Uses _platform and _obsId fields added during upload
+      // Uses _platform and _obsId fields if present, otherwise falls back to original column names
       const extractPlatformObsKeys = (rows: any[]): Set<string> => {
         const keys = new Set<string>();
         for (const row of rows) {
-          const platform = row._platform || '';
-          const obsId = row._obsId || '';
+          // Try _platform/_obsId first (new format), then fall back to original columns
+          let platform = row._platform || '';
+          let obsId = row._obsId || '';
+          
+          if (!platform || !obsId) {
+            // Fall back to original column names
+            const sourceDb = row['Source Database'] || row['source_database'] || '';
+            const refNumber = row['Reference Number'] || row['reference_number'] || '';
+            platform = normalizeMycoMapPlatform(sourceDb);
+            obsId = refNumber;
+          }
+          
           if (platform && obsId) {
             keys.add(`${platform}:${obsId}`);
           }
