@@ -14515,8 +14515,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           // Dynamic flag: iNat records with push incomplete status
           // Condition 1: Has MYCO number but cache missing catalog/name
           // Condition 2: Cache has MYCO in catalog but missing herbarium_name
+          // Excludes: Removed specimens, duplicates, and curator_only
           flagConditions.push(sql`(
             ${specimens.primaryObservationSource} = 'inat'
+            AND ${specimens.scientificName} != 'Removed'
+            AND (${specimens.inatFieldConflict} IS NULL OR ${specimens.inatFieldConflict} NOT IN ('duplicate_inat', 'curator_only'))
             AND (
               (
                 ${specimens.mycoNumber} IS NOT NULL
@@ -14540,11 +14543,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           )`);
         } else if (flag === 'herbarium_catalog_conflict') {
           // Dynamic flag: catalog conflict includes stored conflicts + specimens without MYCO but with catalog data
+          // Excludes: Removed specimens
           flagConditions.push(sql`(
             ${specimens.inatFieldConflict} = 'herbarium_catalog_conflict'
             OR ${specimens.inatFieldConflict} = 'both_conflict'
             OR (
               ${specimens.primaryObservationSource} = 'inat'
+              AND ${specimens.scientificName} != 'Removed'
               AND ${specimens.mycoNumber} IS NULL
               AND EXISTS (
                 SELECT 1 FROM observation_cache oc 
