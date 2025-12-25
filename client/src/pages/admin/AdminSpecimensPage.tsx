@@ -381,8 +381,19 @@ export default function AdminSpecimensPage() {
       const res = await apiRequest("POST", `/api/admin/specimens/${specimenId}/refresh`);
       return res.json();
     },
-    onSuccess: () => {
-      toast({ title: "Refreshed", description: "Specimen data updated from observation" });
+    onSuccess: (data) => {
+      let description = "Specimen data updated from observation";
+      
+      // Include herbarium push result if available (MO only)
+      if (data.herbariumPush) {
+        if (data.herbariumPush.success) {
+          description += `. MO: ${data.herbariumPush.message}`;
+        } else {
+          description += `. MO push failed: ${data.herbariumPush.message}`;
+        }
+      }
+      
+      toast({ title: "Refreshed", description });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/specimens"] });
     },
     onError: (error: Error) => {
