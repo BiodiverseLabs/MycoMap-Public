@@ -13044,6 +13044,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
 
   // ============ MYCOMAP RESULTS UPLOAD ============
   
+  // Helper to normalize platform names from CSV to database format
+  const normalizeMycoMapPlatform = (sourceDb: string): string => {
+    const normalized = sourceDb?.toLowerCase().trim() || '';
+    if (normalized === 'inat' || normalized === 'inaturalist') return 'iNaturalist';
+    if (normalized === 'mo' || normalized === 'mushroom observer') return 'Mushroom Observer';
+    return sourceDb;
+  };
+  
   // Upload MycoMap success/failure CSV files for a run
   app.post("/api/admin/runs/:id/mycomap-results", isAdmin, uploadMemory.fields([
     { name: 'successFile', maxCount: 1 },
@@ -13053,9 +13061,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const runId = parseInt(req.params.id);
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
-      let successCount = 0;
-      let failureCount = 0;
       const results: { success: any[]; failure: any[] } = { success: [], failure: [] };
+      const uniqueSuccess = new Set<string>();
+      const uniqueFailure = new Set<string>();
+      const dateStr = new Date().toISOString().slice(0,10);
       
       // Process success file
       if (files.successFile && files.successFile[0]) {
@@ -13072,9 +13081,28 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           headers?.forEach((h, idx) => {
             row[h] = values[idx] || '';
           });
-          results.success.push(row);
-          successCount++;
+          
+          // Extract platform and observation ID using proper column names
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          const platform = normalizeMycoMapPlatform(sourceDb);
+          const key = `${platform}:${refNumber}`;
+          
+          if (refNumber && !uniqueSuccess.has(key)) {
+            uniqueSuccess.add(key);
+            results.success.push({ ...row, _platform: platform, _obsId: refNumber });
+          }
         }
+        
+        // Store original success CSV in Generated Files
+        await db.insert(labRunFiles).values({
+          runId,
+          fileType: 'generated',
+          filename: `mycomap_success_${dateStr}.csv`,
+          mimeType: 'text/csv',
+          content: files.successFile[0].buffer,
+          size: files.successFile[0].buffer.length,
+        });
       }
       
       // Process failure file
@@ -13092,14 +13120,33 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           headers?.forEach((h, idx) => {
             row[h] = values[idx] || '';
           });
-          results.failure.push(row);
-          failureCount++;
+          
+          // Extract platform and observation ID using proper column names
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          const platform = normalizeMycoMapPlatform(sourceDb);
+          const key = `${platform}:${refNumber}`;
+          
+          if (refNumber && !uniqueFailure.has(key)) {
+            uniqueFailure.add(key);
+            results.failure.push({ ...row, _platform: platform, _obsId: refNumber });
+          }
         }
+        
+        // Store original failure CSV in Generated Files
+        await db.insert(labRunFiles).values({
+          runId,
+          fileType: 'generated',
+          filename: `mycomap_failure_${dateStr}.csv`,
+          mimeType: 'text/csv',
+          content: files.failureFile[0].buffer,
+          size: files.failureFile[0].buffer.length,
+        });
       }
       
-      // Store results as run files for later comparison
+      // Store parsed results as JSON for analysis
       const resultsJson = JSON.stringify(results, null, 2);
-      const filename = `mycomap_results_${new Date().toISOString().slice(0,10)}.json`;
+      const filename = `mycomap_results_${dateStr}.json`;
       
       // Save to labRunFiles
       await db.insert(labRunFiles).values({
@@ -13111,13 +13158,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         size: resultsJson.length,
       });
       
-      console.log(`[MycoMap] Uploaded results for run ${runId}: ${successCount} success, ${failureCount} failure records`);
+      console.log(`[MycoMap] Uploaded results for run ${runId}: ${uniqueSuccess.size} unique success, ${uniqueFailure.size} unique failure records`);
       
       res.json({
         success: true,
-        successCount,
-        failureCount,
-        message: `Processed ${successCount} success and ${failureCount} failure records`
+        successCount: uniqueSuccess.size,
+        failureCount: uniqueFailure.size,
+        message: `Processed ${uniqueSuccess.size} unique success and ${uniqueFailure.size} unique failure records`
       });
     } catch (error: any) {
       console.error('[MycoMap] Upload error:', error);
@@ -13148,66 +13195,79 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const resultsJson = resultsFile.content?.toString('utf-8') || '{}';
       const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
       
-      // Extract observation IDs from success and failure CSVs
-      // Look for common column names that might contain observation IDs
-      const extractObsIds = (rows: any[]): string[] => {
-        const ids: string[] = [];
+      // Extract unique platform:observationId keys from results
+      // Uses _platform and _obsId fields added during upload
+      const extractPlatformObsKeys = (rows: any[]): Set<string> => {
+        const keys = new Set<string>();
         for (const row of rows) {
-          // Try common column names for observation ID
-          const obsId = row['observation_id'] || row['observationId'] || row['obs_id'] || 
-                        row['inat_id'] || row['iNatId'] || row['Observation ID'] || 
-                        row['ObservationID'] || row['id'] || row['ID'];
-          if (obsId) {
-            ids.push(String(obsId).trim());
+          const platform = row._platform || '';
+          const obsId = row._obsId || '';
+          if (platform && obsId) {
+            keys.add(`${platform}:${obsId}`);
           }
         }
-        return ids;
+        return keys;
       };
       
-      const successObsIds = extractObsIds(results.success);
-      const failureObsIds = extractObsIds(results.failure);
-      const allMycoMapObsIds = new Set([...successObsIds, ...failureObsIds]);
+      const successKeys = extractPlatformObsKeys(results.success);
+      const failureKeys = extractPlatformObsKeys(results.failure);
+      const allMycoMapKeys = new Set([...successKeys, ...failureKeys]);
       
-      // Get all observation IDs from wells in this run
+      // Get all platform:observationId pairs from wells in this run
       const plates = await db.select({ id: labPlates.id }).from(labPlates).where(eq(labPlates.runId, runId));
       const plateIds = plates.map(p => p.id);
       
-      let runObsIds: string[] = [];
+      let runKeys: string[] = [];
+      let runWells: { platform: string | null; observationId: string | null }[] = [];
       if (plateIds.length > 0) {
-        const wells = await db.select({ observationId: labWells.observationId })
+        runWells = await db.select({ 
+          platform: labWells.platform,
+          observationId: labWells.observationId 
+        })
           .from(labWells)
           .where(and(
             inArray(labWells.plateId, plateIds),
             isNotNull(labWells.observationId)
           ));
-        runObsIds = wells.filter(w => w.observationId).map(w => w.observationId!);
+        runKeys = runWells
+          .filter(w => w.platform && w.observationId)
+          .map(w => `${w.platform}:${w.observationId}`);
       }
       
-      // Calculate "No Analysis Linkage" - observations in run but not in MycoMap CSVs
-      const noAnalysisLinkage = runObsIds.filter(id => !allMycoMapObsIds.has(id));
+      // Deduplicate run keys
+      const uniqueRunKeys = [...new Set(runKeys)];
+      
+      // Calculate "No Analysis Linkage" - wells in run but not in MycoMap CSVs
+      const noAnalysisLinkage = uniqueRunKeys.filter(key => !allMycoMapKeys.has(key));
+      
+      // Extract just the iNat observation IDs from success for sequence check
+      const inatSuccessObsIds = results.success
+        .filter((row: any) => row._platform === 'iNaturalist')
+        .map((row: any) => row._obsId);
+      const uniqueInatSuccessIds = [...new Set(inatSuccessObsIds)];
       
       // Check which success observations are missing sequences in observation_cache
       let sequencesToUpload: string[] = [];
-      if (successObsIds.length > 0) {
+      if (uniqueInatSuccessIds.length > 0) {
         // Get observations that have DNA barcode in our cache
         const cachedWithSequence = await db.select({ sourceObservationId: observationCache.sourceObservationId })
           .from(observationCache)
           .where(and(
             eq(observationCache.source, 'inat'),
-            inArray(observationCache.sourceObservationId, successObsIds),
+            inArray(observationCache.sourceObservationId, uniqueInatSuccessIds),
             isNotNull(observationCache.dnaBarcodeIts),
             sql`${observationCache.dnaBarcodeIts} != ''`
           ));
         
         const cachedIds = new Set(cachedWithSequence.map(c => c.sourceObservationId));
-        sequencesToUpload = successObsIds.filter(id => !cachedIds.has(id));
+        sequencesToUpload = uniqueInatSuccessIds.filter(id => !cachedIds.has(id));
       }
       
       res.json({
         hasResults: true,
         uploadedAt: resultsFile.createdAt,
-        successCount: results.success.length,
-        failureCount: results.failure.length,
+        successCount: successKeys.size,
+        failureCount: failureKeys.size,
         noAnalysisLinkageCount: noAnalysisLinkage.length,
         noAnalysisLinkageIds: noAnalysisLinkage,
         sequencesToUploadCount: sequencesToUpload.length,
