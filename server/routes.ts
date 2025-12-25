@@ -13266,23 +13266,33 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       // Check which success observations are missing sequences in observation_cache
       let sequencesToUpload: string[] = [];
-      if (uniqueInatSuccessIds.length > 0) {
-        // Get observations that have DNA barcode in our cache
-        const cachedWithSequence = await db.select({ 
-          sourceObservationId: observationCache.sourceObservationId,
-          dnaBarcodeIts: observationCache.dnaBarcodeIts
-        })
-          .from(observationCache)
-          .where(and(
-            eq(observationCache.source, 'inat'),
-            inArray(observationCache.sourceObservationId, uniqueInatSuccessIds)
-          ));
-        
-        // Filter for non-null, non-empty DNA barcodes in JS to avoid drizzle SQL issues
-        const cachedIds = new Set(cachedWithSequence
-          .filter(c => c.sourceObservationId && c.dnaBarcodeIts && c.dnaBarcodeIts.trim() !== '')
-          .map(c => c.sourceObservationId));
-        sequencesToUpload = uniqueInatSuccessIds.filter(id => !cachedIds.has(id));
+      // Only query if we have valid IDs to check
+      const validInatSuccessIds = uniqueInatSuccessIds.filter(id => id && typeof id === 'string' && id.trim() !== '');
+      console.log(`[MycoMap] Valid iNat success IDs: ${validInatSuccessIds.length}`);
+      
+      if (validInatSuccessIds.length > 0) {
+        try {
+          // Get observations that have DNA barcode in our cache
+          const cachedWithSequence = await db.select({ 
+            sourceObservationId: observationCache.sourceObservationId,
+            dnaBarcodeIts: observationCache.dnaBarcodeIts
+          })
+            .from(observationCache)
+            .where(and(
+              eq(observationCache.source, 'inat'),
+              inArray(observationCache.sourceObservationId, validInatSuccessIds)
+            ));
+          
+          // Filter for non-null, non-empty DNA barcodes in JS to avoid drizzle SQL issues
+          const cachedIds = new Set(cachedWithSequence
+            .filter(c => c.sourceObservationId && c.dnaBarcodeIts && c.dnaBarcodeIts.trim() !== '')
+            .map(c => c.sourceObservationId));
+          sequencesToUpload = validInatSuccessIds.filter(id => !cachedIds.has(id));
+        } catch (cacheErr: any) {
+          console.error(`[MycoMap] Error querying cache:`, cacheErr.message);
+          // If cache query fails, mark all as needing upload
+          sequencesToUpload = validInatSuccessIds;
+        }
       }
       
       console.log(`[MycoMap] Final results: successCount=${successKeys.size}, failureCount=${failureKeys.size}, noLinkage=${noAnalysisLinkage.length}, toUpload=${sequencesToUpload.length}`);
