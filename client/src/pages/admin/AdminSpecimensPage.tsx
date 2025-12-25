@@ -115,6 +115,17 @@ interface Photo {
   attribution: string | null;
 }
 
+interface MOHerbariumRecord {
+  id: number;
+  herbariumName: string | null;
+  herbariumCode: string | null;
+  accessionNumber: string | null;
+  initialDetermination: string | null;
+  notes: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 interface SpecimenDetail extends Specimen {
   sources: Array<{
     id: number;
@@ -134,6 +145,7 @@ interface SpecimenDetail extends Specimen {
   }>;
   observationData: ObservationData | null;
   photos: Photo[];
+  moHerbariumRecords?: MOHerbariumRecord[];
 }
 
 interface SpecimensResponse {
@@ -1103,6 +1115,50 @@ export default function AdminSpecimensPage() {
                         <p className="font-mono">{specimenDetail.observationData.genbankAccession}</p>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* MO Herbarium Records - only show for MO specimens */}
+              {specimenDetail.primaryObservationSource === 'mo' && specimenDetail.moHerbariumRecords && specimenDetail.moHerbariumRecords.length > 0 && (
+                <div className="border-t pt-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">MO Herbarium Records</p>
+                  <div className="space-y-3">
+                    {specimenDetail.moHerbariumRecords.map((record: MOHerbariumRecord) => (
+                      <div key={record.id} className="p-3 bg-slate-50 rounded-lg border">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm text-slate-800">{record.herbariumName || 'Unknown Herbarium'}</p>
+                            {record.herbariumCode && (
+                              <p className="text-xs text-slate-500">{record.herbariumCode}</p>
+                            )}
+                          </div>
+                          {record.herbariumName?.includes('Mycota Fungarium') && (
+                            <Badge variant="default" className="text-xs bg-[#8CBD45]">MYCO</Badge>
+                          )}
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                          {record.accessionNumber && (
+                            <div>
+                              <p className="text-xs text-slate-400">Accession #</p>
+                              <p className="font-mono text-slate-700">{record.accessionNumber}</p>
+                            </div>
+                          )}
+                          {record.initialDetermination && (
+                            <div>
+                              <p className="text-xs text-slate-400">Initial Determination</p>
+                              <p className="italic text-slate-700">{record.initialDetermination}</p>
+                            </div>
+                          )}
+                        </div>
+                        {record.notes && (
+                          <div className="mt-2">
+                            <p className="text-xs text-slate-400">Notes</p>
+                            <p className="text-sm text-slate-600">{record.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

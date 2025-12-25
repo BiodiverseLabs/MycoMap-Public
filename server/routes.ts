@@ -14273,7 +14273,36 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       }
       
       const combinedFlag = validationFlags.length > 0 ? validationFlags.join(',') : null;
-      res.json({ ...specimen, inatFieldConflict: combinedFlag, validationFlags, sources, events, observationData, photos });
+      
+      // Fetch MO herbarium records if this is an MO specimen
+      let moHerbariumRecords: any[] = [];
+      if (specimen.primaryObservationSource === 'mo' && specimen.primaryObservationId) {
+        try {
+          const moObsId = specimen.primaryObservationId.replace('MO', '');
+          const herbUrl = `https://mushroomobserver.org/api2/herbarium_records?observation=${moObsId}&format=json&detail=high`;
+          const herbResponse = await fetch(herbUrl);
+          if (herbResponse.ok) {
+            const herbData = await herbResponse.json();
+            if (herbData.results && Array.isArray(herbData.results)) {
+              moHerbariumRecords = herbData.results.map((record: any) => ({
+                id: record.id,
+                herbariumName: record.herbarium?.name || record.herbarium_name || null,
+                herbariumCode: record.herbarium?.code || null,
+                accessionNumber: record.accession_number || null,
+                initialDetermination: record.initial_determination?.name || record.initial_determination || null,
+                notes: record.notes || null,
+                createdAt: record.created_at || null,
+                updatedAt: record.updated_at || null,
+              }));
+              console.log(`[MO Detail] Found ${moHerbariumRecords.length} herbarium record(s) for MO ${moObsId}`);
+            }
+          }
+        } catch (herbError) {
+          console.error(`[MO Detail] Error fetching herbarium records:`, herbError);
+        }
+      }
+      
+      res.json({ ...specimen, inatFieldConflict: combinedFlag, validationFlags, sources, events, observationData, photos, moHerbariumRecords });
     } catch (error) {
       console.error("Error fetching specimen:", error);
       res.status(500).json({ error: "Failed to fetch specimen" });
