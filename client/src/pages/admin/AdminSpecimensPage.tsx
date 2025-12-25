@@ -181,6 +181,7 @@ export default function AdminSpecimensPage() {
     { value: "check_specimen", label: "Check Specimen", displayLabel: "Check Specimen" },
     { value: "metadata", label: "Missing Metadata", displayLabel: "Missing Metadata" },
     { value: "push_incomplete", label: "Push Incomplete", displayLabel: "Push Incomplete" },
+    { value: "curator_only", label: "Curator Only", displayLabel: "Curator Only" },
     { value: "duplicate_inat", label: "Duplicate iNat", displayLabel: "Duplicate" },
     { value: "herbarium_catalog_conflict", label: "Catalog Conflict", displayLabel: "Conflict" },
   ];
@@ -191,6 +192,7 @@ export default function AdminSpecimensPage() {
     { value: "check_specimen", label: "Check Specimen" },
     { value: "metadata", label: "Missing Metadata" },
     { value: "push_incomplete", label: "Push Incomplete" },
+    { value: "curator_only", label: "Curator Only" },
     { value: "duplicate_inat", label: "Duplicate iNat" },
     { value: "herbarium_catalog_conflict", label: "Catalog Conflict" },
   ];

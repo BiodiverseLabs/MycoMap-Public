@@ -14131,6 +14131,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         herbariumNamePushed?: boolean;
         herbariumCatalogPushed?: boolean;
         conflict?: string;
+        curatorOnly?: boolean;
       } = { pushed: false };
       
       // Only use actual MYCO number - never fallback to displayCode or voucherNumber
@@ -14216,6 +14217,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 } else {
                   const errorBody = await putResponse.text();
                   console.error(`[iNat Push] Failed to update field ${update.field_id}: ${putResponse.status} - ${errorBody}`);
+                  // Detect curator-only error
+                  if (putResponse.status === 422 && errorBody.includes('only accepts fields from site curators')) {
+                    inatPushResult.curatorOnly = true;
+                    console.log(`[iNat Push] Curator-only: user privacy blocks field updates for observation ${specimen.primaryObservationId}`);
+                  }
                 }
               } else {
                 // Create new observation field value
@@ -14243,8 +14249,13 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                   const errorBody = await postResponse.text();
                   console.error(`[iNat Push] Failed to create field ${update.field_id}: ${postResponse.status} - ${errorBody}`);
                   
+                  // Detect curator-only error - don't retry, just flag
+                  if (postResponse.status === 422 && errorBody.includes('only accepts fields from site curators')) {
+                    inatPushResult.curatorOnly = true;
+                    console.log(`[iNat Push] Curator-only: user privacy blocks field updates for observation ${specimen.primaryObservationId}`);
+                  }
                   // Handle 422 "already taken" by refetching and doing a PUT
-                  if (postResponse.status === 422 && errorBody.includes('already been taken')) {
+                  else if (postResponse.status === 422 && errorBody.includes('already been taken')) {
                     console.log(`[iNat Push] 422 conflict - refetching observation to retry as PUT...`);
                     try {
                       const obsRefetch = await fetch(`https://api.inaturalist.org/v1/observations/${specimen.primaryObservationId}`);
@@ -14288,7 +14299,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         // Update specimen with conflict status if any
-        if (conflicts.length > 0) {
+        if (inatPushResult.curatorOnly) {
+          // Curator-only takes precedence - user privacy blocks all updates
+          await db.update(specimens)
+            .set({ inatFieldConflict: 'curator_only' })
+            .where(eq(specimens.id, specimenId));
+        } else if (conflicts.length > 0) {
           const conflictValue = conflicts.length === 2 ? 'both_conflict' : conflicts[0];
           inatPushResult.conflict = conflictValue;
           await db.update(specimens)
@@ -15258,6 +15274,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             // Track successful and failed pushes per specimen
             const successfulPushes = new Map<number, Set<number>>();
             const failedPushes = new Map<number, Set<number>>();
+            const curatorOnlyFailures = new Set<number>(); // Track specimens blocked by user privacy settings
             
             // Log field push distribution
             const field9539Count = fieldPushes.filter(f => f.fieldId === 9539).length;
@@ -15286,11 +15303,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                 // Process each observation's fields sequentially within parallel execution
                 const obsResults = await Promise.allSettled(parallelObsIds.map(async (obsId) => {
                   const obsPushes = pushesByObs.get(obsId)!;
-                  const results: { ok: boolean; fp: FieldPush; status: number }[] = [];
+                  const results: { ok: boolean; fp: FieldPush; status: number; errorMsg?: string }[] = [];
                   
                   for (const fp of obsPushes) {
                     const MAX_RETRIES = 2;
                     let lastStatus = 0;
+                    let lastErrorMsg = '';
                     let succeeded = false;
                     
                     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -15309,10 +15327,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                           });
                           lastStatus = putResponse.status;
                           const responseText = await putResponse.text();
+                          lastErrorMsg = responseText;
                           console.log(`[BulkRefresh Push] PUT response ${putResponse.status}: ${responseText.substring(0, 200)}`);
                           if (putResponse.ok) {
                             results.push({ ok: true, fp, status: putResponse.status });
                             succeeded = true;
+                            break;
+                          }
+                          // Don't retry curator-only errors
+                          if (putResponse.status === 422 && responseText.includes('only accepts fields from site curators')) {
                             break;
                           }
                           if (putResponse.status >= 500 && attempt < MAX_RETRIES) {
@@ -15337,10 +15360,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                           });
                           lastStatus = postResponse.status;
                           const responseText = await postResponse.text();
+                          lastErrorMsg = responseText;
                           console.log(`[BulkRefresh Push] POST response ${postResponse.status}: ${responseText.substring(0, 200)}`);
                           if (postResponse.ok) {
                             results.push({ ok: true, fp, status: postResponse.status });
                             succeeded = true;
+                            break;
+                          }
+                          // Don't retry curator-only errors - break immediately
+                          if (postResponse.status === 422 && responseText.includes('only accepts fields from site curators')) {
                             break;
                           }
                           // Handle 422 "already taken" by fetching the observation and doing a PUT instead
@@ -15392,7 +15420,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     }
                     
                     if (!succeeded) {
-                      results.push({ ok: false, fp, status: lastStatus });
+                      results.push({ ok: false, fp, status: lastStatus, errorMsg: lastErrorMsg });
                     }
                     
                     // Small delay between fields on the same observation
@@ -15421,8 +15449,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                           failedPushes.set(specId, new Set());
                         }
                         failedPushes.get(specId)!.add(fieldId);
-                        // Log all failures, including 422s (but at info level for 422)
-                        if (result.status === 422) {
+                        
+                        // Check for curator-only error
+                        if (result.status === 422 && result.errorMsg?.includes('only accepts fields from site curators')) {
+                          curatorOnlyFailures.add(specId);
+                          console.log(`[BulkRefresh Push] Curator-only for obs ${result.fp.obsId} field ${result.fp.fieldId}: user privacy blocks field updates`);
+                        } else if (result.status === 422) {
                           console.log(`[BulkRefresh Push] Conflict for obs ${result.fp.obsId} field ${result.fp.fieldId}: HTTP 422 (already taken, retry failed)`);
                         } else {
                           console.error(`[BulkRefresh Push] Failed obs ${result.fp.obsId} field ${result.fp.fieldId}: HTTP ${result.status}`);
@@ -15466,10 +15498,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               }
             }
             
-            // Update validation flag for push failures
-            if (specimenPushFailures.length > 0) {
-              console.log(`[BulkRefresh Push] Flagging ${specimenPushFailures.length} specimens with incomplete field updates`);
-              for (const specId of specimenPushFailures) {
+            // Update validation flag for curator-only failures (user privacy blocks updates)
+            if (curatorOnlyFailures.size > 0) {
+              console.log(`[BulkRefresh Push] Flagging ${curatorOnlyFailures.size} specimens as curator_only (blocked by user privacy settings)`);
+              for (const specId of curatorOnlyFailures) {
+                await db.update(specimens)
+                  .set({ inatFieldConflict: 'curator_only' })
+                  .where(eq(specimens.id, specId));
+              }
+            }
+            
+            // Update validation flag for push failures (exclude curator_only since that's more specific)
+            const nonCuratorFailures = specimenPushFailures.filter(id => !curatorOnlyFailures.has(id));
+            if (nonCuratorFailures.length > 0) {
+              console.log(`[BulkRefresh Push] Flagging ${nonCuratorFailures.length} specimens with incomplete field updates`);
+              for (const specId of nonCuratorFailures) {
                 await db.update(specimens)
                   .set({ inatFieldConflict: 'push_incomplete' })
                   .where(eq(specimens.id, specId));
@@ -15499,6 +15542,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
             for (const spec of batch) {
               if (!spec.mycoNumber) continue; // Only clear for specimens with MYCO numbers
               if (specimenPushFailures.includes(spec.id)) continue; // Skip failures
+              if (curatorOnlyFailures.has(spec.id)) continue; // Skip curator-only failures
               
               // Check if this specimen had any attempted pushes
               const attemptedFields = fieldPushes.filter(f => f.specId === spec.id);
