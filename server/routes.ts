@@ -13255,14 +13255,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Calculate "No Analysis Linkage" - wells in run but not in MycoMap CSVs
       const noAnalysisLinkage = uniqueRunKeys.filter(key => !allMycoMapKeys.has(key));
       
-      // Extract just the iNat observation IDs from success for sequence check
+      // Build set of iNat observation IDs that are in this run's wells
+      const runInatObsIds = new Set(
+        runWells
+          .filter(w => w.platform === 'iNaturalist' && w.observationId)
+          .map(w => w.observationId!)
+      );
+      
+      // Extract iNat observation IDs from MycoMap success that are ALSO in this run
       const inatSuccessObsIds = results.success
         .filter((row: any) => {
           const platform = row._platform || normalizeMycoMapPlatform(row['Source Database'] || row['source_database'] || '');
           return platform === 'iNaturalist';
         })
-        .map((row: any) => row._obsId || row['Reference Number'] || row['reference_number'] || '');
+        .map((row: any) => row._obsId || row['Reference Number'] || row['reference_number'] || '')
+        .filter((obsId: string) => obsId && runInatObsIds.has(obsId)); // Only include if in this run
       const uniqueInatSuccessIds = [...new Set(inatSuccessObsIds)].filter(id => id);
+      console.log(`[MycoMap] iNat success IDs in run: ${uniqueInatSuccessIds.length} (run has ${runInatObsIds.size} iNat observations)`);
       
       // Check which success observations are missing sequences in observation_cache
       let sequencesToUpload: string[] = [];
