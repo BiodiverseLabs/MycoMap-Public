@@ -1060,6 +1060,36 @@ export default function AdminSpecimensPage() {
                 </div>
               )}
 
+              {/* MO Sequence Data - only show for MO specimens with sequence data */}
+              {specimenDetail.observationData && specimenDetail.primaryObservationSource === 'mo' && 
+               (specimenDetail.observationData.dnaBarcodIts || specimenDetail.observationData.mycomapBlastResults) && (
+                <div className="border-t pt-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Sequence Data</p>
+                  <div className="grid grid-cols-1 gap-3 text-sm">
+                    {specimenDetail.observationData.dnaBarcodIts && (
+                      <div>
+                        <p className="text-xs text-slate-400">DNA Barcode ITS ({specimenDetail.observationData.dnaBarcodIts.length} bp)</p>
+                        <p className="font-mono text-xs break-all bg-slate-50 p-1 rounded max-h-20 overflow-y-auto">{specimenDetail.observationData.dnaBarcodIts}</p>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.mycomapBlastResults && (
+                      <div>
+                        <p className="text-xs text-slate-400">MycoMap BLAST Results</p>
+                        <a href={specimenDetail.observationData.mycomapBlastResults} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                          View BLAST Results
+                        </a>
+                      </div>
+                    )}
+                    {specimenDetail.observationData.genbankAccession && (
+                      <div>
+                        <p className="text-xs text-slate-400">GenBank Accession</p>
+                        <p className="font-mono">{specimenDetail.observationData.genbankAccession}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {specimenDetail.sources && specimenDetail.sources.length > 0 && (
                 <div className="border-t pt-4">
                   <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">External References</p>
