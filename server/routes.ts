@@ -1023,11 +1023,13 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
     // Push herbarium record to MO if MYCO number exists
     let herbariumPushResult: { success: boolean; message: string } | null = null;
     const mycoNumber = specimen.mycoNumber;
+    // Use the numeric ID for MO API calls (without 'MO' prefix)
+    const moObsIdNumeric = storedObsId.replace('MO', '');
     
     if (mycoNumber && process.env.MUSHROOM_OBSERVER_API_KEY) {
       try {
         // First check if herbarium record already exists for this observation
-        const checkUrl = `https://mushroomobserver.org/api2/herbarium_records?observation=${moObsId}&format=json`;
+        const checkUrl = `https://mushroomobserver.org/api2/herbarium_records?observation=${moObsIdNumeric}&format=json`;
         const checkResponse = await fetch(checkUrl);
         const checkData = await checkResponse.json();
         
@@ -1038,7 +1040,7 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
         );
         
         if (existingRecord) {
-          console.log(`[MO Push] Herbarium record already exists for MO ${moObsId} - skipping push`);
+          console.log(`[MO Push] Herbarium record already exists for MO ${moObsIdNumeric} - skipping push`);
           herbariumPushResult = { 
             success: true, 
             message: `Herbarium record already exists (ID: ${existingRecord.id})` 
@@ -1047,13 +1049,13 @@ async function refreshSpecimenFromMO(specimenId: number, specimen: any, res: any
           // Push new herbarium record
           const pushUrl = new URL('https://mushroomobserver.org/api2/herbarium_records');
           pushUrl.searchParams.set('api_key', process.env.MUSHROOM_OBSERVER_API_KEY);
-          pushUrl.searchParams.set('observation_id', moObsId.toString());
+          pushUrl.searchParams.set('observation_id', moObsIdNumeric);
           pushUrl.searchParams.set('herbarium_name', 'Mycota Fungarium (MYCO)');
           pushUrl.searchParams.set('initial_determination', scientificName || '');
           pushUrl.searchParams.set('accession_number', mycoNumber);
           pushUrl.searchParams.set('notes', '');
           
-          console.log(`[MO Push] Pushing herbarium record for MO ${moObsId} with MYCO number ${mycoNumber}`);
+          console.log(`[MO Push] Pushing herbarium record for MO ${moObsIdNumeric} with MYCO number ${mycoNumber}`);
           
           const pushResponse = await fetch(pushUrl.toString(), { method: 'POST' });
           const pushData = await pushResponse.json();
