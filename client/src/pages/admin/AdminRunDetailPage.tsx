@@ -1606,8 +1606,8 @@ export default function AdminRunDetailPage() {
                           <p className="text-xs text-gray-500">of {specimenProgress.refreshStatus.total} refreshed</p>
                         </div>
                         <div className="bg-green-50 rounded p-2">
-                          <p className="text-lg font-bold text-green-600">{specimenProgress.refreshStatus.successRate}%</p>
-                          <p className="text-xs text-gray-500">{specimenProgress.refreshStatus.withDnaBarcode} with DNA barcode</p>
+                          <p className="text-lg font-bold text-green-600">{specimenProgress.refreshStatus.withDnaBarcode}</p>
+                          <p className="text-xs text-gray-500">with DNA barcode</p>
                         </div>
                       </div>
                     </div>
