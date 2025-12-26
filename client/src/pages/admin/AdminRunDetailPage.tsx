@@ -1095,7 +1095,7 @@ export default function AdminRunDetailPage() {
                 )}
               </div>
 
-              {/* Total Fails */}
+              {/* Total Fails - combines observation fails + no linkage from MycoMap analysis */}
               <div className="bg-gradient-to-br from-red-50 to-white rounded-xl p-4 border border-red-100 hover:shadow-md transition-all">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-2 bg-red-100 rounded-lg">
@@ -1103,7 +1103,18 @@ export default function AdminRunDetailPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-600">Total Fails</span>
                 </div>
-                {stats?.totalFails !== null && stats?.totalFails !== undefined ? (
+                {mycoMapAnalysis?.hasResults ? (
+                  <>
+                    <p className="text-3xl font-bold text-red-600" data-testid="stat-total-fails">
+                      {stats?.totalSpecimens && stats.totalSpecimens > 0
+                        ? Math.round(((mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)) / stats.totalSpecimens * 100)
+                        : 0}%
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {(mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)}/{stats?.totalSpecimens || 0} without DNA barcode
+                    </p>
+                  </>
+                ) : stats?.totalFails !== null && stats?.totalFails !== undefined ? (
                   <p className="text-3xl font-bold text-red-600">{stats.totalFails}</p>
                 ) : (
                   <p className="text-gray-400 text-sm italic">Pending results</p>
