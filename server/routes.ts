@@ -13676,6 +13676,169 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     }
   });
 
+  // Get failure heatmap data for 96-well plate visualization
+  app.get("/api/admin/runs/:id/mycomap/failure-heatmap", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      // Get the MycoMap results file
+      const [resultsFile] = await db.select()
+        .from(labRunFiles)
+        .where(and(
+          eq(labRunFiles.runId, runId),
+          eq(labRunFiles.fileType, 'mycomap_results')
+        ))
+        .orderBy(sql`created_at DESC`)
+        .limit(1);
+      
+      if (!resultsFile) {
+        console.log(`[Heatmap] No results file for run ${runId}`);
+        return res.json({ failures: [], plates: [] });
+      }
+      
+      const resultsJson = resultsFile.content?.toString('utf-8') || '{}';
+      const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
+      console.log(`[Heatmap] Run ${runId}: parsed ${results.success?.length || 0} success, ${results.failure?.length || 0} failure`);
+      
+      // Extract failure keys (platform:obsId)
+      const failureKeys = new Set<string>();
+      for (const row of results.failure || []) {
+        let platform = row._platform || '';
+        let obsId = row._obsId || '';
+        if (!platform || !obsId) {
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          platform = sourceDb.toLowerCase().includes('inaturalist') ? 'iNaturalist' :
+                     sourceDb.toLowerCase().includes('mushroom') ? 'Mushroom Observer' : sourceDb;
+          obsId = refNumber;
+        }
+        if (platform && obsId) {
+          failureKeys.add(`${platform}:${obsId}`);
+        }
+      }
+      
+      // Apply overrides
+      const overrides = await db.select().from(mycoMapCategoryOverrides)
+        .where(eq(mycoMapCategoryOverrides.runId, runId));
+      
+      for (const override of overrides) {
+        if (override.originalCategory === 'success' && override.targetCategory === 'failure') {
+          failureKeys.add(override.obsKey);
+        } else if (override.originalCategory === 'failure' && override.targetCategory === 'success') {
+          failureKeys.delete(override.obsKey);
+        }
+      }
+      
+      // Get plates for this run
+      const plates = await db.select({
+        id: labPlates.id,
+        plateNumber: labPlates.plateNumber,
+        name: labPlates.name,
+      }).from(labPlates).where(eq(labPlates.runId, runId)).orderBy(labPlates.plateNumber);
+      
+      if (plates.length === 0) {
+        return res.json({ failures: [], plates: [] });
+      }
+      
+      const plateIds = plates.map(p => p.id);
+      
+      // Get wells with their positions and match to failures
+      const wells = await db.select({
+        id: labWells.id,
+        plateId: labWells.plateId,
+        wellPosition: labWells.wellPosition,
+        platform: labWells.platform,
+        observationId: labWells.observationId,
+        coreSpecimenId: labWells.coreSpecimenId,
+      })
+        .from(labWells)
+        .where(inArray(labWells.plateId, plateIds));
+      
+      // Match wells to failures
+      const failedWells = wells.filter(w => {
+        if (!w.platform || !w.observationId) return false;
+        return failureKeys.has(`${w.platform}:${w.observationId}`);
+      });
+      console.log(`[Heatmap] Found ${failedWells.length} failed wells out of ${wells.length} total`);
+      
+      // Get specimen details for taxonomy
+      const specimenIds = [...new Set(failedWells.filter(w => w.coreSpecimenId).map(w => w.coreSpecimenId!))];
+      const specimenTaxonomy = new Map<number, { family?: string; genus?: string; scientificName?: string }>();
+      
+      if (specimenIds.length > 0) {
+        const idsClause = specimenIds.join(', ');
+        const specResult = await db.execute(sql`
+          SELECT id, family, genus, scientific_name
+          FROM specimens
+          WHERE id IN (${sql.raw(idsClause)})
+        `);
+        for (const row of (specResult.rows || [])) {
+          const r = row as any;
+          specimenTaxonomy.set(r.id, {
+            family: r.family || null,
+            genus: r.genus || null,
+            scientificName: r.scientific_name || null,
+          });
+        }
+      }
+      
+      // Also get taxonomy from observation cache for observations without specimens
+      const obsIdsNeedingTaxonomy = failedWells
+        .filter(w => !w.coreSpecimenId && w.observationId && w.platform === 'iNaturalist')
+        .map(w => w.observationId!);
+      
+      const cacheTaxonomy = new Map<string, { family?: string; genus?: string; scientificName?: string }>();
+      if (obsIdsNeedingTaxonomy.length > 0) {
+        const idsClause = obsIdsNeedingTaxonomy.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+        const cacheResult = await db.execute(sql`
+          SELECT source_observation_id, scientific_name
+          FROM observation_cache
+          WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
+        `);
+        for (const row of (cacheResult.rows || [])) {
+          const r = row as any;
+          const sciName = r.scientific_name || '';
+          // Try to extract genus from scientific name
+          const parts = sciName.split(' ');
+          cacheTaxonomy.set(r.source_observation_id, {
+            scientificName: sciName,
+            genus: parts.length > 0 ? parts[0] : null,
+          });
+        }
+      }
+      
+      // Build plate map for quick lookup
+      const plateMap = new Map(plates.map(p => [p.id, { plateNumber: p.plateNumber, name: p.name }]));
+      
+      // Build failure records with all details
+      const failures = failedWells.map(w => {
+        const plate = plateMap.get(w.plateId);
+        const specimen = w.coreSpecimenId ? specimenTaxonomy.get(w.coreSpecimenId) : null;
+        const cache = w.observationId ? cacheTaxonomy.get(w.observationId) : null;
+        
+        return {
+          wellPosition: w.wellPosition,
+          plateId: w.plateId,
+          plateNumber: plate?.plateNumber || 0,
+          plateName: plate?.name || null,
+          platform: w.platform,
+          observationId: w.observationId,
+          family: specimen?.family || null,
+          genus: specimen?.genus || cache?.genus || null,
+          scientificName: specimen?.scientificName || cache?.scientificName || null,
+        };
+      });
+      
+      res.json({
+        failures,
+        plates: plates.map(p => ({ id: p.id, plateNumber: p.plateNumber, name: p.name })),
+      });
+    } catch (error: any) {
+      console.error('[MycoMap] Failure heatmap error:', error);
+      res.status(500).json({ message: error.message || 'Failed to get failure heatmap data' });
+    }
+  });
+
   // ============ MYCOMAP CATEGORY OVERRIDES ============
   
   // Move an observation to failure (or success)

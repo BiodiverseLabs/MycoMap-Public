@@ -76,6 +76,21 @@ interface MycoMapAnalysis {
   onSheetsNotRunDetails?: ObsDetail[];
 }
 
+interface FailureHeatmapData {
+  failures: {
+    wellPosition: string;
+    plateId: number;
+    plateNumber: number;
+    plateName: string | null;
+    platform: string | null;
+    observationId: string | null;
+    family: string | null;
+    genus: string | null;
+    scientificName: string | null;
+  }[];
+  plates: { id: number; plateNumber: number; name: string | null }[];
+}
+
 interface Plate {
   id: number;
   plateNumber: number;
@@ -275,6 +290,18 @@ export default function AdminRunDetailPage() {
     },
     enabled: !!runId,
   });
+
+  const { data: failureHeatmap } = useQuery<FailureHeatmapData>({
+    queryKey: ['/api/admin/runs', runId, 'mycomap', 'failure-heatmap'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/mycomap/failure-heatmap`);
+      if (!res.ok) throw new Error('Failed to fetch failure heatmap');
+      return res.json();
+    },
+    enabled: !!runId && !!mycoMapAnalysis?.hasResults,
+  });
+
+  const [heatmapPlateFilter, setHeatmapPlateFilter] = useState<string>('all');
 
   const addPlateMutation = useMutation({
     mutationFn: async (data: { name: string; sampleCount: number }) => {
@@ -1565,6 +1592,151 @@ export default function AdminRunDetailPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Failure Heatmap Section */}
+        {mycoMapAnalysis?.hasResults && failureHeatmap && failureHeatmap.failures.length > 0 && (
+          <Card className="border-red-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-red-500" />
+                  Failure Heatmap
+                </CardTitle>
+                <Select value={heatmapPlateFilter} onValueChange={setHeatmapPlateFilter}>
+                  <SelectTrigger className="w-40" data-testid="select-heatmap-plate-filter">
+                    <SelectValue placeholder="All Plates" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Plates</SelectItem>
+                    {failureHeatmap.plates.map(p => (
+                      <SelectItem key={p.id} value={String(p.plateNumber)}>
+                        Plate {p.plateNumber}{p.name ? ` - ${p.name}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+                const cols = Array.from({ length: 12 }, (_, i) => i + 1);
+                
+                const filteredFailures = heatmapPlateFilter === 'all'
+                  ? failureHeatmap.failures
+                  : failureHeatmap.failures.filter(f => f.plateNumber === parseInt(heatmapPlateFilter));
+                
+                const wellCounts = new Map<string, number>();
+                for (const f of filteredFailures) {
+                  wellCounts.set(f.wellPosition, (wellCounts.get(f.wellPosition) || 0) + 1);
+                }
+                
+                const maxCount = Math.max(...Array.from(wellCounts.values()), 1);
+                
+                const getHeatColor = (count: number) => {
+                  if (count === 0) return 'bg-gray-100';
+                  const intensity = count / maxCount;
+                  if (intensity < 0.25) return 'bg-red-100 text-red-800';
+                  if (intensity < 0.5) return 'bg-red-200 text-red-900';
+                  if (intensity < 0.75) return 'bg-red-400 text-white';
+                  return 'bg-red-600 text-white';
+                };
+                
+                const familyGenusStats = new Map<string, { family: string | null; genus: string | null; count: number }>();
+                for (const f of filteredFailures) {
+                  const key = `${f.family || 'Unknown'}|${f.genus || 'Unknown'}`;
+                  const existing = familyGenusStats.get(key);
+                  if (existing) {
+                    existing.count++;
+                  } else {
+                    familyGenusStats.set(key, { family: f.family, genus: f.genus, count: 1 });
+                  }
+                }
+                const sortedTaxonomy = Array.from(familyGenusStats.values()).sort((a, b) => b.count - a.count);
+                
+                return (
+                  <div className="flex gap-6">
+                    <div className="flex-shrink-0">
+                      <div className="text-sm text-gray-500 mb-2 text-center">
+                        {heatmapPlateFilter === 'all' ? 'All Plates' : `Plate ${heatmapPlateFilter}`} - {filteredFailures.length} failures
+                      </div>
+                      <table className="border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="w-6"></th>
+                            {cols.map(col => (
+                              <th key={col} className="w-8 h-6 text-xs text-gray-500 font-normal text-center">{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map(row => (
+                            <tr key={row}>
+                              <td className="text-xs text-gray-500 font-normal text-center pr-1">{row}</td>
+                              {cols.map(col => {
+                                const wellPos = `${row}${col.toString().padStart(2, '0')}`;
+                                const count = wellCounts.get(wellPos) || 0;
+                                return (
+                                  <td 
+                                    key={wellPos} 
+                                    className={`w-8 h-8 border border-gray-300 text-center text-xs font-medium ${getHeatColor(count)}`}
+                                    title={count > 0 ? `${wellPos}: ${count} failure${count > 1 ? 's' : ''}` : wellPos}
+                                    data-testid={`heatmap-well-${wellPos}`}
+                                  >
+                                    {count > 0 ? count : ''}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="flex items-center justify-center gap-2 mt-3 text-xs">
+                        <span className="text-gray-500">Low</span>
+                        <div className="flex gap-0.5">
+                          <div className="w-4 h-4 bg-red-100 border border-gray-300"></div>
+                          <div className="w-4 h-4 bg-red-200 border border-gray-300"></div>
+                          <div className="w-4 h-4 bg-red-400 border border-gray-300"></div>
+                          <div className="w-4 h-4 bg-red-600 border border-gray-300"></div>
+                        </div>
+                        <span className="text-gray-500">High</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Failed Specimens by Taxonomy</div>
+                      <div className="max-h-[280px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 bg-white">
+                            <tr className="border-b">
+                              <th className="text-left py-1.5 px-2 font-medium text-gray-600">Family</th>
+                              <th className="text-left py-1.5 px-2 font-medium text-gray-600">Genus</th>
+                              <th className="text-right py-1.5 px-2 font-medium text-gray-600">Count</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sortedTaxonomy.map((item, idx) => (
+                              <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                <td className="py-1.5 px-2 text-gray-700">{item.family || <span className="text-gray-400 italic">Unknown</span>}</td>
+                                <td className="py-1.5 px-2 text-gray-700 italic">{item.genus || <span className="text-gray-400 not-italic">Unknown</span>}</td>
+                                <td className="py-1.5 px-2 text-right">
+                                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium">{item.count}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {sortedTaxonomy.length === 0 && (
+                          <p className="text-gray-400 text-sm italic py-4 text-center">No taxonomy data available</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Plates Section */}
         <div className="space-y-4">
