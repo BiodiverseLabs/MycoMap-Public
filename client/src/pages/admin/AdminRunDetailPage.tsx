@@ -31,6 +31,7 @@ interface RunFile {
 
 interface RunStats {
   totalSpecimens: number;
+  uniqueSpecimenCount?: number;
   specimensNeedingRecords: number;
   topStates: { state: string; count: number }[];
   allStates: { state: string; count: number }[];
@@ -1159,12 +1160,12 @@ export default function AdminRunDetailPage() {
                 {mycoMapAnalysis?.hasResults ? (
                   <>
                     <p className="text-3xl font-bold text-red-600" data-testid="stat-total-fails">
-                      {stats?.totalSpecimens && stats.totalSpecimens > 0
-                        ? Math.round(((mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)) / stats.totalSpecimens * 100)
+                      {(stats?.uniqueSpecimenCount || stats?.totalSpecimens) && (stats?.uniqueSpecimenCount || stats?.totalSpecimens || 0) > 0
+                        ? Math.round(((mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)) / (stats?.uniqueSpecimenCount || stats?.totalSpecimens || 1) * 100)
                         : 0}%
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {(mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)}/{stats?.totalSpecimens || 0} without DNA barcode
+                      {(mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)}/{stats?.uniqueSpecimenCount || stats?.totalSpecimens || 0} without DNA barcode
                     </p>
                   </>
                 ) : stats?.totalFails !== null && stats?.totalFails !== undefined ? (

@@ -12614,6 +12614,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       const totalSpecimens = wells.length;
       
+      // Count unique observation IDs for accurate stats (avoid counting duplicates)
+      const uniqueObservationIds = new Set(wells.filter(w => w.observationId).map(w => w.observationId!));
+      const uniqueSpecimenCount = uniqueObservationIds.size + wells.filter(w => !w.observationId && w.specimenId).length;
+      
       // Aggregate states
       const stateCounts: Record<string, number> = {};
       for (const well of wells) {
@@ -12715,6 +12719,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       res.json({
         totalSpecimens,
+        uniqueSpecimenCount,
         specimensNeedingRecords: wellsNeedingRecords,
         topStates: sortedStates.slice(0, 5),
         allStates: sortedStates,
