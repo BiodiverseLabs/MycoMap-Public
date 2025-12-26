@@ -1704,30 +1704,73 @@ export default function AdminRunDetailPage() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-700 mb-2">Failed Specimens by Taxonomy</div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">Failures by Genus</div>
                       <div className="max-h-[280px] overflow-y-auto">
                         <table className="w-full text-sm">
                           <thead className="sticky top-0 bg-white">
                             <tr className="border-b">
-                              <th className="text-left py-1.5 px-2 font-medium text-gray-600">Family</th>
                               <th className="text-left py-1.5 px-2 font-medium text-gray-600">Genus</th>
                               <th className="text-right py-1.5 px-2 font-medium text-gray-600">Count</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {sortedTaxonomy.map((item, idx) => (
-                              <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                                <td className="py-1.5 px-2 text-gray-700">{item.family || <span className="text-gray-400 italic">Unknown</span>}</td>
-                                <td className="py-1.5 px-2 text-gray-700 italic">{item.genus || <span className="text-gray-400 not-italic">Unknown</span>}</td>
-                                <td className="py-1.5 px-2 text-right">
-                                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium">{item.count}</span>
-                                </td>
-                              </tr>
-                            ))}
+                            {(() => {
+                              const genusStats = new Map<string, number>();
+                              for (const f of filteredFailures) {
+                                const genus = f.genus || 'Unknown';
+                                genusStats.set(genus, (genusStats.get(genus) || 0) + 1);
+                              }
+                              return Array.from(genusStats.entries())
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([genus, count], idx) => (
+                                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                    <td className="py-1.5 px-2 text-gray-700 italic">{genus === 'Unknown' ? <span className="text-gray-400 not-italic">Unknown</span> : genus}</td>
+                                    <td className="py-1.5 px-2 text-right">
+                                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium">{count}</span>
+                                    </td>
+                                  </tr>
+                                ));
+                            })()}
                           </tbody>
                         </table>
-                        {sortedTaxonomy.length === 0 && (
-                          <p className="text-gray-400 text-sm italic py-4 text-center">No taxonomy data available</p>
+                        {filteredFailures.length === 0 && (
+                          <p className="text-gray-400 text-sm italic py-4 text-center">No failures</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Failures by Family</div>
+                      <div className="max-h-[280px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 bg-white">
+                            <tr className="border-b">
+                              <th className="text-left py-1.5 px-2 font-medium text-gray-600">Family</th>
+                              <th className="text-right py-1.5 px-2 font-medium text-gray-600">Count</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              const familyStats = new Map<string, number>();
+                              for (const f of filteredFailures) {
+                                const family = f.family || 'Unknown';
+                                familyStats.set(family, (familyStats.get(family) || 0) + 1);
+                              }
+                              return Array.from(familyStats.entries())
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([family, count], idx) => (
+                                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                                    <td className="py-1.5 px-2 text-gray-700">{family === 'Unknown' ? <span className="text-gray-400 italic">Unknown</span> : family}</td>
+                                    <td className="py-1.5 px-2 text-right">
+                                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium">{count}</span>
+                                    </td>
+                                  </tr>
+                                ));
+                            })()}
+                          </tbody>
+                        </table>
+                        {filteredFailures.length === 0 && (
+                          <p className="text-gray-400 text-sm italic py-4 text-center">No failures</p>
                         )}
                       </div>
                     </div>
