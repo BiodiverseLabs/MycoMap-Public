@@ -13527,6 +13527,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const runKeysSet = new Set(uniqueRunKeys);
       const onSheetsNotRun = [...allMycoMapKeys].filter(key => !runKeysSet.has(key));
       console.log(`  On sheets not run: ${onSheetsNotRun.length}`);
+      console.log(`  On sheets not run IDs (first 5): ${onSheetsNotRun.slice(0, 5).join(', ')}`);
       
       // Enrich "On Sheets Not Run" with details from specimens table
       let onSheetsNotRunDetails: ObsDetail[] = [];
@@ -13587,6 +13588,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           obsId: p.obsId,
           ...specimenDetailsNotRun.get(p.key)
         }));
+        console.log(`[MycoMap] On sheets not run enrichment: found ${specimenDetailsNotRun.size} of ${onSheetsParsed.length} in specimens table`);
+        if (onSheetsNotRunDetails.length > 0) {
+          const sample = onSheetsNotRunDetails[0];
+          console.log(`[MycoMap] Sample onSheetsNotRun detail:`, JSON.stringify(sample));
+        }
       }
       
       res.json({
