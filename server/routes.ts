@@ -10633,6 +10633,11 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           const validatedOrAcceptableCount = wells.filter(w => 
             w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)
           ).length;
+          // Cleared wells have isValidated === false and no validationStatus
+          const clearedCount = wells.filter(w => 
+            w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode)
+          ).length;
+          const totalAcceptableCount = validatedOrAcceptableCount + clearedCount;
           const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
           const hasIndexSets = plate.forwardIndexSetId && plate.reverseIndexSetId;
           const hasPrimerConfig = plate.defaultForwardPrimer && plate.defaultReversePrimer;
@@ -10647,7 +10652,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           }
           
           const isFullyValidated = sampleCount > 0 && 
-            validatedOrAcceptableCount === sampleCount && 
+            totalAcceptableCount === sampleCount && 
             errorCount === 0 &&
             hasIndexSets &&
             (hasPrimerConfig || wellsHavePrimers);
@@ -11022,21 +11027,26 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // no_voucher and cleared are acceptable - don't count them as errors for plate status
         const acceptableStatuses = ['valid', 'no_voucher', 'cleared'];
         const errorCount = wells.filter(w => w.isValidated && w.validationStatus && !acceptableStatuses.includes(w.validationStatus)).length;
-        // "Cleared" wells are those explicitly marked with 'cleared' status
+        // "Cleared" wells are those that were validated but now have no status (manually cleared)
+        // This matches frontend logic: isValidated === false && !validationStatus && has observationId
         const clearedCount = wells.filter(w => 
-          w.isValidated && w.validationStatus === 'cleared'
+          w.isValidated === false && !w.validationStatus && (w.observationId || w.labCode)
         ).length;
-        // Plate is "fully validated" if all samples are validated with acceptable statuses
+        // Plate is "fully validated" if all samples are validated with acceptable statuses OR cleared
         // Fresh/unvalidated wells do NOT count as validated
         const validatedOrAcceptableCount = wells.filter(w => 
           w.isValidated && w.validationStatus && acceptableStatuses.includes(w.validationStatus)
         ).length;
         
+        // Total acceptable count = validatedOrAcceptable + cleared (both are considered "processed")
+        const totalAcceptableCount = validatedOrAcceptableCount + clearedCount;
+        
         // Plate is fully validated only if:
         // 1. Has samples
-        // 2. All samples have been validated with acceptable statuses (valid, no_voucher, or cleared)
-        // 3. Has index sets assigned (both forward and reverse)
-        // 4. Has primer configuration (either default primers or wells have primers)
+        // 2. All samples have been validated with acceptable statuses (valid, no_voucher) OR cleared
+        // 3. Has no errors
+        // 4. Has index sets assigned (both forward and reverse)
+        // 5. Has primer configuration (either default primers or wells have primers)
         const hasIndexSets = plate.forwardIndexSetId && plate.reverseIndexSetId;
         const hasPrimerConfig = plate.defaultForwardPrimer && plate.defaultReversePrimer;
         
@@ -11052,7 +11062,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
         
         const isFullyValidated = sampleCount > 0 && 
-          validatedOrAcceptableCount === sampleCount && 
+          totalAcceptableCount === sampleCount && 
           errorCount === 0 &&
           hasIndexSets &&
           (hasPrimerConfig || wellsHavePrimers);
