@@ -12679,6 +12679,8 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         const cachedObsIds = new Set(cachedObs.map(o => o.sourceObservationId));
         sequencingTotalChecked = cachedObsIds.size;
         
+        console.log(`[Stats Debug] Run ${runId}: totalInat=${inatObsIds.length}, totalChecked=${sequencingTotalChecked}, diff=${inatObsIds.length - sequencingTotalChecked}`);
+        
         // Count observations with DNA barcode ITS in observation_cache
         const [dnaResult] = await db.select({
           withDna: sql<number>`count(*) FILTER (WHERE dna_barcode_its IS NOT NULL AND dna_barcode_its != '')`,
@@ -12694,6 +12696,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         // Find observations NOT in cache (awaiting sync)
         const notInCache = inatObsIds.filter(id => !cachedObsIds.has(id));
         if (notInCache.length > 0) {
+          console.log(`[Stats Debug] notInCache (first 5): ${notInCache.slice(0, 5).join(', ')}`);
           // Get specimen IDs for these observations so we can refresh them
           const wellsWithMissingCache = wells.filter(w => 
             w.observationId && notInCache.includes(w.observationId) && w.coreSpecimenId
