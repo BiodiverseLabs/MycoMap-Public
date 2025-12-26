@@ -43,6 +43,7 @@ interface RunStats {
     withDnaBarcode: number;
     totalChecked: number;
     totalInat: number;
+    awaitingCacheSync?: { obsId: string; specimenId?: number }[];
   };
 }
 
@@ -1083,9 +1084,28 @@ export default function AdminRunDetailPage() {
                       {stats.sequencingSuccess.withDnaBarcode}/{stats.sequencingSuccess.totalInat} with DNA barcode (iNat field)
                     </p>
                     {stats.sequencingSuccess.totalInat > stats.sequencingSuccess.totalChecked && (
-                      <p className="text-xs text-amber-600 mt-0.5">
+                      <button
+                        onClick={() => {
+                          const awaiting = stats.sequencingSuccess?.awaitingCacheSync || [];
+                          if (awaiting.length > 0) {
+                            const first = awaiting[0];
+                            if (first.specimenId) {
+                              refreshSpecimenMutation.mutate(first.specimenId);
+                            } else {
+                              toast({ title: "No specimen linked", description: `Observation ${first.obsId} needs a specimen record first. Run "Generate Specimen Records".` });
+                            }
+                          }
+                        }}
+                        disabled={refreshSpecimenMutation.isPending}
+                        className="text-xs text-amber-600 hover:text-amber-800 hover:underline mt-0.5 flex items-center gap-1"
+                        data-testid="btn-awaiting-cache-sync"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${refreshSpecimenMutation.isPending ? 'animate-spin' : ''}`} />
                         {stats.sequencingSuccess.totalInat - stats.sequencingSuccess.totalChecked} awaiting cache sync
-                      </p>
+                        {stats.sequencingSuccess.awaitingCacheSync?.[0]?.obsId && (
+                          <span className="text-gray-500">(#{stats.sequencingSuccess.awaitingCacheSync[0].obsId})</span>
+                        )}
+                      </button>
                     )}
                   </>
                 ) : stats?.sequencingSuccess?.totalInat === 0 ? (

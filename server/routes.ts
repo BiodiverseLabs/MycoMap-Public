@@ -12665,12 +12665,23 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       
       let sequencingSuccessCount = 0;
       let sequencingTotalChecked = 0;
+      let awaitingCacheSync: { obsId: string; specimenId?: number }[] = [];
       
       if (inatObsIds.length > 0) {
+        // Get observations that ARE in cache
+        const cachedObs = await db.select({ sourceObservationId: observationCache.sourceObservationId })
+          .from(observationCache)
+          .where(and(
+            eq(observationCache.source, 'inat'),
+            inArray(observationCache.sourceObservationId, inatObsIds)
+          ));
+        
+        const cachedObsIds = new Set(cachedObs.map(o => o.sourceObservationId));
+        sequencingTotalChecked = cachedObsIds.size;
+        
         // Count observations with DNA barcode ITS in observation_cache
         const [dnaResult] = await db.select({
           withDna: sql<number>`count(*) FILTER (WHERE dna_barcode_its IS NOT NULL AND dna_barcode_its != '')`,
-          total: sql<number>`count(*)`,
         })
           .from(observationCache)
           .where(and(
@@ -12679,7 +12690,19 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           ));
         
         sequencingSuccessCount = Number(dnaResult?.withDna || 0);
-        sequencingTotalChecked = Number(dnaResult?.total || 0);
+        
+        // Find observations NOT in cache (awaiting sync)
+        const notInCache = inatObsIds.filter(id => !cachedObsIds.has(id));
+        if (notInCache.length > 0) {
+          // Get specimen IDs for these observations so we can refresh them
+          const wellsWithMissingCache = wells.filter(w => 
+            w.observationId && notInCache.includes(w.observationId) && w.coreSpecimenId
+          );
+          awaitingCacheSync = notInCache.map(obsId => {
+            const well = wellsWithMissingCache.find(w => w.observationId === obsId);
+            return { obsId, specimenId: well?.coreSpecimenId || undefined };
+          });
+        }
       }
       
       const sequencingSuccessRate = sequencingTotalChecked > 0 
@@ -12701,6 +12724,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           withDnaBarcode: sequencingSuccessCount,
           totalChecked: sequencingTotalChecked,
           totalInat: inatObsIds.length,
+          awaitingCacheSync,
         },
       });
     } catch (error) {
