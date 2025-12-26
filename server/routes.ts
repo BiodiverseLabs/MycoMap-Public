@@ -12659,9 +12659,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       ).length;
       
       // Calculate Sequencing Success % - count specimens with DNA Barcode ITS
-      const inatObsIds = wells
+      // Use unique observation IDs to avoid counting duplicates
+      const inatObsIds = [...new Set(wells
         .filter(w => w.observationId && w.platform?.toLowerCase() !== 'mushroom observer')
-        .map(w => w.observationId!);
+        .map(w => w.observationId!))];
       
       let sequencingSuccessCount = 0;
       let sequencingTotalChecked = 0;
