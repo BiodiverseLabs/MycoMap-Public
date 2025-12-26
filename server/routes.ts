@@ -13761,48 +13761,54 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       });
       console.log(`[Heatmap] Found ${failedWells.length} failed wells out of ${wells.length} total`);
       
-      // Get specimen details for taxonomy
+      // Get specimen details for taxonomy and display info
       const specimenIds = [...new Set(failedWells.filter(w => w.coreSpecimenId).map(w => w.coreSpecimenId!))];
-      const specimenTaxonomy = new Map<number, { family?: string; genus?: string; scientificName?: string }>();
+      const specimenData = new Map<number, { family?: string; genus?: string; scientificName?: string; displayCode?: string; collectionDate?: string; state?: string; country?: string }>();
       
       if (specimenIds.length > 0) {
         const idsClause = specimenIds.join(', ');
         const specResult = await db.execute(sql`
-          SELECT id, family, genus, scientific_name
+          SELECT id, family, genus, scientific_name, display_code, collection_date, state, country
           FROM specimens
           WHERE id IN (${sql.raw(idsClause)})
         `);
         for (const row of (specResult.rows || [])) {
           const r = row as any;
-          specimenTaxonomy.set(r.id, {
+          specimenData.set(r.id, {
             family: r.family || null,
             genus: r.genus || null,
             scientificName: r.scientific_name || null,
+            displayCode: r.display_code || null,
+            collectionDate: r.collection_date || null,
+            state: r.state || null,
+            country: r.country || null,
           });
         }
       }
       
-      // Also get taxonomy from observation cache for observations without specimens
-      const obsIdsNeedingTaxonomy = failedWells
-        .filter(w => !w.coreSpecimenId && w.observationId && w.platform === 'iNaturalist')
+      // Get data from observation cache for all failed observations
+      const allObsIds = failedWells
+        .filter(w => w.observationId && w.platform === 'iNaturalist')
         .map(w => w.observationId!);
       
-      const cacheTaxonomy = new Map<string, { family?: string; genus?: string; scientificName?: string }>();
-      if (obsIdsNeedingTaxonomy.length > 0) {
-        const idsClause = obsIdsNeedingTaxonomy.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+      const cacheTaxonomy = new Map<string, { family?: string; genus?: string; scientificName?: string; observedOn?: string; locality?: string; state?: string; country?: string }>();
+      if (allObsIds.length > 0) {
+        const idsClause = allObsIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
         const cacheResult = await db.execute(sql`
-          SELECT source_observation_id, scientific_name
+          SELECT source_observation_id, scientific_name, family, genus, observed_on, place_guess
           FROM observation_cache
           WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
         `);
         for (const row of (cacheResult.rows || [])) {
           const r = row as any;
           const sciName = r.scientific_name || '';
-          // Try to extract genus from scientific name
           const parts = sciName.split(' ');
           cacheTaxonomy.set(r.source_observation_id, {
             scientificName: sciName,
-            genus: parts.length > 0 ? parts[0] : null,
+            family: r.family || null,
+            genus: r.genus || parts[0] || null,
+            observedOn: r.observed_on || null,
+            locality: r.place_guess || null,
           });
         }
       }
@@ -13813,7 +13819,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Build failure records with all details
       const failures = failedWells.map(w => {
         const plate = plateMap.get(w.plateId);
-        const specimen = w.coreSpecimenId ? specimenTaxonomy.get(w.coreSpecimenId) : null;
+        const specimen = w.coreSpecimenId ? specimenData.get(w.coreSpecimenId) : null;
         const cache = w.observationId ? cacheTaxonomy.get(w.observationId) : null;
         
         return {
@@ -13823,9 +13829,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           plateName: plate?.name || null,
           platform: w.platform,
           observationId: w.observationId,
-          family: specimen?.family || null,
+          family: specimen?.family || cache?.family || null,
           genus: specimen?.genus || cache?.genus || null,
           scientificName: specimen?.scientificName || cache?.scientificName || null,
+          displayCode: specimen?.displayCode || null,
+          observedOn: cache?.observedOn || specimen?.collectionDate || null,
+          locality: cache?.locality || null,
+          state: specimen?.state || null,
+          country: specimen?.country || null,
         };
       });
       

@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +88,11 @@ interface FailureHeatmapData {
     family: string | null;
     genus: string | null;
     scientificName: string | null;
+    displayCode: string | null;
+    observedOn: string | null;
+    locality: string | null;
+    state: string | null;
+    country: string | null;
   }[];
   plates: { id: number; plateNumber: number; name: string | null }[];
 }
@@ -1676,14 +1682,94 @@ export default function AdminRunDetailPage() {
                               {cols.map(col => {
                                 const wellPos = `${row}${col.toString().padStart(2, '0')}`;
                                 const count = wellCounts.get(wellPos) || 0;
+                                const wellFailures = count > 0 ? filteredFailures.filter(f => f.wellPosition === wellPos) : [];
+                                
+                                if (count === 0) {
+                                  return (
+                                    <td 
+                                      key={wellPos} 
+                                      className="w-8 h-8 border border-gray-300 text-center text-xs font-medium bg-gray-100"
+                                      title={wellPos}
+                                      data-testid={`heatmap-well-${wellPos}`}
+                                    />
+                                  );
+                                }
+                                
                                 return (
-                                  <td 
-                                    key={wellPos} 
-                                    className={`w-8 h-8 border border-gray-300 text-center text-xs font-medium ${getHeatColor(count)}`}
-                                    title={count > 0 ? `${wellPos}: ${count} failure${count > 1 ? 's' : ''}` : wellPos}
-                                    data-testid={`heatmap-well-${wellPos}`}
-                                  >
-                                    {count > 0 ? count : ''}
+                                  <td key={wellPos} className="p-0">
+                                    <HoverCard openDelay={200} closeDelay={100}>
+                                      <HoverCardTrigger asChild>
+                                        <div 
+                                          className={`w-8 h-8 border border-gray-300 text-center text-xs font-medium flex items-center justify-center cursor-pointer ${getHeatColor(count)}`}
+                                          data-testid={`heatmap-well-${wellPos}`}
+                                        >
+                                          {count}
+                                        </div>
+                                      </HoverCardTrigger>
+                                      <HoverCardContent className="w-72 p-3" side="right" align="start">
+                                        <div className="space-y-2">
+                                          <div className="text-sm font-medium text-gray-700 border-b pb-1">
+                                            {wellPos} - {count} failure{count > 1 ? 's' : ''}
+                                          </div>
+                                          <div className="max-h-48 overflow-y-auto space-y-3">
+                                            {wellFailures.map((f, idx) => {
+                                              const getObsUrl = () => {
+                                                if (f.platform === 'iNaturalist' && f.observationId) {
+                                                  return `https://www.inaturalist.org/observations/${f.observationId}`;
+                                                } else if (f.platform === 'Mushroom Observer' && f.observationId) {
+                                                  return `https://mushroomobserver.org/observer/show_observation/${f.observationId}`;
+                                                }
+                                                return null;
+                                              };
+                                              const obsUrl = getObsUrl();
+                                              const locationParts = [f.state, f.country].filter(Boolean);
+                                              const locationDisplay = f.locality || (locationParts.length > 0 ? locationParts.join(', ') : null);
+                                              
+                                              return (
+                                                <div key={idx} className="bg-blue-50 rounded p-2 text-sm">
+                                                  <div className="font-medium italic text-gray-800">
+                                                    {f.scientificName || 'Unknown species'}
+                                                  </div>
+                                                  <div className="flex items-center gap-2 text-gray-600 text-xs mt-1">
+                                                    <span>{f.platform === 'iNaturalist' ? 'iNaturalist' : f.platform}</span>
+                                                    {f.observationId && (
+                                                      <>
+                                                        <span className="text-gray-400">•</span>
+                                                        <span className="text-blue-600">#{f.observationId}</span>
+                                                      </>
+                                                    )}
+                                                    {f.displayCode && (
+                                                      <Badge variant="outline" className="text-xs px-1.5 py-0 bg-blue-100 border-blue-300">
+                                                        {f.displayCode}
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                  {(f.observedOn || locationDisplay) && (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                      {f.observedOn && format(new Date(f.observedOn), 'M/d/yyyy')}
+                                                      {f.observedOn && locationDisplay && ' • '}
+                                                      {locationDisplay}
+                                                    </div>
+                                                  )}
+                                                  {obsUrl && (
+                                                    <a
+                                                      href={obsUrl}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1.5"
+                                                      onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                      <ExternalLink className="h-3 w-3" />
+                                                      View observation
+                                                    </a>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      </HoverCardContent>
+                                    </HoverCard>
                                   </td>
                                 );
                               })}
