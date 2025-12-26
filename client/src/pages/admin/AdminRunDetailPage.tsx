@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload, RefreshCw, FileQuestion, ThumbsDown } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload, RefreshCw, FileQuestion, ThumbsDown, ThumbsUp } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -670,8 +670,9 @@ export default function AdminRunDetailPage() {
     },
   });
 
-  // State for tracking observations being moved to fail
+  // State for tracking observations being moved to fail/success
   const [movingToFailIds, setMovingToFailIds] = useState<Set<string>>(new Set());
+  const [movingToSuccessIds, setMovingToSuccessIds] = useState<Set<string>>(new Set());
 
   const moveToFailMutation = useMutation({
     mutationFn: async (obsId: string) => {
@@ -693,6 +694,33 @@ export default function AdminRunDetailPage() {
     },
     onSettled: (_, __, obsId) => {
       setMovingToFailIds(prev => {
+        const next = new Set(prev);
+        next.delete(obsId);
+        return next;
+      });
+    },
+  });
+
+  const moveToSuccessMutation = useMutation({
+    mutationFn: async (obsId: string) => {
+      setMovingToSuccessIds(prev => new Set(prev).add(obsId));
+      const obsKey = `iNaturalist:${obsId}`;
+      return apiRequest('POST', `/api/admin/runs/${runId}/mycomap/overrides`, {
+        obsKey,
+        originalCategory: 'to_upload',
+        targetCategory: 'success',
+        reason: 'Manually marked as successful'
+      });
+    },
+    onSuccess: async () => {
+      await refetchMycoMapAnalysis();
+      toast({ title: "Marked Successful", description: "Observation added to successful observations" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to mark observation", variant: "destructive" });
+    },
+    onSettled: (_, __, obsId) => {
+      setMovingToSuccessIds(prev => {
         const next = new Set(prev);
         next.delete(obsId);
         return next;
@@ -1273,6 +1301,19 @@ export default function AdminRunDetailPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <button
+                          onClick={() => moveToSuccessMutation.mutate(obs.obsId)}
+                          disabled={movingToSuccessIds.has(obs.obsId)}
+                          className="p-1.5 rounded-md hover:bg-green-100 text-green-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                          title="Mark as Successful"
+                          data-testid={`btn-move-to-success-${obs.obsId}`}
+                        >
+                          {movingToSuccessIds.has(obs.obsId) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ThumbsUp className="h-4 w-4" />
+                          )}
+                        </button>
                         <button
                           onClick={() => moveToFailMutation.mutate(obs.obsId)}
                           disabled={movingToFailIds.has(obs.obsId)}

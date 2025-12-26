@@ -13344,7 +13344,15 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               .filter((id: any) => id)
           );
           console.log(`[MycoMap] Found ${cachedIds.size} observations with DNA barcodes in cache`);
-          sequencesToUpload = validInatSuccessIds.filter(id => !cachedIds.has(id));
+          // Filter out observations that have been manually marked as successful (to_upload -> success)
+          sequencesToUpload = validInatSuccessIds.filter(id => {
+            if (cachedIds.has(id)) return false;
+            // Check if manually marked as successful via override
+            const obsKey = `iNaturalist:${id}`;
+            const override = overrideMap.get(obsKey);
+            if (override && override.from === 'to_upload' && override.to === 'success') return false;
+            return true;
+          });
         } catch (cacheErr: any) {
           console.error(`[MycoMap] Error querying cache:`, cacheErr.message);
           // If cache query fails, mark all as needing upload
