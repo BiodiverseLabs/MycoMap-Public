@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Grid3X3, Plus, CheckCircle, AlertCircle, Trash2, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface Well {
   id: number;
@@ -33,6 +34,9 @@ interface PendingPlate {
   wells: Well[];
   createdBy: string | null;
   createdAt: string;
+  runId: number | null;
+  runName: string | null;
+  plateNumber: number | null;
 }
 
 export default function AdminPendingPlatesPage() {
@@ -43,6 +47,7 @@ export default function AdminPendingPlatesPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [creatorFilter, setCreatorFilter] = useState<string>("all");
 
   const { data: plates, isLoading } = useQuery<PendingPlate[]>({
     queryKey: ['/api/admin/pending-plates', showInactive, searchTerm],
@@ -86,6 +91,22 @@ export default function AdminPendingPlatesPage() {
     },
   });
 
+  // Extract unique creators for filter dropdown
+  const uniqueCreators = useMemo(() => {
+    if (!plates) return [];
+    const creators = plates
+      .map(p => p.createdBy)
+      .filter((c): c is string => !!c);
+    return Array.from(new Set(creators)).sort();
+  }, [plates]);
+
+  // Filter plates by selected creator
+  const filteredPlates = useMemo(() => {
+    if (!plates) return [];
+    if (creatorFilter === "all") return plates;
+    return plates.filter(p => p.createdBy === creatorFilter);
+  }, [plates, creatorFilter]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -98,10 +119,13 @@ export default function AdminPendingPlatesPage() {
   }
 
   const getPlateStats = (plate: PendingPlate) => {
+    const targetWellCount = plate.sampleCount || 96;
     const filledWells = plate.wells.filter(w => w.observationId || w.labCode).length;
-    const validatedWells = plate.wells.filter(w => w.isValidated && (w.validationStatus === 'valid' || w.validationStatus === 'no_voucher')).length;
-    const errorWells = plate.wells.filter(w => w.validationStatus && !['valid', 'no_voucher'].includes(w.validationStatus)).length;
-    return { filledWells, validatedWells, errorWells };
+    const validatedWells = plate.wells.filter(w => w.isValidated && ['valid', 'no_voucher', 'no_observation'].includes(w.validationStatus || '')).length;
+    const errorWells = plate.wells.filter(w => w.validationStatus && !['valid', 'no_voucher', 'no_observation'].includes(w.validationStatus)).length;
+    // Fully validated means ALL expected wells are filled AND validated with no errors
+    const isFullyValidated = filledWells === targetWellCount && validatedWells === targetWellCount && errorWells === 0;
+    return { filledWells, validatedWells, errorWells, isFullyValidated, targetWellCount };
   };
 
   return (
@@ -124,7 +148,7 @@ export default function AdminPendingPlatesPage() {
         </div>
 
         {/* Search and filters */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -135,6 +159,17 @@ export default function AdminPendingPlatesPage() {
               data-testid="input-search-plates"
             />
           </div>
+          <Select value={creatorFilter} onValueChange={setCreatorFilter}>
+            <SelectTrigger className="w-[180px]" data-testid="select-creator-filter">
+              <SelectValue placeholder="Filter by creator" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Creators</SelectItem>
+              {uniqueCreators.map(creator => (
+                <SelectItem key={creator} value={creator}>{creator}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex items-center gap-2">
             <Checkbox
               id="showInactive"
@@ -148,7 +183,7 @@ export default function AdminPendingPlatesPage() {
           </div>
         </div>
 
-        {plates && plates.length === 0 ? (
+        {filteredPlates.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Grid3X3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -182,7 +217,7 @@ export default function AdminPendingPlatesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plates?.map((plate) => {
+                  {filteredPlates.map((plate) => {
                     const stats = getPlateStats(plate);
                     const isInactive = plate.isActive === false;
                     return (
@@ -195,7 +230,12 @@ export default function AdminPendingPlatesPage() {
                                 {plate.name || `Plate ${plate.id}`}
                               </span>
                             </Link>
-                            {isInactive && (
+                            {isInactive && plate.runName && (
+                              <Badge variant="secondary" className="text-xs">
+                                {plate.runName} Plate {plate.plateNumber}
+                              </Badge>
+                            )}
+                            {isInactive && !plate.runName && (
                               <Badge variant="outline" className="text-xs text-gray-500">Imported</Badge>
                             )}
                           </div>

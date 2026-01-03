@@ -11,7 +11,7 @@ import path from "path";
 import fs from "fs";
 import csv from "csv-parser";
 import { db, pool } from "./db";
-import { sql, eq, ne, desc, and, gte, lte, inArray, or, isNotNull, isNull } from "drizzle-orm";
+import { sql, eq, ne, desc, and, gte, lte, inArray, or, isNotNull, isNull, ilike } from "drizzle-orm";
 import { blastDownloader } from "./blastDownloader";
 import { ipfsService } from "./ipfsService";
 import { extractLocationFromObservation, normalizeState, normalizeCountry, fetchPlaces } from "./locationService";
@@ -9641,6 +9641,12 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
           platform: specimen.platform || "iNaturalist",
           observationId: specimen.observationId,
           sortOrder: existingSpecimens.length + i,
+          scientificName: specimen.scientificName || null,
+          username: specimen.username || null,
+          observedDate: specimen.observedDate || null,
+          voucherNumber: specimen.voucherNumber || null,
+          state: specimen.state || null,
+          country: specimen.country || null,
         }).returning();
         insertedSpecimens.push(inserted);
       }
@@ -9731,6 +9737,198 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error deleting specimen:", error);
       res.status(500).json({ error: "Failed to delete specimen" });
+    }
+  });
+
+  // Lookup observations by voucher number
+  app.post("/api/shipments/lookup-voucher", isAuthenticated, async (req: any, res) => {
+    try {
+      const { vouchers } = req.body;
+      
+      if (!vouchers || !Array.isArray(vouchers) || vouchers.length === 0) {
+        return res.status(400).json({ error: "Vouchers array is required" });
+      }
+
+      // Limit to prevent abuse
+      if (vouchers.length > 100) {
+        return res.status(400).json({ error: "Maximum 100 vouchers per request" });
+      }
+
+      const results = [];
+
+      for (const voucher of vouchers) {
+        const trimmedVoucher = voucher.trim();
+        
+        if (!trimmedVoucher) {
+          results.push({ voucher, status: 'error', message: 'Empty voucher' });
+          continue;
+        }
+
+        // Always query iNaturalist API first to get the latest data
+        try {
+          const searchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number(s)=${encodeURIComponent(trimmedVoucher)}&per_page=10&verifiable=any`;
+          const response = await fetch(searchUrl, {
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(15000)
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data.results && data.results.length > 0) {
+              if (data.results.length === 1) {
+                const obs = data.results[0];
+                const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)')?.value || null;
+                results.push({
+                  voucher,
+                  status: 'found',
+                  observationId: String(obs.id),
+                  platform: 'iNaturalist',
+                  scientificName: obs.taxon?.name || null,
+                  observerUsername: obs.user?.login || null,
+                  observedOn: obs.observed_on || null,
+                  voucherNumber: voucherField,
+                  state: obs.place_guess?.split(',')[0] || null,
+                  country: null,
+                });
+                continue;
+              } else {
+                // Multiple matches from API
+                const matchDetails = data.results.slice(0, 5).map((o: any) => ({
+                  observationId: String(o.id),
+                  platform: 'iNaturalist',
+                  scientificName: o.taxon?.name || 'Unknown',
+                  observerUsername: o.user?.login || 'Unknown',
+                }));
+                results.push({
+                  voucher,
+                  status: 'multiple_matches',
+                  message: `Multiple observations (${data.results.length}) found with voucher "${voucher}"`,
+                  matchCount: data.results.length,
+                  matches: matchDetails,
+                });
+                continue;
+              }
+            }
+            
+            // No results from "Voucher Number(s)" - try "Voucher Number" field
+            const altSearchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number=${encodeURIComponent(trimmedVoucher)}&per_page=10&verifiable=any`;
+            const altResponse = await fetch(altSearchUrl, {
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(15000)
+            });
+            
+            if (altResponse.ok) {
+              const altData = await altResponse.json();
+              
+              if (altData.results && altData.results.length > 0) {
+                if (altData.results.length === 1) {
+                  const obs = altData.results[0];
+                  const voucherField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number' || f.name === 'Voucher Number(s)')?.value || null;
+                  results.push({
+                    voucher,
+                    status: 'found',
+                    observationId: String(obs.id),
+                    platform: 'iNaturalist',
+                    scientificName: obs.taxon?.name || null,
+                    observerUsername: obs.user?.login || null,
+                    observedOn: obs.observed_on || null,
+                    voucherNumber: voucherField,
+                    state: obs.place_guess?.split(',')[0] || null,
+                    country: null,
+                  });
+                  continue;
+                } else {
+                  const matchDetails = altData.results.slice(0, 5).map((o: any) => ({
+                    observationId: String(o.id),
+                    platform: 'iNaturalist',
+                    scientificName: o.taxon?.name || 'Unknown',
+                    observerUsername: o.user?.login || 'Unknown',
+                  }));
+                  results.push({
+                    voucher,
+                    status: 'multiple_matches',
+                    message: `Multiple observations (${altData.results.length}) found with voucher "${voucher}"`,
+                    matchCount: altData.results.length,
+                    matches: matchDetails,
+                  });
+                  continue;
+                }
+              }
+            }
+          }
+        } catch (apiError: any) {
+          console.error(`[Voucher Lookup] API error for ${voucher}:`, apiError.message);
+          // Fall through to local cache lookup on API error
+        }
+
+        // Fallback to local observation_cache if API didn't return results or failed
+        const normalizedVoucher = trimmedVoucher.toUpperCase();
+        const matches = await db.select({
+          id: observationCache.id,
+          source: observationCache.source,
+          sourceObservationId: observationCache.sourceObservationId,
+          scientificName: observationCache.scientificName,
+          observerUsername: observationCache.observerUsername,
+          observedOn: observationCache.observedOn,
+          voucherNumber: observationCache.voucherNumber,
+          state: observationCache.state,
+          country: observationCache.country,
+        })
+          .from(observationCache)
+          .where(
+            or(
+              ilike(observationCache.voucherNumber, normalizedVoucher),
+              ilike(observationCache.voucherNumberMultiple, `%${normalizedVoucher}%`)
+            )
+          )
+          .limit(10);
+
+        if (matches.length === 1) {
+          const match = matches[0];
+          const platform = match.source === 'inat' ? 'iNaturalist' : 
+                          match.source === 'mo' ? 'Mushroom Observer' : match.source;
+          results.push({
+            voucher,
+            status: 'found',
+            observationId: match.sourceObservationId,
+            platform,
+            scientificName: match.scientificName,
+            observerUsername: match.observerUsername,
+            observedOn: match.observedOn,
+            voucherNumber: match.voucherNumber,
+            state: match.state,
+            country: match.country,
+            fromCache: true,
+          });
+        } else if (matches.length > 1) {
+          const matchDetails = matches.map(m => ({
+            observationId: m.sourceObservationId,
+            platform: m.source === 'inat' ? 'iNaturalist' : m.source === 'mo' ? 'Mushroom Observer' : m.source,
+            scientificName: m.scientificName,
+            observerUsername: m.observerUsername,
+          }));
+          results.push({
+            voucher,
+            status: 'multiple_matches',
+            message: `Multiple observations (${matches.length}) found with voucher "${voucher}"`,
+            matchCount: matches.length,
+            matches: matchDetails,
+            fromCache: true,
+          });
+        } else {
+          results.push({
+            voucher,
+            status: 'not_found',
+            message: `No observation found with voucher "${voucher}"`,
+          });
+        }
+      }
+
+      res.json({ results });
+    } catch (error) {
+      console.error("Error looking up vouchers:", error);
+      res.status(500).json({ error: "Failed to lookup vouchers" });
     }
   });
 
@@ -11244,19 +11442,33 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
   // PENDING PLATES API ENDPOINTS (plates without runId)
   // =============================================
 
-  // Get all pending plates (runId is null)
+  // Get all pending plates (runId is null) or assigned plates (when showing inactive)
   app.get("/api/admin/pending-plates", isAdmin, async (req: any, res) => {
     try {
       const showInactive = req.query.showInactive === 'true';
       const searchTerm = req.query.search?.trim() || '';
       
-      // Build conditions: runId is null, optionally filter by isActive
-      // Treat NULL as active (for legacy data before isActive was added)
-      const conditions = showInactive
-        ? [isNull(labPlates.runId)]
-        : [isNull(labPlates.runId), or(eq(labPlates.isActive, true), isNull(labPlates.isActive))];
-      
-      let pendingPlates = await db.select().from(labPlates).where(and(...conditions));
+      // When showing inactive, include plates that have been assigned to runs (isActive = false)
+      // When not showing inactive, only show plates with no runId and isActive = true (or null for legacy)
+      let pendingPlates;
+      if (showInactive) {
+        // Show all plates that were created as pending (either still pending or assigned to runs)
+        // We identify "created as pending" by having isActive = false (assigned) or plates with null runId
+        pendingPlates = await db.select().from(labPlates).where(
+          or(
+            isNull(labPlates.runId), // Still pending
+            eq(labPlates.isActive, false) // Was pending, now assigned
+          )
+        );
+      } else {
+        // Only show active pending plates (not assigned to runs)
+        pendingPlates = await db.select().from(labPlates).where(
+          and(
+            isNull(labPlates.runId),
+            or(eq(labPlates.isActive, true), isNull(labPlates.isActive))
+          )
+        );
+      }
       
       // Get all unique creator IDs to fetch user names
       const creatorIds = [...new Set(pendingPlates.map(p => p.createdBy).filter(Boolean))];
@@ -11307,11 +11519,28 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         wellsByPlate.get(well.plateId)!.push(well);
       }
       
+      // Get run info for assigned plates
+      const runIds = [...new Set(pendingPlates.map(p => p.runId).filter((id): id is number => id !== null))];
+      const runInfoMap = new Map<number, { name: string }>();
+      if (runIds.length > 0) {
+        const runsData = await db.select({ id: labRuns.id, name: labRuns.name }).from(labRuns).where(inArray(labRuns.id, runIds));
+        for (const run of runsData) {
+          runInfoMap.set(run.id, { name: run.name });
+        }
+      }
+      
       const platesWithWells = pendingPlates.map((plate) => {
         const wells = wellsByPlate.get(plate.id) || [];
         // Replace createdBy ID with the user's display name
         const createdByName = plate.createdBy ? (userNames.get(plate.createdBy) || plate.createdBy) : null;
-        return { ...plate, createdBy: createdByName, wells };
+        // Add run info for assigned plates
+        const runInfo = plate.runId ? runInfoMap.get(plate.runId) : null;
+        return { 
+          ...plate, 
+          createdBy: createdByName, 
+          wells,
+          runName: runInfo?.name || null,
+        };
       });
       
       res.json(platesWithWells);
@@ -11401,8 +11630,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         wells = await db.select().from(labWells).where(eq(labWells.plateId, plateId)).orderBy(labWells.sortOrder);
       }
 
-      // For pending plates, runName is always null
-      res.json({ ...plate, runName: null, wells });
+      // Get run info if this plate is assigned to a run
+      let runName = null;
+      if (plate.runId) {
+        const [run] = await db.select({ name: labRuns.name }).from(labRuns).where(eq(labRuns.id, plate.runId));
+        runName = run?.name || null;
+      }
+      
+      res.json({ ...plate, runName, wells });
     } catch (error) {
       console.error("Error fetching pending plate:", error);
       res.status(500).json({ error: "Failed to fetch pending plate" });
@@ -11544,36 +11779,212 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         wellsToProcess.push({ well, effectiveObsId: effectiveObsId || '', effectivePlatform: effectivePlatform || '', validationResult });
       }
 
+      // Phase 1b: Reverse lookup - search iNaturalist for wells with lab codes but no observation IDs
+      const wellsNeedingLookup = wellsToProcess.filter(w => w.well.labCode && !w.effectiveObsId);
+      console.log(`[Validate Pending] ${wellsNeedingLookup.length} wells need voucher number lookup`);
+      
+      // Retry helper with exponential backoff
+      const fetchWithRetry = async (url: string, maxRetries = 5, initialDelay = 2000): Promise<Response | null> => {
+        let lastError: any;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            const response = await fetch(url, {
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(15000)
+            });
+            
+            if (response.ok) {
+              return response;
+            }
+            
+            if (response.status === 429) {
+              const delay = initialDelay * Math.pow(2, attempt) + Math.random() * 1000;
+              console.log(`[Validate Pending] Rate limited (429), waiting ${Math.round(delay)}ms before retry ${attempt + 1}/${maxRetries}`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+            
+            // Non-retryable error
+            console.error(`[Validate Pending] API error ${response.status} for ${url}`);
+            return null;
+          } catch (e: any) {
+            lastError = e;
+            if (attempt < maxRetries - 1) {
+              const delay = initialDelay * Math.pow(2, attempt) + Math.random() * 1000;
+              console.log(`[Validate Pending] Request failed, waiting ${Math.round(delay)}ms before retry ${attempt + 1}/${maxRetries}: ${e.message}`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          }
+        }
+        console.error(`[Validate Pending] All ${maxRetries} retries exhausted for ${url}`);
+        return null;
+      };
+      
+      if (wellsNeedingLookup.length > 0) {
+        // Process voucher lookups in batches with delays to avoid rate limiting
+        const CONCURRENCY_LIMIT = 3; // Reduced to 3 to be more conservative
+        
+        const searchVoucher = async (wellData: { well: any; validationResult: any }): Promise<boolean> => {
+          const { well, validationResult } = wellData;
+          const voucherNumber = well.labCode.trim();
+          
+          // Mark as searched at the start - will be updated if match found
+          validationResult.voucherSearched = true;
+          
+          // Search "Voucher Number(s)" field first
+          const searchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number(s)=${encodeURIComponent(voucherNumber)}&per_page=5`;
+          
+          const response = await fetchWithRetry(searchUrl);
+          
+          if (response) {
+            try {
+              const data = await response.json();
+              
+              if (data.results && data.results.length > 0) {
+                // Check for multiple matches
+                if (data.results.length > 1) {
+                  validationResult.multipleMatches = true;
+                  validationResult.matchCount = data.results.length;
+                  validationResult.matchedObservations = data.results.slice(0, 5).map((o: any) => ({
+                    id: String(o.id),
+                    scientificName: o.taxon?.name || 'Unknown',
+                    user: o.user?.login || 'Unknown'
+                  }));
+                  validationResult.noMatchFound = false;
+                  console.log(`[Validate Pending] Multiple observations (${data.results.length}) found for voucher ${voucherNumber}`);
+                  return true;
+                }
+                
+                const obs = data.results[0];
+                validationResult.foundObservationId = String(obs.id);
+                validationResult.foundViaVoucherSearch = true;
+                validationResult.noMatchFound = false;
+                
+                const wellIndex = wellsToProcess.findIndex(w => w.well.id === well.id);
+                if (wellIndex >= 0) {
+                  wellsToProcess[wellIndex].effectiveObsId = String(obs.id);
+                  wellsToProcess[wellIndex].effectivePlatform = 'iNaturalist';
+                  wellsToProcess[wellIndex].validationResult.detectedPlatform = 'iNaturalist';
+                  wellsToProcess[wellIndex].validationResult.foundObservationId = String(obs.id);
+                  wellsToProcess[wellIndex].validationResult.foundViaVoucherSearch = true;
+                }
+                console.log(`[Validate Pending] Found observation ${obs.id} for voucher ${voucherNumber}`);
+                return true;
+              }
+            } catch (e) {
+              console.error(`[Validate Pending] JSON parse error for ${voucherNumber}: ${e}`);
+            }
+          }
+          
+          // Try "Voucher Number" field as fallback
+          const altSearchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number=${encodeURIComponent(voucherNumber)}&per_page=5`;
+          const altResponse = await fetchWithRetry(altSearchUrl);
+          
+          if (altResponse) {
+            try {
+              const altData = await altResponse.json();
+              if (altData.results && altData.results.length > 0) {
+                // Check for multiple matches in alt search
+                if (altData.results.length > 1) {
+                  validationResult.multipleMatches = true;
+                  validationResult.matchCount = altData.results.length;
+                  validationResult.matchedObservations = altData.results.slice(0, 5).map((o: any) => ({
+                    id: String(o.id),
+                    scientificName: o.taxon?.name || 'Unknown',
+                    user: o.user?.login || 'Unknown'
+                  }));
+                  validationResult.noMatchFound = false;
+                  console.log(`[Validate Pending] Multiple observations (${altData.results.length}) found for voucher ${voucherNumber} (alt field)`);
+                  return true;
+                }
+                
+                const obs = altData.results[0];
+                validationResult.foundObservationId = String(obs.id);
+                validationResult.foundViaVoucherSearch = true;
+                validationResult.noMatchFound = false;
+                
+                const wellIndex = wellsToProcess.findIndex(w => w.well.id === well.id);
+                if (wellIndex >= 0) {
+                  wellsToProcess[wellIndex].effectiveObsId = String(obs.id);
+                  wellsToProcess[wellIndex].effectivePlatform = 'iNaturalist';
+                  wellsToProcess[wellIndex].validationResult.detectedPlatform = 'iNaturalist';
+                  wellsToProcess[wellIndex].validationResult.foundObservationId = String(obs.id);
+                  wellsToProcess[wellIndex].validationResult.foundViaVoucherSearch = true;
+                }
+                console.log(`[Validate Pending] Found observation ${obs.id} for voucher ${voucherNumber} (alt field)`);
+                return true;
+              }
+            } catch (e) {
+              console.error(`[Validate Pending] Alt JSON parse error for ${voucherNumber}: ${e}`);
+            }
+          }
+          
+          // No match found in either field
+          validationResult.noMatchFound = true;
+          console.log(`[Validate Pending] No observation found for voucher ${voucherNumber}`);
+          return true; // Completed successfully, just no match
+        };
+        
+        // Process in parallel batches with longer delays
+        for (let i = 0; i < wellsNeedingLookup.length; i += CONCURRENCY_LIMIT) {
+          const batch = wellsNeedingLookup.slice(i, i + CONCURRENCY_LIMIT);
+          console.log(`[Validate Pending] Processing batch ${Math.floor(i/CONCURRENCY_LIMIT) + 1} of ${Math.ceil(wellsNeedingLookup.length/CONCURRENCY_LIMIT)} (${batch.length} vouchers)`);
+          await Promise.all(batch.map(searchVoucher));
+          
+          // Longer delay between batches to avoid rate limiting
+          if (i + CONCURRENCY_LIMIT < wellsNeedingLookup.length) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+        }
+      }
+
       // Phase 2: Batch fetch iNaturalist observations
+      // Wait a bit before Phase 2 to let rate limits cool down
+      console.log(`[Validate Pending] Waiting 3 seconds before Phase 2 to avoid rate limits...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       const inatObsIds = wellsToProcess
         .filter(w => w.effectivePlatform === 'iNaturalist' && w.effectiveObsId)
         .map(w => w.effectiveObsId.replace(/\D/g, ''));
       
+      console.log(`[Validate Pending] Phase 2: ${inatObsIds.length} iNaturalist observations to fetch`);
+      console.log(`[Validate Pending] Sample IDs: ${inatObsIds.slice(0, 5).join(', ')}`);
+      
       const obsDataMap: Record<string, any> = {};
       
       if (inatObsIds.length > 0) {
-        const batchSize = 100;
+        const batchSize = 50; // Reduced batch size
         for (let i = 0; i < inatObsIds.length; i += batchSize) {
           const batch = inatObsIds.slice(i, i + batchSize);
           const batchUrl = `https://api.inaturalist.org/v1/observations?id=${batch.join(',')}&per_page=${batchSize}`;
           
-          try {
-            const response = await fetch(batchUrl, {
-              headers: { 'Accept': 'application/json' },
-              signal: AbortSignal.timeout(30000)
-            });
-            
-            if (response.ok) {
+          console.log(`[Validate Pending] Phase 2 batch ${Math.floor(i/batchSize) + 1}: fetching ${batch.length} observations`);
+          
+          const response = await fetchWithRetry(batchUrl);
+          
+          if (response) {
+            try {
               const data = await response.json();
+              const count = (data.results || []).length;
               for (const obs of (data.results || [])) {
                 obsDataMap[String(obs.id)] = obs;
               }
+              console.log(`[Validate Pending] Phase 2 batch ${Math.floor(i/batchSize) + 1}: got ${count} observations`);
+            } catch (e: any) {
+              console.error(`[Validate Pending] Phase 2 JSON parse error: ${e.message}`);
             }
-          } catch (e: any) {
-            console.error(`[Validate Pending] Batch fetch error: ${e.message}`);
+          } else {
+            console.error(`[Validate Pending] Phase 2 batch ${Math.floor(i/batchSize) + 1} failed after retries`);
+          }
+          
+          // Delay between batches
+          if (i + batchSize < inatObsIds.length) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
           }
         }
       }
+      
+      console.log(`[Validate Pending] Phase 2 complete: obsDataMap has ${Object.keys(obsDataMap).length} entries`);
 
       // Phase 2b: Fetch Mushroom Observer observations
       const moObsIds = wellsToProcess
@@ -11583,31 +11994,40 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const moDataMap: Record<string, any> = {};
       
       if (moObsIds.length > 0) {
-        const moFetchPromises = moObsIds.map(async (obsId, index) => {
-          await new Promise(resolve => setTimeout(resolve, index * 200));
+        console.log(`[Validate Pending] Phase 2b: ${moObsIds.length} Mushroom Observer observations to fetch`);
+        
+        // Process MO sequentially with delays to be respectful of their API
+        for (let i = 0; i < moObsIds.length; i++) {
+          const obsId = moObsIds[i];
+          const moUrl = `https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`;
           
-          try {
-            const moUrl = `https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`;
-            const response = await fetch(moUrl, {
-              headers: { 'Accept': 'application/json' },
-              signal: AbortSignal.timeout(15000)
-            });
-            
-            if (response.ok) {
+          const response = await fetchWithRetry(moUrl, 3, 1000);
+          
+          if (response) {
+            try {
               const data = await response.json();
               if (data.results && data.results.length > 0) {
                 moDataMap[obsId] = data.results[0];
               }
+            } catch (e: any) {
+              console.error(`[Validate Pending] MO JSON parse error for ${obsId}: ${e.message}`);
             }
-          } catch (e: any) {
-            console.error(`[Validate Pending] MO fetch error for ${obsId}: ${e.message}`);
           }
-        });
+          
+          // Delay between requests
+          if (i < moObsIds.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        }
         
-        await Promise.all(moFetchPromises);
+        console.log(`[Validate Pending] Phase 2b complete: moDataMap has ${Object.keys(moDataMap).length} entries`);
       }
 
       // Phase 3: Process each well
+      console.log(`[Validate Pending] Phase 3: Processing ${wellsToProcess.length} wells, obsDataMap has ${Object.keys(obsDataMap).length} entries`);
+      let updateCount = 0;
+      let errorCount = 0;
+      
       for (const { well, effectiveObsId, effectivePlatform, validationResult } of wellsToProcess) {
         const obsId = effectiveObsId?.replace(/\D/g, '');
         
@@ -11672,18 +12092,32 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               updatedAt: new Date(),
             };
             
-            // Auto-fill labCode from voucher number if labCode is empty (same logic as regular plate validation)
+            // Auto-fill labCode from voucher number if labCode is empty
             if (!well.labCode && inatVoucher) {
               updateData.labCode = inatVoucher;
               validationResult.labCodeUpdated = true;
             }
             
+            // Save the found observation ID if it was discovered via voucher search
+            if (validationResult.foundObservationId) {
+              console.log(`[Validate Pending] Well ${well.id}: foundObservationId=${validationResult.foundObservationId}, well.observationId=${well.observationId || '(empty)'}`);
+              if (!well.observationId) {
+                updateData.observationId = validationResult.foundObservationId;
+                validationResult.observationIdUpdated = true;
+                console.log(`[Validate Pending] -> Saving observation ID ${validationResult.foundObservationId} to well ${well.id}`);
+              } else {
+                console.log(`[Validate Pending] -> Well ${well.id} already has observationId, not overwriting`);
+              }
+            }
+            
             await db.update(labWells)
               .set(updateData)
               .where(eq(labWells.id, well.id));
+            updateCount++;
           } else {
             validationResult.status = 'error';
             validationResult.message = 'Observation not found on iNaturalist';
+            errorCount++;
             
             await db.update(labWells)
               .set({
@@ -11754,15 +12188,499 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
               updatedAt: new Date(),
             })
             .where(eq(labWells.id, well.id));
+        } else if (validationResult.multipleMatches) {
+          // Multiple observations found for this voucher number
+          const matchList = validationResult.matchedObservations?.slice(0, 3).map((m: any) => `${m.id} (${m.scientificName})`).join(', ') || '';
+          validationResult.status = 'multiple_matches';
+          validationResult.message = `Multiple observations (${validationResult.matchCount}) match this voucher: ${matchList}`;
+          
+          await db.update(labWells)
+            .set({
+              isValidated: true,
+              validationStatus: 'multiple_matches',
+              validationMessage: `Multiple observations (${validationResult.matchCount}) match this voucher: ${matchList}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(labWells.id, well.id));
+        } else if (well.labCode && !effectiveObsId && validationResult.voucherSearched) {
+          // Voucher search was performed but no matching observation found
+          validationResult.status = 'no_observation';
+          validationResult.message = 'No iNaturalist observation found with this voucher number';
+          
+          await db.update(labWells)
+            .set({
+              isValidated: true,
+              validationStatus: 'no_observation',
+              validationMessage: 'No iNaturalist observation found with this voucher number',
+              updatedAt: new Date(),
+            })
+            .where(eq(labWells.id, well.id));
+        } else if (well.labCode && !effectiveObsId) {
+          // Lab code exists but no observation ID and search wasn't performed (shouldn't happen normally)
+          validationResult.status = 'no_observation';
+          validationResult.message = 'No iNaturalist observation found with this voucher number';
+          
+          await db.update(labWells)
+            .set({
+              isValidated: true,
+              validationStatus: 'no_observation',
+              validationMessage: 'No iNaturalist observation found with this voucher number',
+              updatedAt: new Date(),
+            })
+            .where(eq(labWells.id, well.id));
         }
 
         results.push(validationResult);
       }
 
+      console.log(`[Validate Pending] Phase 3 complete: ${updateCount} updated, ${errorCount} errors, ${results.length} total results`);
       res.json({ success: true, results });
     } catch (error) {
       console.error("Error validating pending plate:", error);
       res.status(500).json({ error: "Failed to validate plate" });
+    }
+  });
+
+  // Validate single well (refresh one row)
+  app.post("/api/admin/wells/:wellId/validate", isAdmin, async (req: any, res) => {
+    try {
+      const wellId = parseInt(req.params.wellId);
+      const [well] = await db.select().from(labWells).where(eq(labWells.id, wellId));
+      
+      if (!well) {
+        return res.status(404).json({ error: "Well not found" });
+      }
+
+      const validationResult: any = { wellId: well.id };
+      let effectivePlatform = well.platform;
+      let effectiveObsId = well.observationId;
+
+      // Auto-detect platform if not set
+      if (!effectivePlatform && effectiveObsId) {
+        const digits = effectiveObsId.replace(/\D/g, '');
+        if (digits.length === 6) {
+          validationResult.detectedPlatform = 'MO';
+          effectivePlatform = 'MO';
+        } else if (digits.length >= 8 && digits.length <= 9) {
+          validationResult.detectedPlatform = 'iNaturalist';
+          effectivePlatform = 'iNaturalist';
+        }
+      }
+
+      // If has lab code but no observation ID, search by voucher number
+      if (well.labCode && !effectiveObsId) {
+        const voucherNumber = well.labCode.trim();
+        validationResult.voucherSearched = true;
+        
+        try {
+          // Search "Voucher Number(s)" field first
+          const searchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number(s)=${encodeURIComponent(voucherNumber)}&per_page=5`;
+          const response = await fetch(searchUrl, {
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(15000)
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+              // Check for multiple matches
+              if (data.results.length > 1) {
+                validationResult.multipleMatches = true;
+                validationResult.matchCount = data.results.length;
+                validationResult.matchedObservations = data.results.slice(0, 5).map((o: any) => ({
+                  id: String(o.id),
+                  scientificName: o.taxon?.name || 'Unknown',
+                  user: o.user?.login || 'Unknown'
+                }));
+              } else {
+                const obs = data.results[0];
+                effectiveObsId = String(obs.id);
+                effectivePlatform = 'iNaturalist';
+                validationResult.foundObservationId = effectiveObsId;
+                validationResult.foundViaVoucherSearch = true;
+                validationResult.detectedPlatform = 'iNaturalist';
+              }
+            } else {
+              // Try "Voucher Number" field as fallback
+              const altSearchUrl = `https://api.inaturalist.org/v1/observations?field:Voucher%20Number=${encodeURIComponent(voucherNumber)}&per_page=5`;
+              const altResponse = await fetch(altSearchUrl, {
+                headers: { 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(15000)
+              });
+              
+              if (altResponse.ok) {
+                const altData = await altResponse.json();
+                if (altData.results && altData.results.length > 0) {
+                  // Check for multiple matches in alt search
+                  if (altData.results.length > 1) {
+                    validationResult.multipleMatches = true;
+                    validationResult.matchCount = altData.results.length;
+                    validationResult.matchedObservations = altData.results.slice(0, 5).map((o: any) => ({
+                      id: String(o.id),
+                      scientificName: o.taxon?.name || 'Unknown',
+                      user: o.user?.login || 'Unknown'
+                    }));
+                  } else {
+                    const obs = altData.results[0];
+                    effectiveObsId = String(obs.id);
+                    effectivePlatform = 'iNaturalist';
+                    validationResult.foundObservationId = effectiveObsId;
+                    validationResult.foundViaVoucherSearch = true;
+                    validationResult.detectedPlatform = 'iNaturalist';
+                  }
+                } else {
+                  validationResult.noMatchFound = true;
+                }
+              }
+            }
+          }
+        } catch (e: any) {
+          console.error(`[Validate Well] Voucher search error: ${e.message}`);
+          validationResult.noMatchFound = true;
+        }
+      }
+
+      // Now fetch the observation if we have an ID
+      if (effectivePlatform === 'iNaturalist' && effectiveObsId) {
+        const obsId = effectiveObsId.replace(/\D/g, '');
+        try {
+          const response = await fetch(`https://api.inaturalist.org/v1/observations/${obsId}`, {
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(15000)
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const obs = data.results?.[0];
+            
+            if (obs) {
+              validationResult.apiFetched = true;
+              
+              const voucherNumbersField = obs.ofvs?.find((f: any) => f.name === 'Voucher Number(s)');
+              const voucherNumberField = obs.ofvs?.find((f: any) => 
+                f.name === 'Voucher Number' || f.observation_field_id === 8257
+              );
+              const inatVoucher = voucherNumbersField?.value || voucherNumberField?.value || null;
+
+              validationResult.voucherNumber = inatVoucher;
+              validationResult.scientificName = obs.taxon?.name;
+              validationResult.username = obs.user?.login || null;
+              
+              try {
+                const location = await extractLocationFromObservation(obs);
+                validationResult.state = location.stateCode || location.stateName || null;
+                validationResult.country = location.countryCode || location.countryName || null;
+              } catch (locError) {
+                validationResult.state = null;
+                validationResult.country = null;
+              }
+              
+              const iconicTaxon = obs.taxon?.iconic_taxon_name;
+              const isFungal = iconicTaxon === "Fungi";
+              const isSlimeMold = iconicTaxon === "Protozoa";
+              
+              let status = 'valid';
+              let message = 'Observation verified';
+              
+              if (!isFungal && !isSlimeMold) {
+                status = 'not_fungal';
+                message = `Organism is ${iconicTaxon || 'unknown'}, not fungal`;
+              } else if (well.labCode && inatVoucher) {
+                if (!labCodesMatch(well.labCode, inatVoucher)) {
+                  status = 'mismatch';
+                  message = `Lab code "${well.labCode}" not found in voucher "${inatVoucher}"`;
+                }
+              } else if (!inatVoucher) {
+                status = 'no_voucher';
+                message = 'No voucher number in iNaturalist';
+              }
+              
+              validationResult.status = status;
+              validationResult.message = message;
+              
+              const updateData: any = {
+                isValidated: true,
+                validationStatus: status,
+                validationMessage: message,
+                voucherNumber: inatVoucher,
+                username: validationResult.username,
+                state: validationResult.state,
+                country: validationResult.country,
+                platform: effectivePlatform,
+                updatedAt: new Date(),
+              };
+              
+              if (validationResult.foundObservationId && !well.observationId) {
+                updateData.observationId = validationResult.foundObservationId;
+              }
+              
+              if (!well.labCode && inatVoucher) {
+                updateData.labCode = inatVoucher;
+              }
+              
+              if (validationResult.detectedPlatform) {
+                updateData.platform = validationResult.detectedPlatform;
+              }
+              
+              await db.update(labWells).set(updateData).where(eq(labWells.id, well.id));
+              
+              return res.json({ success: true, result: validationResult });
+            }
+          }
+          
+          // Observation not found
+          validationResult.status = 'error';
+          validationResult.message = 'Observation not found on iNaturalist';
+          await db.update(labWells).set({
+            isValidated: true,
+            validationStatus: 'error',
+            validationMessage: 'Observation not found on iNaturalist',
+            updatedAt: new Date(),
+          }).where(eq(labWells.id, well.id));
+          
+          return res.json({ success: true, result: validationResult });
+        } catch (e: any) {
+          console.error(`[Validate Well] API error: ${e.message}`);
+        }
+      } else if (effectivePlatform === 'MO' && effectiveObsId) {
+        const obsId = effectiveObsId.replace(/\D/g, '');
+        try {
+          const response = await fetch(`https://mushroomobserver.org/api2/observations?id=${obsId}&detail=high`, {
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(15000)
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const moObs = data.results?.[0];
+            
+            if (moObs) {
+              let username = null;
+              if (moObs.user) {
+                username = typeof moObs.user === 'object' ? (moObs.user.login_name || moObs.user.name) : moObs.user;
+              }
+              
+              validationResult.username = username;
+              validationResult.status = 'valid';
+              validationResult.message = 'MO observation verified';
+              
+              await db.update(labWells).set({
+                isValidated: true,
+                validationStatus: 'valid',
+                validationMessage: 'MO observation verified',
+                username,
+                platform: 'MO',
+                updatedAt: new Date(),
+              }).where(eq(labWells.id, well.id));
+              
+              return res.json({ success: true, result: validationResult });
+            }
+          }
+          
+          validationResult.status = 'error';
+          validationResult.message = 'Observation not found on Mushroom Observer';
+          await db.update(labWells).set({
+            isValidated: true,
+            validationStatus: 'error',
+            validationMessage: 'Observation not found on Mushroom Observer',
+            updatedAt: new Date(),
+          }).where(eq(labWells.id, well.id));
+          
+          return res.json({ success: true, result: validationResult });
+        } catch (e: any) {
+          console.error(`[Validate Well] MO API error: ${e.message}`);
+        }
+      }
+
+      // If we get here, no observation was found or processed
+      if (validationResult.multipleMatches) {
+        // Multiple observations found for this voucher number
+        const matchList = validationResult.matchedObservations?.slice(0, 3).map((m: any) => `${m.id} (${m.scientificName})`).join(', ') || '';
+        validationResult.status = 'multiple_matches';
+        validationResult.message = `Multiple observations (${validationResult.matchCount}) match this voucher: ${matchList}`;
+        
+        await db.update(labWells).set({
+          isValidated: true,
+          validationStatus: 'multiple_matches',
+          validationMessage: `Multiple observations (${validationResult.matchCount}) match this voucher: ${matchList}`,
+          updatedAt: new Date(),
+        }).where(eq(labWells.id, well.id));
+      } else if (well.labCode && !effectiveObsId) {
+        validationResult.status = 'no_observation';
+        validationResult.message = 'No iNaturalist observation found with this voucher number';
+        
+        await db.update(labWells).set({
+          isValidated: true,
+          validationStatus: 'no_observation',
+          validationMessage: 'No iNaturalist observation found with this voucher number',
+          updatedAt: new Date(),
+        }).where(eq(labWells.id, well.id));
+      } else if (!effectivePlatform && effectiveObsId) {
+        validationResult.status = 'missing_platform';
+        validationResult.message = 'Platform not specified';
+        
+        await db.update(labWells).set({
+          isValidated: true,
+          validationStatus: 'missing_platform',
+          validationMessage: 'Platform not specified',
+          updatedAt: new Date(),
+        }).where(eq(labWells.id, well.id));
+      }
+
+      res.json({ success: true, result: validationResult });
+    } catch (error) {
+      console.error("Error validating well:", error);
+      res.status(500).json({ error: "Failed to validate well" });
+    }
+  });
+
+  // Transfer pending plate to a sequencing run
+  app.post("/api/admin/pending-plates/:pendingPlateId/transfer", isAdmin, async (req: any, res) => {
+    try {
+      const pendingPlateId = parseInt(req.params.pendingPlateId);
+      const { runId, plateNumber } = req.body;
+
+      if (!runId || !plateNumber) {
+        return res.status(400).json({ error: "Run ID and plate number are required" });
+      }
+
+      // Get the pending plate
+      const [pendingPlate] = await db.select().from(labPlates).where(eq(labPlates.id, pendingPlateId));
+      if (!pendingPlate) {
+        return res.status(404).json({ error: "Pending plate not found" });
+      }
+
+      // Verify the pending plate is not already assigned to a run
+      if (pendingPlate.runId) {
+        return res.status(400).json({ error: "This plate is already assigned to a run" });
+      }
+
+      // Get the pending plate's wells
+      const pendingWells = await db.select().from(labWells).where(eq(labWells.plateId, pendingPlateId));
+      
+      // Check if the plate is fully validated - ALL expected wells must be filled and validated
+      const targetWellCount = pendingPlate.sampleCount || 96;
+      const filledWells = pendingWells.filter(w => w.labCode || w.observationId);
+      const validatedWells = filledWells.filter(w => 
+        w.isValidated && ['valid', 'no_voucher', 'no_observation'].includes(w.validationStatus || '')
+      );
+      const errorWells = pendingWells.filter(w => 
+        w.validationStatus && !['valid', 'no_voucher', 'no_observation'].includes(w.validationStatus)
+      );
+      
+      if (filledWells.length < targetWellCount) {
+        return res.status(400).json({ 
+          error: `Plate is not complete. ${filledWells.length}/${targetWellCount} wells filled.` 
+        });
+      }
+      
+      if (validatedWells.length < targetWellCount || errorWells.length > 0) {
+        return res.status(400).json({ 
+          error: `Plate is not fully validated. ${validatedWells.length}/${targetWellCount} wells validated.` 
+        });
+      }
+
+      // Verify the target run exists
+      const [targetRun] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!targetRun) {
+        return res.status(404).json({ error: "Target run not found" });
+      }
+
+      // Check if the target plate position already has data
+      const [existingPlate] = await db.select()
+        .from(labPlates)
+        .where(and(
+          eq(labPlates.runId, runId),
+          eq(labPlates.plateNumber, plateNumber)
+        ));
+
+      if (existingPlate) {
+        // Check if the existing plate has any data
+        const existingWells = await db.select().from(labWells).where(eq(labWells.plateId, existingPlate.id));
+        const hasData = existingWells.some(w => w.labCode || w.observationId);
+        
+        if (hasData) {
+          return res.status(400).json({ 
+            error: `Plate ${plateNumber} on ${targetRun.name} already has data. Clear it first.` 
+          });
+        }
+        
+        // Delete the empty existing plate and its wells
+        await db.delete(labWells).where(eq(labWells.plateId, existingPlate.id));
+        await db.delete(labPlates).where(eq(labPlates.id, existingPlate.id));
+      }
+
+      // Update the pending plate to assign it to the run
+      await db.update(labPlates)
+        .set({
+          runId: runId,
+          plateNumber: plateNumber,
+          isActive: false, // Mark as imported
+          updatedAt: new Date(),
+        })
+        .where(eq(labPlates.id, pendingPlateId));
+
+      console.log(`[Transfer] Transferred pending plate ${pendingPlateId} to Run ${runId} Plate ${plateNumber}`);
+
+      res.json({ 
+        success: true, 
+        message: `Plate transferred to ${targetRun.name} Plate ${plateNumber}`,
+        runId: runId,
+        plateNumber: plateNumber
+      });
+    } catch (error) {
+      console.error("Error transferring pending plate:", error);
+      res.status(500).json({ error: "Failed to transfer plate" });
+    }
+  });
+
+  // Get available plate positions for a run
+  app.get("/api/admin/runs/:runId/available-plates", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.runId);
+      
+      const [run] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!run) {
+        return res.status(404).json({ error: "Run not found" });
+      }
+
+      // Get existing plates for this run
+      const existingPlates = await db.select({
+        plateNumber: labPlates.plateNumber,
+        id: labPlates.id,
+      }).from(labPlates).where(eq(labPlates.runId, runId));
+
+      // Get plate info with data status
+      const plateInfo = [];
+      for (const plate of existingPlates) {
+        const wells = await db.select().from(labWells).where(eq(labWells.plateId, plate.id));
+        const hasData = wells.some(w => w.labCode || w.observationId);
+        plateInfo.push({
+          plateNumber: plate.plateNumber,
+          hasData,
+        });
+      }
+
+      // All 20 possible plate positions
+      const allPlateNumbers = Array.from({ length: 20 }, (_, i) => i + 1);
+      const availablePlates = allPlateNumbers.map(num => {
+        const existing = plateInfo.find(p => p.plateNumber === num);
+        return {
+          plateNumber: num,
+          exists: !!existing,
+          hasData: existing?.hasData || false,
+          available: !existing || !existing.hasData,
+        };
+      });
+
+      res.json({ 
+        runId, 
+        runName: run.name,
+        plates: availablePlates 
+      });
+    } catch (error) {
+      console.error("Error fetching available plates:", error);
+      res.status(500).json({ error: "Failed to fetch available plates" });
     }
   });
 
@@ -12060,12 +12978,18 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       // Build update object, explicitly including null values for validation fields
       const updateData: any = { updatedAt: new Date() };
       
-      // When platform or observationId changes, reset validation so it can be re-validated
-      const needsRevalidation = platform !== undefined || observationId !== undefined;
+      // When platform, observationId, or labCode changes, reset validation so it can be re-validated
+      const needsRevalidation = platform !== undefined || observationId !== undefined || labCode !== undefined;
       
       if (platform !== undefined) updateData.platform = platform;
       if (observationId !== undefined) updateData.observationId = observationId;
-      if (labCode !== undefined) updateData.labCode = labCode;
+      if (labCode !== undefined) {
+        updateData.labCode = labCode;
+        // Clear observationId when labCode changes so validation does a fresh voucher lookup
+        if (observationId === undefined) {
+          updateData.observationId = null;
+        }
+      }
       if (primerPool !== undefined) updateData.primerPool = primerPool;
       if (forwardPrimer !== undefined) updateData.forwardPrimer = forwardPrimer;
       if (reversePrimer !== undefined) updateData.reversePrimer = reversePrimer;
@@ -13705,8 +14629,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
       console.log(`[Heatmap] Run ${runId}: parsed ${results.success?.length || 0} success, ${results.failure?.length || 0} failure`);
       
-      // Extract failure keys (platform:obsId)
+      // Extract failure keys AND success keys (platform:obsId)
       const failureKeys = new Set<string>();
+      const successKeys = new Set<string>();
+      
       for (const row of results.failure || []) {
         let platform = row._platform || '';
         let obsId = row._obsId || '';
@@ -13722,6 +14648,21 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         }
       }
       
+      for (const row of results.success || []) {
+        let platform = row._platform || '';
+        let obsId = row._obsId || '';
+        if (!platform || !obsId) {
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          platform = sourceDb.toLowerCase().includes('inaturalist') ? 'iNaturalist' :
+                     sourceDb.toLowerCase().includes('mushroom') ? 'Mushroom Observer' : sourceDb;
+          obsId = refNumber;
+        }
+        if (platform && obsId) {
+          successKeys.add(`${platform}:${obsId}`);
+        }
+      }
+      
       // Apply overrides
       const overrides = await db.select().from(mycoMapCategoryOverrides)
         .where(eq(mycoMapCategoryOverrides.runId, runId));
@@ -13729,8 +14670,10 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
       for (const override of overrides) {
         if (override.originalCategory === 'success' && override.targetCategory === 'failure') {
           failureKeys.add(override.obsKey);
+          successKeys.delete(override.obsKey);
         } else if (override.originalCategory === 'failure' && override.targetCategory === 'success') {
           failureKeys.delete(override.obsKey);
+          successKeys.add(override.obsKey);
         }
       }
       
@@ -13759,12 +14702,14 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
         .from(labWells)
         .where(inArray(labWells.plateId, plateIds));
       
-      // Match wells to failures
+      // Match wells to failures OR no-linkage (not in success or failure)
       const failedWells = wells.filter(w => {
         if (!w.platform || !w.observationId) return false;
-        return failureKeys.has(`${w.platform}:${w.observationId}`);
+        const key = `${w.platform}:${w.observationId}`;
+        // Include if: in failure CSV OR (has observation but not in any CSV)
+        return failureKeys.has(key) || (!successKeys.has(key) && !failureKeys.has(key));
       });
-      console.log(`[Heatmap] Found ${failedWells.length} failed wells out of ${wells.length} total`);
+      console.log(`[Heatmap] Found ${failedWells.length} failed wells (failures + no-linkage) out of ${wells.length} total`);
       
       // Get specimen details for taxonomy and display info
       const specimenIds = [...new Set(failedWells.filter(w => w.coreSpecimenId).map(w => w.coreSpecimenId!))];
@@ -13852,6 +14797,384 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error: any) {
       console.error('[MycoMap] Failure heatmap error:', error);
       res.status(500).json({ message: error.message || 'Failed to get failure heatmap data' });
+    }
+  });
+
+  // Get rerun specimens list (failures + no linkage) with well details
+  app.get("/api/admin/runs/:id/mycomap/rerun-specimens", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      // Get MycoMap results file
+      const [resultsFile] = await db.select()
+        .from(labRunFiles)
+        .where(and(
+          eq(labRunFiles.runId, runId),
+          eq(labRunFiles.fileType, 'mycomap_results')
+        ))
+        .orderBy(sql`created_at DESC`)
+        .limit(1);
+      
+      if (!resultsFile) {
+        return res.json({ specimens: [], total: 0 });
+      }
+      
+      const resultsJson = resultsFile.content?.toString('utf-8') || '{}';
+      const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
+      
+      // Build failure and success key sets
+      const failureKeys = new Set<string>();
+      const successKeys = new Set<string>();
+      
+      for (const row of results.failure || []) {
+        let platform = row._platform || '';
+        let obsId = row._obsId || '';
+        if (!platform || !obsId) {
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          platform = sourceDb.toLowerCase().includes('inaturalist') ? 'iNaturalist' :
+                     sourceDb.toLowerCase().includes('mushroom') ? 'Mushroom Observer' : sourceDb;
+          obsId = refNumber;
+        }
+        if (platform && obsId) failureKeys.add(`${platform}:${obsId}`);
+      }
+      
+      for (const row of results.success || []) {
+        let platform = row._platform || '';
+        let obsId = row._obsId || '';
+        if (!platform || !obsId) {
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          platform = sourceDb.toLowerCase().includes('inaturalist') ? 'iNaturalist' :
+                     sourceDb.toLowerCase().includes('mushroom') ? 'Mushroom Observer' : sourceDb;
+          obsId = refNumber;
+        }
+        if (platform && obsId) successKeys.add(`${platform}:${obsId}`);
+      }
+      
+      // Apply overrides
+      const overrides = await db.select().from(mycoMapCategoryOverrides)
+        .where(eq(mycoMapCategoryOverrides.runId, runId));
+      
+      for (const override of overrides) {
+        if (override.originalCategory === 'success' && override.targetCategory === 'failure') {
+          failureKeys.add(override.obsKey);
+          successKeys.delete(override.obsKey);
+        } else if (override.originalCategory === 'failure' && override.targetCategory === 'success') {
+          failureKeys.delete(override.obsKey);
+          successKeys.add(override.obsKey);
+        }
+      }
+      
+      // Get plates and wells
+      const plates = await db.select({
+        id: labPlates.id,
+        plateNumber: labPlates.plateNumber,
+        name: labPlates.name,
+      }).from(labPlates).where(eq(labPlates.runId, runId)).orderBy(labPlates.plateNumber);
+      
+      if (plates.length === 0) {
+        return res.json({ specimens: [], total: 0 });
+      }
+      
+      const plateIds = plates.map(p => p.id);
+      const plateMap = new Map(plates.map(p => [p.id, { plateNumber: p.plateNumber, name: p.name }]));
+      
+      const wells = await db.select({
+        id: labWells.id,
+        plateId: labWells.plateId,
+        wellPosition: labWells.wellPosition,
+        platform: labWells.platform,
+        observationId: labWells.observationId,
+        labCode: labWells.labCode,
+        coreSpecimenId: labWells.coreSpecimenId,
+      })
+        .from(labWells)
+        .where(and(
+          inArray(labWells.plateId, plateIds),
+          isNotNull(labWells.observationId)
+        ));
+      
+      // Filter to failed wells (in failure CSV OR not in any CSV)
+      const allMycoMapKeys = new Set([...failureKeys, ...successKeys]);
+      const failedWells = wells.filter(w => {
+        if (!w.platform || !w.observationId) return false;
+        const key = `${w.platform}:${w.observationId}`;
+        return failureKeys.has(key) || !allMycoMapKeys.has(key);
+      });
+      
+      // Get specimen details
+      const specimenIds = [...new Set(failedWells.filter(w => w.coreSpecimenId).map(w => w.coreSpecimenId!))];
+      const specimenData = new Map<number, { scientificName?: string; displayCode?: string }>();
+      
+      if (specimenIds.length > 0) {
+        const idsClause = specimenIds.join(', ');
+        const specResult = await db.execute(sql`
+          SELECT id, scientific_name, display_code
+          FROM specimens
+          WHERE id IN (${sql.raw(idsClause)})
+        `);
+        for (const row of (specResult.rows || [])) {
+          const r = row as any;
+          specimenData.set(r.id, {
+            scientificName: r.scientific_name || null,
+            displayCode: r.display_code || null,
+          });
+        }
+      }
+      
+      // Get taxonomy from observation cache
+      const inatObsIds = failedWells.filter(w => w.observationId && w.platform === 'iNaturalist').map(w => w.observationId!);
+      const cacheTaxonomy = new Map<string, { scientificName?: string }>();
+      
+      if (inatObsIds.length > 0) {
+        const idsClause = inatObsIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+        const cacheResult = await db.execute(sql`
+          SELECT source_observation_id, scientific_name
+          FROM observation_cache
+          WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
+        `);
+        for (const row of (cacheResult.rows || [])) {
+          const r = row as any;
+          cacheTaxonomy.set(r.source_observation_id, { scientificName: r.scientific_name || null });
+        }
+      }
+      
+      // Build specimens list sorted by plate then well position
+      const specimens = failedWells.map(w => {
+        const plate = plateMap.get(w.plateId);
+        const specimen = w.coreSpecimenId ? specimenData.get(w.coreSpecimenId) : null;
+        const cache = w.observationId ? cacheTaxonomy.get(w.observationId) : null;
+        
+        // Parse well position to get numeric position (A01 -> 1, B01 -> 9, etc)
+        const wellPos = w.wellPosition || '';
+        const row = wellPos.charAt(0);
+        const col = parseInt(wellPos.slice(1)) || 0;
+        const rowNum = row.charCodeAt(0) - 64; // A=1, B=2, etc
+        const position = (rowNum - 1) * 12 + col;
+        
+        return {
+          plate: plate?.plateNumber || 0,
+          plateName: plate?.name || null,
+          position,
+          wellPosition: wellPos,
+          species: specimen?.scientificName || cache?.scientificName || null,
+          labCode: specimen?.displayCode || w.labCode || null,
+          observation: w.observationId,
+          platform: w.platform === 'Mushroom Observer' ? 'MO' : 
+                    w.platform === 'iNaturalist' ? 'iNat' : w.platform,
+        };
+      }).sort((a, b) => {
+        if (a.plate !== b.plate) return a.plate - b.plate;
+        return a.position - b.position;
+      });
+      
+      res.json({ specimens, total: specimens.length });
+    } catch (error: any) {
+      console.error('[MycoMap] Rerun specimens error:', error);
+      res.status(500).json({ message: error.message || 'Failed to get rerun specimens' });
+    }
+  });
+
+  // Download rerun specimens as CSV and save to generated files
+  app.post("/api/admin/runs/:id/mycomap/rerun-specimens/download", isAdmin, async (req: any, res) => {
+    try {
+      const runId = parseInt(req.params.id);
+      
+      // Get the run name
+      const [run] = await db.select().from(labRuns).where(eq(labRuns.id, runId));
+      if (!run) {
+        return res.status(404).json({ message: 'Run not found' });
+      }
+      
+      // Get the rerun specimens data (reuse the logic from above endpoint)
+      const [resultsFile] = await db.select()
+        .from(labRunFiles)
+        .where(and(
+          eq(labRunFiles.runId, runId),
+          eq(labRunFiles.fileType, 'mycomap_results')
+        ))
+        .orderBy(sql`created_at DESC`)
+        .limit(1);
+      
+      if (!resultsFile) {
+        return res.status(400).json({ message: 'No MycoMap results available' });
+      }
+      
+      const resultsJson = resultsFile.content?.toString('utf-8') || '{}';
+      const results = JSON.parse(resultsJson) as { success: any[]; failure: any[] };
+      
+      const failureKeys = new Set<string>();
+      const successKeys = new Set<string>();
+      
+      for (const row of results.failure || []) {
+        let platform = row._platform || '';
+        let obsId = row._obsId || '';
+        if (!platform || !obsId) {
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          platform = sourceDb.toLowerCase().includes('inaturalist') ? 'iNaturalist' :
+                     sourceDb.toLowerCase().includes('mushroom') ? 'Mushroom Observer' : sourceDb;
+          obsId = refNumber;
+        }
+        if (platform && obsId) failureKeys.add(`${platform}:${obsId}`);
+      }
+      
+      for (const row of results.success || []) {
+        let platform = row._platform || '';
+        let obsId = row._obsId || '';
+        if (!platform || !obsId) {
+          const sourceDb = row['Source Database'] || row['source_database'] || '';
+          const refNumber = row['Reference Number'] || row['reference_number'] || '';
+          platform = sourceDb.toLowerCase().includes('inaturalist') ? 'iNaturalist' :
+                     sourceDb.toLowerCase().includes('mushroom') ? 'Mushroom Observer' : sourceDb;
+          obsId = refNumber;
+        }
+        if (platform && obsId) successKeys.add(`${platform}:${obsId}`);
+      }
+      
+      const overrides = await db.select().from(mycoMapCategoryOverrides)
+        .where(eq(mycoMapCategoryOverrides.runId, runId));
+      
+      for (const override of overrides) {
+        if (override.originalCategory === 'success' && override.targetCategory === 'failure') {
+          failureKeys.add(override.obsKey);
+          successKeys.delete(override.obsKey);
+        } else if (override.originalCategory === 'failure' && override.targetCategory === 'success') {
+          failureKeys.delete(override.obsKey);
+          successKeys.add(override.obsKey);
+        }
+      }
+      
+      const plates = await db.select({
+        id: labPlates.id,
+        plateNumber: labPlates.plateNumber,
+        name: labPlates.name,
+      }).from(labPlates).where(eq(labPlates.runId, runId)).orderBy(labPlates.plateNumber);
+      
+      if (plates.length === 0) {
+        return res.status(400).json({ message: 'No plates in this run' });
+      }
+      
+      const plateIds = plates.map(p => p.id);
+      const plateMap = new Map(plates.map(p => [p.id, { plateNumber: p.plateNumber, name: p.name }]));
+      
+      const wells = await db.select({
+        id: labWells.id,
+        plateId: labWells.plateId,
+        wellPosition: labWells.wellPosition,
+        platform: labWells.platform,
+        observationId: labWells.observationId,
+        labCode: labWells.labCode,
+        coreSpecimenId: labWells.coreSpecimenId,
+      })
+        .from(labWells)
+        .where(and(
+          inArray(labWells.plateId, plateIds),
+          isNotNull(labWells.observationId)
+        ));
+      
+      const allMycoMapKeys = new Set([...failureKeys, ...successKeys]);
+      const failedWells = wells.filter(w => {
+        if (!w.platform || !w.observationId) return false;
+        const key = `${w.platform}:${w.observationId}`;
+        return failureKeys.has(key) || !allMycoMapKeys.has(key);
+      });
+      
+      const specimenIds = [...new Set(failedWells.filter(w => w.coreSpecimenId).map(w => w.coreSpecimenId!))];
+      const specimenData = new Map<number, { scientificName?: string; displayCode?: string }>();
+      
+      if (specimenIds.length > 0) {
+        const idsClause = specimenIds.join(', ');
+        const specResult = await db.execute(sql`
+          SELECT id, scientific_name, display_code
+          FROM specimens
+          WHERE id IN (${sql.raw(idsClause)})
+        `);
+        for (const row of (specResult.rows || [])) {
+          const r = row as any;
+          specimenData.set(r.id, {
+            scientificName: r.scientific_name || null,
+            displayCode: r.display_code || null,
+          });
+        }
+      }
+      
+      const inatObsIds = failedWells.filter(w => w.observationId && w.platform === 'iNaturalist').map(w => w.observationId!);
+      const cacheTaxonomy = new Map<string, { scientificName?: string }>();
+      
+      if (inatObsIds.length > 0) {
+        const idsClause = inatObsIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
+        const cacheResult = await db.execute(sql`
+          SELECT source_observation_id, scientific_name
+          FROM observation_cache
+          WHERE source = 'inat' AND source_observation_id IN (${sql.raw(idsClause)})
+        `);
+        for (const row of (cacheResult.rows || [])) {
+          const r = row as any;
+          cacheTaxonomy.set(r.source_observation_id, { scientificName: r.scientific_name || null });
+        }
+      }
+      
+      // Build CSV content
+      const csvRows = ['Plate,Position,Well Position,Species,Lab Code,Observation,Platform'];
+      
+      const specimens = failedWells.map(w => {
+        const plate = plateMap.get(w.plateId);
+        const specimen = w.coreSpecimenId ? specimenData.get(w.coreSpecimenId) : null;
+        const cache = w.observationId ? cacheTaxonomy.get(w.observationId) : null;
+        
+        const wellPos = w.wellPosition || '';
+        const row = wellPos.charAt(0);
+        const col = parseInt(wellPos.slice(1)) || 0;
+        const rowNum = row.charCodeAt(0) - 64;
+        const position = (rowNum - 1) * 12 + col;
+        
+        return {
+          plate: plate?.plateNumber || 0,
+          plateName: plate?.name || null,
+          position,
+          wellPosition: wellPos,
+          species: specimen?.scientificName || cache?.scientificName || '',
+          labCode: specimen?.displayCode || w.labCode || '',
+          observation: w.observationId || '',
+          platform: w.platform === 'Mushroom Observer' ? 'MO' : 
+                    w.platform === 'iNaturalist' ? 'iNat' : (w.platform || ''),
+        };
+      }).sort((a, b) => {
+        if (a.plate !== b.plate) return a.plate - b.plate;
+        return a.position - b.position;
+      });
+      
+      for (const s of specimens) {
+        const escapedSpecies = s.species.includes(',') ? `"${s.species.replace(/"/g, '""')}"` : s.species;
+        csvRows.push(`Plate ${s.plate},${s.position},${s.wellPosition},${escapedSpecies},${s.labCode},${s.observation},${s.platform}`);
+      }
+      
+      const csvContent = csvRows.join('\n');
+      const fileName = `${run.name || 'Run' + runId}_Rerun_Specimens_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      // Save to lab_run_files
+      await db.insert(labRunFiles).values({
+        runId,
+        fileName,
+        fileType: 'rerun_specimens',
+        mimeType: 'text/csv',
+        content: Buffer.from(csvContent, 'utf-8'),
+        size: csvContent.length,
+      });
+      
+      console.log(`[Rerun] Saved rerun specimens CSV for run ${runId}: ${fileName} (${specimens.length} specimens)`);
+      
+      res.json({ 
+        success: true, 
+        fileName,
+        count: specimens.length,
+        message: `Downloaded ${specimens.length} failed specimens to Generated Files`
+      });
+    } catch (error: any) {
+      console.error('[MycoMap] Rerun specimens download error:', error);
+      res.status(500).json({ message: error.message || 'Failed to download rerun specimens' });
     }
   });
 
@@ -17617,7 +18940,7 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
                     provisionalSpeciesName: sql`EXCLUDED.provisional_species_name`,
                     mycomapBlastResults: sql`EXCLUDED.mycomap_blast_results`,
                     traceFiles: sql`EXCLUDED.trace_files`,
-                    dnaBarcodIts: sql`EXCLUDED.dna_barcod_its`,
+                    dnaBarcodeIts: sql`EXCLUDED.dna_barcode_its`,
                     readsInConsensus: sql`EXCLUDED.reads_in_consensus`,
                     speciesNameOverride: sql`EXCLUDED.species_name_override`,
                     collectorsName: sql`EXCLUDED.collectors_name`,
@@ -18902,6 +20225,39 @@ async function updateSpeciesStatistics(uploadId?: number, progressTracker?: Map<
     } catch (error) {
       console.error("Error submitting specimen request:", error);
       res.status(500).json({ error: "Failed to submit request" });
+    }
+  });
+
+  // Public: Check if a collector has additional material available
+  app.get("/api/public/fungarium/collector-splits", async (req: any, res) => {
+    try {
+      const { inatUsername, moUsername } = req.query;
+      
+      if (!inatUsername && !moUsername) {
+        return res.json({ hasAdditionalMaterial: false });
+      }
+
+      const conditions: any[] = [];
+      if (inatUsername) {
+        conditions.push(sql`LOWER(${users.iNaturalistUsername}) = LOWER(${inatUsername})`);
+      }
+      if (moUsername) {
+        conditions.push(sql`LOWER(${users.mushroomObserverUsername}) = LOWER(${moUsername})`);
+      }
+
+      const [user] = await db.select({
+        splitsSentToMyco: users.splitsSentToMyco,
+      })
+      .from(users)
+      .where(or(...conditions))
+      .limit(1);
+
+      res.json({ 
+        hasAdditionalMaterial: user?.splitsSentToMyco === true 
+      });
+    } catch (error) {
+      console.error("Error checking collector splits:", error);
+      res.status(500).json({ error: "Failed to check collector info" });
     }
   });
 

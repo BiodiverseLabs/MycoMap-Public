@@ -49,7 +49,8 @@ import {
   User,
   Send,
   X,
-  ChevronLeft
+  ChevronLeft,
+  Info
 } from "lucide-react";
 import { PublicLayout } from "@/components/PublicLayout";
 import { format, parseISO } from "date-fns";
@@ -103,6 +104,28 @@ export default function FungariumSearch() {
   const [dateTo, setDateTo] = useState("");
   const [hasSequence, setHasSequence] = useState(false);
   const limit = 50;
+  
+  const collectorUsername = selectedSpecimen?.observerUsername || null;
+  const platform = selectedSpecimen?.primaryObservationSource || null;
+  
+  const { data: collectorSplitsData } = useQuery<{ hasAdditionalMaterial: boolean }>({
+    queryKey: ["/api/public/fungarium/collector-splits", collectorUsername, platform],
+    queryFn: async () => {
+      if (!collectorUsername) return { hasAdditionalMaterial: false };
+      const params = new URLSearchParams();
+      if (platform === 'inat') {
+        params.set('inatUsername', collectorUsername);
+      } else if (platform === 'mo') {
+        params.set('moUsername', collectorUsername);
+      } else {
+        return { hasAdditionalMaterial: false };
+      }
+      const res = await fetch(`/api/public/fungarium/collector-splits?${params.toString()}`);
+      if (!res.ok) return { hasAdditionalMaterial: false };
+      return res.json();
+    },
+    enabled: !!selectedSpecimen && !!collectorUsername && (platform === 'inat' || platform === 'mo'),
+  });
   
   const flagOptions = [
     { value: "check_specimen", label: "Check Specimen", displayLabel: "Check Specimen" },
@@ -513,6 +536,17 @@ export default function FungariumSearch() {
                     </div>
                   )}
                 </div>
+
+                {collectorSplitsData?.hasAdditionalMaterial && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-blue-800">
+                        Collector generally retains the larger portion of their specimen and sends splits to MYCO. Contacting the collector directly may yield additional material for this collection.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {selectedSpecimen.inatFieldConflict && (
                   <div className="border-t pt-4">

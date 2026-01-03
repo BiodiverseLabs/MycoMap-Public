@@ -20,13 +20,14 @@ export function registerAuthRoutes(app: Express): void {
   app.patch("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName, iNaturalistUsername, mushroomObserverUsername } = req.body;
+      const { firstName, lastName, iNaturalistUsername, mushroomObserverUsername, splitsSentToMyco } = req.body;
       
       const user = await authStorage.updateUserProfile(userId, {
         firstName,
         lastName,
         iNaturalistUsername,
         mushroomObserverUsername,
+        splitsSentToMyco,
       });
       
       if (!user) {

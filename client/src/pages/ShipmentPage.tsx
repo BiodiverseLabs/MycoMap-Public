@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { PublicLayout } from "@/components/PublicLayout";
@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Plus, Check, X, AlertCircle, Trash2, ArrowLeft, ArrowRight, Clipboard, CheckCircle2, Loader2 } from "lucide-react";
+import { Package, Plus, Check, X, AlertCircle, Trash2, ArrowLeft, ArrowRight, Clipboard, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
 import type { Shipment, ShipmentBag, ShipmentSpecimen, ShipmentWithBags } from "@shared/schema";
 
 type Step = "questionnaire" | "bags" | "complete";
@@ -59,6 +59,11 @@ export default function ShipmentPage() {
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false);
   const [pastedText, setPastedText] = useState("");
   const [isAddingPastedList, setIsAddingPastedList] = useState(false);
+  const [inputMode, setInputMode] = useState<"observation" | "voucher">("observation");
+  const [newVoucherNumber, setNewVoucherNumber] = useState("");
+  const [isLookingUpVoucher, setIsLookingUpVoucher] = useState(false);
+  const [voucherPasteDialogOpen, setVoucherPasteDialogOpen] = useState(false);
+  const [voucherPastedText, setVoucherPastedText] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -160,7 +165,16 @@ export default function ShipmentPage() {
   });
 
   const addSpecimenMutation = useMutation({
-    mutationFn: async ({ bagId, data }: { bagId: number; data: { observationId: string; platform: string } }) => {
+    mutationFn: async ({ bagId, data }: { bagId: number; data: { 
+      observationId: string; 
+      platform: string;
+      scientificName?: string | null;
+      username?: string | null;
+      observedDate?: string | null;
+      voucherNumber?: string | null;
+      state?: string | null;
+      country?: string | null;
+    } }) => {
       const res = await apiRequest("POST", `/api/shipments/bags/${bagId}/specimens`, data);
       return res.json();
     },
@@ -261,6 +275,116 @@ export default function ShipmentPage() {
     });
   };
 
+  const handleLookupVoucher = async () => {
+    if (!selectedBagId || !newVoucherNumber.trim()) return;
+    setIsLookingUpVoucher(true);
+    try {
+      const res = await apiRequest("POST", "/api/shipments/lookup-voucher", {
+        vouchers: [newVoucherNumber.trim()],
+      });
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        if (result.status === 'found') {
+          await addSpecimenMutation.mutateAsync({
+            bagId: selectedBagId,
+            data: { 
+              observationId: result.observationId, 
+              platform: result.platform,
+              scientificName: result.scientificName || null,
+              username: result.observerUsername || null,
+              observedDate: result.observedOn || null,
+              voucherNumber: result.voucherNumber || null,
+              state: result.state || null,
+              country: result.country || null,
+            },
+          });
+          toast({ title: "Found", description: `Added observation ${result.observationId} (${result.scientificName || 'Unknown species'})` });
+          setNewVoucherNumber("");
+        } else if (result.status === 'multiple_matches') {
+          const matchList = result.matches?.slice(0, 3).map((m: any) => `${m.observationId} (${m.scientificName || 'Unknown'})`).join(', ');
+          toast({ 
+            title: "Multiple Matches", 
+            description: `${result.matchCount} observations match "${newVoucherNumber}": ${matchList}${result.matchCount > 3 ? '...' : ''}. Please use a specific observation ID instead.`, 
+            variant: "destructive" 
+          });
+        } else {
+          toast({ title: "Not Found", description: result.message || `No observation found for voucher "${newVoucherNumber}"`, variant: "destructive" });
+        }
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to lookup voucher", variant: "destructive" });
+    } finally {
+      setIsLookingUpVoucher(false);
+    }
+  };
+
+  const handleAddPastedVouchers = async () => {
+    if (!selectedBagId || !voucherPastedText.trim()) return;
+    setIsAddingPastedList(true);
+    try {
+      const vouchers = voucherPastedText.split(/[\n,\t]/).map(l => l.trim()).filter(l => l);
+      const res = await apiRequest("POST", "/api/shipments/lookup-voucher", { vouchers });
+      const data = await res.json();
+      
+      let addedCount = 0;
+      let notFoundCount = 0;
+      let multipleMatchCount = 0;
+      const notFoundVouchers: string[] = [];
+      const multipleMatchVouchers: string[] = [];
+      
+      for (const result of data.results || []) {
+        if (result.status === 'found') {
+          await addSpecimenMutation.mutateAsync({
+            bagId: selectedBagId,
+            data: { 
+              observationId: result.observationId, 
+              platform: result.platform,
+              scientificName: result.scientificName || null,
+              username: result.observerUsername || null,
+              observedDate: result.observedOn || null,
+              voucherNumber: result.voucherNumber || null,
+              state: result.state || null,
+              country: result.country || null,
+            },
+          });
+          addedCount++;
+        } else if (result.status === 'multiple_matches') {
+          multipleMatchCount++;
+          multipleMatchVouchers.push(`${result.voucher} (${result.matchCount} matches)`);
+        } else {
+          notFoundCount++;
+          notFoundVouchers.push(result.voucher);
+        }
+      }
+      
+      if (addedCount > 0) {
+        toast({ title: "Success", description: `Added ${addedCount} observations` });
+      }
+      if (multipleMatchCount > 0) {
+        toast({ 
+          title: "Multiple matches found", 
+          description: `${multipleMatchVouchers.slice(0, 3).join(", ")}${multipleMatchCount > 3 ? ` and ${multipleMatchCount - 3} more` : ""} - use specific observation IDs`, 
+          variant: "destructive" 
+        });
+      }
+      if (notFoundCount > 0) {
+        toast({ 
+          title: "Some vouchers not found", 
+          description: `Could not find: ${notFoundVouchers.slice(0, 5).join(", ")}${notFoundCount > 5 ? ` and ${notFoundCount - 5} more` : ""}`, 
+          variant: "destructive" 
+        });
+      }
+      
+      setVoucherPasteDialogOpen(false);
+      setVoucherPastedText("");
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to lookup vouchers", variant: "destructive" });
+    } finally {
+      setIsAddingPastedList(false);
+    }
+  };
+
   const handleOpenPasteDialog = () => {
     setPastedText("");
     setPasteDialogOpen(true);
@@ -288,6 +412,7 @@ export default function ShipmentPage() {
   };
 
   const pastedLines = pastedText.split(/[\n,]/).map(l => l.trim()).filter(l => l);
+  const voucherPastedLines = voucherPastedText.split(/[\n,]/).map(l => l.trim()).filter(l => l);
 
   const handleValidate = async () => {
     if (!selectedBagId) return;
@@ -582,36 +707,95 @@ export default function ShipmentPage() {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {!isReadOnly && (
-                          <div className="flex gap-2">
-                            <Select
-                              value={newObservationPlatform}
-                              onValueChange={(v) => setNewObservationPlatform(v as any)}
-                            >
-                              <SelectTrigger className="w-48" data-testid="select-platform">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="iNaturalist">iNaturalist</SelectItem>
-                                <SelectItem value="Mushroom Observer">Mushroom Observer</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              placeholder="Observation ID or URL"
-                              value={newObservationId}
-                              onChange={(e) => setNewObservationId(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && handleAddSpecimen()}
-                              className="flex-1"
-                              data-testid="input-observation-id"
-                            />
-                            <Button onClick={handleAddSpecimen} disabled={addSpecimenMutation.isPending} data-testid="button-add-specimen">
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
-                            <Button variant="outline" onClick={handleOpenPasteDialog} data-testid="button-paste-list">
-                              <Clipboard className="h-4 w-4 mr-1" />
-                              Paste List
-                            </Button>
-                          </div>
+                          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "observation" | "voucher")} className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 mb-4">
+                              <TabsTrigger value="observation" data-testid="tab-observation">Observation IDs</TabsTrigger>
+                              <TabsTrigger value="voucher" data-testid="tab-voucher">Voucher Numbers</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="observation">
+                              <div className="flex gap-2">
+                                <Select
+                                  value={newObservationPlatform}
+                                  onValueChange={(v) => setNewObservationPlatform(v as any)}
+                                >
+                                  <SelectTrigger className="w-48" data-testid="select-platform">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="iNaturalist">iNaturalist</SelectItem>
+                                    <SelectItem value="Mushroom Observer">Mushroom Observer</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  placeholder="Observation ID or URL"
+                                  value={newObservationId}
+                                  onChange={(e) => setNewObservationId(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && handleAddSpecimen()}
+                                  onPaste={(e) => {
+                                    const text = e.clipboardData.getData('text');
+                                    if (text.includes('\t') || text.includes('\n') || text.split(',').length > 1) {
+                                      e.preventDefault();
+                                      setPastedText(text);
+                                      setPasteDialogOpen(true);
+                                    }
+                                  }}
+                                  className="flex-1"
+                                  data-testid="input-observation-id"
+                                />
+                                <Button onClick={handleAddSpecimen} disabled={addSpecimenMutation.isPending} data-testid="button-add-specimen">
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add
+                                </Button>
+                                <Button variant="outline" onClick={handleOpenPasteDialog} data-testid="button-paste-list">
+                                  <Clipboard className="h-4 w-4 mr-1" />
+                                  Paste List
+                                </Button>
+                              </div>
+                            </TabsContent>
+                            <TabsContent value="voucher">
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Enter voucher number (e.g., BD612)"
+                                  value={newVoucherNumber}
+                                  onChange={(e) => setNewVoucherNumber(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && handleLookupVoucher()}
+                                  onPaste={(e) => {
+                                    const text = e.clipboardData.getData('text');
+                                    if (text.includes('\t') || text.includes('\n') || text.split(',').length > 1) {
+                                      e.preventDefault();
+                                      setVoucherPastedText(text);
+                                      setVoucherPasteDialogOpen(true);
+                                    }
+                                  }}
+                                  className="flex-1"
+                                  data-testid="input-voucher-number"
+                                />
+                                <Button 
+                                  onClick={handleLookupVoucher} 
+                                  disabled={isLookingUpVoucher || !newVoucherNumber.trim()}
+                                  data-testid="button-lookup-voucher"
+                                >
+                                  {isLookingUpVoucher ? (
+                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <Plus className="h-4 w-4 mr-1" />
+                                  )}
+                                  Lookup & Add
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => { setVoucherPastedText(""); setVoucherPasteDialogOpen(true); }} 
+                                  data-testid="button-paste-vouchers"
+                                >
+                                  <Clipboard className="h-4 w-4 mr-1" />
+                                  Paste List
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Enter a voucher number to search for the corresponding observation in our database.
+                              </p>
+                            </TabsContent>
+                          </Tabs>
                         )}
 
                         {selectedBag.specimens && selectedBag.specimens.length > 0 && (
@@ -631,8 +815,8 @@ export default function ShipmentPage() {
                               </thead>
                               <tbody>
                                 {selectedBag.specimens.map((specimen) => (
-                                  <>
-                                    <tr key={specimen.id} className="border-t">
+                                  <Fragment key={specimen.id}>
+                                    <tr className="border-t">
                                       <td className="px-3 py-2">
                                         {isReadOnly ? (
                                           <Badge 
@@ -668,10 +852,35 @@ export default function ShipmentPage() {
                                         {(() => {
                                           const id = specimen.observationId || '';
                                           const inatMatch = id.match(/inaturalist\.org\/observations\/(\d+)/);
-                                          if (inatMatch) return inatMatch[1];
                                           const moMatch = id.match(/mushroomobserver\.org\/(\d+)/);
-                                          if (moMatch) return moMatch[1];
-                                          return id;
+                                          const displayId = inatMatch ? inatMatch[1] : moMatch ? moMatch[1] : id;
+                                          
+                                          let observationUrl: string | null = null;
+                                          if (specimen.platform === 'iNaturalist' && displayId) {
+                                            observationUrl = `https://www.inaturalist.org/observations/${displayId.replace(/\D/g, '')}`;
+                                          } else if (specimen.platform === 'MO' && displayId) {
+                                            observationUrl = `https://mushroomobserver.org/observations/${displayId.replace(/\D/g, '')}`;
+                                          } else if (specimen.platform === 'MyCoPortal' && displayId) {
+                                            observationUrl = `https://mycoportal.org/portal/collections/individual/index.php?occid=${displayId.replace(/\D/g, '')}`;
+                                          }
+                                          
+                                          return (
+                                            <div className="flex items-center gap-1">
+                                              <span>{displayId || '-'}</span>
+                                              {observationUrl && (
+                                                <a
+                                                  href={observationUrl}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-gray-400 hover:text-blue-600"
+                                                  title={`View on ${specimen.platform}`}
+                                                  data-testid={`link-specimen-obs-${specimen.id}`}
+                                                >
+                                                  <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                              )}
+                                            </div>
+                                          );
                                         })()}
                                       </td>
                                       <td className="px-3 py-2 italic">{specimen.scientificName || "-"}</td>
@@ -693,7 +902,7 @@ export default function ShipmentPage() {
                                       )}
                                     </tr>
                                     {!isReadOnly && specimen.isValidated && (specimen.validationStatus === "invalid" || specimen.validationStatus === "slime_mold") && (
-                                      <tr key={`${specimen.id}-message`} className="bg-red-50">
+                                      <tr className="bg-red-50">
                                         <td colSpan={8} className="px-3 py-2">
                                           <div className="flex items-center justify-between">
                                             <span className="text-red-600 text-sm">
@@ -715,7 +924,7 @@ export default function ShipmentPage() {
                                         </td>
                                       </tr>
                                     )}
-                                  </>
+                                  </Fragment>
                                 ))}
                               </tbody>
                             </table>
@@ -833,6 +1042,46 @@ export default function ShipmentPage() {
             >
               {isAddingPastedList && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Add {pastedLines.length} Observation{pastedLines.length !== 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={voucherPasteDialogOpen} onOpenChange={setVoucherPasteDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Paste Voucher List</DialogTitle>
+            <DialogDescription>
+              Paste your voucher numbers below, one per line or separated by commas. Each voucher will be looked up in our database.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="Paste voucher numbers here (e.g., BD612, BD613)..."
+              value={voucherPastedText}
+              onChange={(e) => setVoucherPastedText(e.target.value)}
+              rows={8}
+              className="font-mono text-sm"
+              data-testid="textarea-paste-vouchers"
+            />
+            {voucherPastedLines.length > 0 && (
+              <div className="text-sm text-gray-600">
+                <strong>{voucherPastedLines.length}</strong> voucher{voucherPastedLines.length !== 1 ? 's' : ''} detected
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVoucherPasteDialogOpen(false)} data-testid="button-cancel-paste-vouchers">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddPastedVouchers}
+              disabled={voucherPastedLines.length === 0 || isAddingPastedList}
+              className="bg-myco-green hover:bg-myco-green/90"
+              data-testid="button-add-vouchers"
+            >
+              {isAddingPastedList && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Lookup & Add {voucherPastedLines.length} Voucher{voucherPastedLines.length !== 1 ? 's' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>

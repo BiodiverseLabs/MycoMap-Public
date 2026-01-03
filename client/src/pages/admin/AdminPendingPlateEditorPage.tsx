@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink, ChevronDown, ArrowRightCircle, Trash2, MoreHorizontal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -43,11 +44,26 @@ interface Plate {
   runName?: string;
   orientation: string;
   status: string;
+  isActive: boolean | null;
+  sampleCount: number;
   defaultForwardPrimer: string | null;
   defaultReversePrimer: string | null;
   forwardIndexSetId: number | null;
   reverseIndexSetId: number | null;
   wells: Well[];
+}
+
+interface LabRun {
+  id: number;
+  name: string;
+  status: string;
+}
+
+interface PlateAvailability {
+  plateNumber: number;
+  exists: boolean;
+  hasData: boolean;
+  available: boolean;
 }
 
 const validationColors: Record<string, string> = {
@@ -58,6 +74,7 @@ const validationColors: Record<string, string> = {
   missing_platform: "bg-orange-50",
   no_observation: "bg-purple-50",
   multiple_inat: "bg-red-100",
+  multiple_matches: "bg-red-100",
   not_fungal: "bg-red-200",
   pending: "bg-blue-50",
 };
@@ -89,6 +106,31 @@ export default function AdminPendingPlateEditorPage() {
   const [editSampleCount, setEditSampleCount] = useState(96);
   const [editPlateName, setEditPlateName] = useState("");
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [fillDownMode, setFillDownMode] = useState<{ active: boolean; sourceIndex: number; sourceValue: string } | null>(null);
+  const [fillDownDialogOpen, setFillDownDialogOpen] = useState(false);
+  const [fillDownTarget, setFillDownTarget] = useState("");
+  
+  // Assign to run state
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<string>("");
+  const [selectedPlateNumber, setSelectedPlateNumber] = useState<string>("");
+
+  // Helper to parse lab code into prefix and number parts
+  const parseLabCode = (labCode: string): { prefix: string; number: number; digitLength: number } | null => {
+    const match = labCode.match(/^(.+?)(\d+)$/);
+    if (!match) return null;
+    return {
+      prefix: match[1],
+      number: parseInt(match[2], 10),
+      digitLength: match[2].length,
+    };
+  };
+
+  // Generate incremented lab code
+  const incrementLabCode = (parsed: { prefix: string; number: number; digitLength: number }, offset: number): string => {
+    const newNumber = parsed.number + offset;
+    return `${parsed.prefix}${String(newNumber).padStart(parsed.digitLength, '0')}`;
+  };
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
     queryKey: ['/api/admin/pending-plates', plateId],
@@ -171,6 +213,72 @@ export default function AdminPendingPlateEditorPage() {
     },
   });
 
+  const [validatingWellId, setValidatingWellId] = useState<number | null>(null);
+  
+  const validateSingleWellMutation = useMutation({
+    mutationFn: async (wellId: number) => {
+      setValidatingWellId(wellId);
+      return apiRequest('POST', `/api/admin/wells/${wellId}/validate`, {});
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-plates', plateId] });
+      const status = data.result?.status || 'unknown';
+      toast({ 
+        title: "Well Validated", 
+        description: status === 'valid' ? 'Observation verified' : data.result?.message || 'Check complete'
+      });
+      setValidatingWellId(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Well validation failed", variant: "destructive" });
+      setValidatingWellId(null);
+    },
+  });
+
+  // Queries for assign to run
+  const { data: runs } = useQuery<LabRun[]>({
+    queryKey: ['/api/admin/runs'],
+    enabled: assignDialogOpen,
+  });
+
+  const { data: availablePlates } = useQuery<{ plates: PlateAvailability[] }>({
+    queryKey: ['/api/admin/runs', selectedRunId, 'available-plates'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${selectedRunId}/available-plates`);
+      if (!res.ok) throw new Error('Failed to fetch available plates');
+      return res.json();
+    },
+    enabled: !!selectedRunId && assignDialogOpen,
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/admin/pending-plates/${plateId}/transfer`, {
+        runId: parseInt(selectedRunId),
+        plateNumber: parseInt(selectedPlateNumber),
+      });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-plates'] });
+      setAssignDialogOpen(false);
+      toast({ 
+        title: "Success", 
+        description: data.message || "Plate assigned to run" 
+      });
+      refetch();
+    },
+    onError: async (error: any) => {
+      let message = "Failed to assign plate";
+      try {
+        const data = await error.json?.();
+        if (data?.error) message = data.error;
+      } catch {}
+      toast({ title: "Error", description: message, variant: "destructive" });
+    },
+  });
+
   const parseObservationId = (value: string): string => {
     if (!value) return value;
     const inatMatch = value.match(/inaturalist\.org\/observations\/(\d+)/);
@@ -179,7 +287,14 @@ export default function AdminPendingPlateEditorPage() {
     if (moMatch) return moMatch[1];
     const numericMatch = value.match(/\/(\d+)\/?$/);
     if (numericMatch) return numericMatch[1];
-    return value;
+    // Strip all non-numeric characters from the input
+    return value.replace(/\D/g, '');
+  };
+
+  const hasInvalidDigitCount = (obsId: string | null): boolean => {
+    if (!obsId) return false;
+    const digits = obsId.replace(/\D/g, '');
+    return digits.length >= 10;
   };
 
   const detectPlatform = (obsId: string, currentPlatform: string | null): string | null => {
@@ -235,6 +350,191 @@ export default function AdminPendingPlateEditorPage() {
       }
     }
   };
+
+  // Check if fill-down would overwrite existing data
+  const checkFillDownOverwrite = useCallback((startIndex: number, endIndex: number): string[] => {
+    if (!plate) return [];
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const conflicts: string[] = [];
+    
+    for (let i = startIndex + 1; i <= endIndex; i++) {
+      const well = sortedWells[i];
+      if (well?.labCode) {
+        conflicts.push(`Row ${i + 1} (${well.wellPosition}): ${well.labCode}`);
+      }
+    }
+    return conflicts;
+  }, [plate]);
+
+  // Handle fill-down action
+  const handleFillDown = useCallback((targetIndex: number) => {
+    if (!fillDownMode || !plate) return;
+    
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const parsed = parseLabCode(fillDownMode.sourceValue);
+    if (!parsed) {
+      toast({ title: "Error", description: "Cannot parse lab code for fill-down", variant: "destructive" });
+      setFillDownMode(null);
+      setFillDownDialogOpen(false);
+      return;
+    }
+
+    const startIndex = fillDownMode.sourceIndex;
+    const endIndex = targetIndex;
+    
+    if (endIndex <= startIndex) {
+      toast({ title: "Error", description: "Target must be below the source row", variant: "destructive" });
+      return;
+    }
+
+    // Check for conflicts
+    const conflicts = checkFillDownOverwrite(startIndex, endIndex);
+    if (conflicts.length > 0) {
+      toast({ 
+        title: "Cannot Fill Down", 
+        description: `Would overwrite ${conflicts.length} existing lab code(s). Clear them first.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    let updateCount = 0;
+    for (let i = startIndex + 1; i <= endIndex; i++) {
+      const well = sortedWells[i];
+      if (well) {
+        const offset = i - startIndex;
+        const newLabCode = incrementLabCode(parsed, offset);
+        
+        // Update input ref value
+        const inputRef = inputRefs.current[`${well.id}-labCode`];
+        if (inputRef) {
+          inputRef.value = newLabCode;
+        }
+        
+        // Save to server
+        updateWellMutation.mutate({ wellId: well.id, data: { labCode: newLabCode } });
+        updateCount++;
+      }
+    }
+
+    toast({ 
+      title: "Fill Down Complete", 
+      description: `Filled ${updateCount} rows with incremented lab codes` 
+    });
+    setFillDownMode(null);
+    setFillDownDialogOpen(false);
+    setFillDownTarget("");
+  }, [fillDownMode, plate, toast, updateWellMutation, checkFillDownOverwrite]);
+
+  // Handle fill-down by entering target lab code
+  const handleFillDownByCode = useCallback(() => {
+    if (!fillDownMode || !plate || !fillDownTarget) return;
+    
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const sourceParsed = parseLabCode(fillDownMode.sourceValue);
+    const targetParsed = parseLabCode(fillDownTarget);
+    
+    if (!sourceParsed || !targetParsed) {
+      toast({ title: "Error", description: "Cannot parse lab code format", variant: "destructive" });
+      return;
+    }
+
+    if (sourceParsed.prefix !== targetParsed.prefix) {
+      toast({ title: "Error", description: "Lab code prefix must match", variant: "destructive" });
+      return;
+    }
+
+    if (targetParsed.number <= sourceParsed.number) {
+      toast({ title: "Error", description: "Target number must be greater than source", variant: "destructive" });
+      return;
+    }
+
+    const rowsToFill = targetParsed.number - sourceParsed.number;
+    const targetIndex = fillDownMode.sourceIndex + rowsToFill;
+    const maxRowsAvailable = sortedWells.length - 1 - fillDownMode.sourceIndex;
+    const maxLabCode = incrementLabCode(sourceParsed, maxRowsAvailable);
+
+    if (targetIndex >= sortedWells.length) {
+      toast({ 
+        title: "Exceeds Plate Capacity", 
+        description: `Cannot fill past row ${sortedWells.length}. Maximum final lab code: ${maxLabCode}`, 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    handleFillDown(targetIndex);
+  }, [fillDownMode, plate, fillDownTarget, handleFillDown, toast]);
+
+  // Clear row - clears from current well to end of the physical plate row (groups of 8)
+  const handleClearRow = useCallback(async () => {
+    if (!fillDownMode || !plate) return;
+    
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const startIndex = fillDownMode.sourceIndex;
+    
+    // Calculate end of current row (groups of 8)
+    const rowEnd = Math.ceil((startIndex + 1) / 8) * 8 - 1;
+    const endIndex = Math.min(rowEnd, sortedWells.length - 1);
+    
+    const wellsToClear = sortedWells.slice(startIndex, endIndex + 1);
+    
+    for (const well of wellsToClear) {
+      await updateWellMutation.mutateAsync({
+        wellId: well.id,
+        data: { labCode: null, observationId: null, validationStatus: null, validationMessage: null, isValidated: false }
+      });
+      
+      // Clear the input refs too
+      const labCodeRef = inputRefs.current[`${well.id}-labCode`];
+      const obsIdRef = inputRefs.current[`${well.id}-observationId`];
+      if (labCodeRef) labCodeRef.value = '';
+      if (obsIdRef) obsIdRef.value = '';
+    }
+    
+    toast({
+      title: "Row Cleared",
+      description: `Cleared ${wellsToClear.length} wells from ${sortedWells[startIndex].wellPosition} to ${sortedWells[endIndex].wellPosition}`
+    });
+    
+    setFillDownDialogOpen(false);
+    setFillDownMode(null);
+    setFillDownTarget("");
+    refetch();
+  }, [fillDownMode, plate, updateWellMutation, toast, refetch]);
+
+  // Clear plate - clears from current well to end of the plate
+  const handleClearPlate = useCallback(async () => {
+    if (!fillDownMode || !plate) return;
+    
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const startIndex = fillDownMode.sourceIndex;
+    
+    const wellsToClear = sortedWells.slice(startIndex);
+    
+    for (const well of wellsToClear) {
+      await updateWellMutation.mutateAsync({
+        wellId: well.id,
+        data: { labCode: null, observationId: null, validationStatus: null, validationMessage: null, isValidated: false }
+      });
+      
+      // Clear the input refs too
+      const labCodeRef = inputRefs.current[`${well.id}-labCode`];
+      const obsIdRef = inputRefs.current[`${well.id}-observationId`];
+      if (labCodeRef) labCodeRef.value = '';
+      if (obsIdRef) obsIdRef.value = '';
+    }
+    
+    toast({
+      title: "Plate Cleared",
+      description: `Cleared ${wellsToClear.length} wells from ${sortedWells[startIndex].wellPosition} to end of plate`
+    });
+    
+    setFillDownDialogOpen(false);
+    setFillDownMode(null);
+    setFillDownTarget("");
+    refetch();
+  }, [fillDownMode, plate, updateWellMutation, toast, refetch]);
 
   const handlePaste = (e: React.ClipboardEvent, wellId: number, currentIndex: number, field: 'labCode' | 'observationId') => {
     const pastedText = e.clipboardData.getData('text');
@@ -308,10 +608,33 @@ export default function AdminPendingPlateEditorPage() {
   }
 
   const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+  const isAssigned = plate.isActive === false && plate.runId !== null;
+  
+  // Calculate if plate is fully validated for assignment
+  const targetWellCount = plate.sampleCount || 96;
+  const filledWells = plate.wells.filter(w => w.observationId || w.labCode).length;
+  const validatedWells = plate.wells.filter(w => w.isValidated && ['valid', 'no_voucher', 'no_observation'].includes(w.validationStatus || '')).length;
+  const errorWells = plate.wells.filter(w => w.validationStatus && !['valid', 'no_voucher', 'no_observation'].includes(w.validationStatus)).length;
+  const isFullyValidated = filledWells === targetWellCount && validatedWells === targetWellCount && errorWells === 0;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-6xl mx-auto space-y-4">
+        {/* Banner for assigned plates */}
+        {isAssigned && (
+          <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3">
+            <CheckCircle className="h-5 w-5" />
+            <div>
+              <span className="font-semibold">Assigned to Run:</span>{' '}
+              <Link href={`/admin/runs/${plate.runId}`}>
+                <span className="text-blue-600 hover:underline cursor-pointer">
+                  {plate.runName || `Run ${plate.runId}`} Plate {plate.plateNumber}
+                </span>
+              </Link>
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Link href="/admin/pending-plates">
@@ -354,6 +677,19 @@ export default function AdminPendingPlateEditorPage() {
               <CheckCircle className="h-4 w-4 mr-1" /> 
               {validateMutation.isPending ? "Validating..." : "Validate Plate"}
             </Button>
+            {isFullyValidated && !isAssigned && (
+              <Button
+                onClick={() => {
+                  setSelectedRunId("");
+                  setSelectedPlateNumber("");
+                  setAssignDialogOpen(true);
+                }}
+                className="bg-green-600 hover:bg-green-700"
+                data-testid="button-assign"
+              >
+                <ArrowRightCircle className="h-4 w-4 mr-1" /> Assign to Run
+              </Button>
+            )}
           </div>
 
           <Dialog open={editPlateOpen} onOpenChange={setEditPlateOpen}>
@@ -399,6 +735,118 @@ export default function AdminPendingPlateEditorPage() {
                 >
                   {updatePlateSettingsMutation.isPending ? "Updating..." : "Update Plate"}
                 </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Fill Down Dialog */}
+          <Dialog open={fillDownDialogOpen} onOpenChange={(open) => {
+            setFillDownDialogOpen(open);
+            if (!open) {
+              setFillDownMode(null);
+              setFillDownTarget("");
+            }
+          }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Fill Down Lab Codes</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Starting from:</p>
+                  <p className="font-mono font-bold text-lg">{fillDownMode?.sourceValue}</p>
+                  <p className="text-xs text-gray-500">Row {(fillDownMode?.sourceIndex ?? 0) + 1}</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="fill-target">Enter the final lab code in the series:</Label>
+                  <Input
+                    id="fill-target"
+                    placeholder={fillDownMode ? incrementLabCode(parseLabCode(fillDownMode.sourceValue)!, 5) : ""}
+                    value={fillDownTarget}
+                    onChange={(e) => setFillDownTarget(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && fillDownTarget) {
+                        handleFillDownByCode();
+                      }
+                    }}
+                    data-testid="input-fill-target"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Or click "Select Row" below, then click a row in the table
+                  </p>
+                </div>
+
+                {fillDownTarget && parseLabCode(fillDownTarget) && fillDownMode && (() => {
+                  const sourceParsed = parseLabCode(fillDownMode.sourceValue);
+                  const targetParsed = parseLabCode(fillDownTarget);
+                  if (sourceParsed && targetParsed && sourceParsed.prefix === targetParsed.prefix && targetParsed.number > sourceParsed.number) {
+                    const rowCount = targetParsed.number - sourceParsed.number;
+                    return (
+                      <div className="bg-blue-50 p-2 rounded text-sm text-blue-700">
+                        This will fill {rowCount} row{rowCount > 1 ? 's' : ''} with codes {incrementLabCode(sourceParsed, 1)} through {fillDownTarget}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+              <DialogFooter className="flex gap-2 justify-between">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-gray-500" data-testid="button-clear-options">
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Clear...
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem 
+                      onClick={handleClearRow}
+                      disabled={updateWellMutation.isPending}
+                      className="text-red-600"
+                      data-testid="button-clear-row"
+                    >
+                      Clear Row (to end of column)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={handleClearPlate}
+                      disabled={updateWellMutation.isPending}
+                      className="text-red-600"
+                      data-testid="button-clear-plate"
+                    >
+                      Clear Plate (all remaining)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => {
+                    setFillDownDialogOpen(false);
+                    setFillDownMode(null);
+                    setFillDownTarget("");
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFillDownDialogOpen(false);
+                      toast({ 
+                        title: "Select Target Row", 
+                        description: "Click a 'Fill to here' button on any row below to complete the fill" 
+                      });
+                    }}
+                    data-testid="button-select-row"
+                  >
+                    Select Row
+                  </Button>
+                  <Button 
+                    onClick={handleFillDownByCode}
+                    disabled={!fillDownTarget}
+                    data-testid="button-confirm-fill"
+                  >
+                    Fill Down
+                  </Button>
+                </div>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -521,7 +969,7 @@ export default function AdminPendingPlateEditorPage() {
                     return (
                       <TableRow 
                         key={well.id} 
-                        className={validationClass}
+                        className={`${validationClass} ${(index + 1) % 8 === 0 ? 'border-b-2 border-b-gray-800' : ''}`}
                         data-testid={`row-well-${well.wellPosition}`}
                       >
                         <TableCell className="font-mono text-center text-gray-500">
@@ -531,16 +979,58 @@ export default function AdminPendingPlateEditorPage() {
                           {well.wellPosition}
                         </TableCell>
                         <TableCell>
-                          <Input 
-                            ref={el => inputRefs.current[`${well.id}-labCode`] = el}
-                            className="h-8"
-                            placeholder="Enter lab code"
-                            defaultValue={well.labCode || ""}
-                            onBlur={() => saveWellFromRefs(well.id, 'labCode')}
-                            onKeyDown={(e) => handleKeyDown(e, well.id, index, 'labCode')}
-                            onPaste={(e) => handlePaste(e, well.id, index, 'labCode')}
-                            data-testid={`input-labcode-${well.wellPosition}`}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input 
+                              key={`labCode-${well.id}-${well.labCode || ''}-${well.updatedAt}`}
+                              ref={el => inputRefs.current[`${well.id}-labCode`] = el}
+                              className="h-8 flex-1"
+                              placeholder="Enter lab code"
+                              defaultValue={well.labCode || ""}
+                              onBlur={() => saveWellFromRefs(well.id, 'labCode')}
+                              onKeyDown={(e) => handleKeyDown(e, well.id, index, 'labCode')}
+                              onPaste={(e) => handlePaste(e, well.id, index, 'labCode')}
+                              data-testid={`input-labcode-${well.wellPosition}`}
+                            />
+                            {well.labCode && parseLabCode(well.labCode) && !fillDownMode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 flex-shrink-0 text-gray-400 hover:text-blue-600"
+                                onClick={() => {
+                                  setFillDownMode({ active: true, sourceIndex: index, sourceValue: well.labCode! });
+                                  setFillDownTarget(well.labCode!);
+                                  setFillDownDialogOpen(true);
+                                }}
+                                title="Fill down from this row"
+                                data-testid={`button-filldown-${well.wellPosition}`}
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {fillDownMode && !fillDownDialogOpen && fillDownMode.sourceIndex < index && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-xs bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
+                                onClick={() => handleFillDown(index)}
+                                data-testid={`button-fillto-${well.wellPosition}`}
+                              >
+                                Fill to here
+                              </Button>
+                            )}
+                            {fillDownMode && !fillDownDialogOpen && fillDownMode.sourceIndex === index && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 flex-shrink-0 bg-blue-100 text-blue-700"
+                                onClick={() => setFillDownMode(null)}
+                                title="Cancel fill-down"
+                                data-testid={`button-cancel-filldown-${well.wellPosition}`}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Select 
@@ -575,14 +1065,16 @@ export default function AdminPendingPlateEditorPage() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Input 
+                              key={`obsId-${well.id}-${well.observationId || ''}-${well.updatedAt}`}
                               ref={el => inputRefs.current[`${well.id}-observationId`] = el}
-                              className="h-8"
+                              className={`h-8 ${hasInvalidDigitCount(well.observationId) ? 'border-red-500 border-2 bg-red-50' : ''}`}
                               placeholder="Enter obs ID"
                               defaultValue={well.observationId || ""}
                               onBlur={() => saveWellFromRefs(well.id, 'observationId')}
                               onKeyDown={(e) => handleKeyDown(e, well.id, index, 'observationId')}
                               onPaste={(e) => handlePaste(e, well.id, index, 'observationId')}
                               data-testid={`input-obs-${well.wellPosition}`}
+                              title={hasInvalidDigitCount(well.observationId) ? 'Observation ID has too many digits (10+)' : undefined}
                             />
                             {well.observationId && well.platform && getObservationUrl(well.platform, well.observationId) && (
                               <a
@@ -624,28 +1116,43 @@ export default function AdminPendingPlateEditorPage() {
                           {well.country || '—'}
                         </TableCell>
                         <TableCell>
-                          {well.validationStatus && !['valid', 'no_voucher'].includes(well.validationStatus) && (
+                          <div className="flex items-center gap-1">
+                            {/* Refresh button - validate single well */}
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                updateWellMutation.mutate({ 
-                                  wellId: well.id, 
-                                  data: { 
-                                    validationStatus: null, 
-                                    validationMessage: null,
-                                    isValidated: false 
-                                  } 
-                                });
-                                toast({ title: "Cleared", description: "Validation error cleared" });
-                              }}
-                              title="Clear error"
-                              data-testid={`button-clear-error-${well.wellPosition}`}
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                              onClick={() => validateSingleWellMutation.mutate(well.id)}
+                              disabled={validatingWellId === well.id || (!well.labCode && !well.observationId)}
+                              title="Re-validate this row"
+                              data-testid={`button-refresh-${well.wellPosition}`}
                             >
-                              <XCircle className="h-4 w-4" />
+                              <RefreshCw className={`h-4 w-4 ${validatingWellId === well.id ? 'animate-spin' : ''}`} />
                             </Button>
-                          )}
+                            {/* Clear error button */}
+                            {well.validationStatus && !['valid', 'no_voucher'].includes(well.validationStatus) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                  updateWellMutation.mutate({ 
+                                    wellId: well.id, 
+                                    data: { 
+                                      validationStatus: null, 
+                                      validationMessage: null,
+                                      isValidated: false 
+                                    } 
+                                  });
+                                  toast({ title: "Cleared", description: "Validation error cleared" });
+                                }}
+                                title="Clear error"
+                                data-testid={`button-clear-error-${well.wellPosition}`}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -655,6 +1162,60 @@ export default function AdminPendingPlateEditorPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Assign to Run Dialog */}
+        <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Assign to Sequencing Run</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div>
+                <Label htmlFor="select-run">Select Run</Label>
+                <Select value={selectedRunId} onValueChange={(v) => { setSelectedRunId(v); setSelectedPlateNumber(""); }}>
+                  <SelectTrigger data-testid="select-run">
+                    <SelectValue placeholder="Choose a run..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {runs?.filter(r => r.status !== 'completed').map(run => (
+                      <SelectItem key={run.id} value={String(run.id)}>{run.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedRunId && (
+                <div>
+                  <Label htmlFor="select-plate">Select Plate Position</Label>
+                  <Select value={selectedPlateNumber} onValueChange={setSelectedPlateNumber}>
+                    <SelectTrigger data-testid="select-plate-number">
+                      <SelectValue placeholder="Choose a plate position..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePlates?.plates?.filter(p => p.available).map(p => (
+                        <SelectItem key={p.plateNumber} value={String(p.plateNumber)}>
+                          Plate {p.plateNumber} {p.exists ? '(empty)' : '(new)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => transferMutation.mutate()}
+                disabled={!selectedRunId || !selectedPlateNumber || transferMutation.isPending}
+                className="bg-green-600 hover:bg-green-700"
+                data-testid="button-confirm-assign"
+              >
+                {transferMutation.isPending ? "Assigning..." : "Assign Plate"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

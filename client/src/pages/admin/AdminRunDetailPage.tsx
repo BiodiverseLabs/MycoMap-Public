@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload, RefreshCw, FileQuestion, ThumbsDown, ThumbsUp } from "lucide-react";
+import { ChevronLeft, FlaskConical, Grid3X3, Plus, FileText, Download, X, Loader2, Users, MapPin, TestTube, AlertTriangle, CheckCircle, BarChart3, Cpu, HardDrive, ExternalLink, FolderOpen, File, ChevronDown, ChevronUp, Copy, Trash2, ShieldCheck, ClipboardList, Pencil, Check, Upload, RefreshCw, FileQuestion, ThumbsDown, ThumbsUp, RotateCcw } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -96,6 +96,22 @@ interface FailureHeatmapData {
     country: string | null;
   }[];
   plates: { id: number; plateNumber: number; name: string | null }[];
+}
+
+interface RerunSpecimen {
+  plate: number;
+  plateName: string | null;
+  position: number;
+  wellPosition: string;
+  species: string | null;
+  labCode: string | null;
+  observation: string | null;
+  platform: string | null;
+}
+
+interface RerunSpecimensData {
+  specimens: RerunSpecimen[];
+  total: number;
 }
 
 interface Plate {
@@ -245,6 +261,7 @@ export default function AdminRunDetailPage() {
   const [showSequencesToUpload, setShowSequencesToUpload] = useState(false);
   const [showNoLinkage, setShowNoLinkage] = useState(false);
   const [showOnSheetsNotRun, setShowOnSheetsNotRun] = useState(false);
+  const [showRerunSpecimens, setShowRerunSpecimens] = useState(false);
   const [refreshingSpecimenIds, setRefreshingSpecimenIds] = useState<Set<number>>(new Set());
   const [dragOverSuccess, setDragOverSuccess] = useState(false);
   const [dragOverFailure, setDragOverFailure] = useState(false);
@@ -306,6 +323,37 @@ export default function AdminRunDetailPage() {
       return res.json();
     },
     enabled: !!runId && !!mycoMapAnalysis?.hasResults,
+  });
+
+  const { data: rerunSpecimens, isLoading: rerunSpecimensLoading } = useQuery<RerunSpecimensData>({
+    queryKey: ['/api/admin/runs', runId, 'mycomap', 'rerun-specimens'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/runs/${runId}/mycomap/rerun-specimens`);
+      if (!res.ok) throw new Error('Failed to fetch rerun specimens');
+      return res.json();
+    },
+    enabled: !!runId && showRerunSpecimens,
+  });
+
+  const downloadRerunSpecimensMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `/api/admin/runs/${runId}/mycomap/rerun-specimens/download`, {});
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to download');
+      }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      refetchFiles();
+      toast({ 
+        title: "Downloaded", 
+        description: `${data.count} failed specimens saved to Generated Files as ${data.fileName}` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const [heatmapPlateFilter, setHeatmapPlateFilter] = useState<string>('all');
@@ -704,6 +752,57 @@ export default function AdminRunDetailPage() {
       });
     },
   });
+
+  const [bulkRefreshStatus, setBulkRefreshStatus] = useState<{ jobId?: string; status?: string; progress?: number } | null>(null);
+
+  const bulkCacheSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/admin/runs/${runId}/refresh-inat`, {});
+      if (!response.ok) throw new Error('Failed to start bulk refresh');
+      return response.json();
+    },
+    onSuccess: async (data: any) => {
+      if (data.jobId) {
+        setBulkRefreshStatus({ jobId: data.jobId, status: 'running', progress: 0 });
+        toast({ title: "Bulk Refresh Started", description: `Syncing ${data.total || 'all'} observations from iNaturalist...` });
+        pollBulkRefreshStatus(data.jobId);
+      } else {
+        toast({ title: "Complete", description: data.message || "All observations already synced" });
+      }
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to start bulk cache sync", variant: "destructive" });
+    },
+  });
+
+  const pollBulkRefreshStatus = async (jobId: string) => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/admin/runs/${runId}/refresh-inat/status/${jobId}`);
+        if (!res.ok) {
+          setBulkRefreshStatus(null);
+          return;
+        }
+        const data = await res.json();
+        setBulkRefreshStatus({ jobId, status: data.status, progress: data.progress || 0 });
+        
+        if (data.status === 'running' || data.status === 'pending') {
+          setTimeout(poll, 2000);
+        } else {
+          setTimeout(() => {
+            setBulkRefreshStatus(null);
+            queryClient.invalidateQueries({ queryKey: ['/api/admin/runs', runId, 'stats'] });
+          }, 1000);
+          if (data.status === 'completed') {
+            toast({ title: "Bulk Sync Complete", description: `Synced ${data.processed || 0} observations` });
+          }
+        }
+      } catch {
+        setBulkRefreshStatus(null);
+      }
+    };
+    poll();
+  };
 
   // State for tracking observations being moved to fail/success
   const [movingToFailIds, setMovingToFailIds] = useState<Set<string>>(new Set());
@@ -1120,24 +1219,19 @@ export default function AdminRunDetailPage() {
                     {stats.sequencingSuccess.totalInat > stats.sequencingSuccess.totalChecked && (
                       <button
                         onClick={() => {
-                          const awaiting = stats.sequencingSuccess?.awaitingCacheSync || [];
-                          if (awaiting.length > 0) {
-                            const first = awaiting[0];
-                            if (first.specimenId) {
-                              refreshSpecimenMutation.mutate(first.specimenId);
-                            } else {
-                              toast({ title: "No specimen linked", description: `Observation ${first.obsId} needs a specimen record first. Run "Generate Specimen Records".` });
-                            }
-                          }
+                          bulkCacheSyncMutation.mutate();
                         }}
-                        disabled={refreshSpecimenMutation.isPending}
+                        disabled={bulkCacheSyncMutation.isPending || !!bulkRefreshStatus}
                         className="text-xs text-amber-600 hover:text-amber-800 hover:underline mt-0.5 flex items-center gap-1"
                         data-testid="btn-awaiting-cache-sync"
                       >
-                        <RefreshCw className={`h-3 w-3 ${refreshSpecimenMutation.isPending ? 'animate-spin' : ''}`} />
-                        {stats.sequencingSuccess.totalInat - stats.sequencingSuccess.totalChecked} awaiting cache sync
-                        {stats.sequencingSuccess.awaitingCacheSync?.[0]?.obsId && (
-                          <span className="text-gray-500">(#{stats.sequencingSuccess.awaitingCacheSync[0].obsId})</span>
+                        <RefreshCw className={`h-3 w-3 ${bulkCacheSyncMutation.isPending || bulkRefreshStatus ? 'animate-spin' : ''}`} />
+                        {bulkRefreshStatus ? (
+                          <span>Syncing... {bulkRefreshStatus.progress || 0}%</span>
+                        ) : (
+                          <>
+                            {stats.sequencingSuccess.totalInat - stats.sequencingSuccess.totalChecked} awaiting cache sync
+                          </>
                         )}
                       </button>
                     )}
@@ -1216,7 +1310,7 @@ export default function AdminRunDetailPage() {
               <BarChart3 className="h-5 w-5 text-blue-600" />
               MycoMap Sequence Analysis
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               {/* Successful Observations */}
               <div className="bg-gradient-to-br from-green-50 to-white rounded-xl p-4 border border-green-100 hover:shadow-md transition-all">
                 <div className="flex items-center gap-2 mb-3">
@@ -1323,6 +1417,33 @@ export default function AdminRunDetailPage() {
                   {(mycoMapAnalysis.onSheetsNotRunCount || 0) > 0 
                     ? 'Click to view observation IDs' 
                     : 'in CSV but not in run'}
+                </p>
+              </div>
+
+              {/* Rerun Specimens - Clickable */}
+              <div 
+                className={`bg-gradient-to-br from-orange-50 to-white rounded-xl p-4 border border-orange-100 hover:shadow-md transition-all ${
+                  ((mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)) > 0 ? 'cursor-pointer hover:border-orange-300' : ''
+                }`}
+                onClick={() => {
+                  if (((mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)) > 0) {
+                    setShowRerunSpecimens(true);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <RotateCcw className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Rerun Specimens</span>
+                </div>
+                <p className="text-3xl font-bold text-orange-600" data-testid="stat-rerun-specimens">
+                  {(mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {((mycoMapAnalysis.failureCount || 0) + (mycoMapAnalysis.noAnalysisLinkageCount || 0)) > 0 
+                    ? 'Click to view failed specimens' 
+                    : 'no failed specimens'}
                 </p>
               </div>
             </div>
@@ -1552,6 +1673,86 @@ export default function AdminRunDetailPage() {
                   );
                 })}
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Rerun Specimens Dialog */}
+        <Dialog open={showRerunSpecimens} onOpenChange={setShowRerunSpecimens}>
+          <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-orange-600" />
+                Rerun Specimens ({rerunSpecimens?.total || 0})
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-gray-600 mb-3">
+              Failed specimens that need to be re-sequenced. Includes failures from MycoMap analysis and observations with no analysis linkage.
+            </p>
+            <div className="flex-1 overflow-auto" style={{ maxHeight: '400px' }}>
+              {rerunSpecimensLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="text-left p-2 font-medium text-gray-700">Plate</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Position</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Well Position</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Species</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Lab Code</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Observation</th>
+                      <th className="text-left p-2 font-medium text-gray-700">Platform</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rerunSpecimens?.specimens?.map((s, idx) => (
+                      <tr key={`${s.plate}-${s.wellPosition}-${idx}`} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="p-2">Plate {s.plate}</td>
+                        <td className="p-2">{s.position}</td>
+                        <td className="p-2 font-mono">{s.wellPosition}</td>
+                        <td className="p-2 italic text-gray-700">{s.species || '-'}</td>
+                        <td className="p-2 font-mono text-blue-600">{s.labCode || '-'}</td>
+                        <td className="p-2">
+                          {s.observation ? (
+                            <a
+                              href={s.platform === 'iNat' 
+                                ? `https://www.inaturalist.org/observations/${s.observation}`
+                                : s.platform === 'MO'
+                                  ? `https://mushroomobserver.org/observations/${s.observation}`
+                                  : '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {s.observation}
+                            </a>
+                          ) : '-'}
+                        </td>
+                        <td className="p-2">{s.platform || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="mt-4 pt-3 border-t flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => downloadRerunSpecimensMutation.mutate()}
+                disabled={downloadRerunSpecimensMutation.isPending}
+                className="gap-2"
+                data-testid="btn-download-rerun-specimens"
+              >
+                {downloadRerunSpecimensMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Download List
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

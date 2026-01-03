@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { User, Settings, FlaskConical, Mail, Shield, Bell, Plus, Package, Truck, Clock, CheckCircle2 } from "lucide-react";
+import { User, Settings, FlaskConical, Mail, Shield, Bell, Plus, Package, Truck, Clock, CheckCircle2, Library } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -25,6 +26,40 @@ export default function ProfilePage() {
   const initialTab = params.get('tab') || 'profile';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [trackingInput, setTrackingInput] = useState<{ [key: number]: string }>({});
+  
+  const [profileForm, setProfileForm] = useState({
+    firstName: '',
+    lastName: '',
+    iNaturalistUsername: '',
+    mushroomObserverUsername: '',
+    splitsSentToMyco: false,
+  });
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        iNaturalistUsername: user.iNaturalistUsername || '',
+        mushroomObserverUsername: user.mushroomObserverUsername || '',
+        splitsSentToMyco: user.splitsSentToMyco || false,
+      });
+    }
+  }, [user]);
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: typeof profileForm) => {
+      const res = await apiRequest("PATCH", "/api/auth/user", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Profile saved successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to save profile", variant: "destructive" });
+    },
+  });
 
   const { data: shipments = [], isLoading: shipmentsLoading } = useQuery<Shipment[]>({
     queryKey: ["/api/shipments"],
@@ -144,7 +179,8 @@ export default function ProfilePage() {
                       <Label htmlFor="firstName">First Name</Label>
                       <Input 
                         id="firstName" 
-                        defaultValue={user.firstName || ''} 
+                        value={profileForm.firstName}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, firstName: e.target.value }))}
                         data-testid="input-firstname"
                       />
                     </div>
@@ -152,7 +188,8 @@ export default function ProfilePage() {
                       <Label htmlFor="lastName">Last Name</Label>
                       <Input 
                         id="lastName" 
-                        defaultValue={user.lastName || ''} 
+                        value={profileForm.lastName}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, lastName: e.target.value }))}
                         data-testid="input-lastname"
                       />
                     </div>
@@ -183,7 +220,8 @@ export default function ProfilePage() {
                       <Input 
                         id="iNaturalistUsername" 
                         placeholder="Your iNaturalist username"
-                        defaultValue={user.iNaturalistUsername || ''} 
+                        value={profileForm.iNaturalistUsername}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, iNaturalistUsername: e.target.value }))}
                         data-testid="input-inaturalist-username"
                       />
                       <p className="text-xs text-gray-500">e.g., naturalist_jane</p>
@@ -193,7 +231,8 @@ export default function ProfilePage() {
                       <Input 
                         id="mushroomObserverUsername" 
                         placeholder="Your Mushroom Observer username"
-                        defaultValue={user.mushroomObserverUsername || ''} 
+                        value={profileForm.mushroomObserverUsername}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, mushroomObserverUsername: e.target.value }))}
                         data-testid="input-mushroom-observer-username"
                       />
                       <p className="text-xs text-gray-500">e.g., fungi_finder</p>
@@ -201,8 +240,40 @@ export default function ProfilePage() {
                   </div>
                   
                   <Separator />
-                  <Button className="bg-myco-green hover:bg-myco-green/90" data-testid="button-save-profile">
-                    Save Profile
+                  
+                  <h3 className="text-lg font-semibold text-myco-brown flex items-center gap-2">
+                    <Library className="h-5 w-5" />
+                    Collections Information
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Let others know about your specimen collection practices
+                  </p>
+                  
+                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                    <Checkbox
+                      id="splitsSentToMyco"
+                      checked={profileForm.splitsSentToMyco}
+                      onCheckedChange={(checked) => setProfileForm(prev => ({ ...prev, splitsSentToMyco: checked === true }))}
+                      data-testid="checkbox-splits-sent-to-myco"
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="splitsSentToMyco" className="font-medium cursor-pointer">
+                        Splits are typically sent to MYCO. There may be additional material for my collections.
+                      </Label>
+                      <p className="text-xs text-gray-500">
+                        Checking this will display a note on your specimen records that additional material may be available.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  <Button 
+                    className="bg-myco-green hover:bg-myco-green/90" 
+                    onClick={() => updateProfileMutation.mutate(profileForm)}
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="button-save-profile"
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Profile"}
                   </Button>
                 </CardContent>
               </Card>

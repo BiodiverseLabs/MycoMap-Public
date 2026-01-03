@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink, Download, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, Grid3X3, CheckCircle, AlertCircle, RefreshCw, Save, Settings, Clock, XCircle, ExternalLink, Download, Search, Trash2, ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -132,6 +132,26 @@ export default function AdminPlateEditorPage() {
   const [importSearch, setImportSearch] = useState("");
   const [selectedPendingPlate, setSelectedPendingPlate] = useState<PendingPlate | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [fillDownMode, setFillDownMode] = useState<{ active: boolean; sourceIndex: number; sourceValue: string } | null>(null);
+  const [fillDownDialogOpen, setFillDownDialogOpen] = useState(false);
+  const [fillDownTarget, setFillDownTarget] = useState("");
+
+  // Helper to parse lab code into prefix and number parts
+  const parseLabCode = (labCode: string): { prefix: string; number: number; digitLength: number } | null => {
+    const match = labCode.match(/^(.+?)(\d+)$/);
+    if (!match) return null;
+    return {
+      prefix: match[1],
+      number: parseInt(match[2], 10),
+      digitLength: match[2].length,
+    };
+  };
+
+  // Generate incremented lab code
+  const incrementLabCode = (parsed: { prefix: string; number: number; digitLength: number }, offset: number): string => {
+    const newNumber = parsed.number + offset;
+    return `${parsed.prefix}${String(newNumber).padStart(parsed.digitLength, '0')}`;
+  };
 
   const { data: plate, isLoading, refetch } = useQuery<Plate>({
     queryKey: ['/api/admin/plates', plateId],
@@ -421,6 +441,123 @@ export default function AdminPlateEditorPage() {
     }
   };
 
+  // Check if fill-down would overwrite existing data
+  const checkFillDownOverwrite = useCallback((startIndex: number, endIndex: number): string[] => {
+    if (!plate) return [];
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const conflicts: string[] = [];
+    
+    for (let i = startIndex + 1; i <= endIndex; i++) {
+      const well = sortedWells[i];
+      const localLabCode = wellData[well.id]?.labCode;
+      const actualLabCode = localLabCode ?? well?.labCode;
+      if (actualLabCode) {
+        conflicts.push(`Row ${i + 1} (${well.wellPosition}): ${actualLabCode}`);
+      }
+    }
+    return conflicts;
+  }, [plate, wellData]);
+
+  // Handle fill-down action
+  const handleFillDown = useCallback((targetIndex: number) => {
+    if (!fillDownMode || !plate) return;
+    
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const parsed = parseLabCode(fillDownMode.sourceValue);
+    if (!parsed) {
+      toast({ title: "Error", description: "Cannot parse lab code for fill-down", variant: "destructive" });
+      setFillDownMode(null);
+      setFillDownDialogOpen(false);
+      return;
+    }
+
+    const startIndex = fillDownMode.sourceIndex;
+    const endIndex = targetIndex;
+    
+    if (endIndex <= startIndex) {
+      toast({ title: "Error", description: "Target must be below the source row", variant: "destructive" });
+      return;
+    }
+
+    // Check for conflicts
+    const conflicts = checkFillDownOverwrite(startIndex, endIndex);
+    if (conflicts.length > 0) {
+      toast({ 
+        title: "Cannot Fill Down", 
+        description: `Would overwrite ${conflicts.length} existing lab code(s). Clear them first.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    let updateCount = 0;
+    for (let i = startIndex + 1; i <= endIndex; i++) {
+      const well = sortedWells[i];
+      if (well) {
+        const offset = i - startIndex;
+        const newLabCode = incrementLabCode(parsed, offset);
+        
+        // Update local state
+        setWellData(prev => ({
+          ...prev,
+          [well.id]: { ...prev[well.id], labCode: newLabCode }
+        }));
+        
+        // Save to server
+        updateWellMutation.mutate({ wellId: well.id, data: { labCode: newLabCode } });
+        updateCount++;
+      }
+    }
+
+    toast({ 
+      title: "Fill Down Complete", 
+      description: `Filled ${updateCount} rows with incremented lab codes` 
+    });
+    setFillDownMode(null);
+    setFillDownDialogOpen(false);
+    setFillDownTarget("");
+  }, [fillDownMode, plate, toast, updateWellMutation, checkFillDownOverwrite]);
+
+  // Handle fill-down by entering target lab code
+  const handleFillDownByCode = useCallback(() => {
+    if (!fillDownMode || !plate || !fillDownTarget) return;
+    
+    const sortedWells = [...plate.wells].sort((a, b) => a.sortOrder - b.sortOrder);
+    const sourceParsed = parseLabCode(fillDownMode.sourceValue);
+    const targetParsed = parseLabCode(fillDownTarget);
+    
+    if (!sourceParsed || !targetParsed) {
+      toast({ title: "Error", description: "Cannot parse lab code format", variant: "destructive" });
+      return;
+    }
+
+    if (sourceParsed.prefix !== targetParsed.prefix) {
+      toast({ title: "Error", description: "Lab code prefix must match", variant: "destructive" });
+      return;
+    }
+
+    if (targetParsed.number <= sourceParsed.number) {
+      toast({ title: "Error", description: "Target number must be greater than source", variant: "destructive" });
+      return;
+    }
+
+    const rowsToFill = targetParsed.number - sourceParsed.number;
+    const targetIndex = fillDownMode.sourceIndex + rowsToFill;
+    const maxRowsAvailable = sortedWells.length - 1 - fillDownMode.sourceIndex;
+    const maxLabCode = incrementLabCode(sourceParsed, maxRowsAvailable);
+
+    if (targetIndex >= sortedWells.length) {
+      toast({ 
+        title: "Exceeds Plate Capacity", 
+        description: `Cannot fill past row ${sortedWells.length}. Maximum final lab code: ${maxLabCode}`, 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    handleFillDown(targetIndex);
+  }, [fillDownMode, plate, fillDownTarget, handleFillDown, toast]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -665,6 +802,90 @@ export default function AdminPlateEditorPage() {
                   data-testid="button-confirm-import"
                 >
                   {importPendingPlateMutation.isPending ? "Importing..." : "Import Data"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Fill Down Dialog */}
+          <Dialog open={fillDownDialogOpen} onOpenChange={(open) => {
+            setFillDownDialogOpen(open);
+            if (!open) {
+              setFillDownMode(null);
+              setFillDownTarget("");
+            }
+          }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Fill Down Lab Codes</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Starting from:</p>
+                  <p className="font-mono font-bold text-lg">{fillDownMode?.sourceValue}</p>
+                  <p className="text-xs text-gray-500">Row {(fillDownMode?.sourceIndex ?? 0) + 1}</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="fill-target-seq">Enter the final lab code in the series:</Label>
+                  <Input
+                    id="fill-target-seq"
+                    placeholder={fillDownMode ? incrementLabCode(parseLabCode(fillDownMode.sourceValue)!, 5) : ""}
+                    value={fillDownTarget}
+                    onChange={(e) => setFillDownTarget(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && fillDownTarget) {
+                        handleFillDownByCode();
+                      }
+                    }}
+                    data-testid="input-fill-target-seq"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Or click "Select Row" below, then click a row in the table
+                  </p>
+                </div>
+
+                {fillDownTarget && parseLabCode(fillDownTarget) && fillDownMode && (() => {
+                  const sourceParsed = parseLabCode(fillDownMode.sourceValue);
+                  const targetParsed = parseLabCode(fillDownTarget);
+                  if (sourceParsed && targetParsed && sourceParsed.prefix === targetParsed.prefix && targetParsed.number > sourceParsed.number) {
+                    const rowCount = targetParsed.number - sourceParsed.number;
+                    return (
+                      <div className="bg-blue-50 p-2 rounded text-sm text-blue-700">
+                        This will fill {rowCount} row{rowCount > 1 ? 's' : ''} with codes {incrementLabCode(sourceParsed, 1)} through {fillDownTarget}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+              <DialogFooter className="flex gap-2">
+                <Button variant="outline" onClick={() => {
+                  setFillDownDialogOpen(false);
+                  setFillDownMode(null);
+                  setFillDownTarget("");
+                }}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFillDownDialogOpen(false);
+                    toast({ 
+                      title: "Select Target Row", 
+                      description: "Click a 'Fill to here' button on any row below to complete the fill" 
+                    });
+                  }}
+                  data-testid="button-select-row-seq"
+                >
+                  Select Row
+                </Button>
+                <Button 
+                  onClick={handleFillDownByCode}
+                  disabled={!fillDownTarget}
+                  data-testid="button-confirm-fill-seq"
+                >
+                  Fill Down
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -921,17 +1142,58 @@ export default function AdminPlateEditorPage() {
                           {well.wellPosition}
                         </TableCell>
                         <TableCell>
-                          <Input 
-                            ref={el => inputRefs.current[`${well.id}-labCode`] = el}
-                            className="h-8"
-                            placeholder="Enter lab code"
-                            value={labCode}
-                            onChange={(e) => handleWellChange(well.id, 'labCode', e.target.value)}
-                            onBlur={() => saveWell(well.id)}
-                            onKeyDown={(e) => handleKeyDown(e, well.id, index, 'labCode')}
-                            onPaste={(e) => handlePaste(e, well.id, index, 'labCode')}
-                            data-testid={`input-labcode-${well.wellPosition}`}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input 
+                              ref={el => inputRefs.current[`${well.id}-labCode`] = el}
+                              className="h-8 flex-1"
+                              placeholder="Enter lab code"
+                              value={labCode}
+                              onChange={(e) => handleWellChange(well.id, 'labCode', e.target.value)}
+                              onBlur={() => saveWell(well.id)}
+                              onKeyDown={(e) => handleKeyDown(e, well.id, index, 'labCode')}
+                              onPaste={(e) => handlePaste(e, well.id, index, 'labCode')}
+                              data-testid={`input-labcode-${well.wellPosition}`}
+                            />
+                            {labCode && parseLabCode(labCode) && !fillDownMode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 flex-shrink-0 text-gray-400 hover:text-blue-600"
+                                onClick={() => {
+                                  setFillDownMode({ active: true, sourceIndex: index, sourceValue: labCode });
+                                  setFillDownTarget(labCode);
+                                  setFillDownDialogOpen(true);
+                                }}
+                                title="Fill down from this row"
+                                data-testid={`button-filldown-${well.wellPosition}`}
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {fillDownMode && !fillDownDialogOpen && fillDownMode.sourceIndex < index && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-xs bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
+                                onClick={() => handleFillDown(index)}
+                                data-testid={`button-fillto-${well.wellPosition}`}
+                              >
+                                Fill to here
+                              </Button>
+                            )}
+                            {fillDownMode && !fillDownDialogOpen && fillDownMode.sourceIndex === index && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 flex-shrink-0 bg-blue-100 text-blue-700"
+                                onClick={() => setFillDownMode(null)}
+                                title="Cancel fill-down"
+                                data-testid={`button-cancel-filldown-${well.wellPosition}`}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Select 
